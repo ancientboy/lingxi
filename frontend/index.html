@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>灵犀云 - 一键拥有你的 AI 团队</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .container {
+      background: white;
+      border-radius: 20px;
+      padding: 60px;
+      max-width: 500px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    
+    .logo {
+      font-size: 48px;
+      margin-bottom: 10px;
+    }
+    
+    h1 {
+      font-size: 32px;
+      color: #333;
+      margin-bottom: 10px;
+    }
+    
+    .subtitle {
+      color: #666;
+      font-size: 16px;
+      margin-bottom: 40px;
+    }
+    
+    .features {
+      text-align: left;
+      margin-bottom: 40px;
+    }
+    
+    .feature {
+      display: flex;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid #eee;
+    }
+    
+    .feature:last-child {
+      border-bottom: none;
+    }
+    
+    .feature-icon {
+      font-size: 24px;
+      margin-right: 15px;
+    }
+    
+    .feature-text {
+      color: #444;
+    }
+    
+    .deploy-btn {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 18px 50px;
+      font-size: 18px;
+      border-radius: 50px;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .deploy-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+    }
+    
+    .deploy-btn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+    
+    .status {
+      margin-top: 30px;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 10px;
+      display: none;
+    }
+    
+    .status.active {
+      display: block;
+    }
+    
+    .status-text {
+      color: #666;
+      margin-bottom: 10px;
+    }
+    
+    .progress-bar {
+      height: 6px;
+      background: #e0e0e0;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      width: 0%;
+      transition: width 0.3s;
+    }
+    
+    .success {
+      display: none;
+    }
+    
+    .success.active {
+      display: block;
+    }
+    
+    .success-icon {
+      font-size: 64px;
+      margin-bottom: 20px;
+    }
+    
+    .success h2 {
+      color: #333;
+      margin-bottom: 10px;
+    }
+    
+    .success p {
+      color: #666;
+      margin-bottom: 30px;
+    }
+    
+    .chat-btn {
+      background: #10b981;
+      color: white;
+      border: none;
+      padding: 15px 40px;
+      font-size: 16px;
+      border-radius: 50px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+    }
+    
+    .chat-btn:hover {
+      background: #059669;
+    }
+    
+    .error {
+      color: #ef4444;
+      margin-top: 20px;
+      display: none;
+    }
+    
+    .error.active {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- 落地页 -->
+    <div id="landing">
+      <div class="logo">⚡</div>
+      <h1>灵犀云</h1>
+      <p class="subtitle">一键拥有你的 AI 团队</p>
+      
+      <div class="features">
+        <div class="feature">
+          <span class="feature-icon">🚀</span>
+          <span class="feature-text">30 秒部署，开箱即用</span>
+        </div>
+        <div class="feature">
+          <span class="feature-icon">👥</span>
+          <span class="feature-text">8 位专业 AI 助手按需配置</span>
+        </div>
+        <div class="feature">
+          <span class="feature-icon">🧠</span>
+          <span class="feature-text">灵犀队长智能调度</span>
+        </div>
+        <div class="feature">
+          <span class="feature-icon">💡</span>
+          <span class="feature-text">根据你的需求自动推荐</span>
+        </div>
+      </div>
+      
+      <button class="deploy-btn" onclick="startDeploy()">
+        一键部署
+      </button>
+      
+      <div id="error" class="error"></div>
+    </div>
+    
+    <!-- 部署中 -->
+    <div id="status" class="status">
+      <p class="status-text" id="statusText">正在为你准备 AI 团队...</p>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+    </div>
+    
+    <!-- 部署成功 -->
+    <div id="success" class="success">
+      <div class="success-icon">✨</div>
+      <h2>你的灵犀已就绪！</h2>
+      <p>灵犀正在等你，点击下方按钮开始对话</p>
+      <a href="#" class="chat-btn" id="chatBtn">开始对话</a>
+    </div>
+  </div>
+  
+  <script>
+    const API_BASE = window.location.origin + ':3000';
+    let progress = 0;
+    
+    async function startDeploy() {
+      const btn = document.querySelector('.deploy-btn');
+      const landing = document.getElementById('landing');
+      const status = document.getElementById('status');
+      const success = document.getElementById('success');
+      const error = document.getElementById('error');
+      
+      // 隐藏错误
+      error.classList.remove('active');
+      
+      // 禁用按钮
+      btn.disabled = true;
+      btn.textContent = '部署中...';
+      
+      // 显示状态
+      status.classList.add('active');
+      
+      // 生成用户 ID
+      const userId = 'user-' + Date.now();
+      
+      // 模拟进度
+      const progressInterval = setInterval(() => {
+        progress += Math.random() * 15;
+        if (progress > 90) progress = 90;
+        document.getElementById('progressFill').style.width = progress + '%';
+        document.getElementById('statusText').textContent = getStatusText(progress);
+      }, 500);
+      
+      try {
+        // 调用分配实例接口
+        const response = await fetch(API_BASE + '/api/instance/assign', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.error || '部署失败');
+        }
+        
+        // 完成
+        clearInterval(progressInterval);
+        document.getElementById('progressFill').style.width = '100%';
+        
+        setTimeout(() => {
+          status.classList.remove('active');
+          success.classList.add('active');
+          
+          // 设置聊天链接
+          document.getElementById('chatBtn').href = data.instance.url;
+        }, 500);
+        
+      } catch (err) {
+        clearInterval(progressInterval);
+        error.textContent = '部署失败: ' + err.message;
+        error.classList.add('active');
+        btn.disabled = false;
+        btn.textContent = '一键部署';
+        status.classList.remove('active');
+      }
+    }
+    
+    function getStatusText(progress) {
+      if (progress < 20) return '正在准备环境...';
+      if (progress < 40) return '正在创建实例...';
+      if (progress < 60) return '正在配置灵犀...';
+      if (progress < 80) return '正在启动服务...';
+      return '即将完成...';
+    }
+  </script>
+</body>
+</html>

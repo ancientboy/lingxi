@@ -1,0 +1,52 @@
+{
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "zhipu/glm-5"
+      },
+      "workspace": "/workspace",
+      "memory": {
+        "enabled": true,
+        "provider": "local",
+        "path": "/data/memory"
+      }
+    },
+    "list": [
+      {
+        "id": "main",
+        "default": true,
+        "name": "灵犀",
+        "workspace": "/workspace",
+        "soul": "/agents/lingxi/SOUL.md",
+        "systemPrompt": "你是灵犀，团队的队长，机灵俏皮的天才调度员。你的职责是理解用户需求，分配任务给合适的团队成员。"
+      }
+    ]
+  },
+  "tools": {
+    "subagents": {
+      "enabled": true,
+      "tools": {
+        "allow": ["main"]
+      }
+    },
+    "filesystem": {
+      "enabled": true,
+      "paths": ["/workspace", "/data"]
+    },
+    "shell": {
+      "enabled": true,
+      "allowed": ["ls", "cat", "grep", "find", "mkdir", "touch"]
+    }
+  },
+  "skills": {
+    "paths": ["/skills"]
+  },
+  "server": {
+    "port": 18789,
+    "host": "0.0.0.0"
+  },
+  "logging": {
+    "level": "info",
+    "path": "/logs"
+  }
+}
