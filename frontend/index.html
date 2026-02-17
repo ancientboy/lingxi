@@ -598,6 +598,29 @@
         </div>
         <div id="feishuStatus" style="margin-top: 15px; font-size: 13px;"></div>
       </div>
+      
+      <!-- 企业微信配置 -->
+      <div style="margin-top: 30px; padding-top: 30px; border-top: 1px solid rgba(255,255,255,0.1);">
+        <h3 style="font-size: 18px; margin-bottom: 15px; color: rgba(255,255,255,0.8);">
+          💼 接入企业微信（可选）
+        </h3>
+        <p style="font-size: 13px; color: rgba(255,255,255,0.5); margin-bottom: 20px;">
+          在企业微信管理后台创建应用，填入凭证即可一键接入
+        </p>
+        <div id="wecomForm" style="display: grid; gap: 15px;">
+          <input type="text" id="wecomCorpId" placeholder="企业 Corp ID" 
+                 style="padding: 12px 15px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff; outline: none;">
+          <input type="text" id="wecomAgentId" placeholder="Agent ID" 
+                 style="padding: 12px 15px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff; outline: none;">
+          <input type="text" id="wecomSecret" placeholder="应用 Secret" 
+                 style="padding: 12px 15px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff; outline: none;">
+          <button onclick="configureWeCom()" 
+                  style="padding: 12px; background: linear-gradient(135deg, #10b981, #059669); border: none; border-radius: 8px; color: #fff; font-weight: 600; cursor: pointer;">
+            🔗 一键配置企业微信
+          </button>
+        </div>
+        <div id="wecomStatus" style="margin-top: 15px; font-size: 13px;"></div>
+      </div>
     </div>
   </div>
 
@@ -960,6 +983,75 @@
         if (data.configured) {
           document.getElementById('feishuStatus').innerHTML = `
             <span style="color: #10b981;">✅ 飞书已配置: ${data.botName}</span>
+          `;
+        }
+      } catch (e) {
+        // 忽略错误
+      }
+    }
+    
+    // ============ 企业微信配置 ============
+    
+    // 配置企业微信
+    async function configureWeCom() {
+      const corpId = document.getElementById('wecomCorpId').value.trim();
+      const agentId = document.getElementById('wecomAgentId').value.trim();
+      const secret = document.getElementById('wecomSecret').value.trim();
+      const statusEl = document.getElementById('wecomStatus');
+      
+      if (!corpId || !agentId || !secret) {
+        statusEl.innerHTML = '<span style="color: #ef4444;">❌ 请填写完整的企业微信凭证</span>';
+        return;
+      }
+      
+      const userId = userInfo?.userId || userInfo?.id || 'user-' + Date.now();
+      
+      statusEl.innerHTML = '<span style="color: #10b981;">⏳ 正在验证凭证...</span>';
+      
+      try {
+        const res = await fetch(`${API_BASE}/api/wecom/configure`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, corpId, agentId, secret })
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+          statusEl.innerHTML = `
+            <span style="color: #10b981;">✅ ${data.message}</span>
+            <div style="margin-top: 10px; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 6px; text-align: left; font-size: 12px;">
+              <div><strong>应用名称:</strong> ${data.config.appName}</div>
+              <div style="margin-top: 5px;"><strong>回调地址:</strong></div>
+              <div style="color: #10b981; word-break: break-all;">${data.config.callbackUrl}</div>
+              <div style="margin-top: 5px;"><strong>Token:</strong> ${data.config.token}</div>
+              <div style="margin-top: 5px;"><strong>EncodingAESKey:</strong></div>
+              <div style="color: #10b981; word-break: break-all; font-size: 11px;">${data.config.encodingAESKey.substring(0, 20)}...</div>
+              <div style="margin-top: 10px; color: rgba(255,255,255,0.6);">
+                请在企业微信管理后台 → 应用 → 设置API接收 → 配置以上信息
+              </div>
+            </div>
+          `;
+        } else {
+          statusEl.innerHTML = `<span style="color: #ef4444;">❌ ${data.error}</span>`;
+        }
+      } catch (e) {
+        statusEl.innerHTML = `<span style="color: #ef4444;">❌ 配置失败: ${e.message}</span>`;
+      }
+    }
+    
+    // 检查企业微信配置状态
+    async function checkWeComStatus() {
+      const userId = userInfo?.userId || userInfo?.id;
+      if (!userId) return;
+      
+      try {
+        const res = await fetch(`${API_BASE}/api/wecom/status/${userId}`);
+        const data = await res.json();
+        
+        if (data.configured) {
+          document.getElementById('wecomStatus').innerHTML = `
+            <span style="color: #10b981;">✅ 企业微信已配置: ${data.appName}</span>
           `;
         }
       } catch (e) {

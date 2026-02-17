@@ -53,6 +53,10 @@ app.use('/api/auth', authRoutes);
 import feishuRoutes from './routes/feishu.js';
 app.use('/api/feishu', feishuRoutes);
 
+// 企业微信配置
+import wecomRoutes from './routes/wecom.js';
+app.use('/api/wecom', wecomRoutes);
+
 // 管理接口（生成邀请码等）
 import adminRoutes from './routes/admin.js';
 app.use('/api/admin', adminRoutes);
