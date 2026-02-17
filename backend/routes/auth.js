@@ -142,10 +142,58 @@ router.get('/me', async (req, res) => {
       nickname: user.nickname,
       agents: user.agents || [],
       instanceStatus: user.instanceStatus,
-      createdAt: user.createdAt
+      createdAt: user.createdAt,
+      hasPassword: !!user.passwordHash
     });
   } catch (error) {
     res.status(401).json({ error: '令牌无效' });
+  }
+});
+
+// 更新用户信息
+router.post('/update', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: '未登录' });
+  }
+  
+  const token = authHeader.substring(7);
+  const { nickname, password } = req.body;
+  
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const { getUser, saveDB, getDB } = await import('../utils/db.js');
+    
+    const db = await getDB();
+    const user = db.users.find(u => u.id === decoded.userId);
+    
+    if (!user) {
+      return res.status(404).json({ error: '用户不存在' });
+    }
+    
+    // 更新昵称
+    if (nickname) {
+      user.nickname = nickname;
+    }
+    
+    // 更新密码
+    if (password && password.length >= 6) {
+      const { hashPassword } = await import('../utils/db.js');
+      user.passwordHash = hashPassword(password);
+    }
+    
+    await saveDB(db);
+    
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        nickname: user.nickname,
+        hasPassword: !!user.passwordHash
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 

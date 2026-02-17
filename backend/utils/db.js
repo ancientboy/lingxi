@@ -126,7 +126,7 @@ export async function createUser(inviteCode, nickname = null, password = null) {
 }
 
 // 简单密码哈希（生产环境应用 bcrypt）
-function hashPassword(password) {
+export function hashPassword(password) {
   return crypto.createHash('sha256').update(password + 'lingxi-salt-2026').digest('hex');
 }
 
