@@ -896,8 +896,17 @@
           statusPanel.classList.remove('active');
           successPanel.classList.add('active');
 
-          // 设置跳转链接
-          document.getElementById('chatBtn').href = data.instance?.url || EXISTING_OPENCLAW_URL;
+          // 🔗 构建定制聊天页面 URL
+          const chatParams = new URLSearchParams({
+            userId: userId,
+            nickname: userInfo?.nickname || nickname || '用户',
+            agents: JSON.stringify(selectedAgents),
+            token: userToken || ''
+          });
+          
+          // 跳转到定制聊天页面（而不是直接跳转 OpenClaw）
+          const chatUrl = `chat.html?${chatParams.toString()}`;
+          document.getElementById('chatBtn').href = chatUrl;
         }, 500);
 
       } catch (err) {
@@ -910,7 +919,16 @@
         setTimeout(() => {
           statusPanel.classList.remove('active');
           successPanel.classList.add('active');
-          document.getElementById('chatBtn').href = EXISTING_OPENCLAW_URL;
+          
+          // 同样跳转到定制聊天页面
+          const chatParams = new URLSearchParams({
+            userId: userInfo?.userId || userInfo?.id || 'user-' + Date.now(),
+            nickname: userInfo?.nickname || '用户',
+            agents: JSON.stringify(selectedAgents),
+            token: userToken || ''
+          });
+          
+          document.getElementById('chatBtn').href = `chat.html?${chatParams.toString()}`;
         }, 1000);
       }
     }

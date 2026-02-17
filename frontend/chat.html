@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>灵犀云 - 我的 AI 团队</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0a0a0f;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      color: #fff;
+      overflow: hidden;
+    }
+
+    /* 顶部导航 */
+    .navbar {
+      background: rgba(20, 20, 30, 0.95);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .nav-left {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .logo {
+      font-size: 24px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #667eea, #00d4ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .user-name {
+      color: #00d4ff;
+      font-weight: 500;
+    }
+
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .nav-btn {
+      padding: 8px 16px;
+      font-size: 13px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: transparent;
+      color: rgba(255, 255, 255, 0.8);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+    }
+
+    .nav-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    .nav-btn.primary {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      border: none;
+      color: #fff;
+    }
+
+    /* 主内容区 */
+    .main-content {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* 侧边栏 */
+    .sidebar {
+      width: 240px;
+      background: rgba(15, 15, 25, 0.95);
+      border-right: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .sidebar-header {
+      padding: 15px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.5);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .team-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px;
+    }
+
+    .team-member {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 5px;
+    }
+
+    .team-member:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .team-member.active {
+      background: rgba(102, 126, 234, 0.2);
+      border: 1px solid rgba(102, 126, 234, 0.3);
+    }
+
+    .member-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+
+    .member-info {
+      flex: 1;
+    }
+
+    .member-name {
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .member-role {
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.4);
+    }
+
+    /* 聊天区域 */
+    .chat-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: #0a0a0f;
+    }
+
+    .chat-iframe {
+      flex: 1;
+      border: none;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* 集成提示 */
+    .integration-bar {
+      background: rgba(16, 185, 129, 0.1);
+      border-top: 1px solid rgba(16, 185, 129, 0.2);
+      padding: 10px 20px;
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .integration-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10b981;
+    }
+
+    .status-dot.inactive {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    .setup-link {
+      color: #00d4ff;
+      text-decoration: none;
+      font-size: 12px;
+    }
+
+    .setup-link:hover {
+      text-decoration: underline;
+    }
+
+    /* 响应式 */
+    @media (max-width: 768px) {
+      .sidebar {
+        display: none;
+      }
+      
+      .nav-right .nav-btn:not(.primary) {
+        display: none;
+      }
+    }
+
+    /* 加载状态 */
+    .loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      gap: 20px;
+    }
+
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(255, 255, 255, 0.1);
+      border-top-color: #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <!-- 顶部导航 -->
+  <nav class="navbar">
+    <div class="nav-left">
+      <div class="logo">⚡ 灵犀云</div>
+      <div class="user-info">
+        <span>欢迎，</span>
+        <span class="user-name" id="userName">用户</span>
+      </div>
+    </div>
+    <div class="nav-right">
+      <a href="/" class="nav-btn">返回首页</a>
+      <a href="https://github.com/ancientboy/lingxi" target="_blank" class="nav-btn">GitHub</a>
+      <button class="nav-btn primary" onclick="showSettings()">⚙️ 设置</button>
+    </div>
+  </nav>
+
+  <!-- 主内容 -->
+  <div class="main-content">
+    <!-- 侧边栏 -->
+    <aside class="sidebar">
+      <div class="sidebar-header">我的团队</div>
+      <div class="team-list" id="teamList">
+        <!-- 动态加载 -->
+      </div>
+    </aside>
+
+    <!-- 聊天区域 -->
+    <div class="chat-container">
+      <iframe id="chatFrame" class="chat-iframe" src="about:blank"></iframe>
+      
+      <!-- 集成状态栏 -->
+      <div class="integration-bar">
+        <div class="integration-status">
+          <span class="status-dot" id="feishuStatus"></span>
+          <span>飞书</span>
+          <span class="status-dot inactive" id="wecomStatus"></span>
+          <span>企业微信</span>
+        </div>
+        <a href="/" class="setup-link">配置接入 →</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 配置
+    const API_BASE = 'http://localhost:3000';
+    
+    // Agent 信息
+    const AGENT_INFO = {
+      lingxi: { emoji: '⚡', name: '灵犀', role: '队长 · 智能调度' },
+      coder: { emoji: '💻', name: '云溪', role: '代码女王' },
+      ops: { emoji: '📊', name: '若曦', role: '运营专家' },
+      inventor: { emoji: '💡', name: '紫萱', role: '创意天才' },
+      pm: { emoji: '🎯', name: '梓萱', role: '产品女王' },
+      noter: { emoji: '📝', name: '晓琳', role: '知识管理' },
+      media: { emoji: '🎧', name: '音韵', role: '多媒体' },
+      smart: { emoji: '🏠', name: '智家', role: '智能家居' }
+    };
+
+    // 获取 URL 参数
+    const urlParams = new URLSearchParams(window.location.search);
+    const userId = urlParams.get('userId');
+    const token = urlParams.get('token');
+    const nickname = urlParams.get('nickname') || '用户';
+    const agentsParam = urlParams.get('agents');
+
+    // 解析用户团队
+    let userAgents = ['lingxi'];
+    if (agentsParam) {
+      try {
+        userAgents = JSON.parse(decodeURIComponent(agentsParam));
+      } catch (e) {
+        userAgents = agentsParam.split(',');
+      }
+    }
+
+    // OpenClaw URL
+    const OPENCLAW_URL = 'http://120.26.137.51:18789/c308f1f0?token=6f3719a52fa12799fea8e4a06655703f';
+
+    // 初始化
+    function init() {
+      // 显示用户名
+      document.getElementById('userName').textContent = nickname;
+      
+      // 渲染团队列表
+      renderTeamList();
+      
+      // 加载聊天界面
+      document.getElementById('chatFrame').src = OPENCLAW_URL;
+      
+      // 检查集成状态
+      checkIntegrationStatus();
+    }
+
+    // 渲染团队列表
+    function renderTeamList() {
+      const teamList = document.getElementById('teamList');
+      
+      teamList.innerHTML = userAgents.map((agentId, index) => {
+        const agent = AGENT_INFO[agentId] || { emoji: '🤖', name: agentId, role: '助手' };
+        return `
+          <div class="team-member ${index === 0 ? 'active' : ''}" onclick="selectAgent('${agentId}')">
+            <div class="member-avatar">${agent.emoji}</div>
+            <div class="member-info">
+              <div class="member-name">${agent.name}</div>
+              <div class="member-role">${agent.role}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // 选择 Agent
+    function selectAgent(agentId) {
+      document.querySelectorAll('.team-member').forEach(el => {
+        el.classList.remove('active');
+      });
+      event.currentTarget.classList.add('active');
+      
+      // 可以在这里实现切换到特定 Agent 的逻辑
+      console.log('选中 Agent:', agentId);
+    }
+
+    // 检查集成状态
+    async function checkIntegrationStatus() {
+      if (!userId) return;
+      
+      try {
+        // 检查飞书状态
+        const feishuRes = await fetch(`${API_BASE}/api/feishu/status/${userId}`);
+        const feishuData = await feishuRes.json();
+        document.getElementById('feishuStatus').classList.toggle('inactive', !feishuData.configured);
+        
+        // 检查企业微信状态
+        const wecomRes = await fetch(`${API_BASE}/api/wecom/status/${userId}`);
+        const wecomData = await wecomRes.json();
+        document.getElementById('wecomStatus').classList.toggle('inactive', !wecomData.configured);
+      } catch (e) {
+        console.log('检查集成状态失败:', e);
+      }
+    }
+
+    // 显示设置
+    function showSettings() {
+      alert('设置功能开发中...\n\n当前可返回首页配置飞书/企业微信接入');
+    }
+
+    // 启动
+    init();
+  </script>
+</body>
+</html>
