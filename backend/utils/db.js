@@ -1,8 +1,10 @@
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { randomUUID } from 'crypto';
+import crypto from 'crypto';
 import fs from 'fs/promises';
 import fsSync from 'fs';
+
+const { randomUUID } = crypto;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -96,13 +98,18 @@ export async function getAllInviteCodes() {
 
 // ============ 用户操作 ============
 
-export async function createUser(inviteCode, nickname = null) {
+export async function createUser(inviteCode, nickname = null, password = null) {
   const db = await getDB();
   const id = randomUUID();
+  
+  // 密码哈希
+  const passwordHash = password ? hashPassword(password) : null;
+  
   const user = {
     id,
     inviteCode,
     nickname,
+    passwordHash,
     instanceId: null,
     instanceStatus: 'pending',
     createdAt: new Date().toISOString(),
@@ -116,6 +123,20 @@ export async function createUser(inviteCode, nickname = null) {
   await useInviteCode(inviteCode, id);
   
   return user;
+}
+
+// 简单密码哈希（生产环境应用 bcrypt）
+function hashPassword(password) {
+  return crypto.createHash('sha256').update(password + 'lingxi-salt-2026').digest('hex');
+}
+
+export async function verifyPassword(userId, password) {
+  const db = await getDB();
+  const user = db.users.find(u => u.id === userId);
+  if (!user || !user.passwordHash) return false;
+  
+  const hash = hashPassword(password);
+  return hash === user.passwordHash;
 }
 
 export async function getUser(id) {

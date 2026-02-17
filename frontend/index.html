@@ -6,12 +6,7 @@
   <title>灵犀云 - 一键拥有你的 AI 团队</title>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: #0a0a0f;
@@ -19,69 +14,37 @@
       overflow-x: hidden;
       color: #fff;
     }
-
-    /* 星空背景 */
     .stars {
       position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
       pointer-events: none;
       background: 
         radial-gradient(2px 2px at 20px 30px, #eee, transparent),
-        radial-gradient(2px 2px at 40px 70px, rgba(255,255,255,0.8), transparent),
-        radial-gradient(1px 1px at 90px 40px, #fff, transparent),
-        radial-gradient(2px 2px at 160px 120px, rgba(255,255,255,0.9), transparent),
-        radial-gradient(1px 1px at 230px 80px, #fff, transparent);
+        radial-gradient(2px 2px at 40px 70px, rgba(255,255,255,0.8), transparent);
       background-size: 250px 200px;
       animation: twinkle 5s ease-in-out infinite;
     }
-
-    @keyframes twinkle {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.7; }
-    }
-
-    /* 网格线 */
+    @keyframes twinkle { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
     .grid {
       position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
       pointer-events: none;
       background-image: 
         linear-gradient(rgba(102, 126, 234, 0.03) 1px, transparent 1px),
         linear-gradient(90deg, rgba(102, 126, 234, 0.03) 1px, transparent 1px);
       background-size: 50px 50px;
     }
-
-    /* 光晕 */
     .glow {
       position: fixed;
       border-radius: 50%;
       filter: blur(100px);
       pointer-events: none;
     }
-
-    .glow-1 {
-      top: -200px;
-      right: -200px;
-      width: 500px;
-      height: 500px;
-      background: rgba(102, 126, 234, 0.15);
-    }
-
-    .glow-2 {
-      bottom: -200px;
-      left: -200px;
-      width: 400px;
-      height: 400px;
-      background: rgba(0, 212, 255, 0.1);
-    }
-
-    /* 容器 */
+    .glow-1 { top: -200px; right: -200px; width: 500px; height: 500px; background: rgba(102, 126, 234, 0.15); }
+    .glow-2 { bottom: -200px; left: -200px; width: 400px; height: 400px; background: rgba(0, 212, 255, 0.1); }
+    
     .container {
       position: relative;
       z-index: 1;
@@ -90,8 +53,6 @@
       padding: 60px 20px;
       text-align: center;
     }
-
-    /* Logo */
     .logo {
       font-size: 72px;
       font-weight: 900;
@@ -102,251 +63,24 @@
       animation: logoGlow 3s ease-in-out infinite;
       margin-bottom: 10px;
     }
-
     @keyframes logoGlow {
       0%, 100% { filter: drop-shadow(0 0 20px rgba(102, 126, 234, 0.5)); }
       50% { filter: drop-shadow(0 0 40px rgba(0, 212, 255, 0.8)); }
     }
-
     .tagline {
       font-family: 'Orbitron', sans-serif;
       font-size: 14px;
       letter-spacing: 8px;
       color: rgba(255, 255, 255, 0.4);
-      margin-bottom: 50px;
-    }
-
-    /* 打字机效果 */
-    .typewriter {
-      font-size: 24px;
-      color: rgba(255, 255, 255, 0.8);
-      margin-bottom: 40px;
-      min-height: 70px;
-    }
-
-    .cursor {
-      display: inline-block;
-      width: 3px;
-      height: 28px;
-      background: #00d4ff;
-      margin-left: 5px;
-      vertical-align: middle;
-      animation: blink 1s infinite;
-    }
-
-    @keyframes blink {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0; }
-    }
-
-    /* Agent 卡片 */
-    .agents-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 15px;
-      margin-bottom: 40px;
-    }
-
-    .agent-card {
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 16px;
-      padding: 20px 15px;
-      cursor: pointer;
-      transition: all 0.3s;
-    }
-
-    .agent-card:hover {
-      background: rgba(255, 255, 255, 0.08);
-      border-color: rgba(102, 126, 234, 0.3);
-      transform: translateY(-5px);
-    }
-
-    .agent-card.selected {
-      background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(0, 212, 255, 0.1));
-      border-color: rgba(102, 126, 234, 0.5);
-      box-shadow: 0 5px 20px rgba(102, 126, 234, 0.3);
-    }
-
-    .agent-emoji {
-      font-size: 36px;
-      margin-bottom: 8px;
-    }
-
-    .agent-name {
-      font-size: 16px;
-      font-weight: 600;
-      margin-bottom: 4px;
-    }
-
-    .agent-desc {
-      font-size: 12px;
-      color: rgba(255, 255, 255, 0.5);
-    }
-
-    /* 按钮 */
-    .deploy-btn {
-      display: inline-block;
-      padding: 18px 50px;
-      font-size: 18px;
-      font-weight: 600;
-      color: #fff;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      border: none;
-      border-radius: 50px;
-      cursor: pointer;
-      transition: all 0.3s;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .deploy-btn::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: -100%;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-      transition: left 0.5s;
-    }
-
-    .deploy-btn:hover::before {
-      left: 100%;
-    }
-
-    .deploy-btn:hover {
-      transform: scale(1.02);
-      box-shadow: 0 10px 40px rgba(102, 126, 234, 0.4);
-    }
-
-    .deploy-btn:disabled {
-      background: #333;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    .deploy-btn:disabled::before {
-      display: none;
-    }
-
-    /* 状态面板 */
-    .status-panel {
-      display: none;
-      background: rgba(0, 0, 0, 0.5);
-      border: 1px solid rgba(102, 126, 234, 0.3);
-      border-radius: 16px;
-      padding: 30px;
-      margin-top: 30px;
-    }
-
-    .status-panel.active {
-      display: block;
-      animation: fadeIn 0.5s;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .status-title {
-      font-size: 16px;
-      color: rgba(255, 255, 255, 0.7);
-      margin-bottom: 15px;
-    }
-
-    .progress-bar {
-      height: 4px;
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 2px;
-      overflow: hidden;
-    }
-
-    .progress-fill {
-      height: 100%;
-      background: linear-gradient(90deg, #00d4ff, #667eea);
-      width: 0%;
-      transition: width 0.3s;
-      border-radius: 2px;
-    }
-
-    .status-steps {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 15px;
-    }
-
-    .step {
-      font-size: 12px;
-      color: rgba(255, 255, 255, 0.4);
-      transition: all 0.3s;
-    }
-
-    .step.active {
-      color: #00d4ff;
-    }
-
-    .step.done {
-      color: #10b981;
-    }
-
-    /* 成功面板 */
-    .success-panel {
-      display: none;
-      text-align: center;
-    }
-
-    .success-panel.active {
-      display: block;
-      animation: fadeIn 0.5s;
-    }
-
-    .success-icon {
-      font-size: 80px;
-      margin-bottom: 20px;
-    }
-
-    .success-title {
-      font-size: 32px;
-      font-weight: 700;
-      margin-bottom: 10px;
-      background: linear-gradient(135deg, #10b981, #00d4ff);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    .success-desc {
-      color: rgba(255, 255, 255, 0.6);
       margin-bottom: 30px;
     }
-
-    .chat-btn {
-      display: inline-block;
-      padding: 18px 50px;
-      font-size: 18px;
-      font-weight: 600;
-      color: #fff;
-      background: linear-gradient(135deg, #10b981, #059669);
-      border: none;
-      border-radius: 50px;
-      text-decoration: none;
-      transition: all 0.3s;
-    }
-
-    .chat-btn:hover {
-      transform: scale(1.05);
-      box-shadow: 0 10px 40px rgba(16, 185, 129, 0.4);
-    }
-
-    /* 注册弹窗 */
+    
+    /* 弹窗样式 */
     .modal-overlay {
       position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.8);
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.85);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -355,14 +89,9 @@
       visibility: hidden;
       transition: all 0.3s;
     }
-
-    .modal-overlay.active {
-      opacity: 1;
-      visibility: visible;
-    }
-
+    .modal-overlay.active { opacity: 1; visibility: visible; }
     .modal {
-      background: linear-gradient(135deg, rgba(20, 20, 30, 0.95), rgba(10, 10, 15, 0.98));
+      background: linear-gradient(135deg, rgba(20, 20, 30, 0.98), rgba(10, 10, 15, 0.99));
       border: 1px solid rgba(102, 126, 234, 0.3);
       border-radius: 20px;
       padding: 40px;
@@ -371,11 +100,7 @@
       transform: scale(0.9);
       transition: all 0.3s;
     }
-
-    .modal-overlay.active .modal {
-      transform: scale(1);
-    }
-
+    .modal-overlay.active .modal { transform: scale(1); }
     .modal-title {
       font-size: 28px;
       font-weight: 700;
@@ -384,99 +109,90 @@
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
-
-    .modal-desc {
-      color: rgba(255, 255, 255, 0.6);
-      margin-bottom: 30px;
-      font-size: 14px;
-    }
-
-    .input-group {
-      margin-bottom: 20px;
-    }
-
+    .modal-desc { color: rgba(255,255,255,0.6); margin-bottom: 25px; font-size: 14px; }
+    .input-group { margin-bottom: 15px; }
     .input-group label {
       display: block;
       text-align: left;
-      font-size: 14px;
-      color: rgba(255, 255, 255, 0.7);
-      margin-bottom: 8px;
+      font-size: 13px;
+      color: rgba(255,255,255,0.7);
+      margin-bottom: 6px;
     }
-
     .input-group input {
       width: 100%;
-      padding: 15px 20px;
-      font-size: 16px;
+      padding: 14px 16px;
+      font-size: 15px;
       color: #fff;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 12px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
       outline: none;
       transition: all 0.3s;
     }
-
     .input-group input:focus {
       border-color: rgba(102, 126, 234, 0.5);
-      background: rgba(255, 255, 255, 0.08);
+      background: rgba(255,255,255,0.08);
     }
-
-    .input-group input::placeholder {
-      color: rgba(255, 255, 255, 0.3);
-    }
-
+    .input-group input::placeholder { color: rgba(255,255,255,0.3); }
     .submit-btn {
       width: 100%;
-      padding: 15px;
+      padding: 14px;
       font-size: 16px;
       font-weight: 600;
       color: #fff;
       background: linear-gradient(135deg, #667eea, #764ba2);
       border: none;
-      border-radius: 12px;
+      border-radius: 10px;
       cursor: pointer;
       transition: all 0.3s;
-    }
-
-    .submit-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
-    }
-
-    .submit-btn:disabled {
-      background: #333;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    .error-msg {
-      color: #ef4444;
-      font-size: 13px;
       margin-top: 10px;
-      display: none;
     }
-
-    .error-msg.show {
-      display: block;
+    .submit-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4); }
+    .submit-btn:disabled { background: #333; cursor: not-allowed; transform: none; }
+    .error-msg { color: #ef4444; font-size: 12px; margin-top: 10px; display: none; }
+    .error-msg.show { display: block; }
+    .switch-link {
+      margin-top: 20px;
+      font-size: 13px;
+      color: rgba(255,255,255,0.5);
     }
-
-    /* 响应式 */
-    @media (max-width: 768px) {
-      .logo {
-        font-size: 48px;
-      }
-
-      .agents-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-
-      .typewriter {
-        font-size: 18px;
-      }
+    .switch-link a {
+      color: #00d4ff;
+      text-decoration: none;
+      cursor: pointer;
     }
-
-    .hidden {
-      display: none !important;
+    .switch-link a:hover { text-decoration: underline; }
+    
+    /* 快速入口 */
+    .quick-entry {
+      display: flex;
+      gap: 15px;
+      justify-content: center;
+      margin-top: 30px;
     }
+    .entry-btn {
+      padding: 16px 40px;
+      font-size: 16px;
+      font-weight: 600;
+      border-radius: 50px;
+      cursor: pointer;
+      transition: all 0.3s;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .entry-btn.primary {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff;
+      border: none;
+    }
+    .entry-btn.secondary {
+      background: transparent;
+      color: rgba(255,255,255,0.8);
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+    .entry-btn:hover { transform: scale(1.02); }
+    
+    .hidden { display: none !important; }
   </style>
 </head>
 <body>
@@ -485,597 +201,238 @@
   <div class="glow glow-1"></div>
   <div class="glow glow-2"></div>
 
+  <!-- 登录弹窗 -->
+  <div class="modal-overlay" id="loginModal">
+    <div class="modal">
+      <h2 class="modal-title">⚡ 登录灵犀云</h2>
+      <p class="modal-desc">登录后即可使用你的 AI 团队</p>
+      <form id="loginForm">
+        <div class="input-group">
+          <label>邀请码</label>
+          <input type="text" id="loginInviteCode" placeholder="LINGXI-XXXXXXXX" autocomplete="off" required>
+        </div>
+        <div class="input-group">
+          <label>密码</label>
+          <input type="password" id="loginPassword" placeholder="输入你的密码" required>
+        </div>
+        <div class="error-msg" id="loginError"></div>
+        <button type="submit" class="submit-btn" id="loginBtn">🚀 登录</button>
+      </form>
+      <div class="switch-link">
+        还没有账号？<a onclick="showRegister()">立即注册</a>
+      </div>
+    </div>
+  </div>
+
   <!-- 注册弹窗 -->
   <div class="modal-overlay" id="registerModal">
     <div class="modal">
       <h2 class="modal-title">⚡ 加入灵犀云</h2>
-      <p class="modal-desc">输入邀请码，立即拥有你的 AI 团队</p>
-      
+      <p class="modal-desc">创建账号，一键拥有 AI 团队</p>
       <form id="registerForm">
         <div class="input-group">
           <label>邀请码</label>
-          <input type="text" id="inviteCode" placeholder="LINGXI-XXXXXXXX" autocomplete="off" required>
+          <input type="text" id="regInviteCode" placeholder="LINGXI-XXXXXXXX" autocomplete="off" required>
         </div>
-        
         <div class="input-group">
-          <label>昵称（可选）</label>
-          <input type="text" id="nickname" placeholder="你希望灵犀怎么称呼你？" autocomplete="off">
+          <label>昵称</label>
+          <input type="text" id="regNickname" placeholder="你希望灵犀怎么称呼你？" autocomplete="off">
         </div>
-        
-        <div class="error-msg" id="errorMsg"></div>
-        
-        <button type="submit" class="submit-btn" id="submitBtn">
-          🚀 立即加入
-        </button>
+        <div class="input-group">
+          <label>密码</label>
+          <input type="password" id="regPassword" placeholder="设置登录密码（至少6位）" required minlength="6">
+        </div>
+        <div class="input-group">
+          <label>确认密码</label>
+          <input type="password" id="regPassword2" placeholder="再次输入密码" required>
+        </div>
+        <div class="error-msg" id="regError"></div>
+        <button type="submit" class="submit-btn" id="regBtn">🚀 立即注册</button>
       </form>
+      <div class="switch-link">
+        已有账号？<a onclick="showLogin()">立即登录</a>
+      </div>
     </div>
   </div>
 
   <div class="container">
     <div class="logo">⚡ 灵犀云</div>
     <div class="tagline">LINGXI CLOUD</div>
+    
+    <p style="font-size: 18px; color: rgba(255,255,255,0.7); margin: 30px 0;">
+      一键拥有你的 AI 团队<br>
+      <span style="font-size: 14px; opacity: 0.6;">8位专业AI助手 · 飞书/企微接入 · 智能调度</span>
+    </p>
 
-    <!-- 有趣的介绍文案 -->
-    <div class="intro-section" style="margin: 30px auto 40px; max-width: 600px; text-align: center;">
-      <p class="intro-text" style="font-size: 16px; line-height: 1.8; color: rgba(255,255,255,0.7); margin-bottom: 20px;">
-        <span style="font-size: 24px;">🎭</span> 
-        <span style="background: linear-gradient(135deg, #667eea, #00d4ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 600;">你不是在找一个 AI</span><br>
-        你是在找一支能打仗的团队
-      </p>
-      <div class="feature-list" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 25px;">
-        <div class="feature-item" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 15px 10px;">
-          <div style="font-size: 28px; margin-bottom: 8px;">🧠</div>
-          <div style="font-size: 13px; color: rgba(255,255,255,0.6);">记忆系统</div>
-          <div style="font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 5px;">记得你的喜好</div>
-        </div>
-        <div class="feature-item" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 15px 10px;">
-          <div style="font-size: 28px; margin-bottom: 8px;">🎯</div>
-          <div style="font-size: 13px; color: rgba(255,255,255,0.6);">智能调度</div>
-          <div style="font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 5px;">需求自动分配</div>
-        </div>
-        <div class="feature-item" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 15px 10px;">
-          <div style="font-size: 28px; margin-bottom: 8px;">⚡</div>
-          <div style="font-size: 13px; color: rgba(255,255,255,0.6);">一键部署</div>
-          <div style="font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 5px;">30秒拥有团队</div>
-        </div>
-      </div>
-      <p style="font-size: 14px; color: rgba(255,255,255,0.5); margin-top: 20px; font-style: italic;">
-        "代码找云溪，数据找若曦，创意找紫萱<br>我灵犀一句话，千军万马来相见 ⚡"
-      </p>
+    <div class="quick-entry">
+      <button class="entry-btn primary" onclick="checkAndEnter()">🚀 进入我的团队</button>
+      <a href="https://github.com/ancientboy/lingxi" target="_blank" class="entry-btn secondary">GitHub</a>
     </div>
-
-    <div class="typewriter" id="typewriter">
-      <span id="text"></span><span class="cursor"></span>
-    </div>
-
-    <div class="agents-grid" id="agentsGrid">
-      <!-- Agent 卡片会动态生成 -->
-    </div>
-
-    <button class="deploy-btn" id="deployBtn" onclick="startDeploy()">
-      🚀 立即领取我的 AI 团队
-    </button>
-
-    <div class="status-panel" id="statusPanel">
-      <div class="status-title" id="statusText">正在部署...</div>
-      <div class="progress-bar">
-        <div class="progress-fill" id="progressFill"></div>
-      </div>
-      <div class="status-steps">
-        <span class="step" id="step1">准备环境</span>
-        <span class="step" id="step2">创建实例</span>
-        <span class="step" id="step3">配置团队</span>
-        <span class="step" id="step4">启动服务</span>
-      </div>
-    </div>
-
-    <div class="success-panel" id="successPanel">
-      <div class="success-icon">✨</div>
-      <h2 class="success-title">部署成功！</h2>
-      <p class="success-desc" id="selectedAgentsDesc">你的团队: 灵犀 + 3 位成员</p>
-      <p class="success-desc" style="font-size: 12px; opacity: 0.7; margin-bottom: 20px;">
-        🧪 测试模式：点击下方按钮体验灵犀
-      </p>
-      <a href="#" class="chat-btn" id="chatBtn">💬 开始对话</a>
-      
-      <!-- 飞书配置 -->
-      <div style="margin-top: 40px; padding-top: 30px; border-top: 1px solid rgba(255,255,255,0.1);">
-        <h3 style="font-size: 18px; margin-bottom: 15px; color: rgba(255,255,255,0.8);">
-          📱 接入飞书（可选）
-        </h3>
-        <p style="font-size: 13px; color: rgba(255,255,255,0.5); margin-bottom: 20px;">
-          在飞书开放平台创建应用，填入凭证即可一键接入
-        </p>
-        <div id="feishuForm" style="display: grid; gap: 15px;">
-          <input type="text" id="feishuAppId" placeholder="飞书 App ID" 
-                 style="padding: 12px 15px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff; outline: none;">
-          <input type="text" id="feishuAppSecret" placeholder="飞书 App Secret" 
-                 style="padding: 12px 15px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff; outline: none;">
-          <button onclick="configureFeishu()" 
-                  style="padding: 12px; background: linear-gradient(135deg, #00d4ff, #667eea); border: none; border-radius: 8px; color: #fff; font-weight: 600; cursor: pointer;">
-            🔗 一键配置飞书
-          </button>
-        </div>
-        <div id="feishuStatus" style="margin-top: 15px; font-size: 13px;"></div>
-      </div>
-      
-      <!-- 企业微信配置 -->
-      <div style="margin-top: 30px; padding-top: 30px; border-top: 1px solid rgba(255,255,255,0.1);">
-        <h3 style="font-size: 18px; margin-bottom: 15px; color: rgba(255,255,255,0.8);">
-          💼 接入企业微信（可选）
-        </h3>
-        <p style="font-size: 13px; color: rgba(255,255,255,0.5); margin-bottom: 20px;">
-          在企业微信管理后台创建应用，填入凭证即可一键接入
-        </p>
-        <div id="wecomForm" style="display: grid; gap: 15px;">
-          <input type="text" id="wecomCorpId" placeholder="企业 Corp ID" 
-                 style="padding: 12px 15px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff; outline: none;">
-          <input type="text" id="wecomAgentId" placeholder="Agent ID" 
-                 style="padding: 12px 15px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff; outline: none;">
-          <input type="text" id="wecomSecret" placeholder="应用 Secret" 
-                 style="padding: 12px 15px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff; outline: none;">
-          <button onclick="configureWeCom()" 
-                  style="padding: 12px; background: linear-gradient(135deg, #10b981, #059669); border: none; border-radius: 8px; color: #fff; font-weight: 600; cursor: pointer;">
-            🔗 一键配置企业微信
-          </button>
-        </div>
-        <div id="wecomStatus" style="margin-top: 15px; font-size: 13px;"></div>
-      </div>
-    </div>
+    
+    <p style="margin-top: 30px; font-size: 13px; color: rgba(255,255,255,0.4);">
+      首次使用？<a onclick="showRegister()" style="color: #00d4ff; cursor: pointer;">获取邀请码</a>
+    </p>
   </div>
 
   <script>
-    // 配置
     const API_BASE = 'http://localhost:3000';
-    const SERVER_API = 'http://120.26.137.51:3000';
-    
-    // OpenClaw 访问地址
-    const EXISTING_OPENCLAW_URL = 'http://120.26.137.51:18789/c308f1f0?token=6f3719a52fa12799fea8e4a06655703f';
-
-    // 用户状态
     let userToken = localStorage.getItem('lingxi_token');
     let userInfo = null;
 
-    // Agent 数据
-    const agents = [
-      { id: 'lingxi', emoji: '⚡', name: '灵犀', desc: '队长', required: true },
-      { id: 'coder', emoji: '💻', name: '云溪', desc: '代码女王' },
-      { id: 'ops', emoji: '📊', name: '若曦', desc: '运营专家' },
-      { id: 'inventor', emoji: '💡', name: '紫萱', desc: '创意天才' },
-      { id: 'pm', emoji: '🎯', name: '梓萱', desc: '产品女王' },
-      { id: 'noter', emoji: '📝', name: '晓琳', desc: '知识管理' },
-      { id: 'media', emoji: '🎧', name: '音韵', desc: '多媒体' },
-      { id: 'smart', emoji: '🏠', name: '智家', desc: '智能家居' }
-    ];
-
-    let selectedAgents = ['lingxi'];
-
-    // 打字机效果文字
-    const typewriterTexts = [
-      '你好！我是灵犀，你的 AI 团队队长 ⚡',
-      '这里有 8 位专业 AI 助手等你召唤',
-      '点击下方卡片选择你需要的队友',
-      '然后一键部署，开启你的 AI 团队之旅！'
-    ];
-
-    let textIndex = 0;
-    let charIndex = 0;
-    let isDeleting = false;
-
-    // 打字机效果
-    function typeWriter() {
-      const textEl = document.getElementById('text');
-      const currentText = typewriterTexts[textIndex];
-
-      if (!isDeleting) {
-        textEl.textContent = currentText.substring(0, charIndex + 1);
-        charIndex++;
-
-        if (charIndex === currentText.length) {
-          setTimeout(() => {
-            isDeleting = true;
-            typeWriter();
-          }, 2000);
-          return;
-        }
-      } else {
-        textEl.textContent = currentText.substring(0, charIndex - 1);
-        charIndex--;
-
-        if (charIndex === 0) {
-          isDeleting = false;
-          textIndex = (textIndex + 1) % typewriterTexts.length;
-        }
-      }
-
-      const speed = isDeleting ? 30 : 80;
-      setTimeout(typeWriter, speed);
-    }
-
-    // 渲染 Agent 卡片
-    function renderAgents() {
-      const grid = document.getElementById('agentsGrid');
-      grid.innerHTML = agents.map(agent => `
-        <div class="agent-card ${agent.required || selectedAgents.includes(agent.id) ? 'selected' : ''}" 
-             id="agent-${agent.id}"
-             onclick="toggleAgent('${agent.id}', ${agent.required || false})">
-          <div class="agent-emoji">${agent.emoji}</div>
-          <div class="agent-name">${agent.name}</div>
-          <div class="agent-desc">${agent.desc}</div>
-        </div>
-      `).join('');
-    }
-
-    // 切换 Agent 选择
-    function toggleAgent(id, required) {
-      if (required) return;
-
-      const card = document.getElementById(`agent-${id}`);
-      if (selectedAgents.includes(id)) {
-        selectedAgents = selectedAgents.filter(a => a !== id);
-        card.classList.remove('selected');
-      } else {
-        selectedAgents.push(id);
-        card.classList.add('selected');
-      }
-    }
-
-    // 获取选中 Agent 的描述
-    function getSelectedAgentsText() {
-      const names = selectedAgents.map(id => {
-        const agent = agents.find(a => a.id === id);
-        return agent ? agent.emoji + agent.name : '';
-      });
-      return names.join(' + ');
-    }
-
-    // 检查登录状态（不在启动时弹出，只在点击部署时检查）
-    async function checkAuth() {
+    // 检查登录状态并进入
+    async function checkAndEnter() {
       if (!userToken) {
-        showRegisterModal();
-        return false;
+        showLogin();
+        return;
       }
-
+      
+      // 验证 token
       try {
         const res = await fetch(`${API_BASE}/api/auth/verify`, {
           headers: { 'Authorization': `Bearer ${userToken}` }
         });
         
         if (res.ok) {
-          const data = await res.json();
-          userInfo = data;
-          return true;
+          // 已登录，跳转到聊天页面
+          window.location.href = 'chat.html';
         } else {
           localStorage.removeItem('lingxi_token');
           userToken = null;
-          showRegisterModal();
-          return false;
+          showLogin();
         }
       } catch (e) {
-        // 离线模式，允许继续
-        return true;
+        // 网络错误，仍允许进入
+        window.location.href = 'chat.html';
       }
     }
 
-    // 显示注册弹窗
-    function showRegisterModal() {
+    // 显示登录
+    function showLogin() {
+      document.getElementById('registerModal').classList.remove('active');
+      document.getElementById('loginModal').classList.add('active');
+    }
+
+    // 显示注册
+    function showRegister() {
+      document.getElementById('loginModal').classList.remove('active');
       document.getElementById('registerModal').classList.add('active');
     }
 
-    // 隐藏注册弹窗
-    function hideRegisterModal() {
+    // 隐藏所有弹窗
+    function hideModals() {
+      document.getElementById('loginModal').classList.remove('active');
       document.getElementById('registerModal').classList.remove('active');
     }
 
-    // 处理注册
-    async function handleRegister(e) {
+    // 登录
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       
-      const inviteCode = document.getElementById('inviteCode').value.trim().toUpperCase();
-      const nickname = document.getElementById('nickname').value.trim();
-      const errorMsg = document.getElementById('errorMsg');
-      const submitBtn = document.getElementById('submitBtn');
-
-      if (!inviteCode) {
-        errorMsg.textContent = '请输入邀请码';
-        errorMsg.classList.add('show');
+      const inviteCode = document.getElementById('loginInviteCode').value.trim().toUpperCase();
+      const password = document.getElementById('loginPassword').value;
+      const errorEl = document.getElementById('loginError');
+      const btn = document.getElementById('loginBtn');
+      
+      if (!inviteCode || !password) {
+        errorEl.textContent = '请填写完整信息';
+        errorEl.classList.add('show');
         return;
       }
+      
+      btn.disabled = true;
+      btn.textContent = '⏳ 登录中...';
+      errorEl.classList.remove('show');
+      
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ inviteCode, password })
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+          localStorage.setItem('lingxi_token', data.token);
+          localStorage.setItem('lingxi_user', JSON.stringify(data.user));
+          hideModals();
+          window.location.href = 'chat.html';
+        } else {
+          errorEl.textContent = data.error || '登录失败';
+          errorEl.classList.add('show');
+        }
+      } catch (e) {
+        errorEl.textContent = '网络错误，请重试';
+        errorEl.classList.add('show');
+      }
+      
+      btn.disabled = false;
+      btn.textContent = '🚀 登录';
+    });
 
-      submitBtn.disabled = true;
-      submitBtn.textContent = '⏳ 验证中...';
-      errorMsg.classList.remove('show');
-
+    // 注册
+    document.getElementById('registerForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const inviteCode = document.getElementById('regInviteCode').value.trim().toUpperCase();
+      const nickname = document.getElementById('regNickname').value.trim();
+      const password = document.getElementById('regPassword').value;
+      const password2 = document.getElementById('regPassword2').value;
+      const errorEl = document.getElementById('regError');
+      const btn = document.getElementById('regBtn');
+      
+      if (!inviteCode) {
+        errorEl.textContent = '请输入邀请码';
+        errorEl.classList.add('show');
+        return;
+      }
+      
+      if (password.length < 6) {
+        errorEl.textContent = '密码至少6位';
+        errorEl.classList.add('show');
+        return;
+      }
+      
+      if (password !== password2) {
+        errorEl.textContent = '两次密码不一致';
+        errorEl.classList.add('show');
+        return;
+      }
+      
+      btn.disabled = true;
+      btn.textContent = '⏳ 注册中...';
+      errorEl.classList.remove('show');
+      
       try {
         const res = await fetch(`${API_BASE}/api/auth/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ inviteCode, nickname })
+          body: JSON.stringify({ inviteCode, nickname, password })
         });
-
+        
         const data = await res.json();
-
+        
         if (data.success) {
           localStorage.setItem('lingxi_token', data.token);
-          userToken = data.token;
-          userInfo = data.user;
-          
-          hideRegisterModal();
-          
-          if (nickname) {
-            document.getElementById('typewriter').innerHTML = 
-              `<span id="text">欢迎回来，${nickname}！选择你需要的队友吧～</span><span class="cursor"></span>`;
-          }
+          localStorage.setItem('lingxi_user', JSON.stringify(data.user));
+          hideModals();
+          // 注册成功，跳转到选择团队页面
+          window.location.href = 'team.html';
         } else {
-          errorMsg.textContent = data.error || '注册失败，请重试';
-          errorMsg.classList.add('show');
+          errorEl.textContent = data.error || '注册失败';
+          errorEl.classList.add('show');
         }
       } catch (e) {
-        // 离线模式：允许继续
-        localStorage.setItem('lingxi_token', 'offline-' + Date.now());
-        hideRegisterModal();
-      }
-
-      submitBtn.disabled = false;
-      submitBtn.textContent = '🚀 立即加入';
-    }
-
-    // 开始部署
-    async function startDeploy() {
-      const isLoggedIn = await checkAuth();
-      if (!isLoggedIn) return;
-
-      const btn = document.getElementById('deployBtn');
-      const statusPanel = document.getElementById('statusPanel');
-      const successPanel = document.getElementById('successPanel');
-
-      btn.disabled = true;
-      btn.textContent = '🚀 部署中...';
-      statusPanel.classList.add('active');
-
-      let progress = 0;
-
-      const steps = ['step1', 'step2', 'step3', 'step4'];
-      const progressInterval = setInterval(() => {
-        progress += Math.random() * 8;
-        if (progress > 95) progress = 95;
-
-        document.getElementById('progressFill').style.width = progress + '%';
-
-        // 更新步骤
-        const stepIndex = Math.floor(progress / 25);
-        steps.forEach((step, i) => {
-          const el = document.getElementById(step);
-          if (i < stepIndex) {
-            el.classList.remove('active');
-            el.classList.add('done');
-          } else if (i === stepIndex) {
-            el.classList.add('active');
-            el.classList.remove('done');
-          } else {
-            el.classList.remove('active', 'done');
-          }
-        });
-
-        // 更新状态文字
-        const statusTexts = [
-          '正在准备部署环境...',
-          '正在创建你的专属实例...',
-          '正在配置 AI 团队成员...',
-          '正在启动服务...'
-        ];
-        document.getElementById('statusText').textContent = statusTexts[Math.min(stepIndex, 3)];
-      }, 300);
-
-      try {
-        // 调用后端 API 分配实例
-        const userId = userInfo?.userId || userInfo?.id || 'user-' + Date.now();
-        
-        const response = await fetch(`${API_BASE}/api/instance/assign`, {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${userToken}`
-          },
-          body: JSON.stringify({ 
-            userId: userId,
-            agents: selectedAgents 
-          })
-        });
-
-        const data = await response.json();
-
-        clearInterval(progressInterval);
-        document.getElementById('progressFill').style.width = '100%';
-        
-        // 更新成功页面
-        document.getElementById('selectedAgentsDesc').textContent = 
-          '你的团队: ' + getSelectedAgentsText();
-
-        setTimeout(() => {
-          statusPanel.classList.remove('active');
-          successPanel.classList.add('active');
-
-          // 🔗 构建定制聊天页面 URL
-          const chatParams = new URLSearchParams({
-            userId: userId,
-            nickname: userInfo?.nickname || nickname || '用户',
-            agents: JSON.stringify(selectedAgents),
-            token: userToken || ''
-          });
-          
-          // 跳转到定制聊天页面（而不是直接跳转 OpenClaw）
-          const chatUrl = `chat.html?${chatParams.toString()}`;
-          document.getElementById('chatBtn').href = chatUrl;
-        }, 500);
-
-      } catch (err) {
-        clearInterval(progressInterval);
-        
-        // 即使失败，也显示成功页面（回退到现有实例）
-        document.getElementById('selectedAgentsDesc').textContent = 
-          '你的团队: ' + getSelectedAgentsText();
-        
-        setTimeout(() => {
-          statusPanel.classList.remove('active');
-          successPanel.classList.add('active');
-          
-          // 同样跳转到定制聊天页面
-          const chatParams = new URLSearchParams({
-            userId: userInfo?.userId || userInfo?.id || 'user-' + Date.now(),
-            nickname: userInfo?.nickname || '用户',
-            agents: JSON.stringify(selectedAgents),
-            token: userToken || ''
-          });
-          
-          document.getElementById('chatBtn').href = `chat.html?${chatParams.toString()}`;
-        }, 1000);
-      }
-    }
-
-    // 初始化
-    renderAgents();
-    typeWriter();
-    
-    // 不在启动时检查登录，让用户先体验页面
-    // checkAuth();
-    
-    // 绑定注册表单
-    document.getElementById('registerForm').addEventListener('submit', handleRegister);
-    
-    // ============ 飞书配置 ============
-    
-    // 配置飞书
-    async function configureFeishu() {
-      const appId = document.getElementById('feishuAppId').value.trim();
-      const appSecret = document.getElementById('feishuAppSecret').value.trim();
-      const statusEl = document.getElementById('feishuStatus');
-      
-      if (!appId || !appSecret) {
-        statusEl.innerHTML = '<span style="color: #ef4444;">❌ 请填写完整的飞书凭证</span>';
-        return;
+        errorEl.textContent = '网络错误，请重试';
+        errorEl.classList.add('show');
       }
       
-      const userId = userInfo?.userId || userInfo?.id || 'user-' + Date.now();
-      
-      statusEl.innerHTML = '<span style="color: #00d4ff;">⏳ 正在验证凭证...</span>';
-      
-      try {
-        const res = await fetch(`${API_BASE}/api/feishu/configure`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, appId, appSecret })
-        });
-        
-        const data = await res.json();
-        
-        if (data.success) {
-          statusEl.innerHTML = `
-            <span style="color: #10b981;">✅ ${data.message}</span>
-            <div style="margin-top: 10px; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 6px; text-align: left; font-size: 12px;">
-              <div><strong>机器人名称:</strong> ${data.config.botName}</div>
-              <div style="margin-top: 5px;"><strong>回调地址:</strong></div>
-              <div style="color: #00d4ff; word-break: break-all;">${data.config.webhookUrl}</div>
-              <div style="margin-top: 10px; color: rgba(255,255,255,0.6);">
-                请在飞书开放平台 → 事件订阅 → 配置此地址
-              </div>
-            </div>
-          `;
-        } else {
-          statusEl.innerHTML = `<span style="color: #ef4444;">❌ ${data.error}</span>`;
-        }
-      } catch (e) {
-        statusEl.innerHTML = `<span style="color: #ef4444;">❌ 配置失败: ${e.message}</span>`;
-      }
-    }
-    
-    // 检查飞书配置状态
-    async function checkFeishuStatus() {
-      const userId = userInfo?.userId || userInfo?.id;
-      if (!userId) return;
-      
-      try {
-        const res = await fetch(`${API_BASE}/api/feishu/status/${userId}`);
-        const data = await res.json();
-        
-        if (data.configured) {
-          document.getElementById('feishuStatus').innerHTML = `
-            <span style="color: #10b981;">✅ 飞书已配置: ${data.botName}</span>
-          `;
-        }
-      } catch (e) {
-        // 忽略错误
-      }
-    }
-    
-    // ============ 企业微信配置 ============
-    
-    // 配置企业微信
-    async function configureWeCom() {
-      const corpId = document.getElementById('wecomCorpId').value.trim();
-      const agentId = document.getElementById('wecomAgentId').value.trim();
-      const secret = document.getElementById('wecomSecret').value.trim();
-      const statusEl = document.getElementById('wecomStatus');
-      
-      if (!corpId || !agentId || !secret) {
-        statusEl.innerHTML = '<span style="color: #ef4444;">❌ 请填写完整的企业微信凭证</span>';
-        return;
-      }
-      
-      const userId = userInfo?.userId || userInfo?.id || 'user-' + Date.now();
-      
-      statusEl.innerHTML = '<span style="color: #10b981;">⏳ 正在验证凭证...</span>';
-      
-      try {
-        const res = await fetch(`${API_BASE}/api/wecom/configure`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, corpId, agentId, secret })
-        });
-        
-        const data = await res.json();
-        
-        if (data.success) {
-          statusEl.innerHTML = `
-            <span style="color: #10b981;">✅ ${data.message}</span>
-            <div style="margin-top: 10px; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 6px; text-align: left; font-size: 12px;">
-              <div><strong>应用名称:</strong> ${data.config.appName}</div>
-              <div style="margin-top: 5px;"><strong>回调地址:</strong></div>
-              <div style="color: #10b981; word-break: break-all;">${data.config.callbackUrl}</div>
-              <div style="margin-top: 5px;"><strong>Token:</strong> ${data.config.token}</div>
-              <div style="margin-top: 5px;"><strong>EncodingAESKey:</strong></div>
-              <div style="color: #10b981; word-break: break-all; font-size: 11px;">${data.config.encodingAESKey.substring(0, 20)}...</div>
-              <div style="margin-top: 10px; color: rgba(255,255,255,0.6);">
-                请在企业微信管理后台 → 应用 → 设置API接收 → 配置以上信息
-              </div>
-            </div>
-          `;
-        } else {
-          statusEl.innerHTML = `<span style="color: #ef4444;">❌ ${data.error}</span>`;
-        }
-      } catch (e) {
-        statusEl.innerHTML = `<span style="color: #ef4444;">❌ 配置失败: ${e.message}</span>`;
-      }
-    }
-    
-    // 检查企业微信配置状态
-    async function checkWeComStatus() {
-      const userId = userInfo?.userId || userInfo?.id;
-      if (!userId) return;
-      
-      try {
-        const res = await fetch(`${API_BASE}/api/wecom/status/${userId}`);
-        const data = await res.json();
-        
-        if (data.configured) {
-          document.getElementById('wecomStatus').innerHTML = `
-            <span style="color: #10b981;">✅ 企业微信已配置: ${data.appName}</span>
-          `;
-        }
-      } catch (e) {
-        // 忽略错误
-      }
-    }
+      btn.disabled = false;
+      btn.textContent = '🚀 立即注册';
+    });
+
+    // 页面加载时检查登录状态
+    checkAndEnter();
   </script>
 </body>
 </html>
