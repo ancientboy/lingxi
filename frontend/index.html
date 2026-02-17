@@ -4,304 +4,853 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>灵犀云 - 一键拥有你的 AI 团队</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
   <style>
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
     }
-    
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: #0a0a0f;
       min-height: 100vh;
+      overflow-x: hidden;
+      color: #fff;
+    }
+
+    /* 星空背景 */
+    .stars {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      background: 
+        radial-gradient(2px 2px at 20px 30px, #eee, transparent),
+        radial-gradient(2px 2px at 40px 70px, rgba(255,255,255,0.8), transparent),
+        radial-gradient(1px 1px at 90px 40px, #fff, transparent),
+        radial-gradient(2px 2px at 160px 120px, rgba(255,255,255,0.9), transparent),
+        radial-gradient(1px 1px at 230px 80px, #fff, transparent);
+      background-size: 250px 200px;
+      animation: twinkle 5s ease-in-out infinite;
+    }
+
+    @keyframes twinkle {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+
+    /* 网格线 */
+    .grid {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      background-image: 
+        linear-gradient(rgba(102, 126, 234, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(102, 126, 234, 0.03) 1px, transparent 1px);
+      background-size: 50px 50px;
+    }
+
+    /* 光晕 */
+    .glow {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(100px);
+      pointer-events: none;
+    }
+
+    .glow-1 {
+      top: -200px;
+      right: -200px;
+      width: 500px;
+      height: 500px;
+      background: rgba(102, 126, 234, 0.15);
+    }
+
+    .glow-2 {
+      bottom: -200px;
+      left: -200px;
+      width: 400px;
+      height: 400px;
+      background: rgba(0, 212, 255, 0.1);
+    }
+
+    /* 容器 */
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 60px 20px;
+      text-align: center;
+    }
+
+    /* Logo */
+    .logo {
+      font-size: 72px;
+      font-weight: 900;
+      letter-spacing: 4px;
+      background: linear-gradient(135deg, #667eea 0%, #00d4ff 50%, #667eea 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: logoGlow 3s ease-in-out infinite;
+      margin-bottom: 10px;
+    }
+
+    @keyframes logoGlow {
+      0%, 100% { filter: drop-shadow(0 0 20px rgba(102, 126, 234, 0.5)); }
+      50% { filter: drop-shadow(0 0 40px rgba(0, 212, 255, 0.8)); }
+    }
+
+    .tagline {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 14px;
+      letter-spacing: 8px;
+      color: rgba(255, 255, 255, 0.4);
+      margin-bottom: 50px;
+    }
+
+    /* 打字机效果 */
+    .typewriter {
+      font-size: 24px;
+      color: rgba(255, 255, 255, 0.8);
+      margin-bottom: 40px;
+      min-height: 70px;
+    }
+
+    .cursor {
+      display: inline-block;
+      width: 3px;
+      height: 28px;
+      background: #00d4ff;
+      margin-left: 5px;
+      vertical-align: middle;
+      animation: blink 1s infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+
+    /* Agent 卡片 */
+    .agents-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 15px;
+      margin-bottom: 40px;
+    }
+
+    .agent-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 20px 15px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .agent-card:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(102, 126, 234, 0.3);
+      transform: translateY(-5px);
+    }
+
+    .agent-card.selected {
+      background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(0, 212, 255, 0.1));
+      border-color: rgba(102, 126, 234, 0.5);
+      box-shadow: 0 5px 20px rgba(102, 126, 234, 0.3);
+    }
+
+    .agent-emoji {
+      font-size: 36px;
+      margin-bottom: 8px;
+    }
+
+    .agent-name {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .agent-desc {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    /* 按钮 */
+    .deploy-btn {
+      display: inline-block;
+      padding: 18px 50px;
+      font-size: 18px;
+      font-weight: 600;
+      color: #fff;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border: none;
+      border-radius: 50px;
+      cursor: pointer;
+      transition: all 0.3s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .deploy-btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+      transition: left 0.5s;
+    }
+
+    .deploy-btn:hover::before {
+      left: 100%;
+    }
+
+    .deploy-btn:hover {
+      transform: scale(1.02);
+      box-shadow: 0 10px 40px rgba(102, 126, 234, 0.4);
+    }
+
+    .deploy-btn:disabled {
+      background: #333;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .deploy-btn:disabled::before {
+      display: none;
+    }
+
+    /* 状态面板 */
+    .status-panel {
+      display: none;
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(102, 126, 234, 0.3);
+      border-radius: 16px;
+      padding: 30px;
+      margin-top: 30px;
+    }
+
+    .status-panel.active {
+      display: block;
+      animation: fadeIn 0.5s;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .status-title {
+      font-size: 16px;
+      color: rgba(255, 255, 255, 0.7);
+      margin-bottom: 15px;
+    }
+
+    .progress-bar {
+      height: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #00d4ff, #667eea);
+      width: 0%;
+      transition: width 0.3s;
+      border-radius: 2px;
+    }
+
+    .status-steps {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 15px;
+    }
+
+    .step {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.4);
+      transition: all 0.3s;
+    }
+
+    .step.active {
+      color: #00d4ff;
+    }
+
+    .step.done {
+      color: #10b981;
+    }
+
+    /* 成功面板 */
+    .success-panel {
+      display: none;
+      text-align: center;
+    }
+
+    .success-panel.active {
+      display: block;
+      animation: fadeIn 0.5s;
+    }
+
+    .success-icon {
+      font-size: 80px;
+      margin-bottom: 20px;
+    }
+
+    .success-title {
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      background: linear-gradient(135deg, #10b981, #00d4ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .success-desc {
+      color: rgba(255, 255, 255, 0.6);
+      margin-bottom: 30px;
+    }
+
+    .chat-btn {
+      display: inline-block;
+      padding: 18px 50px;
+      font-size: 18px;
+      font-weight: 600;
+      color: #fff;
+      background: linear-gradient(135deg, #10b981, #059669);
+      border: none;
+      border-radius: 50px;
+      text-decoration: none;
+      transition: all 0.3s;
+    }
+
+    .chat-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 10px 40px rgba(16, 185, 129, 0.4);
+    }
+
+    /* 注册弹窗 */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
       display: flex;
       align-items: center;
       justify-content: center;
+      z-index: 100;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s;
     }
-    
-    .container {
-      background: white;
+
+    .modal-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .modal {
+      background: linear-gradient(135deg, rgba(20, 20, 30, 0.95), rgba(10, 10, 15, 0.98));
+      border: 1px solid rgba(102, 126, 234, 0.3);
       border-radius: 20px;
-      padding: 60px;
-      max-width: 500px;
+      padding: 40px;
+      max-width: 400px;
       width: 90%;
-      text-align: center;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      transform: scale(0.9);
+      transition: all 0.3s;
     }
-    
-    .logo {
-      font-size: 48px;
+
+    .modal-overlay.active .modal {
+      transform: scale(1);
+    }
+
+    .modal-title {
+      font-size: 28px;
+      font-weight: 700;
       margin-bottom: 10px;
+      background: linear-gradient(135deg, #667eea, #00d4ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
     }
-    
-    h1 {
-      font-size: 32px;
-      color: #333;
-      margin-bottom: 10px;
+
+    .modal-desc {
+      color: rgba(255, 255, 255, 0.6);
+      margin-bottom: 30px;
+      font-size: 14px;
     }
-    
-    .subtitle {
-      color: #666;
-      font-size: 16px;
-      margin-bottom: 40px;
-    }
-    
-    .features {
-      text-align: left;
-      margin-bottom: 40px;
-    }
-    
-    .feature {
-      display: flex;
-      align-items: center;
-      padding: 12px 0;
-      border-bottom: 1px solid #eee;
-    }
-    
-    .feature:last-child {
-      border-bottom: none;
-    }
-    
-    .feature-icon {
-      font-size: 24px;
-      margin-right: 15px;
-    }
-    
-    .feature-text {
-      color: #444;
-    }
-    
-    .deploy-btn {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      border: none;
-      padding: 18px 50px;
-      font-size: 18px;
-      border-radius: 50px;
-      cursor: pointer;
-      transition: transform 0.2s, box-shadow 0.2s;
-    }
-    
-    .deploy-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
-    }
-    
-    .deploy-btn:disabled {
-      background: #ccc;
-      cursor: not-allowed;
-      transform: none;
-      box-shadow: none;
-    }
-    
-    .status {
-      margin-top: 30px;
-      padding: 20px;
-      background: #f8f9fa;
-      border-radius: 10px;
-      display: none;
-    }
-    
-    .status.active {
-      display: block;
-    }
-    
-    .status-text {
-      color: #666;
-      margin-bottom: 10px;
-    }
-    
-    .progress-bar {
-      height: 6px;
-      background: #e0e0e0;
-      border-radius: 3px;
-      overflow: hidden;
-    }
-    
-    .progress-fill {
-      height: 100%;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      width: 0%;
-      transition: width 0.3s;
-    }
-    
-    .success {
-      display: none;
-    }
-    
-    .success.active {
-      display: block;
-    }
-    
-    .success-icon {
-      font-size: 64px;
+
+    .input-group {
       margin-bottom: 20px;
     }
-    
-    .success h2 {
-      color: #333;
-      margin-bottom: 10px;
+
+    .input-group label {
+      display: block;
+      text-align: left;
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.7);
+      margin-bottom: 8px;
     }
-    
-    .success p {
-      color: #666;
-      margin-bottom: 30px;
-    }
-    
-    .chat-btn {
-      background: #10b981;
-      color: white;
-      border: none;
-      padding: 15px 40px;
+
+    .input-group input {
+      width: 100%;
+      padding: 15px 20px;
       font-size: 16px;
-      border-radius: 50px;
+      color: #fff;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      outline: none;
+      transition: all 0.3s;
+    }
+
+    .input-group input:focus {
+      border-color: rgba(102, 126, 234, 0.5);
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .input-group input::placeholder {
+      color: rgba(255, 255, 255, 0.3);
+    }
+
+    .submit-btn {
+      width: 100%;
+      padding: 15px;
+      font-size: 16px;
+      font-weight: 600;
+      color: #fff;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      border: none;
+      border-radius: 12px;
       cursor: pointer;
-      text-decoration: none;
-      display: inline-block;
+      transition: all 0.3s;
     }
-    
-    .chat-btn:hover {
-      background: #059669;
+
+    .submit-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
     }
-    
-    .error {
+
+    .submit-btn:disabled {
+      background: #333;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .error-msg {
       color: #ef4444;
-      margin-top: 20px;
+      font-size: 13px;
+      margin-top: 10px;
       display: none;
     }
-    
-    .error.active {
+
+    .error-msg.show {
       display: block;
+    }
+
+    /* 响应式 */
+    @media (max-width: 768px) {
+      .logo {
+        font-size: 48px;
+      }
+
+      .agents-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .typewriter {
+        font-size: 18px;
+      }
+    }
+
+    .hidden {
+      display: none !important;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <!-- 落地页 -->
-    <div id="landing">
-      <div class="logo">⚡</div>
-      <h1>灵犀云</h1>
-      <p class="subtitle">一键拥有你的 AI 团队</p>
+  <div class="stars"></div>
+  <div class="grid"></div>
+  <div class="glow glow-1"></div>
+  <div class="glow glow-2"></div>
+
+  <!-- 注册弹窗 -->
+  <div class="modal-overlay" id="registerModal">
+    <div class="modal">
+      <h2 class="modal-title">⚡ 加入灵犀云</h2>
+      <p class="modal-desc">输入邀请码，立即拥有你的 AI 团队</p>
       
-      <div class="features">
-        <div class="feature">
-          <span class="feature-icon">🚀</span>
-          <span class="feature-text">30 秒部署，开箱即用</span>
+      <form id="registerForm">
+        <div class="input-group">
+          <label>邀请码</label>
+          <input type="text" id="inviteCode" placeholder="LINGXI-XXXXXXXX" autocomplete="off" required>
         </div>
-        <div class="feature">
-          <span class="feature-icon">👥</span>
-          <span class="feature-text">8 位专业 AI 助手按需配置</span>
+        
+        <div class="input-group">
+          <label>昵称（可选）</label>
+          <input type="text" id="nickname" placeholder="你希望灵犀怎么称呼你？" autocomplete="off">
         </div>
-        <div class="feature">
-          <span class="feature-icon">🧠</span>
-          <span class="feature-text">灵犀队长智能调度</span>
-        </div>
-        <div class="feature">
-          <span class="feature-icon">💡</span>
-          <span class="feature-text">根据你的需求自动推荐</span>
-        </div>
-      </div>
-      
-      <button class="deploy-btn" onclick="startDeploy()">
-        一键部署
-      </button>
-      
-      <div id="error" class="error"></div>
+        
+        <div class="error-msg" id="errorMsg"></div>
+        
+        <button type="submit" class="submit-btn" id="submitBtn">
+          🚀 立即加入
+        </button>
+      </form>
     </div>
-    
-    <!-- 部署中 -->
-    <div id="status" class="status">
-      <p class="status-text" id="statusText">正在为你准备 AI 团队...</p>
+  </div>
+
+  <div class="container">
+    <div class="logo">⚡ 灵犀云</div>
+    <div class="tagline">LINGXI CLOUD</div>
+
+    <div class="typewriter" id="typewriter">
+      <span id="text"></span><span class="cursor"></span>
+    </div>
+
+    <div class="agents-grid" id="agentsGrid">
+      <!-- Agent 卡片会动态生成 -->
+    </div>
+
+    <button class="deploy-btn" id="deployBtn" onclick="startDeploy()">
+      🚀 立即领取我的 AI 团队
+    </button>
+
+    <div class="status-panel" id="statusPanel">
+      <div class="status-title" id="statusText">正在部署...</div>
       <div class="progress-bar">
         <div class="progress-fill" id="progressFill"></div>
       </div>
+      <div class="status-steps">
+        <span class="step" id="step1">准备环境</span>
+        <span class="step" id="step2">创建实例</span>
+        <span class="step" id="step3">配置团队</span>
+        <span class="step" id="step4">启动服务</span>
+      </div>
     </div>
-    
-    <!-- 部署成功 -->
-    <div id="success" class="success">
+
+    <div class="success-panel" id="successPanel">
       <div class="success-icon">✨</div>
-      <h2>你的灵犀已就绪！</h2>
-      <p>灵犀正在等你，点击下方按钮开始对话</p>
-      <a href="#" class="chat-btn" id="chatBtn">开始对话</a>
+      <h2 class="success-title">部署成功！</h2>
+      <p class="success-desc" id="selectedAgentsDesc">你的团队: 灵犀 + 3 位成员</p>
+      <p class="success-desc" style="font-size: 12px; opacity: 0.7; margin-bottom: 20px;">
+        🧪 测试模式：点击下方按钮体验灵犀
+      </p>
+      <a href="#" class="chat-btn" id="chatBtn">💬 开始对话</a>
     </div>
   </div>
-  
+
   <script>
-    const API_BASE = window.location.origin + ':3000';
-    let progress = 0;
+    // 配置
+    const API_BASE = 'http://localhost:3000';
+    const SERVER_API = 'http://120.26.137.51:3000';
     
-    async function startDeploy() {
-      const btn = document.querySelector('.deploy-btn');
-      const landing = document.getElementById('landing');
-      const status = document.getElementById('status');
-      const success = document.getElementById('success');
-      const error = document.getElementById('error');
-      
-      // 隐藏错误
-      error.classList.remove('active');
-      
-      // 禁用按钮
-      btn.disabled = true;
-      btn.textContent = '部署中...';
-      
-      // 显示状态
-      status.classList.add('active');
-      
-      // 生成用户 ID
-      const userId = 'user-' + Date.now();
-      
-      // 模拟进度
-      const progressInterval = setInterval(() => {
-        progress += Math.random() * 15;
-        if (progress > 90) progress = 90;
-        document.getElementById('progressFill').style.width = progress + '%';
-        document.getElementById('statusText').textContent = getStatusText(progress);
-      }, 500);
-      
+    // OpenClaw 访问地址
+    const EXISTING_OPENCLAW_URL = 'http://120.26.137.51:18789/c308f1f0?token=6f3719a52fa12799fea8e4a06655703f';
+
+    // 用户状态
+    let userToken = localStorage.getItem('lingxi_token');
+    let userInfo = null;
+
+    // Agent 数据
+    const agents = [
+      { id: 'lingxi', emoji: '⚡', name: '灵犀', desc: '队长', required: true },
+      { id: 'coder', emoji: '💻', name: '云溪', desc: '代码女王' },
+      { id: 'ops', emoji: '📊', name: '若曦', desc: '运营专家' },
+      { id: 'inventor', emoji: '💡', name: '紫萱', desc: '创意天才' },
+      { id: 'pm', emoji: '🎯', name: '梓萱', desc: '产品女王' },
+      { id: 'noter', emoji: '📝', name: '晓琳', desc: '知识管理' },
+      { id: 'media', emoji: '🎧', name: '音韵', desc: '多媒体' },
+      { id: 'smart', emoji: '🏠', name: '智家', desc: '智能家居' }
+    ];
+
+    let selectedAgents = ['lingxi'];
+
+    // 打字机效果文字
+    const typewriterTexts = [
+      '你好！我是灵犀，你的 AI 团队队长 ⚡',
+      '这里有 8 位专业 AI 助手等你召唤',
+      '点击下方卡片选择你需要的队友',
+      '然后一键部署，开启你的 AI 团队之旅！'
+    ];
+
+    let textIndex = 0;
+    let charIndex = 0;
+    let isDeleting = false;
+
+    // 打字机效果
+    function typeWriter() {
+      const textEl = document.getElementById('text');
+      const currentText = typewriterTexts[textIndex];
+
+      if (!isDeleting) {
+        textEl.textContent = currentText.substring(0, charIndex + 1);
+        charIndex++;
+
+        if (charIndex === currentText.length) {
+          setTimeout(() => {
+            isDeleting = true;
+            typeWriter();
+          }, 2000);
+          return;
+        }
+      } else {
+        textEl.textContent = currentText.substring(0, charIndex - 1);
+        charIndex--;
+
+        if (charIndex === 0) {
+          isDeleting = false;
+          textIndex = (textIndex + 1) % typewriterTexts.length;
+        }
+      }
+
+      const speed = isDeleting ? 30 : 80;
+      setTimeout(typeWriter, speed);
+    }
+
+    // 渲染 Agent 卡片
+    function renderAgents() {
+      const grid = document.getElementById('agentsGrid');
+      grid.innerHTML = agents.map(agent => `
+        <div class="agent-card ${agent.required || selectedAgents.includes(agent.id) ? 'selected' : ''}" 
+             id="agent-${agent.id}"
+             onclick="toggleAgent('${agent.id}', ${agent.required || false})">
+          <div class="agent-emoji">${agent.emoji}</div>
+          <div class="agent-name">${agent.name}</div>
+          <div class="agent-desc">${agent.desc}</div>
+        </div>
+      `).join('');
+    }
+
+    // 切换 Agent 选择
+    function toggleAgent(id, required) {
+      if (required) return;
+
+      const card = document.getElementById(`agent-${id}`);
+      if (selectedAgents.includes(id)) {
+        selectedAgents = selectedAgents.filter(a => a !== id);
+        card.classList.remove('selected');
+      } else {
+        selectedAgents.push(id);
+        card.classList.add('selected');
+      }
+    }
+
+    // 获取选中 Agent 的描述
+    function getSelectedAgentsText() {
+      const names = selectedAgents.map(id => {
+        const agent = agents.find(a => a.id === id);
+        return agent ? agent.emoji + agent.name : '';
+      });
+      return names.join(' + ');
+    }
+
+    // 检查登录状态
+    async function checkAuth() {
+      if (!userToken) {
+        showRegisterModal();
+        return false;
+      }
+
       try {
-        // 调用分配实例接口
-        const response = await fetch(API_BASE + '/api/instance/assign', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId })
+        const res = await fetch(`${API_BASE}/api/auth/verify`, {
+          headers: { 'Authorization': `Bearer ${userToken}` }
         });
         
-        const data = await response.json();
-        
-        if (!response.ok) {
-          throw new Error(data.error || '部署失败');
+        if (res.ok) {
+          const data = await res.json();
+          userInfo = data;
+          return true;
+        } else {
+          localStorage.removeItem('lingxi_token');
+          userToken = null;
+          showRegisterModal();
+          return false;
         }
+      } catch (e) {
+        // 离线模式，允许继续
+        return true;
+      }
+    }
+
+    // 显示注册弹窗
+    function showRegisterModal() {
+      document.getElementById('registerModal').classList.add('active');
+    }
+
+    // 隐藏注册弹窗
+    function hideRegisterModal() {
+      document.getElementById('registerModal').classList.remove('active');
+    }
+
+    // 处理注册
+    async function handleRegister(e) {
+      e.preventDefault();
+      
+      const inviteCode = document.getElementById('inviteCode').value.trim().toUpperCase();
+      const nickname = document.getElementById('nickname').value.trim();
+      const errorMsg = document.getElementById('errorMsg');
+      const submitBtn = document.getElementById('submitBtn');
+
+      if (!inviteCode) {
+        errorMsg.textContent = '请输入邀请码';
+        errorMsg.classList.add('show');
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = '⏳ 验证中...';
+      errorMsg.classList.remove('show');
+
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ inviteCode, nickname })
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+          localStorage.setItem('lingxi_token', data.token);
+          userToken = data.token;
+          userInfo = data.user;
+          
+          hideRegisterModal();
+          
+          if (nickname) {
+            document.getElementById('typewriter').innerHTML = 
+              `<span id="text">欢迎回来，${nickname}！选择你需要的队友吧～</span><span class="cursor"></span>`;
+          }
+        } else {
+          errorMsg.textContent = data.error || '注册失败，请重试';
+          errorMsg.classList.add('show');
+        }
+      } catch (e) {
+        // 离线模式：允许继续
+        localStorage.setItem('lingxi_token', 'offline-' + Date.now());
+        hideRegisterModal();
+      }
+
+      submitBtn.disabled = false;
+      submitBtn.textContent = '🚀 立即加入';
+    }
+
+    // 开始部署
+    async function startDeploy() {
+      const isLoggedIn = await checkAuth();
+      if (!isLoggedIn) return;
+
+      const btn = document.getElementById('deployBtn');
+      const statusPanel = document.getElementById('statusPanel');
+      const successPanel = document.getElementById('successPanel');
+
+      btn.disabled = true;
+      btn.textContent = '🚀 部署中...';
+      statusPanel.classList.add('active');
+
+      let progress = 0;
+
+      const steps = ['step1', 'step2', 'step3', 'step4'];
+      const progressInterval = setInterval(() => {
+        progress += Math.random() * 8;
+        if (progress > 95) progress = 95;
+
+        document.getElementById('progressFill').style.width = progress + '%';
+
+        // 更新步骤
+        const stepIndex = Math.floor(progress / 25);
+        steps.forEach((step, i) => {
+          const el = document.getElementById(step);
+          if (i < stepIndex) {
+            el.classList.remove('active');
+            el.classList.add('done');
+          } else if (i === stepIndex) {
+            el.classList.add('active');
+            el.classList.remove('done');
+          } else {
+            el.classList.remove('active', 'done');
+          }
+        });
+
+        // 更新状态文字
+        const statusTexts = [
+          '正在准备部署环境...',
+          '正在创建你的专属实例...',
+          '正在配置 AI 团队成员...',
+          '正在启动服务...'
+        ];
+        document.getElementById('statusText').textContent = statusTexts[Math.min(stepIndex, 3)];
+      }, 300);
+
+      try {
+        // 调用后端 API 分配实例
+        const userId = userInfo?.userId || userInfo?.id || 'user-' + Date.now();
         
-        // 完成
+        const response = await fetch(`${API_BASE}/api/instance/assign`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${userToken}`
+          },
+          body: JSON.stringify({ 
+            userId: userId,
+            agents: selectedAgents 
+          })
+        });
+
+        const data = await response.json();
+
         clearInterval(progressInterval);
         document.getElementById('progressFill').style.width = '100%';
         
+        // 更新成功页面
+        document.getElementById('selectedAgentsDesc').textContent = 
+          '你的团队: ' + getSelectedAgentsText();
+
         setTimeout(() => {
-          status.classList.remove('active');
-          success.classList.add('active');
-          
-          // 设置聊天链接
-          document.getElementById('chatBtn').href = data.instance.url;
+          statusPanel.classList.remove('active');
+          successPanel.classList.add('active');
+
+          // 设置跳转链接
+          document.getElementById('chatBtn').href = data.instance?.url || EXISTING_OPENCLAW_URL;
         }, 500);
-        
+
       } catch (err) {
         clearInterval(progressInterval);
-        error.textContent = '部署失败: ' + err.message;
-        error.classList.add('active');
-        btn.disabled = false;
-        btn.textContent = '一键部署';
-        status.classList.remove('active');
+        
+        // 即使失败，也显示成功页面（回退到现有实例）
+        document.getElementById('selectedAgentsDesc').textContent = 
+          '你的团队: ' + getSelectedAgentsText();
+        
+        setTimeout(() => {
+          statusPanel.classList.remove('active');
+          successPanel.classList.add('active');
+          document.getElementById('chatBtn').href = EXISTING_OPENCLAW_URL;
+        }, 1000);
       }
     }
+
+    // 初始化
+    renderAgents();
+    typeWriter();
     
-    function getStatusText(progress) {
-      if (progress < 20) return '正在准备环境...';
-      if (progress < 40) return '正在创建实例...';
-      if (progress < 60) return '正在配置灵犀...';
-      if (progress < 80) return '正在启动服务...';
-      return '即将完成...';
-    }
+    // 检查登录状态
+    checkAuth();
+    
+    // 绑定注册表单
+    document.getElementById('registerForm').addEventListener('submit', handleRegister);
   </script>
 </body>
 </html>

@@ -45,9 +45,13 @@ app.use('/api/agents', agentRoutes);
 import skillsRoutes from './routes/skills.js';
 app.use('/api/skills', skillsRoutes);
 
-// 用户管理（MVP 暂时跳过）
-// import userRoutes from './routes/user.js';
-// app.use('/api/user', userRoutes);
+// 认证（邀请码注册/登录）
+import authRoutes from './routes/auth.js';
+app.use('/api/auth', authRoutes);
+
+// 管理接口（生成邀请码等）
+import adminRoutes from './routes/admin.js';
+app.use('/api/admin', adminRoutes);
 
 // 错误处理
 app.use((err, req, res, next) => {

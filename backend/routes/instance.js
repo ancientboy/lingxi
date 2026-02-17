@@ -15,6 +15,16 @@ const router = express.Router();
 const INSTANCES_DIR = process.env.INSTANCES_DIR || '/data/lingxi-instances';
 const OPENCLAW_IMAGE = process.env.OPENCLAW_IMAGE || 'openclaw/openclaw:latest';
 const BASE_PORT = parseInt(process.env.BASE_PORT || '19000');
+const SERVER_IP = process.env.SERVER_IP || '120.26.137.51';
+
+// MVP 模式：复用现有 OpenClaw 实例（18789 端口）
+const MVP_MODE = process.env.MVP_MODE !== 'false'; // 默认开启
+const MVP_OPENCLAW_PORT = parseInt(process.env.MVP_OPENCLAW_PORT || '18789');
+const MVP_OPENCLAW_TOKEN = process.env.MVP_OPENCLAW_TOKEN || '6f3719a52fa12799fea8e4a06655703f';
+const MVP_OPENCLAW_SESSION = process.env.MVP_OPENCLAW_SESSION || 'c308f1f0';
+
+// OpenClaw 配置路径
+const OPENCLAW_CONFIG_PATH = '/home/admin/.openclaw/agents_config.json';
 
 // 实例池（内存存储，MVP 阶段够用）
 let instancePool = [];
@@ -113,17 +123,102 @@ async function createInstance(instanceId) {
 }
 
 /**
+ * 配置 OpenClaw 的 Agents
+ */
+async function configureOpenClawAgents(selectedAgents) {
+  // Agent 配置模板
+  const agentPersonas = {
+    lingxi: '你是灵犀，团队的队长，机灵俏皮的天才调度员。用户提一个需求，你马上知道该派谁去。',
+    coder: '你是云溪，冷静理性的技术专家。擅长代码、架构、性能优化。代码洁癖，追求完美。',
+    ops: '你是若曦，温柔敏锐的数据分析师。擅长数据分析、增长策略、任务规划。数据驱动决策。',
+    inventor: '你是紫萱，天马行空的发明家。擅长创意生成、产品创新、用户体验设计。',
+    pm: '你是梓萱，洞察人性的产品专家。擅长产品设计、用户研究、商业模式分析。',
+    noter: '你是晓琳，温柔细致的知识管理专家。擅长整理、归档、检索信息。',
+    media: '你是音韵，多媒体处理专家。擅长音视频处理、格式转换、媒体分析。',
+    smart: '你是智家，智能家居控制专家。了解各种智能家居协议，能控制智能设备。'
+  };
+
+  try {
+    // 读取现有配置
+    let config = {};
+    try {
+      const data = await fs.readFile(OPENCLAW_CONFIG_PATH, 'utf8');
+      config = JSON.parse(data);
+    } catch {
+      config = { agents: {} };
+    }
+
+    // 确保 main agent 始终存在
+    if (!config.agents) config.agents = {};
+    if (!config.agents.main) {
+      config.agents.main = {
+        name: '灵犀',
+        model: 'zhipu/glm-5',
+        persona: agentPersonas.lingxi,
+        enabled: true
+      };
+    }
+
+    // 更新选中的 agents
+    for (const agentId of selectedAgents) {
+      if (agentId !== 'lingxi' && agentPersonas[agentId]) {
+        const agentNames = {
+          coder: '云溪', ops: '若曦', inventor: '紫萱',
+          pm: '梓萱', noter: '晓琳', media: '音韵', smart: '智家'
+        };
+        config.agents[agentId] = {
+          name: agentNames[agentId],
+          model: 'zhipu/glm-5',
+          persona: agentPersonas[agentId],
+          enabled: true
+        };
+      }
+    }
+
+    // 保存配置
+    await fs.writeFile(OPENCLAW_CONFIG_PATH, JSON.stringify(config, null, 2));
+    console.log(`✅ 已配置 Agents: ${selectedAgents.join(', ')}`);
+    
+    return true;
+  } catch (error) {
+    console.error('配置 Agents 失败:', error);
+    return false;
+  }
+}
+
+/**
  * 分配实例给用户
  */
 router.post('/assign', async (req, res) => {
   try {
-    const { userId } = req.body;
+    const { userId, agents: selectedAgents = ['lingxi'] } = req.body;
     
     if (!userId) {
       return res.status(400).json({ error: 'userId is required' });
     }
     
-    // 查找空闲实例
+    // MVP 模式：配置 OpenClaw agents 并返回访问 URL
+    if (MVP_MODE) {
+      console.log(`🎯 MVP 模式：为用户 ${userId} 配置团队: ${selectedAgents.join(', ')}`);
+      
+      // 配置选中的 agents
+      await configureOpenClawAgents(selectedAgents);
+      
+      // 返回带 token 的 URL
+      const openclawUrl = `http://${SERVER_IP}:${MVP_OPENCLAW_PORT}/${MVP_OPENCLAW_SESSION}?token=${MVP_OPENCLAW_TOKEN}`;
+      
+      return res.json({
+        success: true,
+        instance: {
+          id: 'lingxi-main',
+          url: openclawUrl,
+          status: 'ready',
+          agents: selectedAgents
+        }
+      });
+    }
+    
+    // 正常模式：查找空闲实例
     let instance = instancePool.find(i => i.status === 'idle' && !i.assignedTo);
     
     if (!instance) {
@@ -144,11 +239,14 @@ router.post('/assign', async (req, res) => {
     
     console.log(`✅ 实例 ${instance.id} 已分配给用户 ${userId}`);
     
+    // 返回外网可访问的 URL
+    const publicUrl = instance.url.replace('localhost', SERVER_IP);
+    
     res.json({
       success: true,
       instance: {
         id: instance.id,
-        url: instance.url,
+        url: publicUrl,
         status: instance.status
       }
     });
