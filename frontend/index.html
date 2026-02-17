@@ -208,8 +208,8 @@
       <p class="modal-desc">登录后即可使用你的 AI 团队</p>
       <form id="loginForm">
         <div class="input-group">
-          <label>邀请码</label>
-          <input type="text" id="loginInviteCode" placeholder="LINGXI-XXXXXXXX" autocomplete="off" required>
+          <label>用户名</label>
+          <input type="text" id="loginNickname" placeholder="你的昵称" autocomplete="off" required>
         </div>
         <div class="input-group">
           <label>密码</label>
@@ -328,12 +328,12 @@
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       
-      const inviteCode = document.getElementById('loginInviteCode').value.trim().toUpperCase();
+      const nickname = document.getElementById('loginNickname').value.trim();
       const password = document.getElementById('loginPassword').value;
       const errorEl = document.getElementById('loginError');
       const btn = document.getElementById('loginBtn');
       
-      if (!inviteCode || !password) {
+      if (!nickname || !password) {
         errorEl.textContent = '请填写完整信息';
         errorEl.classList.add('show');
         return;
@@ -347,7 +347,7 @@
         const res = await fetch(`${API_BASE}/api/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ inviteCode, password })
+          body: JSON.stringify({ nickname, password })
         });
         
         const data = await res.json();

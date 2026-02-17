@@ -52,31 +52,33 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// 登录
+// 登录（用昵称+密码）
 router.post('/login', async (req, res) => {
   try {
-    const { inviteCode, password } = req.body;
+    const { nickname, password } = req.body;
     
-    if (!inviteCode || !password) {
-      return res.status(400).json({ error: '请提供邀请码和密码' });
+    if (!nickname || !password) {
+      return res.status(400).json({ error: '请提供用户名和密码' });
     }
     
-    // 查找用户
-    const user = await getUserByInviteCode(inviteCode);
+    // 按昵称查找用户
+    const { getDB } = await import('../utils/db.js');
+    const db = await getDB();
+    const user = db.users.find(u => u.nickname === nickname);
+    
     if (!user) {
-      return res.status(400).json({ error: '用户不存在，请先注册' });
+      return res.status(400).json({ error: '用户不存在' });
     }
     
     // 验证密码
-    if (user.passwordHash) {
-      const valid = await verifyPassword(user.id, password);
-      if (!valid) {
-        return res.status(400).json({ error: '密码错误' });
-      }
-    } else {
-      // 老用户没有密码，设置密码
-      // 这里可以强制要求设置密码，或者允许无密码登录
-      return res.status(400).json({ error: '请先设置密码' });
+    if (!user.passwordHash) {
+      return res.status(400).json({ error: '该账号未设置密码，请联系管理员' });
+    }
+    
+    const { verifyPassword, updateLastLogin } = await import('../utils/db.js');
+    const valid = await verifyPassword(user.id, password);
+    if (!valid) {
+      return res.status(400).json({ error: '密码错误' });
     }
     
     // 更新登录时间
