@@ -11,8 +11,11 @@
       background: #0a0a0f;
       min-height: 100vh;
       color: #fff;
+      display: flex;
+      flex-direction: column;
     }
     
+    /* 导航栏 */
     .navbar {
       background: rgba(20, 20, 30, 0.95);
       border-bottom: 1px solid rgba(255,255,255,0.1);
@@ -24,645 +27,388 @@
       top: 0;
       z-index: 100;
     }
-    .nav-left { display: flex; align-items: center; gap: 15px; }
     .logo {
-      font-size: 24px;
+      font-size: 20px;
       font-weight: 700;
       background: linear-gradient(135deg, #667eea, #00d4ff);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
-    .user-info { font-size: 14px; color: rgba(255,255,255,0.7); }
-    .user-name { color: #00d4ff; font-weight: 500; }
-    .nav-right { display: flex; align-items: center; gap: 10px; }
+    .nav-btns { display: flex; gap: 10px; }
     .nav-btn {
-      padding: 8px 16px;
-      font-size: 13px;
+      padding: 8px 14px;
+      font-size: 12px;
       border: 1px solid rgba(255,255,255,0.2);
       background: transparent;
       color: rgba(255,255,255,0.8);
       border-radius: 6px;
       cursor: pointer;
       text-decoration: none;
-      transition: all 0.2s;
     }
     .nav-btn:hover { background: rgba(255,255,255,0.1); }
-    .nav-btn.primary {
-      background: linear-gradient(135deg, #667eea, #764ba2);
-      border: none;
-      color: #fff;
+    
+    /* 聊天容器 */
+    .chat-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      max-width: 900px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 20px;
     }
     
-    .main { padding: 20px; max-width: 1200px; margin: 0 auto; }
-    
-    /* 欢迎区 */
-    .welcome-card {
-      background: linear-gradient(135deg, rgba(102,126,234,0.1), rgba(0,212,255,0.05));
-      border: 1px solid rgba(102,126,234,0.2);
-      border-radius: 16px;
-      padding: 30px;
+    /* 消息列表 */
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 0;
+    }
+    .message {
       margin-bottom: 20px;
-      text-align: center;
+      display: flex;
+      gap: 12px;
     }
-    .welcome-title { font-size: 28px; font-weight: 700; margin-bottom: 10px; }
-    .welcome-desc { color: rgba(255,255,255,0.6); margin-bottom: 20px; }
-    
-    /* 开始聊天按钮 */
-    .start-chat-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      padding: 16px 40px;
-      font-size: 18px;
-      font-weight: 600;
-      color: #fff;
+    .message.user { flex-direction: row-reverse; }
+    .message-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
       background: linear-gradient(135deg, #667eea, #764ba2);
-      border: none;
-      border-radius: 50px;
-      cursor: pointer;
-      text-decoration: none;
-      transition: all 0.3s;
-    }
-    .start-chat-btn:hover {
-      transform: scale(1.02);
-      box-shadow: 0 10px 30px rgba(102,126,234,0.4);
-    }
-    
-    /* 团队展示 */
-    .section-title {
-      font-size: 18px;
-      font-weight: 600;
-      margin-bottom: 15px;
-      color: rgba(255,255,255,0.9);
-    }
-    .team-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      gap: 15px;
-      margin-bottom: 30px;
-    }
-    .team-card {
-      background: rgba(255,255,255,0.03);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 12px;
-      padding: 20px;
-      display: flex;
-      align-items: center;
-      gap: 15px;
-    }
-    .team-emoji { font-size: 32px; }
-    .team-info { flex: 1; }
-    .team-name { font-size: 16px; font-weight: 600; }
-    .team-role { font-size: 12px; color: rgba(255,255,255,0.5); }
-    
-    /* 集成状态 */
-    .integration-cards {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 15px;
-      margin-bottom: 30px;
-    }
-    .integration-card {
-      background: rgba(255,255,255,0.03);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 12px;
-      padding: 20px;
-    }
-    .integration-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 10px;
-    }
-    .integration-title { font-size: 16px; font-weight: 600; }
-    .status-badge {
-      padding: 4px 10px;
-      border-radius: 20px;
-      font-size: 11px;
-    }
-    .status-badge.active { background: rgba(16,185,129,0.2); color: #10b981; }
-    .status-badge.inactive { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); }
-    .integration-desc { font-size: 13px; color: rgba(255,255,255,0.5); margin-bottom: 15px; }
-    .setup-btn {
-      padding: 8px 16px;
-      font-size: 13px;
-      background: rgba(255,255,255,0.1);
-      border: 1px solid rgba(255,255,255,0.2);
-      color: #fff;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .setup-btn:hover { background: rgba(255,255,255,0.2); }
-    
-    /* 个人中心弹窗 */
-    .modal-overlay {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      background: rgba(0,0,0,0.8);
       display: flex;
       align-items: center;
       justify-content: center;
-      z-index: 200;
-      opacity: 0;
-      visibility: hidden;
-      transition: all 0.3s;
+      font-size: 18px;
+      flex-shrink: 0;
     }
-    .modal-overlay.active { opacity: 1; visibility: visible; }
-    .modal {
-      background: linear-gradient(135deg, rgba(20,20,30,0.98), rgba(10,10,15,0.99));
-      border: 1px solid rgba(102,126,234,0.3);
+    .message.user .message-avatar { background: linear-gradient(135deg, #10b981, #059669); }
+    .message-content {
+      max-width: 70%;
+      padding: 12px 16px;
       border-radius: 16px;
-      padding: 30px;
-      width: 90%;
-      max-width: 400px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
     }
-    .modal-title {
-      font-size: 22px;
-      font-weight: 700;
-      margin-bottom: 20px;
-      background: linear-gradient(135deg, #667eea, #00d4ff);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+    .message.user .message-content {
+      background: linear-gradient(135deg, rgba(102,126,234,0.2), rgba(118,75,162,0.2));
+      border-color: rgba(102,126,234,0.3);
     }
-    .form-group { margin-bottom: 15px; }
-    .form-group label {
-      display: block;
-      font-size: 13px;
-      color: rgba(255,255,255,0.7);
-      margin-bottom: 6px;
+    .message-name {
+      font-size: 12px;
+      color: rgba(255,255,255,0.5);
+      margin-bottom: 4px;
     }
-    .form-group input {
-      width: 100%;
-      padding: 12px;
-      font-size: 14px;
+    .message-text {
+      font-size: 15px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+    
+    /* 输入区 */
+    .input-area {
+      background: rgba(20,20,30,0.95);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 15px;
+      margin-top: 20px;
+    }
+    .input-wrapper {
+      display: flex;
+      gap: 12px;
+      align-items: flex-end;
+    }
+    .input-field {
+      flex: 1;
+      min-height: 44px;
+      max-height: 150px;
+      padding: 12px 16px;
+      font-size: 15px;
       color: #fff;
       background: rgba(255,255,255,0.05);
       border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 8px;
+      border-radius: 12px;
       outline: none;
+      resize: none;
+      font-family: inherit;
     }
-    .form-group input:focus { border-color: rgba(102,126,234,0.5); }
-    .form-btn {
-      width: 100%;
-      padding: 12px;
-      font-size: 15px;
-      font-weight: 600;
-      color: #fff;
+    .input-field:focus { border-color: rgba(102,126,234,0.5); }
+    .input-field::placeholder { color: rgba(255,255,255,0.3); }
+    .send-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
       background: linear-gradient(135deg, #667eea, #764ba2);
       border: none;
-      border-radius: 8px;
+      color: #fff;
+      font-size: 18px;
       cursor: pointer;
-      margin-top: 10px;
+      transition: all 0.2s;
     }
-    .form-btn:disabled { background: #333; cursor: not-allowed; }
-    .form-error { color: #ef4444; font-size: 12px; margin-top: 10px; }
-    .form-success { color: #10b981; font-size: 12px; margin-top: 10px; }
-    .modal-close {
-      position: absolute;
-      top: 15px;
-      right: 15px;
-      background: none;
-      border: none;
-      color: rgba(255,255,255,0.5);
-      font-size: 24px;
-      cursor: pointer;
-    }
+    .send-btn:hover { transform: scale(1.05); }
+    .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     
-    /* 老用户设置密码提示 */
-    .alert-banner {
-      background: rgba(245, 158, 11, 0.1);
-      border: 1px solid rgba(245, 158, 11, 0.3);
-      border-radius: 12px;
-      padding: 15px 20px;
-      margin-bottom: 20px;
+    /* 快捷操作 */
+    .quick-actions {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
     }
-    .alert-text { font-size: 14px; color: rgba(255,255,255,0.8); }
-    .alert-btn {
-      padding: 8px 16px;
-      font-size: 13px;
-      background: rgba(245, 158, 11, 0.2);
-      border: none;
-      color: #f59e0b;
-      border-radius: 6px;
+    .quick-btn {
+      padding: 6px 12px;
+      font-size: 12px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.7);
+      border-radius: 20px;
       cursor: pointer;
     }
-    .hidden { display: none !important; }
+    .quick-btn:hover { background: rgba(255,255,255,0.1); }
     
-    /* 移动端适配 */
-    @media (max-width: 768px) {
-      .nav-right .nav-btn:not(.primary) { display: none; }
-      .team-grid { grid-template-columns: repeat(2, 1fr); }
-      .integration-cards { grid-template-columns: 1fr; }
+    /* 欢迎消息 */
+    .welcome {
+      text-align: center;
+      padding: 40px 20px;
     }
+    .welcome-emoji { font-size: 48px; margin-bottom: 15px; }
+    .welcome-title { font-size: 24px; font-weight: 700; margin-bottom: 10px; }
+    .welcome-desc { color: rgba(255,255,255,0.6); }
+    
+    /* 团队标签 */
+    .team-tags {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+    .team-tag {
+      padding: 6px 12px;
+      background: rgba(102,126,234,0.1);
+      border: 1px solid rgba(102,126,234,0.2);
+      border-radius: 20px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.8);
+    }
+    
+    /* 加载动画 */
+    .typing {
+      display: flex;
+      gap: 4px;
+      padding: 8px 0;
+    }
+    .typing span {
+      width: 8px;
+      height: 8px;
+      background: rgba(255,255,255,0.3);
+      border-radius: 50%;
+      animation: typing 1s infinite;
+    }
+    .typing span:nth-child(2) { animation-delay: 0.2s; }
+    .typing span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes typing {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 1; }
+    }
+    
+    /* 响应式 */
+    @media (max-width: 768px) {
+      .message-content { max-width: 85%; }
+      .nav-btns .nav-btn:not(:last-child) { display: none; }
+    }
+    
+    .hidden { display: none !important; }
   </style>
 </head>
 <body>
   <!-- 导航栏 -->
   <nav class="navbar">
-    <div class="nav-left">
-      <div class="logo">⚡ 灵犀云</div>
-      <div class="user-info">欢迎，<span class="user-name" id="userName">用户</span></div>
-    </div>
-    <div class="nav-right">
-      <a href="/" class="nav-btn">首页</a>
-      <button class="nav-btn" onclick="modifyTeam()">修改团队</button>
-      <button class="nav-btn primary" onclick="showProfile()">⚙️ 个人中心</button>
+    <div class="logo">⚡ 灵犀云</div>
+    <div class="nav-btns">
+      <button class="nav-btn" onclick="clearChat()">清空对话</button>
+      <a href="index.html" class="nav-btn">退出</a>
     </div>
   </nav>
 
-  <div class="main">
-    <!-- 老用户设置密码提示 -->
-    <div class="alert-banner hidden" id="passwordAlert">
-      <span class="alert-text">⚠️ 为保护账号安全，请设置登录密码</span>
-      <button class="alert-btn" onclick="showProfile()">立即设置</button>
-    </div>
-
-    <!-- 欢迎区 -->
-    <div class="welcome-card">
-      <h1 class="welcome-title">你的 AI 团队已就绪！</h1>
-      <p class="welcome-desc" id="teamDesc">团队成员：灵犀 + 云溪 + 若曦</p>
-      <a id="chatLink" class="start-chat-btn" target="_blank">
-        💬 开始对话
-      </a>
-    </div>
-
-    <!-- 我的团队 -->
-    <h2 class="section-title">我的团队</h2>
-    <div class="team-grid" id="teamGrid"></div>
-
-    <!-- 集成状态 -->
-    <h2 class="section-title">平台接入</h2>
-    <div class="integration-cards">
-      <div class="integration-card">
-        <div class="integration-header">
-          <span class="integration-title">📱 飞书</span>
-          <span class="status-badge inactive" id="feishuBadge">未配置</span>
-        </div>
-        <p class="integration-desc">接入飞书后，可在飞书中直接与 AI 团队对话</p>
-        <button class="setup-btn" onclick="setupFeishu()">配置飞书</button>
-      </div>
-      <div class="integration-card">
-        <div class="integration-header">
-          <span class="integration-title">💼 企业微信</span>
-          <span class="status-badge inactive" id="wecomBadge">未配置</span>
-        </div>
-        <p class="integration-desc">接入企业微信后，可在企微中直接与 AI 团队对话</p>
-        <button class="setup-btn" onclick="setupWeCom()">配置企业微信</button>
+  <!-- 聊天容器 -->
+  <div class="chat-container">
+    <!-- 消息列表 -->
+    <div class="messages" id="messages">
+      <div class="welcome" id="welcome">
+        <div class="welcome-emoji">⚡</div>
+        <div class="welcome-title">你好！我是灵犀</div>
+        <div class="welcome-desc">你的 AI 团队队长，有什么可以帮你的？</div>
+        <div class="team-tags" id="teamTags"></div>
       </div>
     </div>
-  </div>
 
-  <!-- 个人中心弹窗 -->
-  <div class="modal-overlay" id="profileModal">
-    <div class="modal" style="position: relative;">
-      <button class="modal-close" onclick="closeProfile()">&times;</button>
-      <h2 class="modal-title">⚙️ 个人中心</h2>
-      
-      <div class="form-group">
-        <label>昵称</label>
-        <input type="text" id="profileNickname" placeholder="你的昵称">
+    <!-- 输入区 -->
+    <div class="input-area">
+      <div class="quick-actions">
+        <button class="quick-btn" onclick="quickSend('帮我写一个脚本')">📝 写脚本</button>
+        <button class="quick-btn" onclick="quickSend('分析一下这个数据')">📊 分析数据</button>
+        <button class="quick-btn" onclick="quickSend('帮我做个计划')">📋 做计划</button>
+        <button class="quick-btn" onclick="quickSend('给点创意建议')">💡 创意建议</button>
       </div>
-      
-      <div id="passwordSection">
-        <div class="form-group">
-          <label>设置新密码</label>
-          <input type="password" id="newPassword" placeholder="至少6位" minlength="6">
-        </div>
-        <div class="form-group">
-          <label>确认密码</label>
-          <input type="password" id="confirmPassword" placeholder="再次输入">
-        </div>
+      <div class="input-wrapper">
+        <textarea class="input-field" id="inputField" placeholder="输入消息..." rows="1"></textarea>
+        <button class="send-btn" id="sendBtn" onclick="sendMessage()">➤</button>
       </div>
-      
-      <button class="form-btn" onclick="saveProfile()">保存</button>
-      <div class="form-error hidden" id="profileError"></div>
-      <div class="form-success hidden" id="profileSuccess"></div>
-      
-      <button class="form-btn" style="background: #333; margin-top: 20px;" onclick="logout()">退出登录</button>
-    </div>
-  </div>
-
-  <!-- 飞书配置弹窗 -->
-  <div class="modal-overlay" id="feishuModal">
-    <div class="modal" style="position: relative;">
-      <button class="modal-close" onclick="closeFeishu()">&times;</button>
-      <h2 class="modal-title">📱 配置飞书</h2>
-      <p style="font-size: 13px; color: rgba(255,255,255,0.5); margin-bottom: 20px;">
-        在飞书开放平台创建应用，填入以下凭证
-      </p>
-      <div class="form-group">
-        <label>App ID</label>
-        <input type="text" id="feishuAppId" placeholder="cli_xxx">
-      </div>
-      <div class="form-group">
-        <label>App Secret</label>
-        <input type="text" id="feishuAppSecret" placeholder="xxx">
-      </div>
-      <button class="form-btn" onclick="saveFeishu()">保存配置</button>
-      <div class="form-error hidden" id="feishuError"></div>
-      <div class="form-success hidden" id="feishuSuccess"></div>
-    </div>
-  </div>
-
-  <!-- 企微配置弹窗 -->
-  <div class="modal-overlay" id="wecomModal">
-    <div class="modal" style="position: relative;">
-      <button class="modal-close" onclick="closeWeCom()">&times;</button>
-      <h2 class="modal-title">💼 配置企业微信</h2>
-      <p style="font-size: 13px; color: rgba(255,255,255,0.5); margin-bottom: 20px;">
-        在企业微信管理后台创建应用，填入以下凭证
-      </p>
-      <div class="form-group">
-        <label>Corp ID</label>
-        <input type="text" id="wecomCorpId" placeholder="企业ID">
-      </div>
-      <div class="form-group">
-        <label>Agent ID</label>
-        <input type="text" id="wecomAgentId" placeholder="应用ID">
-      </div>
-      <div class="form-group">
-        <label>Secret</label>
-        <input type="text" id="wecomSecret" placeholder="应用Secret">
-      </div>
-      <button class="form-btn" onclick="saveWeCom()">保存配置</button>
-      <div class="form-error hidden" id="wecomError"></div>
-      <div class="form-success hidden" id="wecomSuccess"></div>
     </div>
   </div>
 
   <script>
-    const API_BASE = 'http://localhost:3000';
-    const OPENCLAW_URL = 'http://120.26.137.51:18789/c308f1f0?token=6f3719a52fa12799fea8e4a06655703f';
+    const OPENCLAW_API = 'http://120.26.137.51:18789/c308f1f0/api/chat';
+    const OPENCLAW_TOKEN = '6f3719a52fa12799fea8e4a06655703f';
     
     const AGENT_INFO = {
-      lingxi: { emoji: '⚡', name: '灵犀', role: '队长 · 智能调度' },
-      coder: { emoji: '💻', name: '云溪', role: '代码女王' },
-      ops: { emoji: '📊', name: '若曦', role: '运营专家' },
-      inventor: { emoji: '💡', name: '紫萱', role: '创意天才' },
-      pm: { emoji: '🎯', name: '梓萱', role: '产品女王' },
-      noter: { emoji: '📝', name: '晓琳', role: '知识管理' },
-      media: { emoji: '🎧', name: '音韵', role: '多媒体' },
-      smart: { emoji: '🏠', name: '智家', role: '智能家居' }
+      lingxi: { emoji: '⚡', name: '灵犀' },
+      coder: { emoji: '💻', name: '云溪' },
+      ops: { emoji: '📊', name: '若曦' },
+      inventor: { emoji: '💡', name: '紫萱' },
+      pm: { emoji: '🎯', name: '梓萱' },
+      noter: { emoji: '📝', name: '晓琳' },
+      media: { emoji: '🎧', name: '音韵' },
+      smart: { emoji: '🏠', name: '智家' }
     };
     
     let user = null;
-    let token = localStorage.getItem('lingxi_token');
+    let messages = [];
     
     // 初始化
-    async function init() {
+    function init() {
       // 检查登录
+      const token = localStorage.getItem('lingxi_token');
       if (!token) {
         window.location.href = 'index.html';
         return;
       }
       
-      // 加载用户信息
-      await loadUser();
+      // 加载用户
+      const userStr = localStorage.getItem('lingxi_user');
+      user = userStr ? JSON.parse(userStr) : { nickname: '用户', agents: ['lingxi'] };
       
-      // 检查是否有密码
-      if (user && !user.hasPassword) {
-        document.getElementById('passwordAlert').classList.remove('hidden');
-      }
+      // 显示团队标签
+      renderTeamTags();
       
-      // 渲染团队
-      renderTeam();
-      
-      // 设置聊天链接
-      document.getElementById('chatLink').href = OPENCLAW_URL;
-      
-      // 检查集成状态
-      checkIntegrations();
-    }
-    
-    // 加载用户信息
-    async function loadUser() {
-      try {
-        const userStr = localStorage.getItem('lingxi_user');
-        user = userStr ? JSON.parse(userStr) : null;
-        
-        // 从 API 获取最新信息
-        const res = await fetch(`${API_BASE}/api/auth/me`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (res.ok) {
-          const data = await res.json();
-          user = { ...user, ...data };
-          localStorage.setItem('lingxi_user', JSON.stringify(user));
+      // 绑定回车发送
+      document.getElementById('inputField').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          sendMessage();
         }
-      } catch (e) {
-        console.log('加载用户信息失败:', e);
-      }
+      });
       
-      if (user) {
-        document.getElementById('userName').textContent = user.nickname || '用户';
-        document.getElementById('profileNickname').value = user.nickname || '';
-      }
+      // 自动调整输入框高度
+      document.getElementById('inputField').addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 150) + 'px';
+      });
     }
     
-    // 渲染团队
-    function renderTeam() {
+    // 渲染团队标签
+    function renderTeamTags() {
       const agents = user?.agents || ['lingxi'];
-      const grid = document.getElementById('teamGrid');
+      const tags = document.getElementById('teamTags');
       
-      grid.innerHTML = agents.map(id => {
-        const agent = AGENT_INFO[id] || { emoji: '🤖', name: id, role: '助手' };
-        return `
-          <div class="team-card">
-            <div class="team-emoji">${agent.emoji}</div>
-            <div class="team-info">
-              <div class="team-name">${agent.name}</div>
-              <div class="team-role">${agent.role}</div>
-            </div>
-          </div>
-        `;
+      tags.innerHTML = agents.map(id => {
+        const agent = AGENT_INFO[id] || { emoji: '🤖', name: id };
+        return `<span class="team-tag">${agent.emoji} ${agent.name}</span>`;
       }).join('');
-      
-      // 更新团队描述
-      const names = agents.map(id => AGENT_INFO[id]?.name || id);
-      document.getElementById('teamDesc').textContent = `团队成员：${names.join(' + ')}`;
     }
     
-    // 检查集成状态
-    async function checkIntegrations() {
-      if (!user?.id) return;
+    // 发送消息
+    async function sendMessage() {
+      const input = document.getElementById('inputField');
+      const text = input.value.trim();
+      
+      if (!text) return;
+      
+      // 隐藏欢迎
+      document.getElementById('welcome').classList.add('hidden');
+      
+      // 添加用户消息
+      addMessage('user', text, user?.nickname || '我');
+      input.value = '';
+      input.style.height = 'auto';
+      
+      // 显示加载
+      const loadingId = addMessage('assistant', 'typing', '灵犀');
       
       try {
-        // 飞书
-        const feishuRes = await fetch(`${API_BASE}/api/feishu/status/${user.id}`);
-        const feishuData = await feishuRes.json();
-        if (feishuData.configured) {
-          document.getElementById('feishuBadge').textContent = '已配置';
-          document.getElementById('feishuBadge').classList.replace('inactive', 'active');
-        }
-        
-        // 企微
-        const wecomRes = await fetch(`${API_BASE}/api/wecom/status/${user.id}`);
-        const wecomData = await wecomRes.json();
-        if (wecomData.configured) {
-          document.getElementById('wecomBadge').textContent = '已配置';
-          document.getElementById('wecomBadge').classList.replace('inactive', 'active');
-        }
-      } catch (e) {
-        console.log('检查集成状态失败:', e);
-      }
-    }
-    
-    // 修改团队
-    function modifyTeam() {
-      window.location.href = 'team.html';
-    }
-    
-    // 个人中心
-    function showProfile() {
-      document.getElementById('profileModal').classList.add('active');
-    }
-    
-    function closeProfile() {
-      document.getElementById('profileModal').classList.remove('active');
-    }
-    
-    async function saveProfile() {
-      const nickname = document.getElementById('profileNickname').value.trim();
-      const password = document.getElementById('newPassword').value;
-      const confirm = document.getElementById('confirmPassword').value;
-      const errorEl = document.getElementById('profileError');
-      const successEl = document.getElementById('profileSuccess');
-      
-      errorEl.classList.add('hidden');
-      successEl.classList.add('hidden');
-      
-      if (password && password.length < 6) {
-        errorEl.textContent = '密码至少6位';
-        errorEl.classList.remove('hidden');
-        return;
-      }
-      
-      if (password && password !== confirm) {
-        errorEl.textContent = '两次密码不一致';
-        errorEl.classList.remove('hidden');
-        return;
-      }
-      
-      // TODO: 调用 API 保存
-      user.nickname = nickname;
-      if (password) user.hasPassword = true;
-      localStorage.setItem('lingxi_user', JSON.stringify(user));
-      
-      document.getElementById('userName').textContent = nickname || '用户';
-      document.getElementById('passwordAlert').classList.add('hidden');
-      
-      successEl.textContent = '保存成功！';
-      successEl.classList.remove('hidden');
-    }
-    
-    // 飞书配置
-    function setupFeishu() {
-      document.getElementById('feishuModal').classList.add('active');
-    }
-    
-    function closeFeishu() {
-      document.getElementById('feishuModal').classList.remove('active');
-    }
-    
-    async function saveFeishu() {
-      const appId = document.getElementById('feishuAppId').value.trim();
-      const appSecret = document.getElementById('feishuAppSecret').value.trim();
-      const errorEl = document.getElementById('feishuError');
-      const successEl = document.getElementById('feishuSuccess');
-      
-      errorEl.classList.add('hidden');
-      successEl.classList.add('hidden');
-      
-      if (!appId || !appSecret) {
-        errorEl.textContent = '请填写完整信息';
-        errorEl.classList.remove('hidden');
-        return;
-      }
-      
-      try {
-        const res = await fetch(`${API_BASE}/api/feishu/configure`, {
+        // 调用 OpenClaw API
+        const response = await fetch(OPENCLAW_API, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: user.id, appId, appSecret })
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${OPENCLAW_TOKEN}`
+          },
+          body: JSON.stringify({
+            message: text,
+            userId: user?.id || 'web-user'
+          })
         });
         
-        const data = await res.json();
+        // 移除加载
+        removeMessage(loadingId);
         
-        if (data.success) {
-          successEl.innerHTML = `✅ 配置成功！<br><small>回调地址：${data.config.webhookUrl}</small>`;
-          successEl.classList.remove('hidden');
-          document.getElementById('feishuBadge').textContent = '已配置';
-          document.getElementById('feishuBadge').classList.replace('inactive', 'active');
+        if (response.ok) {
+          const data = await response.json();
+          const reply = data.response || data.message || '抱歉，我没听懂，再说一次？';
+          addMessage('assistant', reply, '灵犀');
         } else {
-          errorEl.textContent = data.error || '配置失败';
-          errorEl.classList.remove('hidden');
+          addMessage('assistant', '网络出了点问题，稍后再试~', '灵犀');
         }
       } catch (e) {
-        errorEl.textContent = '网络错误';
-        errorEl.classList.remove('hidden');
+        removeMessage(loadingId);
+        addMessage('assistant', '连接失败，请检查网络~', '灵犀');
       }
     }
     
-    // 企微配置
-    function setupWeCom() {
-      document.getElementById('wecomModal').classList.add('active');
+    // 快捷发送
+    function quickSend(text) {
+      document.getElementById('inputField').value = text;
+      sendMessage();
     }
     
-    function closeWeCom() {
-      document.getElementById('wecomModal').classList.remove('active');
+    // 添加消息
+    function addMessage(role, text, name) {
+      const id = 'msg-' + Date.now();
+      const messagesEl = document.getElementById('messages');
+      
+      const avatar = role === 'user' ? '👤' : '⚡';
+      const content = text === 'typing' 
+        ? '<div class="typing"><span></span><span></span><span></span></div>'
+        : text;
+      
+      const html = `
+        <div class="message ${role}" id="${id}">
+          <div class="message-avatar">${avatar}</div>
+          <div class="message-content">
+            <div class="message-name">${name}</div>
+            <div class="message-text">${content}</div>
+          </div>
+        </div>
+      `;
+      
+      messagesEl.insertAdjacentHTML('beforeend', html);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+      
+      return id;
     }
     
-    async function saveWeCom() {
-      const corpId = document.getElementById('wecomCorpId').value.trim();
-      const agentId = document.getElementById('wecomAgentId').value.trim();
-      const secret = document.getElementById('wecomSecret').value.trim();
-      const errorEl = document.getElementById('wecomError');
-      const successEl = document.getElementById('wecomSuccess');
-      
-      errorEl.classList.add('hidden');
-      successEl.classList.add('hidden');
-      
-      if (!corpId || !agentId || !secret) {
-        errorEl.textContent = '请填写完整信息';
-        errorEl.classList.remove('hidden');
-        return;
-      }
-      
-      try {
-        const res = await fetch(`${API_BASE}/api/wecom/configure`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: user.id, corpId, agentId, secret })
-        });
-        
-        const data = await res.json();
-        
-        if (data.success) {
-          successEl.innerHTML = `✅ 配置成功！<br><small>回调地址：${data.config.callbackUrl}</small>`;
-          successEl.classList.remove('hidden');
-          document.getElementById('wecomBadge').textContent = '已配置';
-          document.getElementById('wecomBadge').classList.replace('inactive', 'active');
-        } else {
-          errorEl.textContent = data.error || '配置失败';
-          errorEl.classList.remove('hidden');
-        }
-      } catch (e) {
-        errorEl.textContent = '网络错误';
-        errorEl.classList.remove('hidden');
-      }
+    // 移除消息
+    function removeMessage(id) {
+      const el = document.getElementById(id);
+      if (el) el.remove();
     }
     
-    // 退出登录
-    function logout() {
-      localStorage.removeItem('lingxi_token');
-      localStorage.removeItem('lingxi_user');
-      window.location.href = 'index.html';
+    // 清空对话
+    function clearChat() {
+      const messagesEl = document.getElementById('messages');
+      messagesEl.innerHTML = '';
+      document.getElementById('welcome').classList.remove('hidden');
+      messagesEl.appendChild(document.getElementById('welcome'));
     }
     
     // 启动
