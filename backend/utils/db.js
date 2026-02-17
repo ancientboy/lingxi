@@ -138,6 +138,19 @@ export async function updateUserInstance(userId, instanceId, status = 'ready') {
   }
 }
 
+export async function updateUserAgents(userId, agents) {
+  const db = await getDB();
+  const user = db.users.find(u => u.id === userId);
+  if (user) {
+    user.agents = agents;
+    user.agentsUpdatedAt = new Date().toISOString();
+    await saveDB(db);
+    console.log(`✅ 已更新用户 ${userId} 的团队配置: ${agents.join(', ')}`);
+    return user;
+  }
+  return null;
+}
+
 export async function updateLastLogin(userId) {
   const db = await getDB();
   const user = db.users.find(u => u.id === userId);

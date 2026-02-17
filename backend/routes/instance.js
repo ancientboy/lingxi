@@ -7,6 +7,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs/promises';
 import path from 'path';
+import { updateUserAgents, getUser } from '../utils/db.js';
 
 const execAsync = promisify(exec);
 const router = express.Router();
@@ -201,7 +202,10 @@ router.post('/assign', async (req, res) => {
     if (MVP_MODE) {
       console.log(`🎯 MVP 模式：为用户 ${userId} 配置团队: ${selectedAgents.join(', ')}`);
       
-      // 配置选中的 agents
+      // 🔒 保存用户的团队配置
+      await updateUserAgents(userId, selectedAgents);
+      
+      // 配置 OpenClaw agents
       await configureOpenClawAgents(selectedAgents);
       
       // 返回带 token 的 URL

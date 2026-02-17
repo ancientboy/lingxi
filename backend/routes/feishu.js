@@ -193,16 +193,42 @@ router.post('/webhook/:userId', async (req, res) => {
 });
 
 /**
- * 调用 OpenClaw 进行对话
+ * 调用 OpenClaw 进行对话（多用户隔离版本）
+ * 
+ * 隔离方案：
+ * 1. 测试阶段：共享实例，但通过消息前缀区分用户
+ * 2. 生产阶段：每个用户独立 OpenClaw 实例
  */
 async function callOpenClaw(userId, text) {
   const db = await getDB();
-  const user = db.users?.find(u => u.id === userId);
   
-  // OpenClaw API 地址
-  const openclawUrl = process.env.OPENCLAW_URL || 'http://localhost:18789';
-  const openclawToken = process.env.OPENCLAW_TOKEN || '6f3719a52fa12799fea8e4a06655703f';
-  const openclawSession = process.env.OPENCLAW_SESSION || 'c308f1f0';
+  // 获取用户信息
+  const user = db.users?.find(u => u.id === userId);
+  const feishuConfig = db.feishuConfigs?.find(c => c.userId === userId);
+  
+  // 🔒 隔离策略：
+  // 1. 检查用户是否有专属的 OpenClaw 实例（生产阶段）
+  // 2. 否则使用共享实例，但标记用户（测试阶段）
+  
+  const openclawUrl = feishuConfig?.openclawUrl || 
+                      user?.openclawUrl ||
+                      process.env.OPENCLAW_URL || 
+                      'http://localhost:18789';
+                      
+  const openclawToken = feishuConfig?.openclawToken || 
+                        process.env.OPENCLAW_TOKEN || 
+                        '6f3719a52fa12799fea8e4a06655703f';
+                        
+  const openclawSession = feishuConfig?.openclawSession || 
+                          user?.openclawSession ||
+                          process.env.OPENCLAW_SESSION || 
+                          'c308f1f0';
+  
+  // 🏷️ 为消息添加用户标识（测试阶段隔离）
+  const userTag = user?.nickname || userId.substring(0, 8);
+  const taggedMessage = `[${userTag}] ${text}`;
+  
+  console.log(`🔒 用户隔离: 用户=${userId}, Session=${openclawSession}, 实例=${openclawUrl}`);
   
   try {
     const response = await fetch(`${openclawUrl}/${openclawSession}/api/chat`, {
@@ -211,15 +237,17 @@ async function callOpenClaw(userId, text) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${openclawToken}`
       },
-      body: JSON.stringify({
-        message: text,
-        userId: userId
+      body: JSON.stringify({ 
+        message: taggedMessage,  // 带用户标识的消息
+        userId: userId,           // 传递真实用户ID
+        source: 'feishu',
+        userTag: userTag          // 用户标签
       })
     });
     
     if (!response.ok) {
-      // 如果 OpenClaw API 不可用，返回默认回复
-      return `收到：${text}\n\n（灵犀正在准备中，请稍后再试～）`;
+      console.log('OpenClaw 调用失败，使用降级回复');
+      return buildFallbackReply(text);
     }
     
     const data = await response.json();
@@ -227,10 +255,15 @@ async function callOpenClaw(userId, text) {
     
   } catch (error) {
     console.error('调用 OpenClaw 失败:', error.message);
-    
-    // 降级：返回简单的回复
-    return `我是灵犀 ⚡\n\n你说：${text}\n\n我已收到，稍后为你处理～`;
+    return buildFallbackReply(text);
   }
+}
+
+/**
+ * 降级回复
+ */
+function buildFallbackReply(text) {
+  return `我是灵犀 ⚡\n\n你说：${text}\n\n我已收到，稍后为你处理～`;
 }
 
 /**
