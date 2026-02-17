@@ -172,8 +172,8 @@ export async function getAgentConfig(userId) {
   return configs.length > 0 ? configs[configs.length - 1] : null;
 }
 
-// 导出getDB供其他模块使用
-export { getDB };
+// 导出函数供其他模块使用
+export { getDB, saveDB };
 
 // 初始化
 initDB().then(() => {

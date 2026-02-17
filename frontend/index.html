@@ -515,6 +515,35 @@
     <div class="logo">⚡ 灵犀云</div>
     <div class="tagline">LINGXI CLOUD</div>
 
+    <!-- 有趣的介绍文案 -->
+    <div class="intro-section" style="margin: 30px auto 40px; max-width: 600px; text-align: center;">
+      <p class="intro-text" style="font-size: 16px; line-height: 1.8; color: rgba(255,255,255,0.7); margin-bottom: 20px;">
+        <span style="font-size: 24px;">🎭</span> 
+        <span style="background: linear-gradient(135deg, #667eea, #00d4ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 600;">你不是在找一个 AI</span><br>
+        你是在找一支能打仗的团队
+      </p>
+      <div class="feature-list" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 25px;">
+        <div class="feature-item" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 15px 10px;">
+          <div style="font-size: 28px; margin-bottom: 8px;">🧠</div>
+          <div style="font-size: 13px; color: rgba(255,255,255,0.6);">记忆系统</div>
+          <div style="font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 5px;">记得你的喜好</div>
+        </div>
+        <div class="feature-item" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 15px 10px;">
+          <div style="font-size: 28px; margin-bottom: 8px;">🎯</div>
+          <div style="font-size: 13px; color: rgba(255,255,255,0.6);">智能调度</div>
+          <div style="font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 5px;">需求自动分配</div>
+        </div>
+        <div class="feature-item" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 15px 10px;">
+          <div style="font-size: 28px; margin-bottom: 8px;">⚡</div>
+          <div style="font-size: 13px; color: rgba(255,255,255,0.6);">一键部署</div>
+          <div style="font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 5px;">30秒拥有团队</div>
+        </div>
+      </div>
+      <p style="font-size: 14px; color: rgba(255,255,255,0.5); margin-top: 20px; font-style: italic;">
+        "代码找云溪，数据找若曦，创意找紫萱<br>我灵犀一句话，千军万马来相见 ⚡"
+      </p>
+    </div>
+
     <div class="typewriter" id="typewriter">
       <span id="text"></span><span class="cursor"></span>
     </div>
@@ -548,6 +577,27 @@
         🧪 测试模式：点击下方按钮体验灵犀
       </p>
       <a href="#" class="chat-btn" id="chatBtn">💬 开始对话</a>
+      
+      <!-- 飞书配置 -->
+      <div style="margin-top: 40px; padding-top: 30px; border-top: 1px solid rgba(255,255,255,0.1);">
+        <h3 style="font-size: 18px; margin-bottom: 15px; color: rgba(255,255,255,0.8);">
+          📱 接入飞书（可选）
+        </h3>
+        <p style="font-size: 13px; color: rgba(255,255,255,0.5); margin-bottom: 20px;">
+          在飞书开放平台创建应用，填入凭证即可一键接入
+        </p>
+        <div id="feishuForm" style="display: grid; gap: 15px;">
+          <input type="text" id="feishuAppId" placeholder="飞书 App ID" 
+                 style="padding: 12px 15px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff; outline: none;">
+          <input type="text" id="feishuAppSecret" placeholder="飞书 App Secret" 
+                 style="padding: 12px 15px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff; outline: none;">
+          <button onclick="configureFeishu()" 
+                  style="padding: 12px; background: linear-gradient(135deg, #00d4ff, #667eea); border: none; border-radius: 8px; color: #fff; font-weight: 600; cursor: pointer;">
+            🔗 一键配置飞书
+          </button>
+        </div>
+        <div id="feishuStatus" style="margin-top: 15px; font-size: 13px;"></div>
+      </div>
     </div>
   </div>
 
@@ -656,7 +706,7 @@
       return names.join(' + ');
     }
 
-    // 检查登录状态
+    // 检查登录状态（不在启动时弹出，只在点击部署时检查）
     async function checkAuth() {
       if (!userToken) {
         showRegisterModal();
@@ -846,11 +896,76 @@
     renderAgents();
     typeWriter();
     
-    // 检查登录状态
-    checkAuth();
+    // 不在启动时检查登录，让用户先体验页面
+    // checkAuth();
     
     // 绑定注册表单
     document.getElementById('registerForm').addEventListener('submit', handleRegister);
+    
+    // ============ 飞书配置 ============
+    
+    // 配置飞书
+    async function configureFeishu() {
+      const appId = document.getElementById('feishuAppId').value.trim();
+      const appSecret = document.getElementById('feishuAppSecret').value.trim();
+      const statusEl = document.getElementById('feishuStatus');
+      
+      if (!appId || !appSecret) {
+        statusEl.innerHTML = '<span style="color: #ef4444;">❌ 请填写完整的飞书凭证</span>';
+        return;
+      }
+      
+      const userId = userInfo?.userId || userInfo?.id || 'user-' + Date.now();
+      
+      statusEl.innerHTML = '<span style="color: #00d4ff;">⏳ 正在验证凭证...</span>';
+      
+      try {
+        const res = await fetch(`${API_BASE}/api/feishu/configure`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, appId, appSecret })
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+          statusEl.innerHTML = `
+            <span style="color: #10b981;">✅ ${data.message}</span>
+            <div style="margin-top: 10px; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 6px; text-align: left; font-size: 12px;">
+              <div><strong>机器人名称:</strong> ${data.config.botName}</div>
+              <div style="margin-top: 5px;"><strong>回调地址:</strong></div>
+              <div style="color: #00d4ff; word-break: break-all;">${data.config.webhookUrl}</div>
+              <div style="margin-top: 10px; color: rgba(255,255,255,0.6);">
+                请在飞书开放平台 → 事件订阅 → 配置此地址
+              </div>
+            </div>
+          `;
+        } else {
+          statusEl.innerHTML = `<span style="color: #ef4444;">❌ ${data.error}</span>`;
+        }
+      } catch (e) {
+        statusEl.innerHTML = `<span style="color: #ef4444;">❌ 配置失败: ${e.message}</span>`;
+      }
+    }
+    
+    // 检查飞书配置状态
+    async function checkFeishuStatus() {
+      const userId = userInfo?.userId || userInfo?.id;
+      if (!userId) return;
+      
+      try {
+        const res = await fetch(`${API_BASE}/api/feishu/status/${userId}`);
+        const data = await res.json();
+        
+        if (data.configured) {
+          document.getElementById('feishuStatus').innerHTML = `
+            <span style="color: #10b981;">✅ 飞书已配置: ${data.botName}</span>
+          `;
+        }
+      } catch (e) {
+        // 忽略错误
+      }
+    }
   </script>
 </body>
 </html>

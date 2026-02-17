@@ -49,6 +49,10 @@ app.use('/api/skills', skillsRoutes);
 import authRoutes from './routes/auth.js';
 app.use('/api/auth', authRoutes);
 
+// 飞书配置
+import feishuRoutes from './routes/feishu.js';
+app.use('/api/feishu', feishuRoutes);
+
 // 管理接口（生成邀请码等）
 import adminRoutes from './routes/admin.js';
 app.use('/api/admin', adminRoutes);
