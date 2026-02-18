@@ -721,10 +721,13 @@
   </div>
 
   <script>
+    // 配置变量（从后端动态获取）
     const API_BASE = window.location.origin;
-    const GATEWAY_WS = `ws://${window.location.hostname}:18789`;
-    const GATEWAY_TOKEN = '6f3719a52fa12799fea8e4a06655703f';
-    const GATEWAY_SESSION = 'c308f1f0';  // OpenClaw Gateway session
+    let GATEWAY_WS = null;
+    let GATEWAY_TOKEN = null;
+    let GATEWAY_SESSION = null;
+    let SESSION_PREFIX = null;
+    
     let SESSION_KEY = null;  // 用户主会话（根据用户ID生成）
     let currentSessionKey = null;  // 当前活动会话
     
@@ -794,7 +797,7 @@
     let isGenerating = false;
     
     // 初始化
-    function init() {
+    async function init() {
       console.log('🚀 初始化聊天页面...');
       
       const token = localStorage.getItem('lingxi_token');
@@ -815,8 +818,37 @@
         return;
       }
       
+      // 🔒 安全：从后端获取 Gateway 连接信息（不硬编码 token）
+      try {
+        console.log('📡 获取 Gateway 连接信息...');
+        const res = await fetch(`${API_BASE}/api/gateway/connect-info`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!res.ok) {
+          console.error('❌ 获取连接信息失败');
+          alert('登录已过期，请重新登录');
+          localStorage.removeItem('lingxi_token');
+          window.location.href = 'index.html';
+          return;
+        }
+        
+        const gatewayInfo = await res.json();
+        GATEWAY_WS = gatewayInfo.wsUrl;
+        GATEWAY_TOKEN = gatewayInfo.token;
+        GATEWAY_SESSION = gatewayInfo.session;
+        SESSION_PREFIX = gatewayInfo.sessionPrefix;
+        
+        console.log('✅ Gateway 配置已获取');
+        
+      } catch (e) {
+        console.error('❌ 获取 Gateway 配置失败:', e);
+        alert('网络错误，请刷新页面');
+        return;
+      }
+      
       // 使用用户ID生成主会话key
-      SESSION_KEY = `user_${user.id.substring(0, 8)}:main`;
+      SESSION_KEY = `${SESSION_PREFIX}:main`;
       currentSessionKey = SESSION_KEY;
       console.log('🔑 会话 Key:', currentSessionKey);
       
@@ -1431,8 +1463,8 @@
     async function createNewSession() {
       closeSessionModal();
       
-      // 生成新的会话 key
-      const newSessionKey = `user_${user.id.substring(0, 8)}:chat_${Date.now()}`;
+      // 生成新的会话 key（使用从后端获取的 session prefix）
+      const newSessionKey = `${SESSION_PREFIX}:chat_${Date.now()}`;
       currentSessionKey = newSessionKey;
       console.log('🆕 创建新会话:', currentSessionKey);
       

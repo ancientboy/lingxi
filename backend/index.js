@@ -68,6 +68,10 @@ app.use('/api/chat', chatRoutes);
 import adminRoutes from './routes/admin.js';
 app.use('/api/admin', adminRoutes);
 
+// Gateway 代理（安全获取连接信息）
+import gatewayRoutes from './routes/gateway.js';
+app.use('/api/gateway', gatewayRoutes);
+
 // 错误处理
 app.use((err, req, res, next) => {
   console.error('Error:', err);
