@@ -724,8 +724,9 @@
     const API_BASE = window.location.origin;
     const GATEWAY_WS = `ws://${window.location.hostname}:18789`;
     const GATEWAY_TOKEN = '6f3719a52fa12799fea8e4a06655703f';
-    const SESSION_KEY = 'c308f1f0';  // OpenClaw 主会话
-    let currentSessionKey = SESSION_KEY;  // 当前活动会话
+    const GATEWAY_SESSION = 'c308f1f0';  // OpenClaw Gateway session
+    let SESSION_KEY = null;  // 用户主会话（根据用户ID生成）
+    let currentSessionKey = null;  // 当前活动会话
     
     const AGENT_INFO = {
       lingxi: { emoji: '⚡', name: '灵犀', desc: '队长·调度员' },
@@ -753,6 +754,18 @@
       }
       
       user = JSON.parse(localStorage.getItem('lingxi_user') || '{}');
+      
+      // 初始化用户专属会话
+      if (!user.id) {
+        alert('用户信息错误，请重新登录');
+        window.location.href = 'index.html';
+        return;
+      }
+      
+      // 使用用户ID生成主会话key
+      SESSION_KEY = `user_${user.id.substring(0, 8)}:main`;
+      currentSessionKey = SESSION_KEY;
+      
       renderTeamTags();
       connectWebSocket();
       
@@ -779,7 +792,7 @@
       statusEl.className = 'status';
       
       try {
-        ws = new WebSocket(`${GATEWAY_WS}/${SESSION_KEY}/ws`);
+        ws = new WebSocket(`${GATEWAY_WS}/${GATEWAY_SESSION}/ws`);
         
         ws.onopen = () => {
           console.log('WebSocket 已连接，等待 750ms 后发送 connect...');
@@ -1159,6 +1172,10 @@
     // 渲染会话列表
     function renderSessionList() {
       const container = document.getElementById('sessionList');
+      const userPrefix = `user_${user.id.substring(0, 8)}:`;
+      
+      // 过滤当前用户的会话
+      const userSessions = sessions.filter(s => s.key.startsWith(userPrefix));
       
       // 添加"新会话"按钮
       let html = `
@@ -1172,7 +1189,7 @@
       `;
       
       // 渲染会话
-      for (const session of sessions) {
+      for (const session of userSessions) {
         const isActive = session.key === currentSessionKey;
         const displayName = session.displayName || session.key.split(':').pop() || '对话';
         const preview = session.lastMessage || '暂无消息';
@@ -1195,7 +1212,7 @@
     // 创建新会话
     async function createNewSession() {
       closeSessionModal();
-      currentSessionKey = `webchat_${Date.now()}`;
+      currentSessionKey = `user_${user.id.substring(0, 8)}:chat_${Date.now()}`;
       
       // 清空聊天
       const container = document.getElementById('messages');
