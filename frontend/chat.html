@@ -1125,6 +1125,7 @@
     function renderTeamTags() {
       const agents = user?.agents || ['lingxi'];
       const tags = document.getElementById('teamTags');
+      if (!tags) return;  // 元素不存在时跳过
       tags.innerHTML = agents.map(id => {
         const agent = AGENT_INFO[id] || { emoji: '🤖', name: id };
         return `<span class="team-tag">${agent.emoji} ${agent.name}</span>`;
@@ -1665,6 +1666,7 @@
     function renderMyTeam() {
       const myAgents = user?.agents || ['lingxi'];
       const container = document.getElementById('myTeamList');
+      if (!container) return;  // 元素不存在时跳过
       
       if (myAgents.length === 0) {
         container.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.5);">还没有添加团队成员</p>';
@@ -1706,6 +1708,7 @@
     function renderAvailableAgents() {
       const myAgents = user?.agents || ['lingxi'];
       const container = document.getElementById('availableAgents');
+      if (!container) return;  // 元素不存在时跳过
       
       const available = Object.keys(AGENT_INFO).filter(id => !myAgents.includes(id));
       
