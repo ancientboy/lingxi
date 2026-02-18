@@ -5,7 +5,7 @@ import { getDB } from '../utils/db.js';
 const router = Router();
 
 // JWT 密钥（和 auth.js 保持一致）
-const JWT_SECRET = process.env.JWT_SECRET || 'lingxi-cloud-secret-key-2024';
+const JWT_SECRET = process.env.JWT_SECRET || 'lingxi-cloud-secret-key-2026';
 
 // Gateway 配置（从环境变量读取，不暴露给前端）
 const GATEWAY_CONFIG = {
