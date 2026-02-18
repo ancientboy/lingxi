@@ -160,11 +160,11 @@ router.post('/update', async (req, res) => {
   }
   
   const token = authHeader.substring(7);
-  const { nickname, password } = req.body;
+  const { nickname, password, currentPassword } = req.body;
   
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    const { getUser, saveDB, getDB } = await import('../utils/db.js');
+    const { getUser, saveDB, getDB, verifyPassword, hashPassword } = await import('../utils/db.js');
     
     const db = await getDB();
     const user = db.users.find(u => u.id === decoded.userId);
@@ -178,9 +178,15 @@ router.post('/update', async (req, res) => {
       user.nickname = nickname;
     }
     
-    // 更新密码
+    // 更新密码（需要验证当前密码）
     if (password && password.length >= 6) {
-      const { hashPassword } = await import('../utils/db.js');
+      // 如果用户已设置密码，需要验证当前密码
+      if (user.passwordHash && currentPassword) {
+        const valid = await verifyPassword(user.id, currentPassword);
+        if (!valid) {
+          return res.status(400).json({ error: '当前密码错误' });
+        }
+      }
       user.passwordHash = hashPassword(password);
     }
     

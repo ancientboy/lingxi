@@ -26,6 +26,52 @@ const AGENT_INFO = {
 };
 
 /**
+ * 更新用户的 Agent 配置（不需要实例）
+ */
+router.post('/user/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { agents } = req.body;
+    
+    if (!agents || !Array.isArray(agents)) {
+      return res.status(400).json({ error: 'agents[] is required' });
+    }
+    
+    // 确保 lingxi 始终存在
+    if (!agents.includes('lingxi')) {
+      agents.unshift('lingxi');
+    }
+    
+    const { getDB, saveDB } = await import('../utils/db.js');
+    const db = await getDB();
+    
+    const user = db.users.find(u => u.id === userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    user.agents = agents;
+    user.agentsUpdatedAt = new Date().toISOString();
+    
+    await saveDB(db);
+    
+    console.log(`✅ 已更新用户 ${userId} 的团队配置: ${agents.join(', ')}`);
+    
+    res.json({
+      success: true,
+      agents: agents.map(id => {
+        const info = AGENT_INFO[id];
+        if (id === 'lingxi') return { id: 'lingxi', name: '灵犀', emoji: '⚡' };
+        return info || { id, name: id, emoji: '🤖' };
+      })
+    });
+  } catch (error) {
+    console.error('更新用户 Agent 配置失败:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
  * 配置 Agent
  */
 router.post('/configure', async (req, res) => {

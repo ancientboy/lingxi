@@ -15,7 +15,6 @@
       flex-direction: column;
     }
     
-    /* 导航栏 */
     .navbar {
       background: rgba(20, 20, 30, 0.95);
       border-bottom: 1px solid rgba(255,255,255,0.1);
@@ -33,8 +32,11 @@
       background: linear-gradient(135deg, #667eea, #00d4ff);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
+      cursor: pointer;
+      text-decoration: none;
     }
-    .nav-btns { display: flex; gap: 10px; }
+    .nav-left { display: flex; align-items: center; gap: 15px; }
+    .nav-right { display: flex; align-items: center; gap: 10px; }
     .nav-btn {
       padding: 8px 14px;
       font-size: 12px;
@@ -46,108 +48,202 @@
       text-decoration: none;
     }
     .nav-btn:hover { background: rgba(255,255,255,0.1); }
+    .nav-btn.primary {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      border: none;
+      color: #fff;
+    }
     
-    /* 聊天容器 */
+    /* 用户信息 */
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 20px;
+      cursor: pointer;
+    }
+    .user-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+    .user-name {
+      font-size: 13px;
+      color: rgba(255,255,255,0.8);
+    }
+    
+    /* 下拉菜单 */
+    .dropdown {
+      position: relative;
+    }
+    .dropdown-content {
+      display: none;
+      position: absolute;
+      top: 100%;
+      right: 0;
+      margin-top: 8px;
+      background: rgba(30, 30, 40, 0.98);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      min-width: 180px;
+      padding: 8px 0;
+      z-index: 200;
+    }
+    .dropdown:hover .dropdown-content,
+    .dropdown-content.show {
+      display: block;
+    }
+    .dropdown-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      color: rgba(255,255,255,0.8);
+      text-decoration: none;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .dropdown-item:hover {
+      background: rgba(255,255,255,0.05);
+    }
+    .dropdown-item.danger { color: #f87171; }
+    .dropdown-divider {
+      height: 1px;
+      background: rgba(255,255,255,0.1);
+      margin: 8px 0;
+    }
+    
     .chat-container {
       flex: 1;
       display: flex;
       flex-direction: column;
       max-width: 900px;
-      width: 100%;
       margin: 0 auto;
+      width: 100%;
       padding: 20px;
     }
     
-    /* 消息列表 */
     .messages {
       flex: 1;
       overflow-y: auto;
       padding: 20px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
     }
-    .message {
+    
+    .welcome {
+      text-align: center;
+      padding: 60px 20px;
+    }
+    .welcome-emoji {
+      font-size: 64px;
       margin-bottom: 20px;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+    .welcome-title {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      background: linear-gradient(135deg, #667eea, #00d4ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .welcome-desc {
+      font-size: 16px;
+      color: rgba(255,255,255,0.6);
+      margin-bottom: 20px;
+    }
+    .team-tags {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .team-tag {
+      padding: 6px 14px;
+      background: rgba(102, 126, 234, 0.2);
+      border: 1px solid rgba(102, 126, 234, 0.3);
+      border-radius: 20px;
+      font-size: 13px;
+    }
+    
+    .message {
       display: flex;
       gap: 12px;
+      animation: fadeIn 0.3s ease;
     }
-    .message.user { flex-direction: row-reverse; }
-    .message-avatar {
-      width: 40px;
-      height: 40px;
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .message.user {
+      flex-direction: row-reverse;
+    }
+    .avatar {
+      width: 36px;
+      height: 36px;
       border-radius: 50%;
-      background: linear-gradient(135deg, #667eea, #764ba2);
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 18px;
       flex-shrink: 0;
     }
-    .message.user .message-avatar { background: linear-gradient(135deg, #10b981, #059669); }
-    .message-content {
+    .message.user .avatar { background: linear-gradient(135deg, #667eea, #764ba2); }
+    .message.assistant .avatar { background: linear-gradient(135deg, #00d4ff, #667eea); }
+    
+    .bubble {
       max-width: 70%;
       padding: 12px 16px;
-      border-radius: 16px;
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 18px;
+      line-height: 1.5;
     }
-    .message.user .message-content {
-      background: linear-gradient(135deg, rgba(102,126,234,0.2), rgba(118,75,162,0.2));
-      border-color: rgba(102,126,234,0.3);
-    }
-    .message-name {
-      font-size: 12px;
-      color: rgba(255,255,255,0.5);
-      margin-bottom: 4px;
-    }
-    .message-text {
-      font-size: 15px;
-      line-height: 1.6;
-      white-space: pre-wrap;
-    }
-    
-    /* 输入区 */
-    .input-area {
-      background: rgba(20,20,30,0.95);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 16px;
-      padding: 15px;
-      margin-top: 20px;
-    }
-    .input-wrapper {
-      display: flex;
-      gap: 12px;
-      align-items: flex-end;
-    }
-    .input-field {
-      flex: 1;
-      min-height: 44px;
-      max-height: 150px;
-      padding: 12px 16px;
-      font-size: 15px;
-      color: #fff;
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 12px;
-      outline: none;
-      resize: none;
-      font-family: inherit;
-    }
-    .input-field:focus { border-color: rgba(102,126,234,0.5); }
-    .input-field::placeholder { color: rgba(255,255,255,0.3); }
-    .send-btn {
-      width: 44px;
-      height: 44px;
-      border-radius: 12px;
+    .message.user .bubble {
       background: linear-gradient(135deg, #667eea, #764ba2);
-      border: none;
-      color: #fff;
-      font-size: 18px;
-      cursor: pointer;
-      transition: all 0.2s;
+      border-bottom-right-radius: 4px;
     }
-    .send-btn:hover { transform: scale(1.05); }
-    .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .message.assistant .bubble {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-bottom-left-radius: 4px;
+    }
     
-    /* 快捷操作 */
+    .typing {
+      display: flex;
+      gap: 4px;
+      padding: 16px;
+    }
+    .typing span {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.5);
+      animation: typing 1.4s infinite;
+    }
+    .typing span:nth-child(2) { animation-delay: 0.2s; }
+    .typing span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes typing {
+      0%, 100% { transform: translateY(0); opacity: 0.5; }
+      50% { transform: translateY(-6px); opacity: 1; }
+    }
+    
+    .input-area {
+      padding: 20px;
+      background: rgba(20, 20, 30, 0.95);
+      border-top: 1px solid rgba(255,255,255,0.1);
+    }
     .quick-actions {
       display: flex;
       gap: 8px;
@@ -160,79 +256,427 @@
       background: rgba(255,255,255,0.05);
       border: 1px solid rgba(255,255,255,0.1);
       color: rgba(255,255,255,0.7);
-      border-radius: 20px;
+      border-radius: 16px;
       cursor: pointer;
     }
     .quick-btn:hover { background: rgba(255,255,255,0.1); }
     
-    /* 欢迎消息 */
-    .welcome {
-      text-align: center;
-      padding: 40px 20px;
-    }
-    .welcome-emoji { font-size: 48px; margin-bottom: 15px; }
-    .welcome-title { font-size: 24px; font-weight: 700; margin-bottom: 10px; }
-    .welcome-desc { color: rgba(255,255,255,0.6); }
-    
-    /* 团队标签 */
-    .team-tags {
+    .input-wrapper {
       display: flex;
-      gap: 8px;
-      justify-content: center;
-      margin-top: 20px;
-      flex-wrap: wrap;
+      gap: 12px;
+      align-items: flex-end;
     }
-    .team-tag {
-      padding: 6px 12px;
-      background: rgba(102,126,234,0.1);
-      border: 1px solid rgba(102,126,234,0.2);
-      border-radius: 20px;
-      font-size: 12px;
-      color: rgba(255,255,255,0.8);
+    .input-field {
+      flex: 1;
+      padding: 14px 18px;
+      font-size: 15px;
+      color: #fff;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 24px;
+      outline: none;
+      resize: none;
+      max-height: 150px;
     }
-    
-    /* 加载动画 */
-    .typing {
-      display: flex;
-      gap: 4px;
-      padding: 8px 0;
+    .input-field:focus {
+      border-color: rgba(102, 126, 234, 0.5);
     }
-    .typing span {
-      width: 8px;
-      height: 8px;
-      background: rgba(255,255,255,0.3);
+    .send-btn {
+      width: 48px;
+      height: 48px;
       border-radius: 50%;
-      animation: typing 1s infinite;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      border: none;
+      color: #fff;
+      font-size: 20px;
+      cursor: pointer;
+      transition: transform 0.2s;
     }
-    .typing span:nth-child(2) { animation-delay: 0.2s; }
-    .typing span:nth-child(3) { animation-delay: 0.4s; }
-    @keyframes typing {
-      0%, 100% { opacity: 0.3; }
-      50% { opacity: 1; }
-    }
-    
-    /* 响应式 */
-    @media (max-width: 768px) {
-      .message-content { max-width: 85%; }
-      .nav-btns .nav-btn:not(:last-child) { display: none; }
-    }
+    .send-btn:hover { transform: scale(1.05); }
     
     .hidden { display: none !important; }
+    
+    .status {
+      padding: 8px 16px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.5);
+      text-align: center;
+    }
+    .status.connected { color: #4ade80; }
+    .status.error { color: #f87171; }
+    
+    /* 弹窗样式 */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal {
+      background: rgba(20, 20, 30, 0.98);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      width: 90%;
+      max-width: 500px;
+      max-height: 80vh;
+      overflow: hidden;
+    }
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .modal-header h3 {
+      margin: 0;
+      font-size: 18px;
+      background: linear-gradient(135deg, #667eea, #00d4ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .close-btn {
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.6);
+      font-size: 24px;
+      cursor: pointer;
+    }
+    .close-btn:hover { color: #fff; }
+    .modal-body {
+      padding: 20px;
+      max-height: 60vh;
+      overflow-y: auto;
+    }
+    
+    /* 团队列表 */
+    .team-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .team-member {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 10px;
+    }
+    .team-member-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .team-member-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+    .team-member-name {
+      font-weight: 600;
+    }
+    .team-member-role {
+      font-size: 12px;
+      color: rgba(255,255,255,0.5);
+    }
+    .remove-btn {
+      padding: 6px 12px;
+      font-size: 12px;
+      background: rgba(239, 68, 68, 0.2);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #f87171;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .remove-btn:hover { background: rgba(239, 68, 68, 0.3); }
+    
+    /* 添加成员 */
+    .add-team-section h4 {
+      font-size: 14px;
+      color: rgba(255,255,255,0.6);
+      margin-bottom: 12px;
+    }
+    .available-agents {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .agent-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .agent-chip:hover {
+      background: rgba(102, 126, 234, 0.2);
+      border-color: rgba(102, 126, 234, 0.5);
+    }
+    .agent-chip.added {
+      background: rgba(74, 222, 128, 0.2);
+      border-color: rgba(74, 222, 128, 0.3);
+      color: #4ade80;
+    }
+    
+    /* 会话列表 */
+    .session-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .session-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .session-item:hover { background: rgba(255,255,255,0.1); }
+    .session-item.active {
+      background: rgba(102, 126, 234, 0.2);
+      border: 1px solid rgba(102, 126, 234, 0.3);
+    }
+    .session-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+    .session-info {
+      flex: 1;
+    }
+    .session-name {
+      font-weight: 600;
+    }
+    .session-preview {
+      font-size: 12px;
+      color: rgba(255,255,255,0.5);
+    }
+    
+    /* 表单样式 */
+    .form-group {
+      margin-bottom: 16px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      color: rgba(255,255,255,0.7);
+      margin-bottom: 6px;
+    }
+    .form-group input {
+      width: 100%;
+      padding: 12px 14px;
+      font-size: 14px;
+      color: #fff;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      outline: none;
+    }
+    .form-group input:focus {
+      border-color: rgba(102, 126, 234, 0.5);
+    }
+    .submit-btn {
+      width: 100%;
+      padding: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #fff;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .submit-btn:hover { transform: translateY(-2px); }
+    .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
   </style>
 </head>
 <body>
-  <!-- 导航栏 -->
   <nav class="navbar">
-    <div class="logo">⚡ 灵犀云</div>
-    <div class="nav-btns">
-      <button class="nav-btn" onclick="clearChat()">清空对话</button>
-      <a href="index.html" class="nav-btn">退出</a>
+    <div class="nav-left">
+      <a href="index.html" class="logo">⚡ 灵犀云</a>
+      <div class="status" id="connectionStatus">连接中...</div>
+    </div>
+    <div class="nav-right">
+      <button class="nav-btn" onclick="showSessionList()">💬 会话</button>
+      <button class="nav-btn" onclick="clearChat()">🗑️ 清空</button>
+      <div class="dropdown">
+        <div class="user-info" onclick="toggleDropdown()">
+          <div class="user-avatar">👤</div>
+          <div class="user-name" id="navUserName">用户</div>
+        </div>
+        <div class="dropdown-content" id="userDropdown">
+          <div class="dropdown-item" onclick="showMyTeam()">👥 我的团队</div>
+          <div class="dropdown-divider"></div>
+          <div class="dropdown-item" onclick="showFeishuConfig()">📱 飞书配置</div>
+          <div class="dropdown-item" onclick="showWecomConfig()">💼 企业微信</div>
+          <div class="dropdown-divider"></div>
+          <div class="dropdown-item" onclick="showPasswordChange()">🔒 修改密码</div>
+          <div class="dropdown-item" onclick="showSettings()">⚙️ 设置</div>
+          <div class="dropdown-item" onclick="showAbout()">ℹ️ 关于</div>
+          <div class="dropdown-divider"></div>
+          <div class="dropdown-item danger" onclick="logout()">🚪 退出登录</div>
+        </div>
+      </div>
     </div>
   </nav>
 
-  <!-- 聊天容器 -->
+  <!-- 团队管理弹窗 -->
+  <div class="modal-overlay" id="teamModal">
+    <div class="modal team-modal">
+      <div class="modal-header">
+        <h3>👥 我的团队</h3>
+        <button class="close-btn" onclick="closeTeamModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="team-list" id="myTeamList"></div>
+        <div class="add-team-section">
+          <h4>添加成员</h4>
+          <div class="available-agents" id="availableAgents"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 会话列表弹窗 -->
+  <div class="modal-overlay" id="sessionModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>💬 会话列表</h3>
+        <button class="close-btn" onclick="closeSessionModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="session-list" id="sessionList">
+          <div class="session-item active">
+            <div class="session-avatar">⚡</div>
+            <div class="session-info">
+              <div class="session-name">灵犀（当前）</div>
+              <div class="session-preview">与灵犀队长的对话</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 飞书配置弹窗 -->
+  <div class="modal-overlay" id="feishuModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>📱 飞书配置</h3>
+        <button class="close-btn" onclick="closeFeishuModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div id="feishuStatus" style="margin-bottom:16px;"></div>
+        <form id="feishuForm" onsubmit="saveFeishuConfig(event)">
+          <div class="form-group">
+            <label>App ID</label>
+            <input type="text" id="feishuAppId" placeholder="cli_xxxxxxxxxxxx" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label>App Secret</label>
+            <input type="password" id="feishuAppSecret" placeholder="应用密钥" autocomplete="off">
+          </div>
+          <button type="submit" class="submit-btn">保存配置</button>
+        </form>
+        <div id="feishuWebhook" style="margin-top:16px;display:none;">
+          <label style="font-size:12px;color:rgba(255,255,255,0.6);">Webhook 地址（复制到飞书开放平台）</label>
+          <div style="display:flex;gap:8px;margin-top:6px;">
+            <input type="text" id="feishuWebhookUrl" readonly style="flex:1;font-size:12px;">
+            <button type="button" class="nav-btn" onclick="copyFeishuWebhook()">复制</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 企业微信配置弹窗 -->
+  <div class="modal-overlay" id="wecomModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>💼 企业微信配置</h3>
+        <button class="close-btn" onclick="closeWecomModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div id="wecomStatus" style="margin-bottom:16px;"></div>
+        <form id="wecomForm" onsubmit="saveWecomConfig(event)">
+          <div class="form-group">
+            <label>企业 ID (Corp ID)</label>
+            <input type="text" id="wecomCorpId" placeholder="wwxxxxxxxxxxxxxx" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label>Agent ID</label>
+            <input type="text" id="wecomAgentId" placeholder="1000001" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label>Agent Secret</label>
+            <input type="password" id="wecomAgentSecret" placeholder="应用密钥" autocomplete="off">
+          </div>
+          <button type="submit" class="submit-btn">保存配置</button>
+        </form>
+        <div id="wecomWebhook" style="margin-top:16px;display:none;">
+          <label style="font-size:12px;color:rgba(255,255,255,0.6);">回调地址</label>
+          <div style="display:flex;gap:8px;margin-top:6px;">
+            <input type="text" id="wecomWebhookUrl" readonly style="flex:1;font-size:12px;">
+            <button type="button" class="nav-btn" onclick="copyWecomWebhook()">复制</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 修改密码弹窗 -->
+  <div class="modal-overlay" id="passwordModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>🔒 修改密码</h3>
+        <button class="close-btn" onclick="closePasswordModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <form id="passwordForm" onsubmit="changePassword(event)">
+          <div class="form-group">
+            <label>当前密码</label>
+            <input type="password" id="currentPassword" placeholder="输入当前密码" required>
+          </div>
+          <div class="form-group">
+            <label>新密码</label>
+            <input type="password" id="newPassword" placeholder="至少6位" required minlength="6">
+          </div>
+          <div class="form-group">
+            <label>确认新密码</label>
+            <input type="password" id="confirmPassword" placeholder="再次输入新密码" required>
+          </div>
+          <button type="submit" class="submit-btn">修改密码</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <div class="chat-container">
-    <!-- 消息列表 -->
     <div class="messages" id="messages">
       <div class="welcome" id="welcome">
         <div class="welcome-emoji">⚡</div>
@@ -242,7 +686,6 @@
       </div>
     </div>
 
-    <!-- 输入区 -->
     <div class="input-area">
       <div class="quick-actions">
         <button class="quick-btn" onclick="quickSend('帮我写一个脚本')">📝 写脚本</button>
@@ -258,40 +701,38 @@
   </div>
 
   <script>
-    const OPENCLAW_API = 'http://120.26.137.51:18789/c308f1f0/api/chat';
-    const OPENCLAW_TOKEN = '6f3719a52fa12799fea8e4a06655703f';
+    const API_BASE = window.location.origin;
+    const GATEWAY_WS = `ws://${window.location.hostname}:18789`;
+    const GATEWAY_TOKEN = '6f3719a52fa12799fea8e4a06655703f';
+    const SESSION_KEY = 'c308f1f0';
     
     const AGENT_INFO = {
-      lingxi: { emoji: '⚡', name: '灵犀' },
-      coder: { emoji: '💻', name: '云溪' },
-      ops: { emoji: '📊', name: '若曦' },
-      inventor: { emoji: '💡', name: '紫萱' },
-      pm: { emoji: '🎯', name: '梓萱' },
-      noter: { emoji: '📝', name: '晓琳' },
-      media: { emoji: '🎧', name: '音韵' },
-      smart: { emoji: '🏠', name: '智家' }
+      lingxi: { emoji: '⚡', name: '灵犀', desc: '队长·调度员' },
+      coder: { emoji: '💻', name: '云溪', desc: '代码女王' },
+      ops: { emoji: '📊', name: '若曦', desc: '运营专家' },
+      inventor: { emoji: '💡', name: '紫萱', desc: '创意天才' },
+      pm: { emoji: '🎯', name: '梓萱', desc: '产品女王' },
+      noter: { emoji: '📝', name: '晓琳', desc: '知识管理' },
+      media: { emoji: '🎧', name: '音韵', desc: '多媒体专家' },
+      smart: { emoji: '🏠', name: '智家', desc: '智能家居' }
     };
     
     let user = null;
-    let messages = [];
+    let ws = null;
+    let pendingMessage = null;
     
     // 初始化
     function init() {
-      // 检查登录
       const token = localStorage.getItem('lingxi_token');
       if (!token) {
         window.location.href = 'index.html';
         return;
       }
       
-      // 加载用户
-      const userStr = localStorage.getItem('lingxi_user');
-      user = userStr ? JSON.parse(userStr) : { nickname: '用户', agents: ['lingxi'] };
-      
-      // 显示团队标签
+      user = JSON.parse(localStorage.getItem('lingxi_user') || '{}');
       renderTeamTags();
+      connectWebSocket();
       
-      // 绑定回车发送
       document.getElementById('inputField').addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
           e.preventDefault();
@@ -299,18 +740,187 @@
         }
       });
       
-      // 自动调整输入框高度
       document.getElementById('inputField').addEventListener('input', function() {
         this.style.height = 'auto';
         this.style.height = Math.min(this.scrollHeight, 150) + 'px';
       });
     }
     
+    let requestId = 1;
+    let connectNonce = null;
+    
+    // WebSocket 连接
+    function connectWebSocket() {
+      const statusEl = document.getElementById('connectionStatus');
+      statusEl.textContent = '连接中...';
+      statusEl.className = 'status';
+      
+      try {
+        ws = new WebSocket(`${GATEWAY_WS}/${SESSION_KEY}/ws`);
+        
+        ws.onopen = () => {
+          console.log('WebSocket 已连接，等待 750ms 后发送 connect...');
+          statusEl.textContent = '认证中...';
+          
+          // OpenClaw 要求等待 750ms 后再发送 connect
+          setTimeout(() => {
+            sendConnect();
+          }, 750);
+        };
+        
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            handleWebSocketMessage(data);
+          } catch (e) {
+            console.error('解析消息失败:', e);
+          }
+        };
+        
+        ws.onerror = (error) => {
+          console.error('WebSocket 错误:', error);
+          statusEl.textContent = '连接错误';
+          statusEl.className = 'status error';
+        };
+        
+        ws.onclose = () => {
+          console.log('WebSocket 已断开');
+          statusEl.textContent = '已断开，5秒后重连...';
+          statusEl.className = 'status error';
+          setTimeout(connectWebSocket, 5000);
+        };
+      } catch (e) {
+        console.error('WebSocket 连接失败:', e);
+        statusEl.textContent = '连接失败';
+        statusEl.className = 'status error';
+      }
+    }
+    
+    // 发送 connect 请求
+    function sendConnect() {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      
+      const params = {
+        minProtocol: 3,
+        maxProtocol: 3,
+        client: {
+          id: 'webchat',  // 必须是预定义值: webchat, cli, openclaw-control-ui 等
+          version: '1.0.0',
+          platform: 'web',
+          mode: 'webchat'
+        },
+        role: 'operator',
+        scopes: ['operator.admin', 'operator.read', 'operator.write'],
+        auth: { token: GATEWAY_TOKEN },
+        locale: 'zh-CN',
+        userAgent: navigator.userAgent
+      };
+      
+      // 禁用设备认证后不需要发送 device
+      ws.send(JSON.stringify({
+        type: 'req',
+        id: `req_${requestId++}`,
+        method: 'connect',
+        params
+      }));
+    }
+    
+    // 处理 WebSocket 消息
+    function handleWebSocketMessage(data) {
+      console.log('收到消息:', data);
+      
+      const statusEl = document.getElementById('connectionStatus');
+      
+      // 连接挑战 - 设备认证已禁用时不应该收到
+      if (data.type === 'event' && data.event === 'connect.challenge') {
+        console.log('收到挑战，但设备认证已禁用，这不应该发生');
+        statusEl.textContent = '认证失败（需要重启Gateway）';
+        statusEl.className = 'status error';
+        return;
+      }
+      
+      // 连接响应
+      if (data.type === 'res' && data.ok && data.payload?.type === 'hello-ok') {
+        statusEl.textContent = '已连接';
+        statusEl.className = 'status connected';
+        console.log('✅ 认证成功');
+        return;
+      }
+      
+      // chat.send 响应 (开始运行)
+      if (data.type === 'res' && data.payload?.status === 'started') {
+        console.log('消息发送中，runId:', data.payload.runId);
+        return;
+      }
+      
+      // 错误响应
+      if (data.type === 'res' && !data.ok) {
+        statusEl.textContent = '认证失败';
+        statusEl.className = 'status error';
+        console.error('认证失败:', data);
+        removeTyping();
+        addMessage('assistant', '认证失败: ' + (data.error?.message || '未知错误'), '灵犀');
+        return;
+      }
+      
+      // 聊天响应事件
+      if (data.type === 'event' && data.event === 'chat') {
+        const payload = data.payload || {};
+        
+        // 检查是否是当前会话
+        if (payload.sessionKey && payload.sessionKey !== SESSION_KEY) {
+          return;
+        }
+        
+        // delta - 流式输出
+        if (payload.state === 'delta') {
+          const text = extractText(payload.message);
+          if (text) {
+            updateLastAssistantMessage(text);
+          }
+        }
+        // final - 完成
+        else if (payload.state === 'final') {
+          const text = extractText(payload.message);
+          removeTyping();
+          if (text) {
+            addMessage('assistant', text, '灵犀');
+          }
+        }
+        // error
+        else if (payload.state === 'error') {
+          removeTyping();
+          addMessage('assistant', '错误: ' + (payload.errorMessage || '未知错误'), '灵犀');
+        }
+        // aborted
+        else if (payload.state === 'aborted') {
+          removeTyping();
+          addMessage('assistant', '已中止', '灵犀');
+        }
+      }
+    }
+    
+    // 从消息对象中提取文本
+    function extractText(message) {
+      if (!message) return null;
+      if (typeof message === 'string') return message;
+      if (message.text) return message.text;
+      if (message.content) {
+        if (typeof message.content === 'string') return message.content;
+        if (Array.isArray(message.content)) {
+          return message.content
+            .filter(block => block.type === 'text')
+            .map(block => block.text)
+            .join('');
+        }
+      }
+      return null;
+    }
+    
     // 渲染团队标签
     function renderTeamTags() {
       const agents = user?.agents || ['lingxi'];
       const tags = document.getElementById('teamTags');
-      
       tags.innerHTML = agents.map(id => {
         const agent = AGENT_INFO[id] || { emoji: '🤖', name: id };
         return `<span class="team-tag">${agent.emoji} ${agent.name}</span>`;
@@ -318,49 +928,59 @@
     }
     
     // 发送消息
-    async function sendMessage() {
+    function sendMessage() {
       const input = document.getElementById('inputField');
       const text = input.value.trim();
-      
       if (!text) return;
       
-      // 隐藏欢迎
       document.getElementById('welcome').classList.add('hidden');
-      
-      // 添加用户消息
       addMessage('user', text, user?.nickname || '我');
       input.value = '';
       input.style.height = 'auto';
       
-      // 显示加载
-      const loadingId = addMessage('assistant', 'typing', '灵犀');
-      
+      // 通过 WebSocket 发送
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        addTyping();
+        ws.send(JSON.stringify({
+          type: 'req',
+          id: `req_${requestId++}`,
+          method: 'chat.send',
+          params: {
+            sessionKey: SESSION_KEY,
+            message: text,
+            idempotencyKey: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            deliver: false
+          }
+        }));
+      } else {
+        // WebSocket 未连接，使用 HTTP 代理
+        sendViaHTTP(text);
+      }
+    }
+    
+    // HTTP 代理备用方案
+    async function sendViaHTTP(text) {
+      const loadingId = addTyping();
       try {
-        // 调用 OpenClaw API
-        const response = await fetch(OPENCLAW_API, {
+        const res = await fetch(`${API_BASE}/api/chat/send`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${OPENCLAW_TOKEN}`
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             message: text,
             userId: user?.id || 'web-user'
           })
         });
         
-        // 移除加载
-        removeMessage(loadingId);
+        removeTyping();
         
-        if (response.ok) {
-          const data = await response.json();
-          const reply = data.response || data.message || '抱歉，我没听懂，再说一次？';
-          addMessage('assistant', reply, '灵犀');
+        if (res.ok) {
+          const data = await res.json();
+          addMessage('assistant', data.response || '收到~', '灵犀');
         } else {
           addMessage('assistant', '网络出了点问题，稍后再试~', '灵犀');
         }
       } catch (e) {
-        removeMessage(loadingId);
+        removeTyping();
         addMessage('assistant', '连接失败，请检查网络~', '灵犀');
       }
     }
@@ -372,47 +992,492 @@
     }
     
     // 添加消息
-    function addMessage(role, text, name) {
-      const id = 'msg-' + Date.now();
-      const messagesEl = document.getElementById('messages');
+    function addMessage(role, content, name) {
+      const messages = document.getElementById('messages');
+      const div = document.createElement('div');
+      div.className = `message ${role}`;
       
-      const avatar = role === 'user' ? '👤' : '⚡';
-      const content = text === 'typing' 
-        ? '<div class="typing"><span></span><span></span><span></span></div>'
-        : text;
+      const emoji = role === 'user' ? '👤' : '⚡';
       
-      const html = `
-        <div class="message ${role}" id="${id}">
-          <div class="message-avatar">${avatar}</div>
-          <div class="message-content">
-            <div class="message-name">${name}</div>
-            <div class="message-text">${content}</div>
-          </div>
-        </div>
+      div.innerHTML = `
+        <div class="avatar">${emoji}</div>
+        <div class="bubble">${escapeHtml(content)}</div>
       `;
       
-      messagesEl.insertAdjacentHTML('beforeend', html);
-      messagesEl.scrollTop = messagesEl.scrollHeight;
+      messages.appendChild(div);
+      messages.scrollTop = messages.scrollHeight;
       
-      return id;
+      return div;
     }
     
-    // 移除消息
-    function removeMessage(id) {
-      const el = document.getElementById(id);
+    // 添加打字动画
+    function addTyping() {
+      const messages = document.getElementById('messages');
+      const div = document.createElement('div');
+      div.className = 'message assistant';
+      div.id = 'typing-indicator';
+      div.innerHTML = `
+        <div class="avatar">⚡</div>
+        <div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div>
+      `;
+      messages.appendChild(div);
+      messages.scrollTop = messages.scrollHeight;
+      return div.id;
+    }
+    
+    // 移除打字动画
+    function removeTyping() {
+      const el = document.getElementById('typing-indicator');
       if (el) el.remove();
     }
     
-    // 清空对话
+    // 更新最后一条助手消息
+    function updateLastAssistantMessage(content) {
+      removeTyping();
+      const messages = document.getElementById('messages');
+      const lastMsg = messages.querySelector('.message.assistant:last-child .bubble');
+      if (lastMsg) {
+        lastMsg.innerHTML = escapeHtml(content);
+      } else {
+        addMessage('assistant', content, '灵犀');
+      }
+      messages.scrollTop = messages.scrollHeight;
+    }
+    
+    // 清空聊天
     function clearChat() {
-      const messagesEl = document.getElementById('messages');
-      messagesEl.innerHTML = '';
+      const messages = document.getElementById('messages');
+      messages.innerHTML = '';
       document.getElementById('welcome').classList.remove('hidden');
-      messagesEl.appendChild(document.getElementById('welcome'));
+    }
+    
+    // 切换下拉菜单
+    function toggleDropdown() {
+      const dropdown = document.getElementById('userDropdown');
+      dropdown.classList.toggle('show');
+    }
+    
+    // 点击其他地方关闭下拉菜单
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.dropdown')) {
+        document.getElementById('userDropdown')?.classList.remove('show');
+      }
+    });
+    
+    // 显示设置
+    function showSettings() {
+      alert('设置功能开发中...');
+    }
+    
+    // 显示关于
+    function showAbout() {
+      alert('灵犀云 v1.0\n\n你的 AI 团队，一键拥有');
+    }
+    
+    // 退出登录
+    function logout() {
+      if (confirm('确定要退出登录吗？')) {
+        localStorage.removeItem('lingxi_token');
+        localStorage.removeItem('lingxi_user');
+        window.location.href = 'index.html';
+      }
+    }
+    
+    // ===== 团队管理 =====
+    
+    // 显示我的团队
+    function showMyTeam() {
+      document.getElementById('userDropdown').classList.remove('show');
+      renderMyTeam();
+      renderAvailableAgents();
+      document.getElementById('teamModal').classList.add('show');
+    }
+    
+    // 关闭团队弹窗
+    function closeTeamModal() {
+      document.getElementById('teamModal').classList.remove('show');
+    }
+    
+    // 渲染我的团队
+    function renderMyTeam() {
+      const myAgents = user?.agents || ['lingxi'];
+      const container = document.getElementById('myTeamList');
+      
+      if (myAgents.length === 0) {
+        container.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.5);">还没有添加团队成员</p>';
+        return;
+      }
+      
+      container.innerHTML = myAgents.map(agentId => {
+        const agent = AGENT_INFO[agentId] || { emoji: '🤖', name: agentId };
+        const isRequired = agentId === 'lingxi';
+        return `
+          <div class="team-member">
+            <div class="team-member-info">
+              <div class="team-member-avatar">${agent.emoji}</div>
+              <div>
+                <div class="team-member-name">${agent.name}</div>
+                <div class="team-member-role">${agent.desc || 'AI 助手'}</div>
+              </div>
+            </div>
+            ${isRequired ? 
+              '<span style="color:rgba(255,255,255,0.4);font-size:12px;">队长</span>' : 
+              `<button class="remove-btn" onclick="removeAgent('${agentId}')">移除</button>`
+            }
+          </div>
+        `;
+      }).join('');
+    }
+    
+    // 渲染可添加的成员
+    function renderAvailableAgents() {
+      const myAgents = user?.agents || ['lingxi'];
+      const container = document.getElementById('availableAgents');
+      
+      const available = Object.keys(AGENT_INFO).filter(id => !myAgents.includes(id));
+      
+      if (available.length === 0) {
+        container.innerHTML = '<p style="color:rgba(255,255,255,0.4);font-size:13px;">已添加全部成员</p>';
+        return;
+      }
+      
+      container.innerHTML = available.map(agentId => {
+        const agent = AGENT_INFO[agentId];
+        return `
+          <div class="agent-chip" onclick="addAgent('${agentId}')">
+            <span>${agent.emoji}</span>
+            <span>${agent.name}</span>
+          </div>
+        `;
+      }).join('');
+    }
+    
+    // 添加成员
+    async function addAgent(agentId) {
+      if (!user) return;
+      
+      const myAgents = user.agents || ['lingxi'];
+      if (myAgents.includes(agentId)) return;
+      
+      myAgents.push(agentId);
+      user.agents = myAgents;
+      
+      // 保存到服务器
+      try {
+        const res = await fetch(`${API_BASE}/api/agents/user/${user.id}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('lingxi_token')}`
+          },
+          body: JSON.stringify({ agents: myAgents })
+        });
+        
+        const data = await res.json();
+        
+        if (res.ok && data.success) {
+          localStorage.setItem('lingxi_user', JSON.stringify(user));
+          renderMyTeam();
+          renderAvailableAgents();
+          renderTeamTags();
+          console.log('✅ 成员添加成功:', agentId);
+        } else {
+          // 回滚
+          user.agents = user.agents.filter(id => id !== agentId);
+          alert('添加失败: ' + (data.error || '未知错误'));
+        }
+      } catch (e) {
+        // 回滚
+        user.agents = user.agents.filter(id => id !== agentId);
+        alert('网络错误：' + e.message);
+      }
+    }
+    
+    // 移除成员
+    async function removeAgent(agentId) {
+      if (!user) return;
+      if (agentId === 'lingxi') return; // 队长不能移除
+      
+      const myAgents = user.agents || ['lingxi'];
+      const newAgents = myAgents.filter(id => id !== agentId);
+      
+      if (newAgents.length === 0) {
+        alert('至少保留一个团队成员');
+        return;
+      }
+      
+      const oldAgents = [...user.agents];
+      user.agents = newAgents;
+      
+      // 保存到服务器
+      try {
+        const res = await fetch(`${API_BASE}/api/agents/user/${user.id}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('lingxi_token')}`
+          },
+          body: JSON.stringify({ agents: newAgents })
+        });
+        
+        const data = await res.json();
+        
+        if (res.ok && data.success) {
+          localStorage.setItem('lingxi_user', JSON.stringify(user));
+          renderMyTeam();
+          renderAvailableAgents();
+          renderTeamTags();
+          console.log('✅ 成员移除成功:', agentId);
+        } else {
+          // 回滚
+          user.agents = oldAgents;
+          alert('移除失败: ' + (data.error || '未知错误'));
+        }
+      } catch (e) {
+        // 回滚
+        user.agents = oldAgents;
+        alert('网络错误：' + e.message);
+      }
+    }
+    
+    // ===== 会话列表 =====
+    
+    function showSessionList() {
+      document.getElementById('sessionModal').classList.add('show');
+    }
+    
+    function closeSessionModal() {
+      document.getElementById('sessionModal').classList.remove('show');
+    }
+    
+    // ===== 飞书配置 =====
+    
+    function showFeishuConfig() {
+      document.getElementById('userDropdown').classList.remove('show');
+      
+      if (!user || !user.id) {
+        alert('请先登录');
+        return;
+      }
+      
+      loadFeishuStatus();
+      document.getElementById('feishuModal').classList.add('show');
+    }
+    
+    function closeFeishuModal() {
+      document.getElementById('feishuModal').classList.remove('show');
+    }
+    
+    async function loadFeishuStatus() {
+      const statusEl = document.getElementById('feishuStatus');
+      statusEl.innerHTML = '<span style="color:rgba(255,255,255,0.5)">加载中...</span>';
+      
+      try {
+        const res = await fetch(`${API_BASE}/api/feishu/status/${user.id}`);
+        const data = await res.json();
+        
+        if (data.configured) {
+          statusEl.innerHTML = `<span style="color:#4ade80">✅ 已配置 (${data.botName})</span>`;
+          document.getElementById('feishuWebhook').style.display = 'block';
+          document.getElementById('feishuWebhookUrl').value = data.webhookUrl;
+        } else {
+          statusEl.innerHTML = '<span style="color:rgba(255,255,255,0.5)">未配置</span>';
+          document.getElementById('feishuWebhook').style.display = 'none';
+        }
+      } catch (e) {
+        statusEl.innerHTML = '<span style="color:#f87171">加载失败</span>';
+      }
+    }
+    
+    async function saveFeishuConfig(e) {
+      e.preventDefault();
+      
+      const appId = document.getElementById('feishuAppId').value.trim();
+      const appSecret = document.getElementById('feishuAppSecret').value.trim();
+      
+      if (!appId || !appSecret) {
+        alert('请填写完整信息');
+        return;
+      }
+      
+      try {
+        const res = await fetch(`${API_BASE}/api/feishu/configure`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.id, appId, appSecret })
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+          alert('飞书配置成功！\n\n请在飞书开放平台配置事件订阅：\n' + data.config.webhookUrl);
+          loadFeishuStatus();
+        } else {
+          alert('配置失败: ' + (data.error || data.detail || '未知错误'));
+        }
+      } catch (e) {
+        alert('网络错误: ' + e.message);
+      }
+    }
+    
+    function copyFeishuWebhook() {
+      const input = document.getElementById('feishuWebhookUrl');
+      input.select();
+      document.execCommand('copy');
+      alert('已复制到剪贴板');
+    }
+    
+    // ===== 企业微信配置 =====
+    
+    function showWecomConfig() {
+      document.getElementById('userDropdown').classList.remove('show');
+      
+      if (!user || !user.id) {
+        alert('请先登录');
+        return;
+      }
+      
+      loadWecomStatus();
+      document.getElementById('wecomModal').classList.add('show');
+    }
+    
+    function closeWecomModal() {
+      document.getElementById('wecomModal').classList.remove('show');
+    }
+    
+    async function loadWecomStatus() {
+      const statusEl = document.getElementById('wecomStatus');
+      statusEl.innerHTML = '<span style="color:rgba(255,255,255,0.5)">加载中...</span>';
+      
+      try {
+        const res = await fetch(`${API_BASE}/api/wecom/status/${user.id}`);
+        const data = await res.json();
+        
+        if (data.configured) {
+          statusEl.innerHTML = `<span style="color:#4ade80">✅ 已配置</span>`;
+          document.getElementById('wecomWebhook').style.display = 'block';
+          document.getElementById('wecomWebhookUrl').value = data.webhookUrl;
+        } else {
+          statusEl.innerHTML = '<span style="color:rgba(255,255,255,0.5)">未配置</span>';
+          document.getElementById('wecomWebhook').style.display = 'none';
+        }
+      } catch (e) {
+        statusEl.innerHTML = '<span style="color:#f87171">加载失败</span>';
+      }
+    }
+    
+    async function saveWecomConfig(e) {
+      e.preventDefault();
+      
+      const corpId = document.getElementById('wecomCorpId').value.trim();
+      const agentId = document.getElementById('wecomAgentId').value.trim();
+      const agentSecret = document.getElementById('wecomAgentSecret').value.trim();
+      
+      if (!corpId || !agentId || !agentSecret) {
+        alert('请填写完整信息');
+        return;
+      }
+      
+      try {
+        const res = await fetch(`${API_BASE}/api/wecom/configure`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.id, corpId, agentId, agentSecret })
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+          alert('企业微信配置成功！');
+          loadWecomStatus();
+        } else {
+          alert('配置失败: ' + (data.error || '未知错误'));
+        }
+      } catch (e) {
+        alert('网络错误: ' + e.message);
+      }
+    }
+    
+    function copyWecomWebhook() {
+      const input = document.getElementById('wecomWebhookUrl');
+      input.select();
+      document.execCommand('copy');
+      alert('已复制到剪贴板');
+    }
+    
+    // ===== 修改密码 =====
+    
+    function showPasswordChange() {
+      document.getElementById('userDropdown').classList.remove('show');
+      document.getElementById('passwordForm').reset();
+      document.getElementById('passwordModal').classList.add('show');
+    }
+    
+    function closePasswordModal() {
+      document.getElementById('passwordModal').classList.remove('show');
+    }
+    
+    async function changePassword(e) {
+      e.preventDefault();
+      
+      const currentPwd = document.getElementById('currentPassword').value;
+      const newPwd = document.getElementById('newPassword').value;
+      const confirmPwd = document.getElementById('confirmPassword').value;
+      
+      if (newPwd !== confirmPwd) {
+        alert('两次输入的新密码不一致');
+        return;
+      }
+      
+      if (newPwd.length < 6) {
+        alert('新密码至少6位');
+        return;
+      }
+      
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/update`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('lingxi_token')}`
+          },
+          body: JSON.stringify({ 
+            currentPassword: currentPwd,
+            password: newPwd 
+          })
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+          alert('密码修改成功！');
+          closePasswordModal();
+        } else {
+          alert('修改失败: ' + (data.error || '未知错误'));
+        }
+      } catch (e) {
+        alert('网络错误: ' + e.message);
+      }
+    }
+    
+    // 更新导航栏用户名
+    function updateNavUserName() {
+      const nameEl = document.getElementById('navUserName');
+      if (nameEl && user?.nickname) {
+        nameEl.textContent = user.nickname;
+      }
+    }
+    
+    // HTML 转义
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML.replace(/\n/g, '<br>');
     }
     
     // 启动
     init();
+    updateNavUserName();
   </script>
 </body>
 </html>

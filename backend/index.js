@@ -26,6 +26,9 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// 托管前端静态文件
+app.use(express.static(join(__dirname, '../frontend')));
+
 // ============ 路由 ============
 
 // 健康检查
@@ -56,6 +59,10 @@ app.use('/api/feishu', feishuRoutes);
 // 企业微信配置
 import wecomRoutes from './routes/wecom.js';
 app.use('/api/wecom', wecomRoutes);
+
+// 聊天代理
+import chatRoutes from './routes/chat.js';
+app.use('/api/chat', chatRoutes);
 
 // 管理接口（生成邀请码等）
 import adminRoutes from './routes/admin.js';
