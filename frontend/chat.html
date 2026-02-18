@@ -293,6 +293,9 @@
       transition: transform 0.2s;
     }
     .send-btn:hover { transform: scale(1.05); }
+    .send-btn.stopping {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+    }
     
     .hidden { display: none !important; }
     
@@ -695,7 +698,7 @@
       </div>
       <div class="input-wrapper">
         <textarea class="input-field" id="inputField" placeholder="输入消息..." rows="1"></textarea>
-        <button class="send-btn" id="sendBtn" onclick="sendMessage()">➤</button>
+        <button class="send-btn" id="sendBtn" onclick="handleSendClick()">➤</button>
       </div>
     </div>
   </div>
@@ -720,6 +723,8 @@
     let user = null;
     let ws = null;
     let pendingMessage = null;
+    let currentRunId = null;
+    let isGenerating = false;
     
     // 初始化
     function init() {
@@ -844,12 +849,17 @@
         statusEl.textContent = '已连接';
         statusEl.className = 'status connected';
         console.log('✅ 认证成功');
+        // 加载聊天历史
+        loadChatHistory();
         return;
       }
       
       // chat.send 响应 (开始运行)
       if (data.type === 'res' && data.payload?.status === 'started') {
         console.log('消息发送中，runId:', data.payload.runId);
+        currentRunId = data.payload.runId;
+        isGenerating = true;
+        updateSendButton();
         return;
       }
       
@@ -886,16 +896,24 @@
           if (text) {
             addMessage('assistant', text, '灵犀');
           }
+          isGenerating = false;
+          currentRunId = null;
+          updateSendButton();
         }
         // error
         else if (payload.state === 'error') {
           removeTyping();
+          isGenerating = false;
+          currentRunId = null;
+          updateSendButton();
           addMessage('assistant', '错误: ' + (payload.errorMessage || '未知错误'), '灵犀');
         }
         // aborted
         else if (payload.state === 'aborted') {
           removeTyping();
-          addMessage('assistant', '已中止', '灵犀');
+          isGenerating = false;
+          currentRunId = null;
+          updateSendButton();
         }
       }
     }
@@ -955,6 +973,124 @@
       } else {
         // WebSocket 未连接，使用 HTTP 代理
         sendViaHTTP(text);
+      }
+    }
+    
+    // 处理发送/停止按钮点击
+    function handleSendClick() {
+      if (isGenerating) {
+        abortChat();
+      } else {
+        sendMessage();
+      }
+    }
+    
+    // 更新发送按钮状态
+    function updateSendButton() {
+      const btn = document.getElementById('sendBtn');
+      if (isGenerating) {
+        btn.textContent = '■';
+        btn.classList.add('stopping');
+        btn.title = '停止生成';
+      } else {
+        btn.textContent = '➤';
+        btn.classList.remove('stopping');
+        btn.title = '发送';
+      }
+    }
+    
+    // 中止对话
+    function abortChat() {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        console.log('WebSocket 未连接');
+        return;
+      }
+      
+      ws.send(JSON.stringify({
+        type: 'req',
+        id: `req_${requestId++}`,
+        method: 'chat.abort',
+        params: {
+          sessionKey: SESSION_KEY,
+          runId: currentRunId
+        }
+      }));
+      
+      isGenerating = false;
+      currentRunId = null;
+      updateSendButton();
+      removeTyping();
+      console.log('✅ 已发送中止请求');
+    }
+    
+    // 加载聊天历史
+    async function loadChatHistory() {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        console.log('WebSocket 未连接，无法加载历史');
+        return;
+      }
+      
+      try {
+        const res = await new Promise((resolve, reject) => {
+          const id = `req_${requestId++}`;
+          const timeout = setTimeout(() => reject(new Error('timeout')), 10000);
+          
+          const handler = (event) => {
+            try {
+              const data = JSON.parse(event.data);
+              if (data.id === id) {
+                clearTimeout(timeout);
+                ws.removeEventListener('message', handler);
+                resolve(data);
+              }
+            } catch (e) {}
+          };
+          
+          ws.addEventListener('message', handler);
+          
+          ws.send(JSON.stringify({
+            type: 'req',
+            id,
+            method: 'chat.history',
+            params: {
+              sessionKey: SESSION_KEY,
+              limit: 100
+            }
+          }));
+        });
+        
+        if (res.ok && res.payload?.messages) {
+          console.log('✅ 加载了', res.payload.messages.length, '条历史消息');
+          renderHistory(res.payload.messages);
+        }
+      } catch (e) {
+        console.error('加载历史失败:', e);
+      }
+    }
+    
+    // 渲染历史消息
+    function renderHistory(messages) {
+      const container = document.getElementById('messages');
+      const welcome = document.getElementById('welcome');
+      
+      if (!messages || messages.length === 0) {
+        welcome.classList.remove('hidden');
+        return;
+      }
+      
+      welcome.classList.add('hidden');
+      
+      // 清空现有消息（保留welcome）
+      container.innerHTML = '';
+      container.appendChild(welcome);
+      
+      for (const msg of messages) {
+        const role = msg.role || 'user';
+        const content = extractText(msg);
+        if (!content) continue;
+        
+        const name = role === 'user' ? (user?.nickname || '我') : '灵犀';
+        addMessage(role, content, name);
       }
     }
     
