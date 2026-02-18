@@ -1304,6 +1304,12 @@
       }
       
       console.log('✅ 渲染了', messages.length, '条历史消息');
+      
+      // 自动滚动到底部
+      setTimeout(() => {
+        container.scrollTop = container.scrollHeight;
+        console.log('📜 已滚动到最新消息');
+      }, 100);
     }
     
     // ===== 会话管理 =====
