@@ -729,14 +729,62 @@
     let currentSessionKey = null;  // 当前活动会话
     
     const AGENT_INFO = {
-      lingxi: { emoji: '⚡', name: '灵犀', desc: '队长·调度员' },
-      coder: { emoji: '💻', name: '云溪', desc: '代码女王' },
-      ops: { emoji: '📊', name: '若曦', desc: '运营专家' },
-      inventor: { emoji: '💡', name: '紫萱', desc: '创意天才' },
-      pm: { emoji: '🎯', name: '梓萱', desc: '产品女王' },
-      noter: { emoji: '📝', name: '晓琳', desc: '知识管理' },
-      media: { emoji: '🎧', name: '音韵', desc: '多媒体专家' },
-      smart: { emoji: '🏠', name: '智家', desc: '智能家居' }
+      lingxi: { 
+        emoji: '⚡', 
+        name: '灵犀', 
+        desc: '智能调度 · 日程管理',
+        scene: '日程管理',
+        skills: '任务规划、提醒、邮件'
+      },
+      coder: { 
+        emoji: '💻', 
+        name: '云溪', 
+        desc: '全栈开发 · 编程专家',
+        scene: '编程开发',
+        skills: '代码、调试、架构、API'
+      },
+      ops: { 
+        emoji: '📊', 
+        name: '若曦', 
+        desc: '增长运营 · 数据专家',
+        scene: '数据分析',
+        skills: '报表、增长、SEO、用户研究'
+      },
+      inventor: { 
+        emoji: '💡', 
+        name: '紫萱', 
+        desc: '内容创意 · 文案总监',
+        scene: '内容创作',
+        skills: '文案、创意、社媒、营销'
+      },
+      pm: { 
+        emoji: '🎯', 
+        name: '梓萱', 
+        desc: '产品设计 · 需求专家',
+        scene: '产品设计',
+        skills: '需求、原型、UX、商业模式'
+      },
+      noter: { 
+        emoji: '📝', 
+        name: '晓琳', 
+        desc: '学习顾问 · 知识管理',
+        scene: '知识管理',
+        skills: '学习、翻译、笔记、搜索'
+      },
+      media: { 
+        emoji: '🎨', 
+        name: '音韵', 
+        desc: '多媒体创作 · AI绘图',
+        scene: '多媒体娱乐',
+        skills: 'AI绘图、视频、音乐、剧本'
+      },
+      smart: { 
+        emoji: '🏠', 
+        name: '智家', 
+        desc: '效率工具 · 自动化专家',
+        scene: '智能工具',
+        skills: '自动化、脚本、工具、效率'
+      }
     };
     
     let user = null;
@@ -1582,21 +1630,31 @@
       }
       
       container.innerHTML = myAgents.map(agentId => {
-        const agent = AGENT_INFO[agentId] || { emoji: '🤖', name: agentId };
+        const agent = AGENT_INFO[agentId] || { emoji: '🤖', name: agentId, desc: 'AI 助手', scene: '通用', skills: '' };
         const isRequired = agentId === 'lingxi';
         return `
-          <div class="team-member">
-            <div class="team-member-info">
-              <div class="team-member-avatar">${agent.emoji}</div>
-              <div>
-                <div class="team-member-name">${agent.name}</div>
-                <div class="team-member-role">${agent.desc || 'AI 助手'}</div>
+          <div class="team-member" style="flex-direction:column;align-items:flex-start;gap:8px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
+              <div class="team-member-info">
+                <div class="team-member-avatar">${agent.emoji}</div>
+                <div>
+                  <div class="team-member-name">${agent.name}</div>
+                  <div class="team-member-role">${agent.desc}</div>
+                </div>
               </div>
+              ${isRequired ? 
+                '<span style="color:#4ade80;font-size:12px;background:rgba(74,222,128,0.1);padding:4px 8px;border-radius:4px;">队长</span>' : 
+                `<button class="remove-btn" onclick="removeAgent('${agentId}')">移除</button>`
+              }
             </div>
-            ${isRequired ? 
-              '<span style="color:rgba(255,255,255,0.4);font-size:12px;">队长</span>' : 
-              `<button class="remove-btn" onclick="removeAgent('${agentId}')">移除</button>`
-            }
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-left:52px;">
+              <span style="font-size:11px;color:rgba(255,255,255,0.5);background:rgba(255,255,255,0.05);padding:3px 8px;border-radius:4px;">
+                🎯 ${agent.scene || '通用'}
+              </span>
+              <span style="font-size:11px;color:rgba(255,255,255,0.4);background:rgba(255,255,255,0.05);padding:3px 8px;border-radius:4px;">
+                🔧 ${agent.skills || '多技能'}
+              </span>
+            </div>
           </div>
         `;
       }).join('');
@@ -1617,9 +1675,10 @@
       container.innerHTML = available.map(agentId => {
         const agent = AGENT_INFO[agentId];
         return `
-          <div class="agent-chip" onclick="addAgent('${agentId}')">
+          <div class="agent-chip" onclick="addAgent('${agentId}')" title="${agent.scene} · ${agent.skills}">
             <span>${agent.emoji}</span>
             <span>${agent.name}</span>
+            <span style="font-size:10px;color:rgba(255,255,255,0.4);margin-left:4px;">${agent.scene}</span>
           </div>
         `;
       }).join('');
