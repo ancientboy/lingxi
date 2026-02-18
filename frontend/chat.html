@@ -979,6 +979,11 @@
     
     // 发送消息
     function sendMessage() {
+      if (!currentSessionKey) {
+        alert('会话未初始化，请刷新页面');
+        return;
+      }
+      
       const input = document.getElementById('inputField');
       const text = input.value.trim();
       if (!text) return;
@@ -1038,6 +1043,11 @@
         return;
       }
       
+      if (!currentSessionKey) {
+        console.log('currentSessionKey 未设置');
+        return;
+      }
+      
       ws.send(JSON.stringify({
         type: 'req',
         id: `req_${requestId++}`,
@@ -1059,6 +1069,11 @@
     async function loadChatHistory() {
       if (!ws || ws.readyState !== WebSocket.OPEN) {
         console.log('WebSocket 未连接，无法加载历史');
+        return;
+      }
+      
+      if (!currentSessionKey) {
+        console.log('currentSessionKey 未设置，跳过加载历史');
         return;
       }
       
