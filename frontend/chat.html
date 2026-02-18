@@ -747,16 +747,21 @@
     
     // 初始化
     function init() {
+      console.log('🚀 初始化聊天页面...');
+      
       const token = localStorage.getItem('lingxi_token');
       if (!token) {
+        console.log('❌ 没有 token，跳转到首页');
         window.location.href = 'index.html';
         return;
       }
       
       user = JSON.parse(localStorage.getItem('lingxi_user') || '{}');
+      console.log('👤 用户信息:', user);
       
       // 初始化用户专属会话
       if (!user.id) {
+        console.error('❌ 用户 ID 不存在');
         alert('用户信息错误，请重新登录');
         window.location.href = 'index.html';
         return;
@@ -765,6 +770,7 @@
       // 使用用户ID生成主会话key
       SESSION_KEY = `user_${user.id.substring(0, 8)}:main`;
       currentSessionKey = SESSION_KEY;
+      console.log('🔑 会话 Key:', currentSessionKey);
       
       renderTeamTags();
       connectWebSocket();
@@ -897,11 +903,20 @@
       
       // 错误响应
       if (data.type === 'res' && !data.ok) {
-        statusEl.textContent = '认证失败';
-        statusEl.className = 'status error';
-        console.error('认证失败:', data);
+        const errorMsg = data.error?.message || JSON.stringify(data.error) || '未知错误';
+        console.error('❌ 请求失败:', errorMsg, data);
+        
+        // 如果是认证错误，特殊处理
+        if (errorMsg.includes('auth') || errorMsg.includes('token') || errorMsg.includes('认证')) {
+          statusEl.textContent = '认证失败';
+          statusEl.className = 'status error';
+        }
+        
         removeTyping();
-        addMessage('assistant', '认证失败: ' + (data.error?.message || '未知错误'), '灵犀');
+        isGenerating = false;
+        currentRunId = null;
+        updateSendButton();
+        addMessage('assistant', '❌ ' + errorMsg, '系统');
         return;
       }
       
@@ -911,26 +926,37 @@
         
         // 检查是否是当前会话
         if (payload.sessionKey && payload.sessionKey !== currentSessionKey) {
+          console.log('⚠️ 跳过非当前会话消息:', payload.sessionKey);
           return;
         }
+        
+        const runId = payload.runId;
         
         // delta - 流式输出
         if (payload.state === 'delta') {
           const text = extractText(payload.message);
           if (text) {
-            updateLastAssistantMessage(text);
+            // 创建或更新流式消息
+            updateStreamingMessage(text, runId);
           }
         }
         // final - 完成
         else if (payload.state === 'final') {
           const text = extractText(payload.message);
           removeTyping();
-          if (text) {
+          
+          // 如果 delta 阶段没有显示过内容，final 才显示
+          if (text && !hasStreamingMessage(runId)) {
             addMessage('assistant', text, '灵犀');
+          } else if (hasStreamingMessage(runId)) {
+            // delta 已经显示过了，确保消息完整
+            finalizeStreamingMessage(text, runId);
           }
+          
           isGenerating = false;
           currentRunId = null;
           updateSendButton();
+          console.log('✅ 消息完成');
         }
         // error
         else if (payload.state === 'error') {
@@ -938,7 +964,7 @@
           isGenerating = false;
           currentRunId = null;
           updateSendButton();
-          addMessage('assistant', '错误: ' + (payload.errorMessage || '未知错误'), '灵犀');
+          addMessage('assistant', '❌ 错误: ' + (payload.errorMessage || '未知错误'), '灵犀');
         }
         // aborted
         else if (payload.state === 'aborted') {
@@ -946,6 +972,7 @@
           isGenerating = false;
           currentRunId = null;
           updateSendButton();
+          console.log('⚠️ 消息已中止');
         }
       }
     }
@@ -967,6 +994,49 @@
       return null;
     }
     
+    // 流式消息管理
+    let streamingMessages = {};  // runId -> {element, text}
+    
+    // 更新或创建流式消息
+    function updateStreamingMessage(text, runId) {
+      removeTyping();
+      
+      if (!streamingMessages[runId]) {
+        // 创建新的流式消息
+        const div = addMessage('assistant', text, '灵犀');
+        streamingMessages[runId] = { element: div, text: text };
+      } else {
+        // 更新现有消息
+        streamingMessages[runId].text = text;
+        const bubble = streamingMessages[runId].element.querySelector('.bubble');
+        if (bubble) {
+          bubble.innerHTML = escapeHtml(text);
+        }
+      }
+      
+      // 滚动到底部
+      const messages = document.getElementById('messages');
+      messages.scrollTop = messages.scrollHeight;
+    }
+    
+    // 检查是否有流式消息
+    function hasStreamingMessage(runId) {
+      return !!streamingMessages[runId];
+    }
+    
+    // 完成流式消息
+    function finalizeStreamingMessage(text, runId) {
+      if (streamingMessages[runId] && text) {
+        streamingMessages[runId].text = text;
+        const bubble = streamingMessages[runId].element.querySelector('.bubble');
+        if (bubble) {
+          bubble.innerHTML = escapeHtml(text);
+        }
+      }
+      // 清理
+      delete streamingMessages[runId];
+    }
+    
     // 渲染团队标签
     function renderTeamTags() {
       const agents = user?.agents || ['lingxi'];
@@ -979,22 +1049,37 @@
     
     // 发送消息
     function sendMessage() {
+      console.log('🔔 sendMessage 被调用, currentSessionKey:', currentSessionKey);
+      
       if (!currentSessionKey) {
+        console.error('❌ currentSessionKey 为空');
         alert('会话未初始化，请刷新页面');
         return;
       }
       
       const input = document.getElementById('inputField');
       const text = input.value.trim();
-      if (!text) return;
+      console.log('📝 输入文本:', text ? `"${text}"` : '(空)');
       
-      document.getElementById('welcome').classList.add('hidden');
+      if (!text) {
+        console.log('⚠️ 文本为空，跳过发送');
+        return;
+      }
+      
+      // 隐藏欢迎界面（如果存在）
+      const welcome = document.getElementById('welcome');
+      if (welcome) {
+        welcome.classList.add('hidden');
+      }
+      
       addMessage('user', text, user?.nickname || '我');
       input.value = '';
       input.style.height = 'auto';
       
       // 通过 WebSocket 发送
+      console.log('🔌 WebSocket 状态:', ws ? ws.readyState : 'null', '(OPEN=1)');
       if (ws && ws.readyState === WebSocket.OPEN) {
+        console.log('✅ 通过 WebSocket 发送消息');
         addTyping();
         ws.send(JSON.stringify({
           type: 'req',
@@ -1009,12 +1094,14 @@
         }));
       } else {
         // WebSocket 未连接，使用 HTTP 代理
+        console.log('📡 WebSocket 未连接，使用 HTTP 代理');
         sendViaHTTP(text);
       }
     }
     
     // 处理发送/停止按钮点击
     function handleSendClick() {
+      console.log('🖱️ 发送按钮被点击, isGenerating:', isGenerating);
       if (isGenerating) {
         abortChat();
       } else {
@@ -1067,35 +1154,47 @@
     
     // 加载聊天历史
     async function loadChatHistory() {
+      console.log('📚 loadChatHistory 开始, currentSessionKey:', currentSessionKey);
+      
       if (!ws || ws.readyState !== WebSocket.OPEN) {
-        console.log('WebSocket 未连接，无法加载历史');
+        console.log('⚠️ WebSocket 未连接，无法加载历史');
+        renderHistory([]);
         return;
       }
       
       if (!currentSessionKey) {
-        console.log('currentSessionKey 未设置，跳过加载历史');
+        console.log('⚠️ currentSessionKey 未设置，跳过加载历史');
+        renderHistory([]);
         return;
       }
+      
+      console.log('📚 发送 chat.history 请求, sessionKey:', currentSessionKey);
       
       try {
         const res = await new Promise((resolve, reject) => {
           const id = `req_${requestId++}`;
-          const timeout = setTimeout(() => reject(new Error('timeout')), 10000);
+          const timeout = setTimeout(() => {
+            console.log('⏱️ chat.history 超时');
+            reject(new Error('timeout'));
+          }, 10000);
           
           const handler = (event) => {
             try {
               const data = JSON.parse(event.data);
+              console.log('📚 收到 WebSocket 消息, id:', data.id, '期待:', id);
               if (data.id === id) {
                 clearTimeout(timeout);
                 ws.removeEventListener('message', handler);
                 resolve(data);
               }
-            } catch (e) {}
+            } catch (e) {
+              console.error('📚 解析消息失败:', e);
+            }
           };
           
           ws.addEventListener('message', handler);
           
-          ws.send(JSON.stringify({
+          const req = {
             type: 'req',
             id,
             method: 'chat.history',
@@ -1103,33 +1202,50 @@
               sessionKey: currentSessionKey,
               limit: 100
             }
-          }));
+          };
+          console.log('📚 发送请求:', JSON.stringify(req));
+          ws.send(JSON.stringify(req));
         });
+        
+        console.log('📚 chat.history 完整响应:', JSON.stringify(res, null, 2));
         
         if (res.ok && res.payload?.messages) {
           console.log('✅ 加载了', res.payload.messages.length, '条历史消息');
           renderHistory(res.payload.messages);
+        } else if (res.ok && res.payload?.transcript) {
+          // 尝试 transcript 字段
+          console.log('✅ 使用 transcript 字段, 长度:', res.payload.transcript.length);
+          renderHistory(res.payload.transcript);
+        } else {
+          console.log('⚠️ 无历史消息, res.ok:', res.ok, 'payload:', res.payload);
+          renderHistory([]);
         }
       } catch (e) {
-        console.error('加载历史失败:', e);
+        console.error('❌ 加载历史失败:', e);
+        renderHistory([]);
       }
     }
     
     // 渲染历史消息
     function renderHistory(messages) {
       const container = document.getElementById('messages');
-      const welcome = document.getElementById('welcome');
       
+      // 如果没有消息，显示欢迎界面
       if (!messages || messages.length === 0) {
-        welcome.classList.remove('hidden');
+        container.innerHTML = `
+          <div class="welcome" id="welcome">
+            <div class="welcome-emoji">⚡</div>
+            <div class="welcome-title">继续对话</div>
+            <div class="welcome-desc">发送消息继续这个会话</div>
+          </div>
+        `;
         return;
       }
       
-      welcome.classList.add('hidden');
+      // 清空容器
+      container.innerHTML = '';
       
-      // 清空现有消息
-      container.querySelectorAll('.message').forEach(el => el.remove());
-      
+      // 渲染历史消息
       for (const msg of messages) {
         const role = msg.role || 'user';
         const content = extractText(msg);
@@ -1138,6 +1254,8 @@
         const name = role === 'user' ? (user?.nickname || '我') : '灵犀';
         addMessage(role, content, name);
       }
+      
+      console.log('✅ 渲染了', messages.length, '条历史消息');
     }
     
     // ===== 会话管理 =====
@@ -1146,7 +1264,12 @@
     
     // 加载会话列表
     async function loadSessions() {
-      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        console.log('⚠️ WebSocket 未连接，无法加载会话列表');
+        return;
+      }
+      
+      console.log('📋 加载会话列表...');
       
       try {
         const res = await new Promise((resolve, reject) => {
@@ -1174,23 +1297,30 @@
           }));
         });
         
+        console.log('📋 sessions.list 响应:', res);
+        
         if (res.ok && res.payload?.sessions) {
           sessions = res.payload.sessions;
+          console.log('✅ 加载了', sessions.length, '个会话:', sessions.map(s => s.key));
           renderSessionList();
-          console.log('✅ 加载了', sessions.length, '个会话');
+        } else {
+          console.log('⚠️ 无会话数据');
+          sessions = [];
+          renderSessionList();
         }
       } catch (e) {
-        console.error('加载会话列表失败:', e);
+        console.error('❌ 加载会话列表失败:', e);
+        sessions = [];
+        renderSessionList();
       }
     }
     
     // 渲染会话列表
     function renderSessionList() {
       const container = document.getElementById('sessionList');
-      const userPrefix = `user_${user.id.substring(0, 8)}:`;
       
-      // 过滤当前用户的会话
-      const userSessions = sessions.filter(s => s.key.startsWith(userPrefix));
+      console.log('📋 渲染会话列表, 总会话数:', sessions.length);
+      console.log('📋 当前会话:', currentSessionKey);
       
       // 添加"新会话"按钮
       let html = `
@@ -1203,20 +1333,39 @@
         </div>
       `;
       
-      // 渲染会话
-      for (const session of userSessions) {
+      // 显示所有会话（不过滤，因为用户可能使用不同的 key 前缀）
+      for (const session of sessions) {
         const isActive = session.key === currentSessionKey;
-        const displayName = session.displayName || session.key.split(':').pop() || '对话';
-        const preview = session.lastMessage || '暂无消息';
+        // 解析显示名称：main -> 灵犀（主会话），其他取最后一段
+        let displayName = session.label || session.displayName || session.key;
+        if (session.key === 'main') {
+          displayName = '灵犀（主会话）';
+        } else if (session.key.includes(':')) {
+          displayName = session.key.split(':').pop();
+        }
+        
+        const preview = session.lastMessage || session.preview || '暂无消息';
+        const time = session.updatedAt ? new Date(session.updatedAt).toLocaleString('zh-CN', {month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'}) : '';
+        
+        console.log('📋 会话:', session.key, 'displayName:', displayName, 'isActive:', isActive);
         
         html += `
           <div class="session-item ${isActive ? 'active' : ''}" onclick="switchSession('${session.key}')">
             <div class="session-avatar">${isActive ? '⚡' : '💬'}</div>
             <div class="session-info">
               <div class="session-name">${escapeHtml(displayName)}</div>
-              <div class="session-preview">${escapeHtml(preview.substring(0, 30))}${preview.length > 30 ? '...' : ''}</div>
+              <div class="session-preview">${time ? time + ' · ' : ''}${escapeHtml(preview.substring(0, 30))}${preview.length > 30 ? '...' : ''}</div>
             </div>
             <button class="session-delete" onclick="event.stopPropagation(); deleteSession('${session.key}')">×</button>
+          </div>
+        `;
+      }
+      
+      // 如果没有会话，显示提示
+      if (sessions.length === 0) {
+        html += `
+          <div style="text-align:center;padding:20px;color:rgba(255,255,255,0.5);font-size:13px;">
+            暂无历史会话<br>点击"新会话"开始
           </div>
         `;
       }
@@ -1227,16 +1376,24 @@
     // 创建新会话
     async function createNewSession() {
       closeSessionModal();
-      currentSessionKey = `user_${user.id.substring(0, 8)}:chat_${Date.now()}`;
       
-      // 清空聊天
+      // 生成新的会话 key
+      const newSessionKey = `user_${user.id.substring(0, 8)}:chat_${Date.now()}`;
+      currentSessionKey = newSessionKey;
+      console.log('🆕 创建新会话:', currentSessionKey);
+      
+      // 清空聊天，显示欢迎界面
       const container = document.getElementById('messages');
-      container.innerHTML = '';
-      document.getElementById('welcome').classList.remove('hidden');
+      container.innerHTML = `
+        <div class="welcome" id="welcome">
+          <div class="welcome-emoji">⚡</div>
+          <div class="welcome-title">新对话</div>
+          <div class="welcome-desc">发送消息开始对话</div>
+        </div>
+      `;
       
-      // 重新加载会话列表
-      loadSessions();
-      console.log('✅ 创建新会话:', currentSessionKey);
+      // 会话会在第一次发送消息时自动创建
+      console.log('✅ 新会话已准备就绪，等待发送第一条消息');
     }
     
     // 切换会话
@@ -1248,11 +1405,29 @@
       
       closeSessionModal();
       currentSessionKey = sessionKey;
+      console.log('🔄 切换到会话:', sessionKey);
+      
+      // 清空当前消息，重建欢迎界面
+      const container = document.getElementById('messages');
+      container.innerHTML = `
+        <div class="welcome" id="welcome">
+          <div class="welcome-emoji">⚡</div>
+          <div class="welcome-title">加载中...</div>
+          <div class="welcome-desc">正在获取聊天历史</div>
+        </div>
+      `;
       
       // 加载该会话的历史
-      await loadChatHistory();
+      try {
+        await loadChatHistory();
+      } catch (e) {
+        console.error('加载历史失败:', e);
+      }
+      
+      // 重新渲染会话列表以更新选中状态
       renderSessionList();
-      console.log('✅ 切换到会话:', sessionKey);
+      
+      console.log('✅ 会话切换完成, currentSessionKey:', currentSessionKey);
     }
     
     // 删除会话
@@ -1340,19 +1515,6 @@
     function removeTyping() {
       const el = document.getElementById('typing-indicator');
       if (el) el.remove();
-    }
-    
-    // 更新最后一条助手消息
-    function updateLastAssistantMessage(content) {
-      removeTyping();
-      const messages = document.getElementById('messages');
-      const lastMsg = messages.querySelector('.message.assistant:last-child .bubble');
-      if (lastMsg) {
-        lastMsg.innerHTML = escapeHtml(content);
-      } else {
-        addMessage('assistant', content, '灵犀');
-      }
-      messages.scrollTop = messages.scrollHeight;
     }
     
     // 清空聊天
@@ -1787,8 +1949,14 @@
     }
     
     // 启动
-    init();
-    updateNavUserName();
+    try {
+      init();
+      updateNavUserName();
+      console.log('✅ 页面初始化完成');
+    } catch (e) {
+      console.error('❌ 页面初始化失败:', e);
+      alert('页面初始化失败: ' + e.message);
+    }
   </script>
 </body>
 </html>
