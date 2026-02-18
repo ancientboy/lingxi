@@ -1,7 +1,11 @@
 import { Router } from 'express';
+import jwt from 'jsonwebtoken';
 import { getDB } from '../utils/db.js';
 
 const router = Router();
+
+// JWT 密钥（和 auth.js 保持一致）
+const JWT_SECRET = process.env.JWT_SECRET || 'lingxi-cloud-secret-key-2024';
 
 // Gateway 配置（从环境变量读取，不暴露给前端）
 const GATEWAY_CONFIG = {
@@ -39,12 +43,20 @@ router.get('/connect-info', async (req, res) => {
   
   const token = authHeader.substring(7);
   
-  // 验证 token
+  // 使用 JWT 验证 token（和 auth.js 一致）
+  let decoded;
+  try {
+    decoded = jwt.verify(token, JWT_SECRET);
+  } catch (e) {
+    return res.status(401).json({ error: '登录已过期' });
+  }
+  
+  // 获取用户信息
   const db = await getDB();
-  const user = db.users?.find(u => u.token === token);
+  const user = db.users?.find(u => u.id === decoded.userId);
   
   if (!user) {
-    return res.status(401).json({ error: '登录已过期' });
+    return res.status(401).json({ error: '用户不存在' });
   }
   
   // 返回连接信息（包含 token）
@@ -76,11 +88,20 @@ router.post('/proxy', async (req, res) => {
   }
   
   const token = authHeader.substring(7);
+  
+  // 使用 JWT 验证 token
+  let decoded;
+  try {
+    decoded = jwt.verify(token, JWT_SECRET);
+  } catch (e) {
+    return res.status(401).json({ error: '登录已过期' });
+  }
+  
   const db = await getDB();
-  const user = db.users?.find(u => u.token === token);
+  const user = db.users?.find(u => u.id === decoded.userId);
   
   if (!user) {
-    return res.status(401).json({ error: '登录已过期' });
+    return res.status(401).json({ error: '用户不存在' });
   }
   
   try {
