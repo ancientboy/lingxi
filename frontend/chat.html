@@ -477,7 +477,24 @@
     .session-preview {
       font-size: 12px;
       color: rgba(255,255,255,0.5);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
+    .session-delete {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: rgba(239, 68, 68, 0.2);
+      border: none;
+      color: #f87171;
+      font-size: 16px;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .session-item:hover .session-delete { opacity: 1; }
+    .session-delete:hover { background: rgba(239, 68, 68, 0.4); }
     
     /* 表单样式 */
     .form-group {
@@ -707,7 +724,8 @@
     const API_BASE = window.location.origin;
     const GATEWAY_WS = `ws://${window.location.hostname}:18789`;
     const GATEWAY_TOKEN = '6f3719a52fa12799fea8e4a06655703f';
-    const SESSION_KEY = 'c308f1f0';
+    const SESSION_KEY = 'c308f1f0';  // OpenClaw 主会话
+    let currentSessionKey = SESSION_KEY;  // 当前活动会话
     
     const AGENT_INFO = {
       lingxi: { emoji: '⚡', name: '灵犀', desc: '队长·调度员' },
@@ -849,7 +867,8 @@
         statusEl.textContent = '已连接';
         statusEl.className = 'status connected';
         console.log('✅ 认证成功');
-        // 加载聊天历史
+        // 加载会话列表和历史
+        loadSessions();
         loadChatHistory();
         return;
       }
@@ -878,7 +897,7 @@
         const payload = data.payload || {};
         
         // 检查是否是当前会话
-        if (payload.sessionKey && payload.sessionKey !== SESSION_KEY) {
+        if (payload.sessionKey && payload.sessionKey !== currentSessionKey) {
           return;
         }
         
@@ -964,7 +983,7 @@
           id: `req_${requestId++}`,
           method: 'chat.send',
           params: {
-            sessionKey: SESSION_KEY,
+            sessionKey: currentSessionKey,
             message: text,
             idempotencyKey: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             deliver: false
@@ -1011,7 +1030,7 @@
         id: `req_${requestId++}`,
         method: 'chat.abort',
         params: {
-          sessionKey: SESSION_KEY,
+          sessionKey: currentSessionKey,
           runId: currentRunId
         }
       }));
@@ -1053,7 +1072,7 @@
             id,
             method: 'chat.history',
             params: {
-              sessionKey: SESSION_KEY,
+              sessionKey: currentSessionKey,
               limit: 100
             }
           }));
@@ -1080,9 +1099,8 @@
       
       welcome.classList.add('hidden');
       
-      // 清空现有消息（保留welcome）
-      container.innerHTML = '';
-      container.appendChild(welcome);
+      // 清空现有消息
+      container.querySelectorAll('.message').forEach(el => el.remove());
       
       for (const msg of messages) {
         const role = msg.role || 'user';
@@ -1092,6 +1110,132 @@
         const name = role === 'user' ? (user?.nickname || '我') : '灵犀';
         addMessage(role, content, name);
       }
+    }
+    
+    // ===== 会话管理 =====
+    
+    let sessions = [];
+    let currentSessionKey = SESSION_KEY;
+    
+    // 加载会话列表
+    async function loadSessions() {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      
+      try {
+        const res = await new Promise((resolve, reject) => {
+          const id = `req_${requestId++}`;
+          const timeout = setTimeout(() => reject(new Error('timeout')), 10000);
+          
+          const handler = (event) => {
+            try {
+              const data = JSON.parse(event.data);
+              if (data.id === id) {
+                clearTimeout(timeout);
+                ws.removeEventListener('message', handler);
+                resolve(data);
+              }
+            } catch (e) {}
+          };
+          
+          ws.addEventListener('message', handler);
+          
+          ws.send(JSON.stringify({
+            type: 'req',
+            id,
+            method: 'sessions.list',
+            params: {}
+          }));
+        });
+        
+        if (res.ok && res.payload?.sessions) {
+          sessions = res.payload.sessions;
+          renderSessionList();
+          console.log('✅ 加载了', sessions.length, '个会话');
+        }
+      } catch (e) {
+        console.error('加载会话列表失败:', e);
+      }
+    }
+    
+    // 渲染会话列表
+    function renderSessionList() {
+      const container = document.getElementById('sessionList');
+      
+      // 添加"新会话"按钮
+      let html = `
+        <div class="session-item" onclick="createNewSession()">
+          <div class="session-avatar">➕</div>
+          <div class="session-info">
+            <div class="session-name">新会话</div>
+            <div class="session-preview">开始新的对话</div>
+          </div>
+        </div>
+      `;
+      
+      // 渲染会话
+      for (const session of sessions) {
+        const isActive = session.key === currentSessionKey;
+        const displayName = session.displayName || session.key.split(':').pop() || '对话';
+        const preview = session.lastMessage || '暂无消息';
+        
+        html += `
+          <div class="session-item ${isActive ? 'active' : ''}" onclick="switchSession('${session.key}')">
+            <div class="session-avatar">${isActive ? '⚡' : '💬'}</div>
+            <div class="session-info">
+              <div class="session-name">${escapeHtml(displayName)}</div>
+              <div class="session-preview">${escapeHtml(preview.substring(0, 30))}${preview.length > 30 ? '...' : ''}</div>
+            </div>
+            <button class="session-delete" onclick="event.stopPropagation(); deleteSession('${session.key}')">×</button>
+          </div>
+        `;
+      }
+      
+      container.innerHTML = html;
+    }
+    
+    // 创建新会话
+    async function createNewSession() {
+      closeSessionModal();
+      currentSessionKey = `webchat_${Date.now()}`;
+      
+      // 清空聊天
+      const container = document.getElementById('messages');
+      container.innerHTML = '';
+      document.getElementById('welcome').classList.remove('hidden');
+      
+      // 重新加载会话列表
+      loadSessions();
+      console.log('✅ 创建新会话:', currentSessionKey);
+    }
+    
+    // 切换会话
+    async function switchSession(sessionKey) {
+      if (sessionKey === currentSessionKey) {
+        closeSessionModal();
+        return;
+      }
+      
+      closeSessionModal();
+      currentSessionKey = sessionKey;
+      
+      // 加载该会话的历史
+      await loadChatHistory();
+      renderSessionList();
+      console.log('✅ 切换到会话:', sessionKey);
+    }
+    
+    // 删除会话
+    async function deleteSession(sessionKey) {
+      if (!confirm('确定删除这个会话吗？')) return;
+      if (sessionKey === currentSessionKey) {
+        alert('无法删除当前会话');
+        return;
+      }
+      
+      // TODO: 调用 API 删除会话
+      sessions = sessions.filter(s => s.key !== sessionKey);
+      renderSessionList();
+      console.log('✅ 删除会话:', sessionKey);
     }
     
     // HTTP 代理备用方案
