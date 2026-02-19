@@ -90,9 +90,55 @@
   "skills": {
     "paths": ["/home/node/.openclaw/skills"]
   },
+  "channels": {
+    "feishu": {
+      "accounts": {
+        "default": {
+          "appId": "",
+          "appSecret": "",
+          "domain": "feishu",
+          "enabled": false
+        }
+      },
+      "dmPolicy": "pairning",
+      "groupPolicy": "open",
+      "blockStreaming": true
+    },
+    "wecom": {
+      "accounts": {
+        "default": {
+          "corpId": "",
+          "agentId": "",
+          "secret": "",
+          "token": "",
+          "encodingAesKey": "",
+          "enabled": false
+        }
+      },
+      "dmPolicy": "pairning",
+      "groupPolicy": "open"
+    }
+  },
   "server": {
     "port": 18789,
-    "host": "0.0.0.0"
+    "host": "0.0.0.0",
+    "cors": {
+      "enabled": true,
+      "origins": ["*"],
+      "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+      "headers": ["Content-Type", "Authorization"]
+    }
+  },
+  "gateway": {
+    "auth": {
+      "token": "GATEWAY_TOKEN_PLACEHOLDER"
+    },
+    "session": {
+      "default": "SESSION_ID_PLACEHOLDER"
+    },
+    "ui": {
+      "embeddable": true
+    }
   },
   "logging": {
     "level": "info",

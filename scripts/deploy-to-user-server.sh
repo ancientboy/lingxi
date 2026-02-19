@@ -46,19 +46,30 @@ sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no root@$SERVER_IP << EO
   "agents": {
     "defaults": {
       "model": { "primary": "zhipu/glm-5" },
-      "workspace": "/workspace",
-      "memory": { "enabled": true, "provider": "local", "path": "/data/memory" }
+      "workspace": "/home/node/.openclaw/workspace",
+      "memory": { "enabled": true, "provider": "local", "path": "/home/node/.openclaw/data/memory" }
     },
     "list": [{ "id": "lingxi", "default": true, "name": "灵犀", "soul": "/home/node/.openclaw/agents/lingxi/SOUL.md" }]
   },
   "tools": {
     "subagents": { "enabled": true, "tools": { "allow": ["lingxi", "coder", "ops", "inventor", "pm", "noter", "media", "smart"] } },
-    "filesystem": { "enabled": true, "paths": ["/workspace", "/data"] },
+    "filesystem": { "enabled": true, "paths": ["/home/node/.openclaw/workspace", "/home/node/.openclaw/data"] },
     "shell": { "enabled": true, "allowed": ["ls", "cat", "grep", "find", "mkdir", "touch"] }
   },
   "skills": { "paths": ["/home/node/.openclaw/skills"] },
-  "server": { "port": 18789, "host": "0.0.0.0" },
-  "gateway": { "auth": { "token": "TOKEN_PLACEHOLDER" }, "session": { "default": "SESSION_PLACEHOLDER" } }
+  "channels": {
+    "feishu": {
+      "accounts": { "default": { "appId": "", "appSecret": "", "domain": "feishu", "enabled": false } },
+      "dmPolicy": "pairning", "groupPolicy": "open", "blockStreaming": true
+    },
+    "wecom": {
+      "accounts": { "default": { "corpId": "", "agentId": "", "secret": "", "token": "", "encodingAesKey": "", "enabled": false } },
+      "dmPolicy": "pairning", "groupPolicy": "open"
+    }
+  },
+  "server": { "port": 18789, "host": "0.0.0.0", "cors": { "enabled": true, "origins": ["*"] } },
+  "gateway": { "auth": { "token": "TOKEN_PLACEHOLDER" }, "session": { "default": "SESSION_PLACEHOLDER" }, "ui": { "embeddable": true } },
+  "logging": { "level": "info", "path": "/home/node/.openclaw/logs" }
 }
 CONFIG_EOF
     

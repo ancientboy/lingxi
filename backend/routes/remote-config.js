@@ -59,29 +59,56 @@ router.post('/feishu', async (req, res) => {
     config.updatedAt = new Date().toISOString();
     await saveDB(db);
     
+    const openclawConfig = {
+      channels: {
+        feishu: {
+          accounts: {
+            default: {
+              appId,
+              appSecret,
+              domain: "feishu",
+              enabled: true
+            }
+          },
+          dmPolicy: "pairning",
+          groupPolicy: "open",
+          blockStreaming: true
+        }
+      }
+    };
+    
     try {
       await callOpenClawAPI(
         server.ip,
         server.openclawToken,
         server.openclawSession,
-        '/api/config/feishu',
+        '/api/config/channels',
         'POST',
-        { appId, appSecret }
+        openclawConfig
+      );
+      
+      await callOpenClawAPI(
+        server.ip,
+        server.openclawToken,
+        server.openclawSession,
+        '/api/restart',
+        'POST'
       );
     } catch (apiError) {
       console.log('远程同步到 OpenClaw 失败，配置已保存到数据库:', apiError.message);
     }
     
-    const webhookUrl = `${process.env.LINGXI_PLATFORM_URL || 'https://lingxi.cloud'}/api/feishu/webhook/${userId}`;
-    
     res.json({
       success: true,
       config: {
         appId,
-        enabled: true,
-        webhookUrl
+        enabled: true
       },
-      message: '飞书配置已保存并同步到服务器'
+      webhook: {
+        eventUrl: `http://${server.ip}:18789/feishu/events/default`,
+        description: '请在飞书开放平台 → 事件订阅 中配置此地址'
+      },
+      message: '飞书配置已保存。OpenClaw 将自动处理飞书消息。'
     });
     
   } catch (error) {
@@ -125,30 +152,58 @@ router.post('/wecom', async (req, res) => {
     config.updatedAt = new Date().toISOString();
     await saveDB(db);
     
+    const openclawConfig = {
+      channels: {
+        wecom: {
+          accounts: {
+            default: {
+              corpId,
+              agentId,
+              secret,
+              token: token || "",
+              encodingAesKey: encodingAesKey || "",
+              enabled: true
+            }
+          },
+          dmPolicy: "pairning",
+          groupPolicy: "open"
+        }
+      }
+    };
+    
     try {
       await callOpenClawAPI(
         server.ip,
         server.openclawToken,
         server.openclawSession,
-        '/api/config/wecom',
+        '/api/config/channels',
         'POST',
-        { corpId, agentId, secret, token, encodingAesKey }
+        openclawConfig
+      );
+      
+      await callOpenClawAPI(
+        server.ip,
+        server.openclawToken,
+        server.openclawSession,
+        '/api/restart',
+        'POST'
       );
     } catch (apiError) {
-      console.log('远程同步到 OpenClaw 失败，配置已保存到数据库:', apiError.message);
+      console.log('远程同步到 OpenClaw 失败:', apiError.message);
     }
-    
-    const callbackUrl = `${process.env.LINGXI_PLATFORM_URL || 'https://lingxi.cloud'}/api/wecom/callback/${userId}`;
     
     res.json({
       success: true,
       config: {
         corpId,
         agentId,
-        enabled: true,
-        callbackUrl
+        enabled: true
       },
-      message: '企业微信配置已保存并同步到服务器'
+      webhook: {
+        callbackUrl: `http://${server.ip}:18789/wecom/callback/default`,
+        description: '请在企业微信后台 → 接收消息 中配置此回调地址'
+      },
+      message: '企业微信配置已保存。OpenClaw 将自动处理企业微信消息。'
     });
     
   } catch (error) {
@@ -219,26 +274,69 @@ router.get('/status/:userId', async (req, res) => {
     const server = db.userServers?.find(s => s.userId === userId);
     const config = db.userConfigs?.find(c => c.userId === userId);
     
+    const openclawWebUrl = server?.ip 
+      ? `http://${server.ip}:${server.openclawPort}/${server.openclawSession}?token=${server.openclawToken}`
+      : null;
+    
     res.json({
       server: server ? {
         id: server.id,
         ip: server.ip,
         status: server.status,
-        openclawUrl: server.ip ? `http://${server.ip}:${server.openclawPort}/${server.openclawSession}` : null
+        openclawPort: server.openclawPort,
+        openclawSession: server.openclawSession
       } : null,
+      openclaw: {
+        webUrl: openclawWebUrl,
+        embedUrl: openclawWebUrl
+      },
       config: config ? {
         feishu: {
           configured: !!config.feishuAppId,
           appId: config.feishuAppId,
-          enabled: config.feishuEnabled === 1
+          enabled: config.feishuEnabled === 1,
+          webhookUrl: server?.ip ? `http://${server.ip}:18789/feishu/events/default` : null
         },
         wecom: {
           configured: !!config.wecomCorpId,
           corpId: config.wecomCorpId,
-          enabled: config.wecomEnabled === 1
+          enabled: config.wecomEnabled === 1,
+          callbackUrl: server?.ip ? `http://${server.ip}:18789/wecom/callback/default` : null
         },
         agents: config.agents ? JSON.parse(config.agents) : ['lingxi']
       } : null
+    });
+    
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/openclaw-url/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const db = await getDB();
+    
+    const server = db.userServers?.find(s => s.userId === userId && s.status === 'running');
+    
+    if (!server || !server.ip) {
+      return res.status(400).json({ 
+        error: '用户服务器未就绪',
+        status: 'not_ready'
+      });
+    }
+    
+    const openclawUrl = `http://${server.ip}:${server.openclawPort}/${server.openclawSession}?token=${server.openclawToken}`;
+    
+    res.json({
+      success: true,
+      url: openclawUrl,
+      embedUrl: openclawUrl,
+      server: {
+        ip: server.ip,
+        port: server.openclawPort,
+        session: server.openclawSession
+      }
     });
     
   } catch (error) {
