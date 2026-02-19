@@ -1,0 +1,71 @@
+# 灵犀云 - 一键拥有你的 AI 团队
+# 基于 openclaw 官方镜像，内置 8 个 Agent + 15 个 Skills
+
+FROM ghcr.io/openclaw/openclaw:latest
+
+LABEL maintainer="lingxi-cloud"
+LABEL description="灵犀云 - 一键拥有你的 AI 团队"
+LABEL version="2026.2.19"
+
+# 切换到 root 用户创建目录
+USER root
+
+# 创建配置和数据目录
+RUN mkdir -p /home/node/.openclaw \
+    /home/node/.openclaw/agents \
+    /home/node/.openclaw/skills \
+    /home/node/.openclaw/workspace \
+    /home/node/.openclaw/data/memory \
+    /home/node/.openclaw/logs
+
+# 复制 Agent 配置（8个团队成员）
+COPY installer/agents/lingxi /home/node/.openclaw/agents/lingxi
+COPY installer/agents/coder /home/node/.openclaw/agents/coder
+COPY installer/agents/ops /home/node/.openclaw/agents/ops
+COPY installer/agents/inventor /home/node/.openclaw/agents/inventor
+COPY installer/agents/pm /home/node/.openclaw/agents/pm
+COPY installer/agents/noter /home/node/.openclaw/agents/noter
+COPY installer/agents/media /home/node/.openclaw/agents/media
+COPY installer/agents/smart /home/node/.openclaw/agents/smart
+
+# 复制 Skills（15个预装技能）
+COPY installer/skills/memory-system /home/node/.openclaw/skills/memory-system
+COPY installer/skills/task-planner /home/node/.openclaw/skills/task-planner
+COPY installer/skills/tasks /home/node/.openclaw/skills/tasks
+COPY installer/skills/searxng /home/node/.openclaw/skills/searxng
+COPY installer/skills/code-reviewer /home/node/.openclaw/skills/code-reviewer
+COPY installer/skills/frontend-design /home/node/.openclaw/skills/frontend-design
+COPY installer/skills/skill-creator /home/node/.openclaw/skills/skill-creator
+COPY installer/skills/skill-analyzer /home/node/.openclaw/skills/skill-analyzer
+COPY installer/skills/healthcheck /home/node/.openclaw/skills/healthcheck
+COPY installer/skills/weather /home/node/.openclaw/skills/weather
+COPY installer/skills/memos /home/node/.openclaw/skills/memos
+COPY installer/skills/supermemory /home/node/.openclaw/skills/supermemory
+COPY installer/skills/tempmail /home/node/.openclaw/skills/tempmail
+COPY installer/skills/clawhub-integration.mjs /home/node/.openclaw/skills/clawhub-integration.mjs
+
+# 复制主配置文件（Docker 专用配置）
+COPY installer/config/docker/openclaw.json /home/node/.openclaw/openclaw.json
+
+# 设置权限
+RUN chown -R node:node /home/node/.openclaw
+
+# 切回 node 用户
+USER node
+
+# 设置工作目录
+WORKDIR /home/node/.openclaw
+
+# 设置环境变量
+ENV OPENCLAW_CONFIG_PATH=/home/node/.openclaw/openclaw.json
+ENV OPENCLAW_STATE_DIR=/home/node/.openclaw
+
+# 暴露端口
+EXPOSE 18789
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:18789/health || exit 1
+
+# 启动命令
+CMD ["node", "/app/dist/gateway/bin.mjs", "start"]

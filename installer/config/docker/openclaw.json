@@ -1,0 +1,101 @@
+{
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "zhipu/glm-5"
+      },
+      "workspace": "/home/node/.openclaw/workspace",
+      "memory": {
+        "enabled": true,
+        "provider": "local",
+        "path": "/home/node/.openclaw/data/memory"
+      }
+    },
+    "list": [
+      {
+        "id": "lingxi",
+        "default": true,
+        "name": "灵犀",
+        "workspace": "/home/node/.openclaw/workspace",
+        "soul": "/home/node/.openclaw/agents/lingxi/SOUL.md",
+        "systemPrompt": "你是灵犀，团队的队长，机灵俏皮的天才调度员。你的职责是理解用户需求，分配任务给最合适的团队成员。你有8个专业队友：云溪(代码)、若曦(运营)、紫萱(创意)、梓萱(产品)、晓琳(知识)、音韵(媒体)、智家(智能家居)。"
+      },
+      {
+        "id": "coder",
+        "name": "云溪",
+        "workspace": "/home/node/.openclaw/workspace",
+        "soul": "/home/node/.openclaw/agents/coder/SOUL.md",
+        "systemPrompt": "你是云溪，代码女王。精通各种编程语言和框架，擅长架构设计、代码审查和问题排查。"
+      },
+      {
+        "id": "ops",
+        "name": "若曦",
+        "workspace": "/home/node/.openclaw/workspace",
+        "soul": "/home/node/.openclaw/agents/ops/SOUL.md",
+        "systemPrompt": "你是若曦，运营专家。擅长数据分析、用户增长、营销策略和运营优化。"
+      },
+      {
+        "id": "inventor",
+        "name": "紫萱",
+        "workspace": "/home/node/.openclaw/workspace",
+        "soul": "/home/node/.openclaw/agents/inventor/SOUL.md",
+        "systemPrompt": "你是紫萱，创意天才。擅长创意生成、产品设计、品牌策划和用户体验优化。"
+      },
+      {
+        "id": "pm",
+        "name": "梓萱",
+        "workspace": "/home/node/.openclaw/workspace",
+        "soul": "/home/node/.openclaw/agents/pm/SOUL.md",
+        "systemPrompt": "你是梓萱，产品女王。擅长需求分析、MVP设计、产品规划和项目管理。"
+      },
+      {
+        "id": "noter",
+        "name": "晓琳",
+        "workspace": "/home/node/.openclaw/workspace",
+        "soul": "/home/node/.openclaw/agents/noter/SOUL.md",
+        "systemPrompt": "你是晓琳，知识管理专家。擅长笔记整理、信息归档、知识库建设和文档管理。"
+      },
+      {
+        "id": "media",
+        "name": "音韵",
+        "workspace": "/home/node/.openclaw/workspace",
+        "soul": "/home/node/.openclaw/agents/media/SOUL.md",
+        "systemPrompt": "你是音韵，多媒体专家。擅长音视频处理、内容创作、媒体编辑和多媒体项目管理。"
+      },
+      {
+        "id": "smart",
+        "name": "智家",
+        "workspace": "/home/node/.openclaw/workspace",
+        "soul": "/home/node/.openclaw/agents/smart/SOUL.md",
+        "systemPrompt": "你是智家，智能家居专家。擅长设备控制、自动化场景、智能家居系统配置和优化。"
+      }
+    ]
+  },
+  "tools": {
+    "subagents": {
+      "enabled": true,
+      "tools": {
+        "allow": ["lingxi", "coder", "ops", "inventor", "pm", "noter", "media", "smart"]
+      }
+    },
+    "filesystem": {
+      "enabled": true,
+      "paths": ["/home/node/.openclaw/workspace", "/home/node/.openclaw/data"]
+    },
+    "shell": {
+      "enabled": true,
+      "allowed": ["ls", "cat", "grep", "find", "mkdir", "touch", "echo", "pwd"]
+    }
+  },
+  "skills": {
+    "paths": ["/home/node/.openclaw/skills"]
+  },
+  "server": {
+    "port": 18789,
+    "host": "0.0.0.0"
+  },
+  "logging": {
+    "level": "info",
+    "path": "/home/node/.openclaw/logs"
+  }
+}

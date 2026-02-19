@@ -72,6 +72,15 @@ app.use('/api/admin', adminRoutes);
 import gatewayRoutes from './routes/gateway.js';
 app.use('/api/gateway', gatewayRoutes);
 
+import serversRoutes from './routes/servers.js';
+app.use('/api/servers', serversRoutes);
+
+import remoteConfigRoutes from './routes/remote-config.js';
+app.use('/api/remote-config', remoteConfigRoutes);
+
+import deployRoutes from './routes/deploy.js';
+app.use('/api/deploy', deployRoutes);
+
 // 错误处理
 app.use((err, req, res, next) => {
   console.error('Error:', err);

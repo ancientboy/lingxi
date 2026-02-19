@@ -16,7 +16,10 @@ const dbPath = join(dataDir, 'db.json');
 const defaultDB = {
   users: [],
   inviteCodes: [],
-  agentConfigs: []
+  agentConfigs: [],
+  userServers: [],
+  userConfigs: [],
+  deployTasks: []
 };
 
 // 初始化数据库
