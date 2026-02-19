@@ -16,7 +16,7 @@ const router = Router();
 // 从统一配置获取
 const SERVER_PASSWORD = config.userServer.password;
 const OPENCLAW_PORT = config.userServer.openclawPort;
-const ACR_REGISTRY = config.openclaw.image;
+const OPENCLAW_VERSION = '2026.2.17';  // npm 安装版本
 
 function generateToken() {
   return crypto.randomBytes(16).toString('hex');
@@ -300,82 +300,127 @@ async function deployOpenClaw(host, token, session) {
     const conn = new Client();
     
     conn.on('ready', () => {
-      console.log('SSH 连接成功，开始部署...');
+      console.log('SSH 连接成功，开始 npm 方式部署...');
       
+      // npm 安装方式（不用 Docker）
       const commands = `
 set -e
 
-echo "1️⃣ 检查 Docker..."
-if ! command -v docker &> /dev/null; then
-    echo "安装 Docker..."
-    curl -fsSL https://get.docker.com | sh
-    systemctl start docker
-    systemctl enable docker
+echo "1️⃣ 检查 Node.js..."
+if ! command -v node &> /dev/null; then
+    echo "安装 Node.js 20..."
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+    apt-get install -y nodejs
 fi
+echo "Node 版本: $(node --version)"
+echo "npm 版本: $(npm --version)"
 
-echo "2️⃣ 停止旧容器..."
-docker stop lingxi-cloud 2>/dev/null || true
-docker rm lingxi-cloud 2>/dev/null || true
+echo "2️⃣ 停止旧进程..."
+pkill -f openclaw 2>/dev/null || true
+sleep 2
 
-echo "3️⃣ 拉取镜像..."
-docker pull ${ACR_REGISTRY}
+echo "3️⃣ 安装/更新 OpenClaw..."
+npm install -g openclaw@2026.2.17
+echo "OpenClaw 版本: $(openclaw --version)"
 
 echo "4️⃣ 创建配置目录..."
-mkdir -p /data/lingxi/config
-mkdir -p /data/lingxi/data
-mkdir -p /data/lingxi/logs
+mkdir -p /root/.openclaw/workspace
 
 echo "5️⃣ 生成配置文件..."
-cat > /data/lingxi/config/openclaw.json << 'CONFIG_EOF'
+
+# 主配置
+cat > /root/.openclaw/openclaw.json << 'CONFIG_EOF'
 {
-  "agents": {
-    "defaults": {
-      "model": { "primary": "zhipu/glm-5" },
-      "workspace": "/home/node/.openclaw/workspace",
-      "memory": { "enabled": true, "provider": "local", "path": "/home/node/.openclaw/data/memory" }
-    },
-    "list": [{ "id": "lingxi", "default": true, "name": "灵犀", "soul": "/home/node/.openclaw/agents/lingxi/SOUL.md" }]
+  "meta": { "lastTouchedVersion": "2026.2.17" },
+  "env": {
+    "ZHIPU_API_KEY": "77c2b59d03e646a9884f78f8c4787885.XunhoXmFaErSD0dR",
+    "DASHSCOPE_API_KEY": "sk-64985bfe63dd45e0a8e2e456624e3d21"
   },
-  "tools": {
-    "subagents": { "enabled": true, "tools": { "allow": ["lingxi", "coder", "ops", "inventor", "pm", "noter", "media", "smart"] } },
-    "filesystem": { "enabled": true, "paths": ["/home/node/.openclaw/workspace", "/home/node/.openclaw/data"] },
-    "shell": { "enabled": true, "allowed": ["ls", "cat", "grep", "find", "mkdir", "touch"] }
-  },
-  "skills": { "paths": ["/home/node/.openclaw/skills"] },
-  "channels": {
-    "feishu": {
-      "accounts": { "default": { "appId": "", "appSecret": "", "domain": "feishu", "enabled": false } },
-      "dmPolicy": "pairning", "groupPolicy": "open", "blockStreaming": true
-    },
-    "wecom": {
-      "accounts": { "default": { "corpId": "", "agentId": "", "secret": "", "token": "", "encodingAesKey": "", "enabled": false } },
-      "dmPolicy": "pairning", "groupPolicy": "open"
+  "auth": {
+    "profiles": {
+      "alibaba-cloud:default": { "provider": "alibaba-cloud", "mode": "api_key" },
+      "zhipu:default": { "provider": "zhipu", "mode": "api_key" }
     }
   },
-  "server": { "port": 18789, "host": "0.0.0.0", "cors": { "enabled": true, "origins": ["*"] } },
-  "gateway": { "auth": { "token": "TOKEN_PLACEHOLDER" }, "session": { "default": "SESSION_PLACEHOLDER" }, "ui": { "embeddable": true } },
-  "logging": { "level": "info", "path": "/home/node/.openclaw/logs" }
+  "models": {
+    "mode": "merge",
+    "providers": {
+      "alibaba-cloud": {
+        "baseUrl": "https://coding.dashscope.aliyuncs.com/v1",
+        "api": "openai-completions",
+        "models": [
+          { "id": "qwen3-max-2026-01-23", "name": "qwen3-max", "contextWindow": 262144, "maxTokens": 65536 }
+        ]
+      },
+      "zhipu": {
+        "baseUrl": "https://open.bigmodel.cn/api/coding/paas/v4",
+        "api": "openai-completions",
+        "authHeader": true,
+        "models": [
+          { "id": "glm-5", "name": "GLM-5", "contextWindow": 200000, "maxTokens": 8192 },
+          { "id": "glm-4-air", "name": "GLM-4-Air", "contextWindow": 128000, "maxTokens": 4096 }
+        ]
+      }
+    }
+  },
+  "agents": {
+    "defaults": { "model": { "primary": "zhipu/glm-5" }, "workspace": "/root/.openclaw/workspace" },
+    "list": [
+      { "id": "main", "default": true, "name": "灵犀", "subagents": { "allowAgents": ["coder", "ops", "inventor", "pm", "noter", "media", "smart"] } },
+      { "id": "coder", "name": "云溪" },
+      { "id": "ops", "name": "若曦" },
+      { "id": "inventor", "name": "紫萱" },
+      { "id": "pm", "name": "梓萱" },
+      { "id": "noter", "name": "晓琳" },
+      { "id": "media", "name": "音韵" },
+      { "id": "smart", "name": "智家" }
+    ]
+  },
+  "tools": {
+    "agentToAgent": { "enabled": true, "allow": ["main", "coder", "ops", "inventor"] },
+    "subagents": { "tools": { "allow": ["sessions_spawn", "sessions_list", "sessions_history", "sessions_send", "session_status", "group:sessions"] } }
+  },
+  "gateway": {
+    "port": 18789,
+    "mode": "local",
+    "bind": "lan",
+    "controlUi": { "enabled": true, "basePath": "SESSION_PLACEHOLDER", "allowInsecureAuth": true },
+    "auth": { "mode": "token", "token": "TOKEN_PLACEHOLDER" }
+  },
+  "plugins": { "entries": {} }
 }
 CONFIG_EOF
 
-sed -i "s/TOKEN_PLACEHOLDER/${token}/g" /data/lingxi/config/openclaw.json
-sed -i "s/SESSION_PLACEHOLDER/${session}/g" /data/lingxi/config/openclaw.json
+# agents 配置
+cat > /root/.openclaw/agents_config.json << 'AGENTS_EOF'
+{
+  "agents": {
+    "main": { "name": "灵犀", "model": "zhipu/glm-5", "persona": "你是灵犀，机灵俏皮的AI助手队长。", "enabled": true },
+    "coder": { "name": "云溪", "model": "zhipu/glm-5", "persona": "你是云溪，冷静理性的技术专家。", "enabled": true },
+    "ops": { "name": "若曦", "model": "zhipu/glm-5", "persona": "你是若曦，温柔敏锐的数据分析师。", "enabled": true },
+    "inventor": { "name": "紫萱", "model": "zhipu/glm-5", "persona": "你是紫萱，天马行空的发明家。", "enabled": true },
+    "pm": { "name": "梓萱", "model": "zhipu/glm-5", "persona": "你是梓萱，洞察人性的产品专家。", "enabled": true },
+    "noter": { "name": "晓琳", "model": "zhipu/glm-5", "persona": "你是晓琳，温柔细致的知识管理专家。", "enabled": true },
+    "media": { "name": "音韵", "model": "zhipu/glm-5", "persona": "你是音韵，多媒体处理专家。", "enabled": true },
+    "smart": { "name": "智家", "model": "zhipu/glm-5", "persona": "你是智家，智能家居控制专家。", "enabled": true }
+  }
+}
+AGENTS_EOF
 
-echo "6️⃣ 启动容器..."
-docker run -d \\
-    --name lingxi-cloud \\
-    -p 18789:18789 \\
-    -v /data/lingxi/config:/home/node/.openclaw \\
-    -v /data/lingxi/data:/home/node/.openclaw/data \\
-    -v /data/lingxi/logs:/home/node/.openclaw/logs \\
-    --restart unless-stopped \\
-    ${ACR_REGISTRY}
+sed -i "s/TOKEN_PLACEHOLDER/${token}/g" /root/.openclaw/openclaw.json
+sed -i "s/SESSION_PLACEHOLDER/${session}/g" /root/.openclaw/openclaw.json
+
+echo "6️⃣ 启动 Gateway..."
+cd /root/.openclaw
+nohup openclaw gateway > /var/log/openclaw.log 2>&1 &
+disown
 
 echo "7️⃣ 等待服务启动..."
 sleep 10
 
 echo "8️⃣ 检查服务状态..."
-curl -s http://localhost:18789/health || echo "服务启动中..."
+netstat -tlnp | grep 18789 || echo "端口未监听"
+ps aux | grep openclaw | grep -v grep | head -2
 
 echo "✅ 部署完成!"
 `;
