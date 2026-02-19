@@ -9,6 +9,48 @@
 - **20+ 预装 Skills**：代码审查、任务规划、联网搜索、记忆系统等
 - **智能调度**：灵犀自动识别需求，分配给最合适的 Agent
 
+## 开发环境设置
+
+### 前置要求
+
+- Node.js 18+
+- npm 或 pnpm
+- 阿里云账号（用于自动创建 ECS）
+
+### 快速开始
+
+```bash
+# 1. 克隆代码
+git clone https://github.com/ancientboy/lingxi.git
+cd lingxi
+
+# 2. 安装依赖
+cd backend && npm install
+
+# 3. 配置环境变量
+cp .env.example .env
+# 编辑 .env 文件，填入阿里云 AccessKey 等配置
+
+# 4. 启动开发服务
+npm run dev
+```
+
+### 环境变量说明
+
+| 变量 | 说明 | 必填 |
+|------|------|------|
+| `ALIYUN_ACCESS_KEY_ID` | 阿里云 AccessKey ID | ✅ |
+| `ALIYUN_ACCESS_KEY_SECRET` | 阿里云 AccessKey Secret | ✅ |
+| `SERVER_IP` | 服务器公网 IP | ✅ |
+| `JWT_SECRET` | JWT 密钥 | ✅ |
+| `MVP_MODE` | MVP 模式（true/false） | ❌ 默认 false |
+
+### 核心功能
+
+- **POST /api/deploy/one-click** - 一键创建 ECS + 部署 OpenClaw
+- **POST /api/remote-config/feishu** - 远程配置飞书
+- **POST /api/remote-config/wecom** - 远程配置企业微信
+
 ## 快速开始
 
 ### 方式 1：一键安装（推荐）
