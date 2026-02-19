@@ -1,5 +1,11 @@
+/**
+ * 企业微信配置路由
+ */
+
 import { Router } from 'express';
 import { getDB, saveDB } from '../utils/db.js';
+import { config } from '../config/index.js';
+import logger from '../utils/logger.js';
 import crypto from 'crypto';
 
 const router = Router();

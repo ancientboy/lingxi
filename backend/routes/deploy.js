@@ -1,21 +1,22 @@
+/**
+ * 一键部署路由 - 阿里云 ECS 创建 + OpenClaw 部署
+ */
+
 import { Router } from 'express';
 import { getDB, saveDB } from '../utils/db.js';
 import crypto from 'crypto';
 import Ecs20140526, * as $Ecs20140526 from '@alicloud/ecs20140526';
 import * as $OpenApi from '@alicloud/openapi';
 import { Client } from 'ssh2';
+import { config } from '../config/index.js';
+import logger from '../utils/logger.js';
 
 const router = Router();
 
-const SERVER_PASSWORD = 'Lingxi@2026!';
-const OPENCLAW_PORT = 18789;
-const ACR_REGISTRY = 'crpi-bcyqkynua4upy5gp.cn-hangzhou.personal.cr.aliyuncs.com/lingxi-cloud2026/lingxi-cloud:latest';
-
-const ALIYUN_CONFIG = {
-  accessKeyId: process.env.ALIYUN_ACCESS_KEY_ID,
-  accessKeySecret: process.env.ALIYUN_ACCESS_KEY_SECRET,
-  regionId: process.env.ALIYUN_REGION || 'cn-hangzhou'
-};
+// 从统一配置获取
+const SERVER_PASSWORD = config.userServer.password;
+const OPENCLAW_PORT = config.userServer.openclawPort;
+const ACR_REGISTRY = config.openclaw.image;
 
 function generateToken() {
   return crypto.randomBytes(16).toString('hex');
@@ -26,12 +27,12 @@ function generateSessionId() {
 }
 
 function createEcsClient() {
-  const config = new $OpenApi.Config({
-    accessKeyId: ALIYUN_CONFIG.accessKeyId,
-    accessKeySecret: ALIYUN_CONFIG.accessKeySecret,
+  const clientConfig = new $OpenApi.Config({
+    accessKeyId: config.aliyun.accessKeyId,
+    accessKeySecret: config.aliyun.accessKeySecret,
   });
-  config.endpoint = 'ecs.aliyuncs.com';
-  return new Ecs20140526(config);
+  clientConfig.endpoint = 'ecs.aliyuncs.com';
+  return new Ecs20140526(clientConfig);
 }
 
 router.post('/one-click', async (req, res) => {

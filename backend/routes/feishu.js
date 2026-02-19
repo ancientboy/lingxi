@@ -1,5 +1,11 @@
+/**
+ * 飞书配置路由
+ */
+
 import { Router } from 'express';
 import { getDB, saveDB } from '../utils/db.js';
+import { config } from '../config/index.js';
+import logger from '../utils/logger.js';
 
 const router = Router();
 
@@ -194,10 +200,6 @@ router.post('/webhook/:userId', async (req, res) => {
 
 /**
  * 调用 OpenClaw 进行对话（多用户隔离版本）
- * 
- * 隔离方案：
- * 1. 测试阶段：共享实例，但通过消息前缀区分用户
- * 2. 生产阶段：每个用户独立 OpenClaw 实例
  */
 async function callOpenClaw(userId, text) {
   const db = await getDB();
@@ -206,29 +208,32 @@ async function callOpenClaw(userId, text) {
   const user = db.users?.find(u => u.id === userId);
   const feishuConfig = db.feishuConfigs?.find(c => c.userId === userId);
   
-  // 🔒 隔离策略：
-  // 1. 检查用户是否有专属的 OpenClaw 实例（生产阶段）
-  // 2. 否则使用共享实例，但标记用户（测试阶段）
+  // 🔒 从 userServers 表获取用户的专属实例信息
+  const userServer = db.userServers?.find(s => s.userId === userId && s.status === 'running');
   
+  // 优先级：飞书配置 > 用户服务器 > 环境变量（共享实例）
   const openclawUrl = feishuConfig?.openclawUrl || 
-                      user?.openclawUrl ||
-                      process.env.OPENCLAW_URL || 
-                      'http://localhost:18789';
+                      (userServer ? `http://${userServer.ip}:${userServer.openclawPort}` : null) ||
+                      config.openclaw.url;
                       
   const openclawToken = feishuConfig?.openclawToken || 
-                        process.env.OPENCLAW_TOKEN || 
-                        '6f3719a52fa12799fea8e4a06655703f';
+                        userServer?.openclawToken ||
+                        config.openclaw.token;
                         
   const openclawSession = feishuConfig?.openclawSession || 
-                          user?.openclawSession ||
-                          process.env.OPENCLAW_SESSION || 
-                          'c308f1f0';
+                          userServer?.openclawSession ||
+                          config.openclaw.session;
   
-  // 🏷️ 为消息添加用户标识（测试阶段隔离）
+  // 检查是否有专属实例
+  if (!userServer) {
+    logger.warn(`用户 ${userId} 没有专属实例，使用共享实例`);
+  }
+  
+  // 用户标签
   const userTag = user?.nickname || userId.substring(0, 8);
   const taggedMessage = `[${userTag}] ${text}`;
   
-  console.log(`🔒 用户隔离: 用户=${userId}, Session=${openclawSession}, 实例=${openclawUrl}`);
+  logger.debug(`用户隔离: 用户=${userId}, Session=${openclawSession}, 实例=${openclawUrl}`);
   
   try {
     const response = await fetch(`${openclawUrl}/${openclawSession}/api/chat`, {

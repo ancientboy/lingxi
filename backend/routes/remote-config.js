@@ -1,10 +1,17 @@
+/**
+ * 远程配置路由 - SSH 远程更新用户服务器的 OpenClaw 配置
+ */
+
 import { Router } from 'express';
 import { getDB, saveDB } from '../utils/db.js';
 import { Client } from 'ssh2';
+import { config } from '../config/index.js';
+import logger from '../utils/logger.js';
+import crypto from 'crypto';
 
 const router = Router();
 
-const SERVER_PASSWORD = process.env.USER_SERVER_PASSWORD || 'Lingxi@2026!';
+const SERVER_PASSWORD = config.userServer.password;
 
 function sshExec(host, commands) {
   return new Promise((resolve, reject) => {
