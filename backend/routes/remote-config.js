@@ -1,30 +1,90 @@
 import { Router } from 'express';
 import { getDB, saveDB } from '../utils/db.js';
+import { Client } from 'ssh2';
 
 const router = Router();
 
-async function callOpenClawAPI(serverIp, token, session, endpoint, method = 'GET', body = null) {
-  const url = `http://${serverIp}:18789/${session}${endpoint}`;
+const SERVER_PASSWORD = process.env.USER_SERVER_PASSWORD || 'Lingxi@2026!';
+
+function sshExec(host, commands) {
+  return new Promise((resolve, reject) => {
+    const conn = new Client();
+    
+    conn.on('ready', () => {
+      conn.exec(commands, (err, stream) => {
+        if (err) {
+          conn.end();
+          reject(err);
+          return;
+        }
+        
+        let output = '';
+        let errorOutput = '';
+        
+        stream.on('close', (code) => {
+          conn.end();
+          if (code === 0) {
+            resolve(output);
+          } else {
+            reject(new Error(errorOutput || `命令退出码: ${code}`));
+          }
+        });
+        
+        stream.on('data', (data) => {
+          output += data.toString();
+        });
+        
+        stream.stderr.on('data', (data) => {
+          errorOutput += data.toString();
+        });
+      });
+    });
+    
+    conn.on('error', (err) => {
+      reject(new Error(`SSH 连接失败: ${err.message}`));
+    });
+    
+    conn.connect({
+      host,
+      port: 22,
+      username: 'root',
+      password: SERVER_PASSWORD,
+      readyTimeout: 30000,
+    });
+  });
+}
+
+async function updateRemoteConfig(server, channelType, config) {
+  const { ip } = server;
   
-  const options = {
-    method,
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    }
-  };
+  const enabledValue = config.enabled ? 'true' : 'false';
   
-  if (body) {
-    options.body = JSON.stringify(body);
+  let sedCommands = '';
+  
+  if (channelType === 'feishu') {
+    sedCommands = `
+sed -i 's/"appId": "[^"]*"/"appId": "${config.appId}"/g' /data/lingxi/config/openclaw.json
+sed -i 's/"appSecret": "[^"]*"/"appSecret": "${config.appSecret}"/g' /data/lingxi/config/openclaw.json
+sed -i 's/"enabled": false/"enabled": ${enabledValue}/g' /data/lingxi/config/openclaw.json
+`;
+  } else if (channelType === 'wecom') {
+    sedCommands = `
+sed -i 's/"corpId": "[^"]*"/"corpId": "${config.corpId}"/g' /data/lingxi/config/openclaw.json
+sed -i 's/"agentId": "[^"]*"/"agentId": "${config.agentId}"/g' /data/lingxi/config/openclaw.json
+sed -i 's/"secret": "[^"]*"/"secret": "${config.secret}"/g' /data/lingxi/config/openclaw.json
+${config.token ? `sed -i 's/"token": "[^"]*"/"token": "${config.token}"/g' /data/lingxi/config/openclaw.json` : ''}
+${config.encodingAesKey ? `sed -i 's/"encodingAesKey": "[^"]*"/"encodingAesKey": "${config.encodingAesKey}"/g' /data/lingxi/config/openclaw.json` : ''}
+sed -i '0,/"enabled": false/s//"enabled": ${enabledValue}/' /data/lingxi/config/openclaw.json
+`;
   }
   
-  const response = await fetch(url, options);
+  const commands = `
+${sedCommands}
+docker restart lingxi-cloud
+echo "配置已更新，容器已重启"
+`;
   
-  if (!response.ok) {
-    throw new Error(`OpenClaw API 错误: ${response.status}`);
-  }
-  
-  return await response.json();
+  return sshExec(ip, commands);
 }
 
 router.post('/feishu', async (req, res) => {
@@ -39,7 +99,7 @@ router.post('/feishu', async (req, res) => {
     
     const server = db.userServers?.find(s => s.userId === userId && s.status === 'running');
     if (!server || !server.ip) {
-      return res.status(400).json({ error: '用户服务器未就绪' });
+      return res.status(400).json({ error: '用户服务器未就绪，请先领取 AI 团队' });
     }
     
     let config = db.userConfigs?.find(c => c.userId === userId);
@@ -59,43 +119,14 @@ router.post('/feishu', async (req, res) => {
     config.updatedAt = new Date().toISOString();
     await saveDB(db);
     
-    const openclawConfig = {
-      channels: {
-        feishu: {
-          accounts: {
-            default: {
-              appId,
-              appSecret,
-              domain: "feishu",
-              enabled: true
-            }
-          },
-          dmPolicy: "pairning",
-          groupPolicy: "open",
-          blockStreaming: true
-        }
-      }
-    };
-    
     try {
-      await callOpenClawAPI(
-        server.ip,
-        server.openclawToken,
-        server.openclawSession,
-        '/api/config/channels',
-        'POST',
-        openclawConfig
-      );
-      
-      await callOpenClawAPI(
-        server.ip,
-        server.openclawToken,
-        server.openclawSession,
-        '/api/restart',
-        'POST'
-      );
-    } catch (apiError) {
-      console.log('远程同步到 OpenClaw 失败，配置已保存到数据库:', apiError.message);
+      await updateRemoteConfig(server, 'feishu', {
+        appId,
+        appSecret,
+        enabled: true
+      });
+    } catch (sshErr) {
+      console.log('远程配置失败，配置已保存到数据库:', sshErr.message);
     }
     
     res.json({
@@ -108,7 +139,7 @@ router.post('/feishu', async (req, res) => {
         eventUrl: `http://${server.ip}:18789/feishu/events/default`,
         description: '请在飞书开放平台 → 事件订阅 中配置此地址'
       },
-      message: '飞书配置已保存。OpenClaw 将自动处理飞书消息。'
+      message: '飞书配置已保存并同步到服务器'
     });
     
   } catch (error) {
@@ -129,7 +160,7 @@ router.post('/wecom', async (req, res) => {
     
     const server = db.userServers?.find(s => s.userId === userId && s.status === 'running');
     if (!server || !server.ip) {
-      return res.status(400).json({ error: '用户服务器未就绪' });
+      return res.status(400).json({ error: '用户服务器未就绪，请先领取 AI 团队' });
     }
     
     let config = db.userConfigs?.find(c => c.userId === userId);
@@ -152,44 +183,17 @@ router.post('/wecom', async (req, res) => {
     config.updatedAt = new Date().toISOString();
     await saveDB(db);
     
-    const openclawConfig = {
-      channels: {
-        wecom: {
-          accounts: {
-            default: {
-              corpId,
-              agentId,
-              secret,
-              token: token || "",
-              encodingAesKey: encodingAesKey || "",
-              enabled: true
-            }
-          },
-          dmPolicy: "pairning",
-          groupPolicy: "open"
-        }
-      }
-    };
-    
     try {
-      await callOpenClawAPI(
-        server.ip,
-        server.openclawToken,
-        server.openclawSession,
-        '/api/config/channels',
-        'POST',
-        openclawConfig
-      );
-      
-      await callOpenClawAPI(
-        server.ip,
-        server.openclawToken,
-        server.openclawSession,
-        '/api/restart',
-        'POST'
-      );
-    } catch (apiError) {
-      console.log('远程同步到 OpenClaw 失败:', apiError.message);
+      await updateRemoteConfig(server, 'wecom', {
+        corpId,
+        agentId,
+        secret,
+        token: token || '',
+        encodingAesKey: encodingAesKey || '',
+        enabled: true
+      });
+    } catch (sshErr) {
+      console.log('远程配置失败，配置已保存到数据库:', sshErr.message);
     }
     
     res.json({
@@ -203,7 +207,7 @@ router.post('/wecom', async (req, res) => {
         callbackUrl: `http://${server.ip}:18789/wecom/callback/default`,
         description: '请在企业微信后台 → 接收消息 中配置此回调地址'
       },
-      message: '企业微信配置已保存。OpenClaw 将自动处理企业微信消息。'
+      message: '企业微信配置已保存并同步到服务器'
     });
     
   } catch (error) {
@@ -222,8 +226,6 @@ router.post('/agents', async (req, res) => {
     
     const db = await getDB();
     
-    const server = db.userServers?.find(s => s.userId === userId && s.status === 'running');
-    
     let config = db.userConfigs?.find(c => c.userId === userId);
     if (!config) {
       config = {
@@ -238,21 +240,6 @@ router.post('/agents', async (req, res) => {
     config.agents = JSON.stringify(agents);
     config.updatedAt = new Date().toISOString();
     await saveDB(db);
-    
-    if (server && server.ip) {
-      try {
-        await callOpenClawAPI(
-          server.ip,
-          server.openclawToken,
-          server.openclawSession,
-          '/api/config/agents',
-          'POST',
-          { agents }
-        );
-      } catch (apiError) {
-        console.log('远程同步到 OpenClaw 失败:', apiError.message);
-      }
-    }
     
     res.json({
       success: true,

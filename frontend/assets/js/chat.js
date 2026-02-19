@@ -1123,13 +1123,15 @@ async function loadFeishuStatus() {
   statusEl.innerHTML = '<span style="color:rgba(255,255,255,0.5)">加载中...</span>';
   
   try {
-    const res = await fetch(`${API_BASE}/api/feishu/status/${user.id}`);
+    const res = await fetch(`${API_BASE}/api/remote-config/status/${user.id}`, {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('lingxi_token')}` }
+    });
     const data = await res.json();
     
-    if (data.configured) {
-      statusEl.innerHTML = `<span style="color:#4ade80">✅ 已配置 (${data.botName})</span>`;
+    if (data.config?.feishu?.configured) {
+      statusEl.innerHTML = `<span style="color:#4ade80">✅ 已配置</span>`;
       document.getElementById('feishuWebhook').style.display = 'block';
-      document.getElementById('feishuWebhookUrl').value = data.webhookUrl;
+      document.getElementById('feishuWebhookUrl').value = data.config.feishu.webhookUrl || '';
     } else {
       statusEl.innerHTML = '<span style="color:rgba(255,255,255,0.5)">未配置</span>';
       document.getElementById('feishuWebhook').style.display = 'none';
@@ -1151,19 +1153,24 @@ async function saveFeishuConfig(e) {
   }
   
   try {
-    const res = await fetch(`${API_BASE}/api/feishu/configure`, {
+    const res = await fetch(`${API_BASE}/api/remote-config/feishu`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('lingxi_token')}`
+      },
       body: JSON.stringify({ userId: user.id, appId, appSecret })
     });
     
     const data = await res.json();
     
     if (data.success) {
-      alert('飞书配置成功！\n\n请在飞书开放平台配置事件订阅：\n' + data.config.webhookUrl);
+      const webhookInfo = data.webhook ? `\n\n请在飞书开放平台配置事件订阅：\n${data.webhook.eventUrl}` : '';
+      alert('飞书配置成功！' + webhookInfo);
       loadFeishuStatus();
+      closeFeishuModal();
     } else {
-      alert('配置失败: ' + (data.error || data.detail || '未知错误'));
+      alert('配置失败: ' + (data.error || '未知错误'));
     }
   } catch (e) {
     alert('网络错误: ' + e.message);
@@ -1200,13 +1207,15 @@ async function loadWecomStatus() {
   statusEl.innerHTML = '<span style="color:rgba(255,255,255,0.5)">加载中...</span>';
   
   try {
-    const res = await fetch(`${API_BASE}/api/wecom/status/${user.id}`);
+    const res = await fetch(`${API_BASE}/api/remote-config/status/${user.id}`, {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('lingxi_token')}` }
+    });
     const data = await res.json();
     
-    if (data.configured) {
+    if (data.config?.wecom?.configured) {
       statusEl.innerHTML = `<span style="color:#4ade80">✅ 已配置</span>`;
       document.getElementById('wecomWebhook').style.display = 'block';
-      document.getElementById('wecomWebhookUrl').value = data.webhookUrl;
+      document.getElementById('wecomWebhookUrl').value = data.config.wecom.callbackUrl || '';
     } else {
       statusEl.innerHTML = '<span style="color:rgba(255,255,255,0.5)">未配置</span>';
       document.getElementById('wecomWebhook').style.display = 'none';
@@ -1222,6 +1231,8 @@ async function saveWecomConfig(e) {
   const corpId = document.getElementById('wecomCorpId').value.trim();
   const agentId = document.getElementById('wecomAgentId').value.trim();
   const agentSecret = document.getElementById('wecomAgentSecret').value.trim();
+  const token = document.getElementById('wecomToken')?.value.trim() || '';
+  const encodingAesKey = document.getElementById('wecomEncodingAesKey')?.value.trim() || '';
   
   if (!corpId || !agentId || !agentSecret) {
     alert('请填写完整信息');
@@ -1229,17 +1240,29 @@ async function saveWecomConfig(e) {
   }
   
   try {
-    const res = await fetch(`${API_BASE}/api/wecom/configure`, {
+    const res = await fetch(`${API_BASE}/api/remote-config/wecom`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: user.id, corpId, agentId, agentSecret })
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('lingxi_token')}`
+      },
+      body: JSON.stringify({ 
+        userId: user.id, 
+        corpId, 
+        agentId, 
+        secret: agentSecret,
+        token,
+        encodingAesKey
+      })
     });
     
     const data = await res.json();
     
     if (data.success) {
-      alert('企业微信配置成功！');
+      const callbackInfo = data.webhook ? `\n\n请配置回调地址：\n${data.webhook.callbackUrl}` : '';
+      alert('企业微信配置成功！' + callbackInfo);
       loadWecomStatus();
+      closeWecomModal();
     } else {
       alert('配置失败: ' + (data.error || '未知错误'));
     }

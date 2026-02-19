@@ -9,6 +9,9 @@
     "dev": "node --watch index.js"
   },
   "dependencies": {
+    "@alicloud/ecs20140526": "^7.0.8",
+    "@alicloud/openapi-client": "^0.4.15",
+    "@alicloud/tea-util": "^1.4.9",
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
@@ -16,6 +19,7 @@
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.11.3",
     "redis": "^4.6.12",
+    "ssh2": "^1.15.0",
     "uuid": "^9.0.0"
   }
 }
