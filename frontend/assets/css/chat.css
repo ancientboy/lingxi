@@ -530,3 +530,81 @@
     }
     .submit-btn:hover { transform: translateY(-2px); }
     .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+/* Agent 切换器 */
+.agent-switcher {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(102, 126, 234, 0.15);
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  border-radius: 16px;
+  cursor: pointer;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.9);
+  position: relative;
+  transition: all 0.2s;
+}
+
+.agent-switcher:hover {
+  background: rgba(102, 126, 234, 0.25);
+}
+
+.agent-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 8px;
+  background: rgba(20, 20, 35, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 8px;
+  min-width: 180px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  display: none;
+  z-index: 100;
+}
+
+.agent-dropdown.show {
+  display: block;
+}
+
+.agent-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.agent-dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.agent-dropdown-item.active {
+  background: rgba(102, 126, 234, 0.2);
+}
+
+.agent-dropdown-item .emoji {
+  font-size: 20px;
+}
+
+.agent-dropdown-item .info h4 {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.agent-dropdown-item .info p {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* 移动端适配 */
+@media (max-width: 640px) {
+  .agent-switcher span:not(:first-child):not(:last-child) {
+    display: none;
+  }
+}

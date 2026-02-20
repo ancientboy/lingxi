@@ -1,6 +1,5 @@
 /**
- * 灵犀云多 Agent 聊天
- * 顶部导航切换 Agent
+ * 灵犀云多 Agent 聊天 - 核心功能
  */
 
 // ==================== 配置 ====================
@@ -22,8 +21,9 @@ const ALL_AGENTS = {
   smart: { id: 'smart', name: '智家', emoji: '🏠', desc: '智能家居' }
 };
 
-// 用户当前显示的 Agent 列表（默认只有灵犀）
 let userAgents = ['main'];
+let currentUserInfo = null;
+let serverInfo = null;
 
 // ==================== 状态 ====================
 
@@ -31,126 +31,14 @@ let ws = null;
 let currentAgent = 'main';
 let isConnected = false;
 let messageId = 0;
-let userInfo = null;
-let serverInfo = null;
-
-// ==================== 初始化 ====================
-
-document.addEventListener('DOMContentLoaded', async () => {
-  // 绑定发送按钮
-  document.getElementById('sendBtn').addEventListener('click', sendMessage);
-  
-  // 绑定输入框回车
-  document.getElementById('messageInput').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
-  });
-  
-  // 点击其他地方关闭下拉
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('.agent-switcher') && !e.target.closest('.agent-dropdown')) {
-      document.getElementById('agentDropdown').classList.remove('show');
-    }
-    if (!e.target.closest('.user-avatar') && !e.target.closest('.user-menu')) {
-      document.getElementById('userMenu').classList.remove('show');
-    }
-  });
-  
-  // 初始化
-  await initUserAndServer();
-  renderAgentDropdown();
-  
-  if (GATEWAY_URL) {
-    connectWebSocket();
-  }
-});
-
-// ==================== 下拉菜单 ====================
-
-function toggleAgentDropdown() {
-  document.getElementById('agentDropdown').classList.toggle('show');
-  document.getElementById('userMenu').classList.remove('show');
-}
-
-function toggleUserMenu() {
-  document.getElementById('userMenu').classList.toggle('show');
-  document.getElementById('agentDropdown').classList.remove('show');
-}
-
-function goToSettings() {
-  window.location.href = '/';
-}
-
-// ==================== 用户和服务器初始化 ====================
-
-async function initUserAndServer() {
-  const token = localStorage.getItem('lingxi_token');
-  
-  if (!token) {
-    window.location.href = '/';
-    return;
-  }
-  
-  try {
-    // 获取用户信息
-    const userRes = await fetch(`${API_BASE}/api/auth/me`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    
-    if (!userRes.ok) {
-      localStorage.removeItem('lingxi_token');
-      window.location.href = '/';
-      return;
-    }
-    
-    const userData = await userRes.json();
-    userInfo = userData.user || userData;
-    
-    // 获取用户的团队配置（安全访问）
-    if (userInfo && userInfo.agents && Array.isArray(userInfo.agents) && userInfo.agents.length > 0) {
-      userAgents = userInfo.agents;
-    }
-    
-    console.log('用户团队:', userAgents);
-    
-    // 获取服务器信息
-    const serverRes = await fetch(`${API_BASE}/api/servers/${userInfo.id}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    
-    if (serverRes.ok) {
-      const serverData = await serverRes.json();
-      serverInfo = serverData.server;
-      
-      if (serverInfo && serverInfo.status === 'running') {
-        GATEWAY_URL = `ws://${serverInfo.ip}:${serverInfo.openclawPort}`;
-        GATEWAY_TOKEN = serverInfo.openclawToken;
-        SESSION_ID = serverInfo.openclawSession;
-      } else {
-        addSystemMessage('⚠️ 请先在首页点击"一键领取 AI 团队"');
-      }
-    }
-    
-  } catch (error) {
-    console.error('初始化失败:', error);
-    addSystemMessage('⚠️ ' + error.message);
-  }
-}
 
 // ==================== Agent 下拉 ====================
 
 function renderAgentDropdown() {
   const dropdown = document.getElementById('agentDropdown');
+  if (!dropdown) return;
   
-  // 只显示用户配置的 Agent
   const agents = userAgents.map(id => ALL_AGENTS[id]).filter(Boolean);
-  
-  if (agents.length === 0) {
-    dropdown.innerHTML = '<div style="padding: 20px; text-align: center; color: rgba(255,255,255,0.5);">暂无团队成员</div>';
-    return;
-  }
   
   dropdown.innerHTML = agents.map(agent => `
     <div class="agent-dropdown-item ${agent.id === currentAgent ? 'active' : ''}" 
@@ -163,19 +51,20 @@ function renderAgentDropdown() {
     </div>
   `).join('');
   
-  // 更新当前显示
   updateCurrentAgent();
 }
 
 function updateCurrentAgent() {
   const agent = ALL_AGENTS[currentAgent] || ALL_AGENTS.main;
-  document.getElementById('currentAgentEmoji').textContent = agent.emoji;
-  document.getElementById('currentAgentName').textContent = agent.name;
+  const emojiEl = document.getElementById('currentAgentEmoji');
+  const nameEl = document.getElementById('currentAgentName');
+  if (emojiEl) emojiEl.textContent = agent.emoji;
+  if (nameEl) nameEl.textContent = agent.name;
 }
 
 function switchAgent(agentId) {
   if (agentId === currentAgent) {
-    document.getElementById('agentDropdown').classList.remove('show');
+    document.getElementById('agentDropdown')?.classList.remove('show');
     return;
   }
   
@@ -339,13 +228,15 @@ function hideTyping() {
 // ==================== 工具函数 ====================
 
 function updateStatus(status, text) {
-  document.getElementById('statusDot').className = 'status-dot ' + status;
-  document.getElementById('statusText').textContent = text;
+  const dot = document.getElementById('statusDot');
+  const textEl = document.getElementById('statusText');
+  if (dot) dot.className = 'status-dot ' + status;
+  if (textEl) textEl.textContent = text;
 }
 
 function scrollToBottom() {
   const messages = document.getElementById('messages');
-  messages.scrollTop = messages.scrollHeight;
+  if (messages) messages.scrollTop = messages.scrollHeight;
 }
 
 function escapeHtml(text) {
@@ -359,9 +250,4 @@ function formatMessage(content) {
     .replace(/\n/g, '<br>')
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/`(.*?)`/g, '<code style="background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:4px;">$1</code>');
-}
-
-function logout() {
-  localStorage.removeItem('lingxi_token');
-  window.location.href = '/';
 }

@@ -1357,3 +1357,110 @@ try {
   console.error('❌ 页面初始化失败:', e);
   alert('页面初始化失败: ' + e.message);
 }
+
+// ==================== Agent 切换功能 ====================
+
+const ALL_AGENTS = {
+  main: { id: 'main', name: '灵犀', emoji: '⚡', desc: '团队队长' },
+  coder: { id: 'coder', name: '云溪', emoji: '💻', desc: '代码专家' },
+  ops: { id: 'ops', name: '若曦', emoji: '📊', desc: '数据分析' },
+  inventor: { id: 'inventor', name: '紫萱', emoji: '💡', desc: '创意设计' },
+  pm: { id: 'pm', name: '梓萱', emoji: '🎯', desc: '产品专家' },
+  noter: { id: 'noter', name: '晓琳', emoji: '📝', desc: '知识管理' },
+  media: { id: 'media', name: '音韵', emoji: '🎧', desc: '多媒体' },
+  smart: { id: 'smart', name: '智家', emoji: '🏠', desc: '智能家居' }
+};
+
+let currentAgentId = 'main';
+let userAgentList = ['main'];
+
+function toggleAgentDropdown() {
+  const dropdown = document.getElementById('agentDropdown');
+  dropdown.classList.toggle('show');
+  
+  // 点击其他地方关闭
+  if (dropdown.classList.contains('show')) {
+    setTimeout(() => {
+      document.addEventListener('click', closeAgentDropdownOnClickOutside);
+    }, 0);
+  }
+}
+
+function closeAgentDropdownOnClickOutside(e) {
+  if (!e.target.closest('.agent-switcher')) {
+    document.getElementById('agentDropdown')?.classList.remove('show');
+    document.removeEventListener('click', closeAgentDropdownOnClickOutside);
+  }
+}
+
+function renderAgentDropdown() {
+  const dropdown = document.getElementById('agentDropdown');
+  if (!dropdown) return;
+  
+  const agents = userAgentList.map(id => ALL_AGENTS[id]).filter(Boolean);
+  
+  if (agents.length === 0) {
+    dropdown.innerHTML = '<div style="padding: 20px; text-align: center; color: rgba(255,255,255,0.5);">暂无团队成员</div>';
+    return;
+  }
+  
+  dropdown.innerHTML = agents.map(agent => `
+    <div class="agent-dropdown-item ${agent.id === currentAgentId ? 'active' : ''}" 
+         onclick="switchAgent('${agent.id}')">
+      <span class="emoji">${agent.emoji}</span>
+      <div class="info">
+        <h4>${agent.name}</h4>
+        <p>${agent.desc}</p>
+      </div>
+    </div>
+  `).join('');
+}
+
+function switchAgent(agentId) {
+  if (agentId === currentAgentId) return;
+  
+  currentAgentId = agentId;
+  const agent = ALL_AGENTS[agentId];
+  
+  // 更新显示
+  document.getElementById('currentAgentEmoji').textContent = agent.emoji;
+  document.getElementById('currentAgentName').textContent = agent.name;
+  
+  // 关闭下拉
+  document.getElementById('agentDropdown')?.classList.remove('show');
+  
+  // 更新列表
+  renderAgentDropdown();
+  
+  // 发送切换通知
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({
+      id: 'req_' + Date.now(),
+      method: 'agent.switch',
+      params: { agentId }
+    }));
+  }
+}
+
+// 初始化时渲染
+document.addEventListener('DOMContentLoaded', () => {
+  // 从用户信息获取团队配置
+  setTimeout(async () => {
+    const token = localStorage.getItem('lingxi_token');
+    if (token && window.userInfo?.id) {
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/me`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.user?.agents && data.user.agents.length > 0) {
+          userAgentList = data.user.agents;
+          renderAgentDropdown();
+        }
+      } catch (e) {
+        console.log('加载团队配置失败');
+      }
+    }
+    renderAgentDropdown();
+  }, 1000);
+});
