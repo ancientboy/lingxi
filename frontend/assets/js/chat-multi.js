@@ -5,11 +5,10 @@
 
 // ==================== 配置 ====================
 
-// 从 URL 获取配置
-const urlParams = new URLSearchParams(window.location.search);
-const GATEWAY_URL = urlParams.get('server') || 'ws://localhost:18789';
-const GATEWAY_TOKEN = urlParams.get('token') || '';
-const SESSION_ID = urlParams.get('session') || 'default';
+const API_BASE = window.location.origin;
+let GATEWAY_URL = '';
+let GATEWAY_TOKEN = '';
+let SESSION_ID = '';
 
 // Agent 配置
 const AGENTS = [
@@ -29,13 +28,77 @@ let ws = null;
 let currentAgent = 'main';
 let isConnected = false;
 let messageId = 0;
+let userInfo = null;
+let serverInfo = null;
 
 // ==================== 初始化 ====================
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  // 获取用户信息和服务器信息
+  await initUserAndServer();
+  
+  // 渲染 Agent 列表
   renderAgentList();
-  connectWebSocket();
+  
+  // 连接 WebSocket
+  if (GATEWAY_URL) {
+    connectWebSocket();
+  } else {
+    updateStatus('disconnected', '请先领取 AI 团队');
+  }
 });
+
+// ==================== 用户和服务器初始化 ====================
+
+async function initUserAndServer() {
+  // 从 URL 参数获取
+  const urlParams = new URLSearchParams(window.location.search);
+  const userId = urlParams.get('userId');
+  
+  // 从 localStorage 获取 token
+  const token = localStorage.getItem('lingxi_token');
+  
+  if (!token) {
+    // 未登录，跳转到首页
+    window.location.href = '/';
+    return;
+  }
+  
+  try {
+    // 获取用户信息
+    const userRes = await fetch(`${API_BASE}/api/auth/verify`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    if (!userRes.ok) {
+      localStorage.removeItem('lingxi_token');
+      window.location.href = '/';
+      return;
+    }
+    
+    const userData = await userRes.json();
+    userInfo = userData.user;
+    
+    // 获取服务器信息
+    const serverRes = await fetch(`${API_BASE}/api/servers/${userInfo.id}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    if (serverRes.ok) {
+      const serverData = await serverRes.json();
+      serverInfo = serverData.server;
+      
+      if (serverInfo && serverInfo.status === 'running') {
+        GATEWAY_URL = `ws://${serverInfo.ip}:${serverInfo.openclawPort}`;
+        GATEWAY_TOKEN = serverInfo.openclawToken;
+        SESSION_ID = serverInfo.openclawSession;
+      }
+    }
+    
+  } catch (error) {
+    console.error('获取用户/服务器信息失败:', error);
+  }
+}
 
 // ==================== Agent 列表 ====================
 
@@ -62,9 +125,6 @@ function switchAgent(agentId) {
   // 更新 UI
   renderAgentList();
   updateChatHeader(agent);
-  
-  // 清空消息（可选：保留历史）
-  // document.getElementById('messages').innerHTML = '';
   
   // 添加切换提示
   addSystemMessage(`已切换到 ${agent.emoji} ${agent.name}`);
@@ -99,10 +159,13 @@ function connectWebSocket() {
     ws.onopen = () => {
       console.log('WebSocket 连接成功');
       isConnected = true;
-      updateStatus('connected', '已连接');
+      updateStatus('connected', `已连接 ${serverInfo?.ip || ''}`);
       
       // 发送握手
       sendHandshake();
+      
+      // 加载聊天历史
+      sendRequest('chat.history', { limit: 50 });
     };
     
     ws.onmessage = (event) => {
@@ -185,6 +248,10 @@ function handleResponse(data) {
   
   // 处理聊天历史
   if (result && result.messages) {
+    const messages = document.getElementById('messages');
+    // 清空现有消息
+    messages.innerHTML = '';
+    
     result.messages.forEach(msg => {
       if (msg.role === 'user') {
         addUserMessage(msg.content);
@@ -198,11 +265,12 @@ function handleResponse(data) {
 function handleEvent(data) {
   const { event, params } = data;
   
-  if (event === 'chat.message') {
-    if (params.role === 'assistant') {
-      addAssistantMessage(params.content);
+  if (event === 'chat.message' || event === 'chat.response') {
+    hideTyping();
+    if (params.role === 'assistant' || params.content) {
+      addAssistantMessage(params.content || params.text);
     }
-  } else if (event === 'chat.typing') {
+  } else if (event === 'chat.typing' || event === 'chat.pending') {
     showTyping();
   }
 }
@@ -221,7 +289,6 @@ function sendMessage() {
   
   // 发送到 Gateway
   sendRequest('chat.send', {
-    agentId: currentAgent,
     content: content
   });
   
@@ -238,7 +305,6 @@ function handleKeyDown(event) {
 
 function addUserMessage(content) {
   const messages = document.getElementById('messages');
-  const agent = AGENTS.find(a => a.id === 'main');
   
   const div = document.createElement('div');
   div.className = 'message user';
@@ -368,4 +434,11 @@ function listSessions(agentId) {
     tool: 'sessions_list',
     args: { agentId: agentId }
   });
+}
+
+// ==================== 退出登录 ====================
+
+function logout() {
+  localStorage.removeItem('lingxi_token');
+  window.location.href = '/';
 }
