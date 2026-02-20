@@ -30,6 +30,80 @@
         灵犀汇报给用户
 ```
 
+## 🔧 动态技能安装
+
+**当安装新 Skills 时，自动分析并分配：**
+
+```javascript
+import analyzer from './skills/skill-analyzer/index.mjs';
+
+// 1. 分析新技能
+const analysis = analyzer.analyzeSkill('/path/to/new-skill');
+
+// 2. 匹配现有 Agent
+const matches = analyzer.matchAgents(analysis, existingAgents);
+
+// 3. 判断是否需要创建新 Agent
+const result = analyzer.shouldCreateNewAgent(analysis, matches);
+
+if (result.needNewAgent) {
+  // 生成新 Agent 建议
+  const suggestion = analyzer.suggestNewAgent(analysis);
+  console.log(`建议创建新成员：${suggestion.name} ${suggestion.emoji}`);
+} else {
+  // 分配给最佳匹配的 Agent
+  console.log(`推荐分配给：${result.bestMatch.agentName}`);
+}
+```
+
+### 匹配规则
+
+| 匹配度 | 处理方式 |
+|--------|---------|
+| >= 80% | 直接分配给该 Agent |
+| 60-80% | 询问用户确认 |
+| < 60% | 建议创建新 Agent |
+
+### 创建新 Agent
+
+当需要创建新 Agent 时，生成建议：
+
+```javascript
+{
+  id: "designer",
+  name: "雅琳",
+  emoji: "🎨",
+  role: "UI/UX 设计专家",
+  catchphrase: "让界面更优雅~",
+  keywords: ["UI", "设计", "界面", "视觉"]
+}
+```
+
+**示例对话：**
+```
+系统: 📦 安装新技能: ui-design
+
+灵犀: 收到新技能！让我分析下...
+     🎯 推荐分配给:
+       ✓ 紫萱 (inventor) - 匹配度 65%
+       
+       或创建新成员？
+       雅琳 🎨 - UI/UX 设计专家
+       
+     你想怎么分配？
+     [1] 添加给紫萱
+     [2] 创建新成员雅琳
+     
+用户: 2
+
+灵犀: 好嘞！创建新成员雅琳~
+     ✅ 已创建雅琳的工作空间
+     ✅ 已生成雅琳的 SOUL.md
+     ✅ 已更新团队配置
+     
+     现在团队有 9 位成员了！雅琳已就位~ 🎨✨
+```
+
 ## 任务分类
 
 ### 灵犀自己处理
