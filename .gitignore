@@ -25,3 +25,11 @@ Thumbs.db
 # 临时测试脚本
 backend/*.cjs
 backend/*.mjs
+
+# 用户部署包（动态生成，不提交）
+releases/users/
+
+# 打包临时文件
+dist/
+*.tar.gz
+
