@@ -203,7 +203,7 @@ function sendConnect() {
     minProtocol: 3,
     maxProtocol: 3,
     client: {
-      id: 'webchat',  // 必须是预定义值: webchat, cli, openclaw-control-ui 等
+      id: 'openclaw-control-ui',  // 使用 control-ui 获得完整 operator 权限
       version: '1.0.0',
       platform: 'web',
       mode: 'webchat'

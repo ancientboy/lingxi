@@ -9,8 +9,9 @@
     "dev": "node --watch index.js"
   },
   "dependencies": {
-    "@alicloud/ecs20140526": "^7.0.8",
+    "@alicloud/ecs20140526": "^7.6.0",
     "@alicloud/openapi-client": "^0.4.15",
+    "@alicloud/pop-core": "^1.8.0",
     "@alicloud/tea-util": "^1.4.9",
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",

@@ -6,7 +6,7 @@ import { Router } from 'express';
 import { getDB, saveDB } from '../utils/db.js';
 import crypto from 'crypto';
 import Ecs20140526, * as $Ecs20140526 from '@alicloud/ecs20140526';
-import * as $OpenApi from '@alicloud/openapi';
+import * as $OpenApi from '@alicloud/openapi-client';
 import { Client } from 'ssh2';
 import { config } from '../config/index.js';
 import logger from '../utils/logger.js';
@@ -384,7 +384,13 @@ cat > /root/.openclaw/openclaw.json << 'CONFIG_EOF'
     "port": 18789,
     "mode": "local",
     "bind": "lan",
-    "controlUi": { "enabled": true, "basePath": "SESSION_PLACEHOLDER", "allowInsecureAuth": true },
+    "controlUi": {
+      "enabled": true,
+      "basePath": "SESSION_PLACEHOLDER",
+      "allowedOrigins": ["*"],
+      "allowInsecureAuth": true,
+      "dangerouslyDisableDeviceAuth": true
+    },
     "auth": { "mode": "token", "token": "TOKEN_PLACEHOLDER" }
   },
   "plugins": { "entries": {} }
