@@ -53,12 +53,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 async function initUserAndServer() {
   // 从 URL 参数获取
   const urlParams = new URLSearchParams(window.location.search);
-  const userId = urlParams.get('userId');
   
   // 从 localStorage 获取 token
   const token = localStorage.getItem('lingxi_token');
   
+  console.log('初始化用户和服务器...');
+  
   if (!token) {
+    console.log('未登录，跳转到首页');
     // 未登录，跳转到首页
     window.location.href = '/';
     return;
@@ -71,6 +73,7 @@ async function initUserAndServer() {
     });
     
     if (!userRes.ok) {
+      console.log('Token 无效，跳转到首页');
       localStorage.removeItem('lingxi_token');
       window.location.href = '/';
       return;
@@ -78,6 +81,7 @@ async function initUserAndServer() {
     
     const userData = await userRes.json();
     userInfo = userData.user;
+    console.log('用户信息:', userInfo);
     
     // 获取服务器信息
     const serverRes = await fetch(`${API_BASE}/api/servers/${userInfo.id}`, {
@@ -87,16 +91,25 @@ async function initUserAndServer() {
     if (serverRes.ok) {
       const serverData = await serverRes.json();
       serverInfo = serverData.server;
+      console.log('服务器信息:', serverInfo);
       
       if (serverInfo && serverInfo.status === 'running') {
         GATEWAY_URL = `ws://${serverInfo.ip}:${serverInfo.openclawPort}`;
         GATEWAY_TOKEN = serverInfo.openclawToken;
         SESSION_ID = serverInfo.openclawSession;
+        console.log('Gateway URL:', GATEWAY_URL);
+      } else {
+        console.log('服务器未运行:', serverInfo?.status);
+        addSystemMessage('⚠️ 你的 AI 团队服务器未启动，请先在首页"一键领取"');
       }
+    } else {
+      console.log('获取服务器信息失败');
+      addSystemMessage('⚠️ 获取服务器信息失败，请先"一键领取 AI 团队"');
     }
     
   } catch (error) {
     console.error('获取用户/服务器信息失败:', error);
+    addSystemMessage('⚠️ 网络错误: ' + error.message);
   }
 }
 
@@ -149,15 +162,22 @@ function updateChatHeader(agent) {
 // ==================== WebSocket ====================
 
 function connectWebSocket() {
-  updateStatus('connecting', '连接中...');
+  if (!GATEWAY_URL) {
+    updateStatus('disconnected', '请先领取 AI 团队');
+    addSystemMessage('⚠️ 请先在首页点击"一键领取 AI 团队"');
+    return;
+  }
+  
+  updateStatus('connecting', `连接中 ${serverInfo?.ip || ''}...`);
   
   const wsUrl = `${GATEWAY_URL}/${SESSION_ID}/ws?token=${GATEWAY_TOKEN}`;
+  console.log('WebSocket URL:', wsUrl);
   
   try {
     ws = new WebSocket(wsUrl);
     
     ws.onopen = () => {
-      console.log('WebSocket 连接成功');
+      console.log('✅ WebSocket 连接成功');
       isConnected = true;
       updateStatus('connected', `已连接 ${serverInfo?.ip || ''}`);
       
@@ -177,18 +197,31 @@ function connectWebSocket() {
       isConnected = false;
       updateStatus('disconnected', '连接已断开');
       
+      if (event.code === 1006) {
+        addSystemMessage('⚠️ 连接被拒绝，请检查 Token 是否正确');
+      }
+      
       // 自动重连
-      setTimeout(connectWebSocket, 3000);
+      setTimeout(() => {
+        if (GATEWAY_URL) {
+          console.log('尝试重新连接...');
+          connectWebSocket();
+        }
+      }, 5000);
     };
     
     ws.onerror = (error) => {
       console.error('WebSocket 错误:', error);
+      isConnected = false;
       updateStatus('disconnected', '连接失败');
+      addSystemMessage('⚠️ 连接服务器失败，请检查服务器是否运行');
     };
     
   } catch (error) {
     console.error('WebSocket 连接失败:', error);
+    isConnected = false;
     updateStatus('disconnected', '连接失败');
+    addSystemMessage('⚠️ 连接失败: ' + error.message);
   }
 }
 
@@ -281,13 +314,23 @@ function sendMessage() {
   const input = document.getElementById('messageInput');
   const content = input.value.trim();
   
-  if (!content || !isConnected) return;
+  if (!content) {
+    console.log('消息为空');
+    return;
+  }
+  
+  if (!isConnected) {
+    console.error('WebSocket 未连接');
+    addSystemMessage('⚠️ 未连接到服务器，请检查网络或稍后重试');
+    return;
+  }
   
   // 显示用户消息
   addUserMessage(content);
   input.value = '';
   
   // 发送到 Gateway
+  console.log('发送消息:', content);
   sendRequest('chat.send', {
     content: content
   });
