@@ -482,17 +482,20 @@ async function waitForSSH(host, port, password, timeout = 120000) {
 
 /**
  * 上传部署包并执行部署
+ * 优先使用离线包，回退到淘宝镜像
  */
 async function uploadAndDeploy(host, packagePath, packageName) {
   const packageFile = `${packageName}.tar.gz`;
+  const projectRoot = path.resolve(__dirname, '..', '..');
+  const openclawPackagePath = path.join(projectRoot, 'releases', 'packages', 'openclaw-2026.2.17.tgz');
+  const hasOfflinePackage = fs.existsSync(openclawPackagePath);
   
   return new Promise((resolve, reject) => {
     const conn = new Client();
     
     conn.on('ready', () => {
-      console.log('SSH 连接成功，开始上传部署包...');
+      console.log('SSH 连接成功，开始部署...');
       
-      // 1. 上传文件
       conn.sftp((err, sftp) => {
         if (err) {
           conn.end();
@@ -500,14 +503,71 @@ async function uploadAndDeploy(host, packagePath, packageName) {
           return;
         }
         
+        // 上传部署包
         const remotePath = `/root/${packageFile}`;
         const writeStream = sftp.createWriteStream(remotePath);
         
         writeStream.on('close', () => {
           console.log('✅ 部署包上传完成');
           
-          // 2. 执行部署
-          const deployCommands = `
+          // 决定安装命令
+          let installCmd;
+          if (hasOfflinePackage) {
+            // 上传离线包并安装
+            console.log('📦 使用离线安装包...');
+            const offlineRemotePath = '/root/openclaw-2026.2.17.tgz';
+            const offlineWriteStream = sftp.createWriteStream(offlineRemotePath);
+            
+            offlineWriteStream.on('close', () => {
+              installCmd = `npm install -g /root/openclaw-2026.2.17.tgz`;
+              executeDeploy(conn, packageFile, packageName, installCmd, resolve, reject);
+            });
+            
+            offlineWriteStream.on('error', (err) => {
+              console.log('⚠️ 离线包上传失败，使用淘宝镜像:', err.message);
+              installCmd = `npm install -g openclaw@2026.2.17 --registry=https://registry.npmmirror.com`;
+              executeDeploy(conn, packageFile, packageName, installCmd, resolve, reject);
+            });
+            
+            fs.createReadStream(openclawPackagePath).pipe(offlineWriteStream);
+          } else {
+            // 使用淘宝镜像
+            console.log('🌐 使用淘宝镜像安装...');
+            installCmd = `npm install -g openclaw@2026.2.17 --registry=https://registry.npmmirror.com`;
+            executeDeploy(conn, packageFile, packageName, installCmd, resolve, reject);
+          }
+        });
+        
+        writeStream.on('error', (err) => {
+          conn.end();
+          reject(new Error(`上传失败: ${err.message}`));
+        });
+        
+        // 开始上传部署包
+        const readStream = fs.createReadStream(packagePath);
+        readStream.pipe(writeStream);
+      });
+    });
+    
+    conn.on('error', (err) => {
+      reject(new Error(`SSH 连接失败: ${err.message}`));
+    });
+    
+    conn.connect({
+      host,
+      port: 22,
+      username: 'root',
+      password: SERVER_PASSWORD,
+      readyTimeout: 30000,
+    });
+  });
+}
+
+/**
+ * 执行部署命令
+ */
+function executeDeploy(conn, packageFile, packageName, installCmd, resolve, reject) {
+  const deployCommands = `
 set -e
 
 cd /root
@@ -528,7 +588,7 @@ pkill -f openclaw 2>/dev/null || true
 sleep 2
 
 echo "4️⃣ 安装 OpenClaw..."
-npm install -g openclaw@${OPENCLAW_VERSION}
+${installCmd}
 echo "OpenClaw 版本: $(openclaw --version)"
 
 echo "5️⃣ 复制配置文件..."
@@ -542,62 +602,37 @@ disown
 sleep 5
 
 echo "7️⃣ 检查服务状态..."
-ss -tlnp | grep 18789 || echo "端口检查完成"
+ss -tlnp | grep 18789 || netstat -tlnp | grep 18789 || echo "端口检查完成"
 
 echo "✅ 部署完成!"
 `;
-          
-          conn.exec(deployCommands, (err, stream) => {
-            if (err) {
-              conn.end();
-              reject(err);
-              return;
-            }
-            
-            let output = '';
-            
-            stream.on('close', (code) => {
-              conn.end();
-              console.log('部署输出:', output);
-              if (code === 0) {
-                resolve();
-              } else {
-                reject(new Error(`部署脚本退出码: ${code}`));
-              }
-            });
-            
-            stream.on('data', (data) => {
-              output += data.toString();
-              console.log(data.toString());
-            });
-            
-            stream.stderr.on('data', (data) => {
-              console.error(data.toString());
-            });
-          });
-        });
-        
-        writeStream.on('error', (err) => {
-          conn.end();
-          reject(new Error(`上传失败: ${err.message}`));
-        });
-        
-        // 开始上传
-        const readStream = fs.createReadStream(packagePath);
-        readStream.pipe(writeStream);
-      });
+
+  conn.exec(deployCommands, (err, stream) => {
+    if (err) {
+      conn.end();
+      reject(err);
+      return;
+    }
+    
+    let output = '';
+    
+    stream.on('close', (code) => {
+      conn.end();
+      console.log('部署输出:', output);
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`部署脚本退出码: ${code}`));
+      }
     });
     
-    conn.on('error', (err) => {
-      reject(new Error(`SSH 连接失败: ${err.message}`));
+    stream.on('data', (data) => {
+      output += data.toString();
+      console.log(data.toString());
     });
     
-    conn.connect({
-      host,
-      port: 22,
-      username: 'root',
-      password: SERVER_PASSWORD,
-      readyTimeout: 30000,
+    stream.stderr.on('data', (data) => {
+      console.error(data.toString());
     });
   });
 }

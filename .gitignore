@@ -33,3 +33,7 @@ releases/users/
 dist/
 *.tar.gz
 
+
+# OpenClaw 离线包（太大，不上传）
+releases/packages/*.tgz
+
