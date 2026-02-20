@@ -1,7 +1,6 @@
 /**
  * 灵犀云多 Agent 聊天
- * 支持 Web 端直接切换不同 Agent 对话
- * 移动端友好，支持侧边栏收缩
+ * 顶部导航切换 Agent
  */
 
 // ==================== 配置 ====================
@@ -23,7 +22,7 @@ const ALL_AGENTS = {
   smart: { id: 'smart', name: '智家', emoji: '🏠', desc: '智能家居' }
 };
 
-// 用户当前显示的 Agent 列表
+// 用户当前显示的 Agent 列表（默认只有灵犀）
 let userAgents = ['main'];
 
 // ==================== 状态 ====================
@@ -49,23 +48,39 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
   
-  // 获取用户信息和服务器信息
+  // 点击其他地方关闭下拉
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.agent-switcher') && !e.target.closest('.agent-dropdown')) {
+      document.getElementById('agentDropdown').classList.remove('show');
+    }
+    if (!e.target.closest('.user-avatar') && !e.target.closest('.user-menu')) {
+      document.getElementById('userMenu').classList.remove('show');
+    }
+  });
+  
+  // 初始化
   await initUserAndServer();
+  renderAgentDropdown();
   
-  // 渲染 Agent 列表
-  renderAgentList();
-  
-  // 连接 WebSocket
   if (GATEWAY_URL) {
     connectWebSocket();
   }
 });
 
-// ==================== 侧边栏 ====================
+// ==================== 下拉菜单 ====================
 
-function toggleSidebar() {
-  const sidebar = document.getElementById('sidebar');
-  sidebar.classList.toggle('collapsed');
+function toggleAgentDropdown() {
+  document.getElementById('agentDropdown').classList.toggle('show');
+  document.getElementById('userMenu').classList.remove('show');
+}
+
+function toggleUserMenu() {
+  document.getElementById('userMenu').classList.toggle('show');
+  document.getElementById('agentDropdown').classList.remove('show');
+}
+
+function goToSettings() {
+  window.location.href = '/';
 }
 
 // ==================== 用户和服务器初始化 ====================
@@ -73,16 +88,13 @@ function toggleSidebar() {
 async function initUserAndServer() {
   const token = localStorage.getItem('lingxi_token');
   
-  console.log('初始化用户和服务器...');
-  
   if (!token) {
-    console.log('未登录，跳转到首页');
     window.location.href = '/';
     return;
   }
   
   try {
-    // 获取用户信息（包含 agents 配置）
+    // 获取用户信息
     const userRes = await fetch(`${API_BASE}/api/auth/me`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
@@ -94,14 +106,14 @@ async function initUserAndServer() {
     }
     
     const userData = await userRes.json();
-    userInfo = userData.user;
-    console.log('用户信息:', userInfo);
+    userInfo = userData.user || userData;
     
-    // 获取用户的团队配置
-    if (userInfo.agents && userInfo.agents.length > 0) {
+    // 获取用户的团队配置（安全访问）
+    if (userInfo && userInfo.agents && Array.isArray(userInfo.agents) && userInfo.agents.length > 0) {
       userAgents = userInfo.agents;
-      console.log('用户团队配置:', userAgents);
     }
+    
+    console.log('用户团队:', userAgents);
     
     // 获取服务器信息
     const serverRes = await fetch(`${API_BASE}/api/servers/${userInfo.id}`, {
@@ -111,103 +123,84 @@ async function initUserAndServer() {
     if (serverRes.ok) {
       const serverData = await serverRes.json();
       serverInfo = serverData.server;
-      console.log('服务器信息:', serverInfo);
       
       if (serverInfo && serverInfo.status === 'running') {
         GATEWAY_URL = `ws://${serverInfo.ip}:${serverInfo.openclawPort}`;
         GATEWAY_TOKEN = serverInfo.openclawToken;
         SESSION_ID = serverInfo.openclawSession;
-        console.log('Gateway URL:', GATEWAY_URL);
       } else {
-        addSystemMessage('⚠️ 你的 AI 团队服务器未启动，请先在首页"一键领取"');
+        addSystemMessage('⚠️ 请先在首页点击"一键领取 AI 团队"');
       }
     }
     
   } catch (error) {
-    console.error('获取用户/服务器信息失败:', error);
-    addSystemMessage('⚠️ 网络错误: ' + error.message);
+    console.error('初始化失败:', error);
+    addSystemMessage('⚠️ ' + error.message);
   }
 }
 
-// ==================== Agent 列表 ====================
+// ==================== Agent 下拉 ====================
 
-function renderAgentList() {
-  const list = document.getElementById('agentList');
+function renderAgentDropdown() {
+  const dropdown = document.getElementById('agentDropdown');
   
   // 只显示用户配置的 Agent
   const agents = userAgents.map(id => ALL_AGENTS[id]).filter(Boolean);
   
   if (agents.length === 0) {
-    list.innerHTML = '<div style="padding: 20px; text-align: center; color: rgba(255,255,255,0.5);">暂无团队成员</div>';
+    dropdown.innerHTML = '<div style="padding: 20px; text-align: center; color: rgba(255,255,255,0.5);">暂无团队成员</div>';
     return;
   }
   
-  list.innerHTML = agents.map(agent => `
-    <div class="agent-item ${agent.id === currentAgent ? 'active' : ''}" 
+  dropdown.innerHTML = agents.map(agent => `
+    <div class="agent-dropdown-item ${agent.id === currentAgent ? 'active' : ''}" 
          onclick="switchAgent('${agent.id}')">
-      <div class="agent-emoji">${agent.emoji}</div>
-      <div class="agent-info">
-        <h3>${agent.name}</h3>
+      <span class="emoji">${agent.emoji}</span>
+      <div class="info">
+        <h4>${agent.name}</h4>
         <p>${agent.desc}</p>
       </div>
     </div>
   `).join('');
   
-  // 更新头部
-  const currentAgentInfo = ALL_AGENTS[currentAgent];
-  if (currentAgentInfo) {
-    updateChatHeader(currentAgentInfo);
-  }
+  // 更新当前显示
+  updateCurrentAgent();
+}
+
+function updateCurrentAgent() {
+  const agent = ALL_AGENTS[currentAgent] || ALL_AGENTS.main;
+  document.getElementById('currentAgentEmoji').textContent = agent.emoji;
+  document.getElementById('currentAgentName').textContent = agent.name;
 }
 
 function switchAgent(agentId) {
-  if (agentId === currentAgent) return;
-  
-  currentAgent = agentId;
-  const agent = ALL_AGENTS[agentId];
-  
-  // 更新 UI
-  renderAgentList();
-  updateChatHeader(agent);
-  
-  // 添加切换提示
-  addSystemMessage(`已切换到 ${agent.emoji} ${agent.name}`);
-  
-  // 移动端自动收起侧边栏
-  if (window.innerWidth <= 768) {
-    document.getElementById('sidebar').classList.add('collapsed');
+  if (agentId === currentAgent) {
+    document.getElementById('agentDropdown').classList.remove('show');
+    return;
   }
   
-  // 发送切换通知到 Gateway
+  currentAgent = agentId;
+  updateCurrentAgent();
+  renderAgentDropdown();
+  
+  addSystemMessage(`已切换到 ${ALL_AGENTS[agentId]?.emoji || ''} ${ALL_AGENTS[agentId]?.name || agentId}`);
+  
   if (isConnected) {
     sendRequest('agent.switch', { agentId });
   }
-}
-
-function updateChatHeader(agent) {
-  const header = document.getElementById('chatHeader');
-  header.innerHTML = `
-    <span class="emoji">${agent.emoji}</span>
-    <div>
-      <h2>${agent.name}</h2>
-      <p>${agent.desc}</p>
-    </div>
-  `;
 }
 
 // ==================== WebSocket ====================
 
 function connectWebSocket() {
   if (!GATEWAY_URL) {
-    updateStatus('disconnected', '请先领取 AI 团队');
-    addSystemMessage('⚠️ 请先在首页点击"一键领取 AI 团队"');
+    updateStatus('disconnected', '未连接');
     return;
   }
   
-  updateStatus('connecting', '连接中...');
+  updateStatus('connecting', '连接中');
   
   const wsUrl = `${GATEWAY_URL}/${SESSION_ID}/ws?token=${GATEWAY_TOKEN}`;
-  console.log('WebSocket URL:', wsUrl);
   
   try {
     ws = new WebSocket(wsUrl);
@@ -218,36 +211,25 @@ function connectWebSocket() {
       updateStatus('connected', '已连接');
       
       sendHandshake();
-      sendRequest('chat.history', { limit: 30 });
+      sendRequest('chat.history', { limit: 20 });
     };
     
     ws.onmessage = (event) => {
       handleWebSocketMessage(JSON.parse(event.data));
     };
     
-    ws.onclose = (event) => {
-      console.log('WebSocket 关闭:', event.code);
+    ws.onclose = () => {
       isConnected = false;
       updateStatus('disconnected', '已断开');
-      
-      if (event.code !== 1000) {
-        addSystemMessage('⚠️ 连接已断开，正在重连...');
-      }
-      
-      setTimeout(() => {
-        if (GATEWAY_URL) connectWebSocket();
-      }, 5000);
+      setTimeout(() => { if (GATEWAY_URL) connectWebSocket(); }, 5000);
     };
     
-    ws.onerror = (error) => {
-      console.error('WebSocket 错误:', error);
+    ws.onerror = () => {
       isConnected = false;
       updateStatus('disconnected', '连接失败');
-      addSystemMessage('⚠️ 连接服务器失败');
     };
     
   } catch (error) {
-    console.error('WebSocket 连接失败:', error);
     updateStatus('disconnected', '连接失败');
   }
 }
@@ -256,60 +238,36 @@ function sendHandshake() {
   sendRequest('handshake', {
     minProtocol: 3,
     maxProtocol: 3,
-    client: { id: 'openclaw-control-ui', version: '1.0.0', platform: 'web', mode: 'webchat' },
+    client: { id: 'openclaw-control-ui', version: '1.0.0' },
     role: 'operator',
     scopes: ['operator.admin', 'operator.read', 'operator.write'],
-    auth: { token: GATEWAY_TOKEN },
-    locale: 'zh-CN'
+    auth: { token: GATEWAY_TOKEN }
   });
 }
 
 function sendRequest(method, params = {}) {
-  if (!ws || ws.readyState !== WebSocket.OPEN) {
-    console.error('WebSocket 未连接');
-    return;
-  }
-  
-  const id = `req_${++messageId}`;
-  ws.send(JSON.stringify({ id, method, params }));
-  return id;
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  ws.send(JSON.stringify({ id: `req_${++messageId}`, method, params }));
 }
 
 // ==================== 消息处理 ====================
 
 function handleWebSocketMessage(data) {
   if (data.type === 'response') {
-    handleResponse(data);
+    if (data.result && data.result.messages) {
+      document.getElementById('messages').innerHTML = '';
+      data.result.messages.forEach(msg => {
+        if (msg.role === 'user') addUserMessage(msg.content);
+        else if (msg.role === 'assistant') addAssistantMessage(msg.content);
+      });
+    }
   } else if (data.type === 'event') {
-    handleEvent(data);
-  }
-}
-
-function handleResponse(data) {
-  const { result, error } = data;
-  
-  if (error) {
-    console.error('请求错误:', error);
-    return;
-  }
-  
-  if (result && result.messages) {
-    document.getElementById('messages').innerHTML = '';
-    result.messages.forEach(msg => {
-      if (msg.role === 'user') addUserMessage(msg.content);
-      else if (msg.role === 'assistant') addAssistantMessage(msg.content);
-    });
-  }
-}
-
-function handleEvent(data) {
-  const { event, params } = data;
-  
-  if (event === 'chat.message' || event === 'chat.response') {
-    hideTyping();
-    if (params.content) addAssistantMessage(params.content);
-  } else if (event === 'chat.typing' || event === 'chat.pending') {
-    showTyping();
+    if (data.event === 'chat.message' || data.event === 'chat.response') {
+      hideTyping();
+      if (data.params?.content) addAssistantMessage(data.params.content);
+    } else if (data.event === 'chat.typing') {
+      showTyping();
+    }
   }
 }
 
@@ -328,7 +286,6 @@ function sendMessage() {
   
   addUserMessage(content);
   input.value = '';
-  
   sendRequest('chat.send', { content });
   showTyping();
 }
@@ -337,10 +294,7 @@ function addUserMessage(content) {
   const messages = document.getElementById('messages');
   const div = document.createElement('div');
   div.className = 'message user';
-  div.innerHTML = `
-    <div class="message-avatar">👤</div>
-    <div class="message-content">${escapeHtml(content)}</div>
-  `;
+  div.innerHTML = `<div class="message-avatar">👤</div><div class="message-content">${escapeHtml(content)}</div>`;
   messages.appendChild(div);
   scrollToBottom();
 }
@@ -352,10 +306,7 @@ function addAssistantMessage(content) {
   
   const div = document.createElement('div');
   div.className = 'message assistant';
-  div.innerHTML = `
-    <div class="message-avatar">${agent.emoji}</div>
-    <div class="message-content">${formatMessage(content)}</div>
-  `;
+  div.innerHTML = `<div class="message-avatar">${agent.emoji}</div><div class="message-content">${formatMessage(content)}</div>`;
   messages.appendChild(div);
   scrollToBottom();
 }
@@ -364,10 +315,7 @@ function addSystemMessage(content) {
   const messages = document.getElementById('messages');
   const div = document.createElement('div');
   div.className = 'message assistant';
-  div.innerHTML = `
-    <div class="message-avatar">ℹ️</div>
-    <div class="message-content" style="color: rgba(255,255,255,0.6); font-size: 13px;">${content}</div>
-  `;
+  div.innerHTML = `<div class="message-avatar">ℹ️</div><div class="message-content" style="color:rgba(255,255,255,0.6);font-size:13px;">${content}</div>`;
   messages.appendChild(div);
   scrollToBottom();
 }
@@ -379,10 +327,7 @@ function showTyping() {
   
   const div = document.createElement('div');
   div.className = 'message assistant typing-indicator';
-  div.innerHTML = `
-    <div class="message-avatar">${agent.emoji}</div>
-    <div class="typing"><span></span><span></span><span></span></div>
-  `;
+  div.innerHTML = `<div class="message-avatar">${agent.emoji}</div><div class="typing"><span></span><span></span><span></span></div>`;
   messages.appendChild(div);
   scrollToBottom();
 }
@@ -394,8 +339,7 @@ function hideTyping() {
 // ==================== 工具函数 ====================
 
 function updateStatus(status, text) {
-  const dot = document.getElementById('statusDot');
-  dot.className = 'status-dot ' + status;
+  document.getElementById('statusDot').className = 'status-dot ' + status;
   document.getElementById('statusText').textContent = text;
 }
 

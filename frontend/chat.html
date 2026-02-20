@@ -15,155 +15,190 @@
       overflow: hidden;
     }
     
-    /* 布局 */
     .app {
       display: flex;
+      flex-direction: column;
       height: 100vh;
     }
     
-    /* 左侧边栏 */
-    .sidebar {
-      width: 260px;
-      background: rgba(15, 15, 25, 0.98);
-      border-right: 1px solid rgba(102, 126, 234, 0.2);
-      display: flex;
-      flex-direction: column;
-      transition: transform 0.3s, width 0.3s;
-      position: relative;
-      z-index: 100;
-    }
-    
-    .sidebar.collapsed {
-      transform: translateX(-260px);
-      width: 0;
-    }
-    
-    .sidebar-header {
-      padding: 16px;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
+    /* 顶部导航 */
+    .navbar {
       display: flex;
       align-items: center;
       justify-content: space-between;
+      padding: 0 16px;
+      height: 56px;
+      background: rgba(15, 15, 25, 0.98);
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      flex-shrink: 0;
     }
     
-    .sidebar-header h1 {
+    .navbar-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .logo {
       font-size: 18px;
+      font-weight: 700;
       background: linear-gradient(135deg, #667eea, #00d4ff);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
     
-    .sidebar-toggle {
-      width: 32px;
-      height: 32px;
-      border: none;
-      background: rgba(255,255,255,0.1);
-      border-radius: 8px;
-      color: #fff;
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 12px;
+      font-size: 11px;
+      color: rgba(255,255,255,0.6);
+    }
+    
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #4ade80;
+    }
+    
+    .status-dot.connecting { background: #fbbf24; animation: pulse 1s infinite; }
+    .status-dot.disconnected { background: #ef4444; }
+    
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    
+    .navbar-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    /* Agent 切换按钮 */
+    .agent-switcher {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: rgba(102, 126, 234, 0.15);
+      border: 1px solid rgba(102, 126, 234, 0.3);
+      border-radius: 20px;
       cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .agent-switcher:hover {
+      background: rgba(102, 126, 234, 0.25);
+    }
+    
+    .agent-switcher .emoji {
       font-size: 18px;
     }
     
-    /* Agent 列表 */
-    .agent-list {
-      flex: 1;
-      overflow-y: auto;
-      padding: 8px;
+    .agent-switcher .name {
+      font-size: 13px;
+      font-weight: 500;
     }
     
-    .agent-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px 14px;
-      border-radius: 12px;
-      cursor: pointer;
-      transition: all 0.2s;
-      margin-bottom: 4px;
+    .agent-switcher .arrow {
+      font-size: 10px;
+      color: rgba(255,255,255,0.5);
     }
     
-    .agent-item:hover {
-      background: rgba(102, 126, 234, 0.1);
-    }
-    
-    .agent-item.active {
-      background: rgba(102, 126, 234, 0.2);
-      border: 1px solid rgba(102, 126, 234, 0.4);
-    }
-    
-    .agent-emoji {
-      font-size: 22px;
-      width: 36px;
-      height: 36px;
+    /* 用户头像 */
+    .user-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #667eea, #00d4ff);
       display: flex;
       align-items: center;
       justify-content: center;
-      background: rgba(255,255,255,0.05);
-      border-radius: 10px;
+      font-size: 14px;
+      cursor: pointer;
     }
     
-    .agent-info h3 {
+    /* Agent 选择下拉 */
+    .agent-dropdown {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      margin-top: 8px;
+      background: rgba(20, 20, 35, 0.98);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 8px;
+      min-width: 200px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+      display: none;
+      z-index: 100;
+    }
+    
+    .agent-dropdown.show {
+      display: block;
+    }
+    
+    .agent-dropdown-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    
+    .agent-dropdown-item:hover {
+      background: rgba(255,255,255,0.05);
+    }
+    
+    .agent-dropdown-item.active {
+      background: rgba(102, 126, 234, 0.2);
+    }
+    
+    .agent-dropdown-item .emoji {
+      font-size: 20px;
+    }
+    
+    .agent-dropdown-item .info h4 {
       font-size: 14px;
       font-weight: 500;
     }
     
-    .agent-info p {
+    .agent-dropdown-item .info p {
       font-size: 11px;
       color: rgba(255,255,255,0.5);
     }
     
-    /* 展开按钮（侧边栏收起时显示）*/
-    .sidebar-open-btn {
-      position: fixed;
-      left: 12px;
-      top: 12px;
-      width: 40px;
-      height: 40px;
-      border: none;
-      background: rgba(15, 15, 25, 0.95);
-      border: 1px solid rgba(102, 126, 234, 0.3);
-      border-radius: 10px;
-      color: #fff;
-      cursor: pointer;
-      font-size: 20px;
-      z-index: 99;
-      display: none;
-      transition: display 0.3s;
-    }
-    
-    .sidebar.collapsed + .main .sidebar-open-btn,
-    .app:has(.sidebar.collapsed) .sidebar-open-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    
-    /* 主聊天区 */
-    .main {
+    /* 聊天区域 */
+    .chat-container {
       flex: 1;
       display: flex;
       flex-direction: column;
-      background: rgba(10, 10, 20, 0.95);
-      min-width: 0;
+      overflow: hidden;
     }
     
-    .chat-header {
-      padding: 12px 20px;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
+    /* 当前 Agent 信息 */
+    .current-agent-bar {
       display: flex;
       align-items: center;
       gap: 10px;
+      padding: 12px 16px;
+      background: rgba(102, 126, 234, 0.08);
+      border-bottom: 1px solid rgba(255,255,255,0.05);
     }
     
-    .chat-header .emoji {
-      font-size: 26px;
+    .current-agent-bar .emoji {
+      font-size: 24px;
     }
     
-    .chat-header h2 {
-      font-size: 16px;
+    .current-agent-bar h3 {
+      font-size: 15px;
     }
     
-    .chat-header p {
+    .current-agent-bar p {
       font-size: 12px;
       color: rgba(255,255,255,0.5);
     }
@@ -194,9 +229,6 @@
       justify-content: center;
       font-size: 16px;
       flex-shrink: 0;
-    }
-    
-    .message.assistant .message-avatar {
       background: linear-gradient(135deg, #667eea, #00d4ff);
     }
     
@@ -214,18 +246,17 @@
     
     .message.assistant .message-content {
       background: rgba(255,255,255,0.08);
-      border-bottom-left-radius: 4px;
     }
     
     .message.user .message-content {
       background: linear-gradient(135deg, rgba(102, 126, 234, 0.3), rgba(0, 212, 255, 0.2));
-      border-bottom-right-radius: 4px;
     }
     
     /* 输入区 */
     .input-area {
       padding: 12px 16px;
-      border-top: 1px solid rgba(255,255,255,0.1);
+      background: rgba(10, 10, 20, 0.95);
+      border-top: 1px solid rgba(255,255,255,0.05);
     }
     
     .input-wrapper {
@@ -245,7 +276,7 @@
       resize: none;
       outline: none;
       font-family: inherit;
-      max-height: 120px;
+      max-height: 100px;
     }
     
     .input-wrapper textarea:focus {
@@ -261,51 +292,13 @@
       color: #fff;
       font-size: 18px;
       cursor: pointer;
-      transition: all 0.2s;
       flex-shrink: 0;
     }
     
-    .send-btn:hover {
-      transform: scale(1.05);
-    }
+    .send-btn:hover { transform: scale(1.05); }
+    .send-btn:disabled { opacity: 0.5; }
     
-    .send-btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-    
-    /* 连接状态 */
-    .connection-status {
-      padding: 6px 16px;
-      font-size: 11px;
-      color: rgba(255,255,255,0.5);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    
-    .status-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #4ade80;
-    }
-    
-    .status-dot.connecting {
-      background: #fbbf24;
-      animation: pulse 1s infinite;
-    }
-    
-    .status-dot.disconnected {
-      background: #ef4444;
-    }
-    
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-    
-    /* 加载动画 */
+    /* 打字动画 */
     .typing {
       display: flex;
       gap: 4px;
@@ -328,99 +321,95 @@
       50% { transform: translateY(-5px); }
     }
     
-    /* 移动端适配 */
-    @media (max-width: 768px) {
-      .sidebar {
-        position: fixed;
-        left: 0;
-        top: 0;
-        height: 100%;
-        z-index: 200;
-      }
-      
-      .sidebar.collapsed {
-        transform: translateX(-100%);
-      }
-      
-      .sidebar-open-btn {
-        display: flex !important;
-      }
-      
-      .sidebar:not(.collapsed) ~ .main::before {
-        content: '';
-        position: fixed;
-        inset: 0;
-        background: rgba(0,0,0,0.5);
-        z-index: 50;
-      }
-      
-      .message-content {
-        max-width: 85%;
-      }
+    /* 用户菜单 */
+    .user-menu {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      margin-top: 8px;
+      background: rgba(20, 20, 35, 0.98);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 8px;
+      min-width: 160px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+      display: none;
+      z-index: 100;
     }
     
-    /* 退出按钮 */
-    .logout-btn {
-      margin: 8px;
-      padding: 10px;
-      border: 1px solid rgba(255,255,255,0.1);
-      background: transparent;
-      color: rgba(255,255,255,0.6);
+    .user-menu.show { display: block; }
+    
+    .user-menu-item {
+      padding: 10px 14px;
       border-radius: 8px;
       cursor: pointer;
-      font-size: 13px;
+      font-size: 14px;
+      transition: background 0.2s;
     }
     
-    .logout-btn:hover {
+    .user-menu-item:hover {
       background: rgba(255,255,255,0.05);
-      color: #fff;
+    }
+    
+    .user-menu-item.danger {
+      color: #ef4444;
+    }
+    
+    /* 移动端 */
+    @media (max-width: 640px) {
+      .navbar { padding: 0 12px; }
+      .logo { font-size: 16px; }
+      .status-badge { display: none; }
+      .agent-switcher .name { display: none; }
+      .message-content { max-width: 85%; }
     }
   </style>
 </head>
 <body>
   <div class="app">
-    <!-- 左侧边栏 -->
-    <div class="sidebar" id="sidebar">
-      <div class="sidebar-header">
-        <h1>⚡ 灵犀云</h1>
-        <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
-      </div>
-      
-      <div class="agent-list" id="agentList">
-        <!-- Agent 列表将由 JS 动态生成 -->
-      </div>
-      
-      <button class="logout-btn" onclick="logout()">退出登录</button>
-    </div>
-    
-    <!-- 主聊天区 -->
-    <div class="main">
-      <button class="sidebar-open-btn" onclick="toggleSidebar()">☰</button>
-      
-      <div class="chat-header" id="chatHeader">
-        <span class="emoji">⚡</span>
-        <div>
-          <h2>灵犀</h2>
-          <p>团队队长</p>
+    <!-- 顶部导航 -->
+    <nav class="navbar">
+      <div class="navbar-left">
+        <span class="logo">⚡ 灵犀云</span>
+        <div class="status-badge">
+          <span class="status-dot" id="statusDot"></span>
+          <span id="statusText">连接中</span>
         </div>
       </div>
       
-      <div class="connection-status">
-        <span class="status-dot" id="statusDot"></span>
-        <span id="statusText">连接中...</span>
+      <div class="navbar-right">
+        <!-- Agent 切换 -->
+        <div style="position: relative;">
+          <div class="agent-switcher" id="agentSwitcher" onclick="toggleAgentDropdown()">
+            <span class="emoji" id="currentAgentEmoji">⚡</span>
+            <span class="name" id="currentAgentName">灵犀</span>
+            <span class="arrow">▼</span>
+          </div>
+          <div class="agent-dropdown" id="agentDropdown">
+            <!-- 动态生成 -->
+          </div>
+        </div>
+        
+        <!-- 用户头像 -->
+        <div style="position: relative;">
+          <div class="user-avatar" onclick="toggleUserMenu()">👤</div>
+          <div class="user-menu" id="userMenu">
+            <div class="user-menu-item" onclick="goToSettings()">⚙️ 设置</div>
+            <div class="user-menu-item danger" onclick="logout()">🚪 退出登录</div>
+          </div>
+        </div>
       </div>
-      
+    </nav>
+    
+    <!-- 聊天区域 -->
+    <div class="chat-container">
       <div class="messages" id="messages">
-        <!-- 消息将由 JS 动态生成 -->
+        <!-- 消息动态生成 -->
       </div>
       
       <div class="input-area">
         <div class="input-wrapper">
-          <textarea 
-            id="messageInput" 
-            placeholder="输入消息..." 
-            rows="1"
-          ></textarea>
+          <textarea id="messageInput" placeholder="输入消息..." rows="1"></textarea>
           <button class="send-btn" id="sendBtn">➤</button>
         </div>
       </div>
