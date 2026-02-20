@@ -354,7 +354,6 @@ router.get('/:instanceId', async (req, res) => {
   }
 });
 
-export default router;
 
 /**
  * 手动同步团队配置到服务器
@@ -404,5 +403,7 @@ router.get('/available', (req, res) => {
     agents: Object.values(AGENT_INFO)
   });
 });
+
+
 
 export default router;

@@ -585,6 +585,7 @@ echo "Node 版本: $(node --version)"
 
 echo "3️⃣ 停止旧进程..."
 pkill -f openclaw 2>/dev/null || true
+systemctl stop openclaw 2>/dev/null || true
 sleep 2
 
 echo "4️⃣ 安装 OpenClaw..."
@@ -595,16 +596,36 @@ echo "5️⃣ 复制配置文件..."
 cd ${packageName}
 cp -r .openclaw ~/.openclaw
 
-echo "6️⃣ 启动 Gateway..."
-cd ~/.openclaw
-nohup openclaw gateway > /var/log/openclaw.log 2>&1 &
-disown
+echo "6️⃣ 配置 Systemd 自动重启..."
+cat > /etc/systemd/system/openclaw.service << 'SYSTEMD_EOF'
+[Unit]
+Description=OpenClaw Gateway
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/.openclaw
+ExecStart=/usr/bin/openclaw gateway
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/openclaw.log
+StandardError=append:/var/log/openclaw.log
+
+[Install]
+WantedBy=multi-user.target
+SYSTEMD_EOF
+
+systemctl daemon-reload
+systemctl enable openclaw
+systemctl start openclaw
 sleep 5
 
 echo "7️⃣ 检查服务状态..."
+systemctl status openclaw --no-pager | head -5
 ss -tlnp | grep 18789 || netstat -tlnp | grep 18789 || echo "端口检查完成"
 
-echo "✅ 部署完成!"
+echo "✅ 部署完成! (自动重启已启用)"
 `;
 
   conn.exec(deployCommands, (err, stream) => {
