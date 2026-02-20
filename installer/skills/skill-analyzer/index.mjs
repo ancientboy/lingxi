@@ -16,26 +16,44 @@ const AGENT_PROFILES = {
   coder: {
     name: '云溪',
     categories: ['development', 'automation'],
-    keywords: ['代码', 'bug', '重构', '性能', 'API', 'SQL', '前端', '后端'],
+    keywords: ['代码', 'bug', '重构', '性能', 'API', 'SQL', '前端', '后端', '编程', '调试'],
     tags: ['code', 'development', 'programming']
   },
   ops: {
     name: '若曦',
     categories: ['data', 'automation', 'communication'],
-    keywords: ['数据', '分析', '增长', '运营', '转化', '留存', '学习', '规划'],
+    keywords: ['数据', '分析', '增长', '运营', '转化', '留存', '学习', '规划', '报表'],
     tags: ['data', 'analytics', 'marketing']
   },
   inventor: {
     name: '紫萱',
     categories: ['creative'],
-    keywords: ['创意', '想法', 'brainstorm', '创新', '设计', '艺术'],
+    keywords: ['创意', '想法', 'brainstorm', '创新', '设计', '艺术', '从零开始'],
     tags: ['creative', 'design', 'innovation']
   },
   pm: {
     name: '梓萱',
     categories: ['product', 'creative'],
-    keywords: ['产品', '需求', '用户', '体验', '功能', 'MVP', '商业'],
+    keywords: ['产品', '需求', '用户', '体验', '功能', 'MVP', '商业', '模式'],
     tags: ['product', 'ux', 'business']
+  },
+  noter: {
+    name: '晓琳',
+    categories: ['knowledge', 'organization'],
+    keywords: ['笔记', '记录', '整理', '知识', '分类', '归档', '文档'],
+    tags: ['notes', 'knowledge', 'documentation']
+  },
+  media: {
+    name: '音韵',
+    categories: ['media', 'creative'],
+    keywords: ['音乐', '歌曲', '播放', '氛围', '语音', '视频', '多媒体'],
+    tags: ['media', 'music', 'audio', 'video']
+  },
+  smart: {
+    name: '智家',
+    categories: ['iot', 'automation'],
+    keywords: ['智能', '家居', '设备', '灯光', '控制', '场景', '自动化'],
+    tags: ['smart', 'home', 'iot', 'automation']
   }
 };
 
