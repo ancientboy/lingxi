@@ -20,6 +20,54 @@
 | media | 音韵 🎧 | 多媒体、内容创作 | 音乐、歌曲、播放、氛围、语音 |
 | smart | 智家 🏠 | 智能家居、设备控制 | 智能、家居、灯光、控制、场景 |
 
+## Agent 间通信方式
+
+### 方式1：sessions_spawn（派发任务）
+
+适用于：创建新任务，让其他 Agent 独立执行
+
+```javascript
+sessions_spawn({
+  agentId: "coder",
+  task: "用户要求：帮我写一个防抖函数",
+  timeoutSeconds: 300
+})
+```
+
+**特点：**
+- 创建新的会话
+- Agent 独立执行任务
+- 适合一次性任务
+
+### 方式2：sessions_send（发送消息）
+
+适用于：向其他 Agent 的现有会话发送消息，进行协作
+
+```javascript
+// 先获取目标 Agent 的会话
+const sessions = await sessions_list({ agentId: "coder" });
+
+// 发送消息到该会话
+sessions_send({
+  sessionId: sessions[0].id,
+  text: "用户有新的补充要求：需要支持 TypeScript"
+})
+```
+
+**特点：**
+- 复用现有会话
+- 保持上下文连续
+- 适合追加需求或协作
+
+### 使用场景对比
+
+| 场景 | 推荐方式 | 原因 |
+|------|---------|------|
+| 新任务 | sessions_spawn | 独立执行 |
+| 追加需求 | sessions_send | 保持上下文 |
+| 紧急协作 | sessions_send | 快速沟通 |
+| 复杂任务 | sessions_spawn | 完整上下文 |
+
 ## 调度规则
 
 ```javascript
@@ -40,16 +88,18 @@ function matchAgent(message) {
 }
 ```
 
-## 调度方式
+## 直接对话模式
 
-使用 `sessions_spawn` 工具派发任务：
+用户也可以直接指定要对话的 Agent：
 
-```javascript
-sessions_spawn({
-  agentId: "coder",  // 云溪
-  task: "任务描述",
-  timeoutSeconds: 300
-})
+```
+用户: @云溪 帮我写个登录页面
+灵犀: 收到！正在转接云溪...
+     [派发给云溪]
+     
+用户: @若曦 分析下这个数据
+灵犀: 好的，让若曦来看看~
+     [派发给若曦]
 ```
 
 ## 注意事项
