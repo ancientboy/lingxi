@@ -44,13 +44,27 @@ cat "${SCRIPT_DIR}/config/openclaw.json" | \
 
 echo "📦 复制 Agent 记忆文件..."
 
-# 复制所有 agent 的 SOUL.md
+# 复制所有 agent 的 SOUL.md 和其他配置文件
 for agent in lingxi coder ops inventor pm noter media smart; do
   mkdir -p "${PACKAGE_DIR}/.openclaw/agents/${agent}"
   mkdir -p "${PACKAGE_DIR}/.openclaw/agents/${agent}/agent"
+  
+  # 复制 SOUL.md
   if [ -f "${SCRIPT_DIR}/agents/${agent}/SOUL.md" ]; then
     cp "${SCRIPT_DIR}/agents/${agent}/SOUL.md" "${PACKAGE_DIR}/.openclaw/agents/${agent}/agent/"
     echo "  ✅ ${agent}/SOUL.md"
+  fi
+  
+  # 复制 TEAM.md（仅灵犀）
+  if [ -f "${SCRIPT_DIR}/agents/${agent}/TEAM.md" ]; then
+    cp "${SCRIPT_DIR}/agents/${agent}/TEAM.md" "${PACKAGE_DIR}/.openclaw/agents/${agent}/agent/"
+    echo "  ✅ ${agent}/TEAM.md"
+  fi
+  
+  # 复制 WORKFLOW.md（仅灵犀）
+  if [ -f "${SCRIPT_DIR}/agents/${agent}/WORKFLOW.md" ]; then
+    cp "${SCRIPT_DIR}/agents/${agent}/WORKFLOW.md" "${PACKAGE_DIR}/.openclaw/agents/${agent}/agent/"
+    echo "  ✅ ${agent}/WORKFLOW.md"
   fi
 done
 
