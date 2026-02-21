@@ -651,11 +651,30 @@ function renderHistory(messages) {
   
   console.log('✅ 渲染了', messages.length, '条历史消息');
   
-  // 自动滚动到底部
-  setTimeout(() => {
+  // 强制滚动到底部（延迟确保DOM渲染完成）
+  const scrollToBottom = () => {
+    // 滚动消息容器
     container.scrollTop = container.scrollHeight;
-    console.log('📜 已滚动到最新消息');
-  }, 100);
+    
+    // 滚动整个页面（移动端更可靠）
+    window.scrollTo({
+      top: document.body.scrollHeight,
+      behavior: 'instant'
+    });
+    
+    // 额外：确保输入框可见
+    const inputArea = document.querySelector('.input-area');
+    if (inputArea) {
+      inputArea.scrollIntoView({ behavior: 'instant', block: 'end' });
+    }
+    
+    console.log('📜 已滚动到底部');
+  };
+  
+  // 多次尝试滚动，确保生效
+  setTimeout(scrollToBottom, 50);
+  setTimeout(scrollToBottom, 200);
+  setTimeout(scrollToBottom, 500);
 }
 
 // ===== 会话管理 =====
