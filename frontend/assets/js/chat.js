@@ -284,10 +284,14 @@ function handleWebSocketMessage(data) {
   if (data.type === 'event' && data.event === 'chat') {
     const payload = data.payload || {};
     
-    // 检查是否是当前会话
-    if (payload.sessionKey && payload.sessionKey !== currentSessionKey) {
-      console.log('⚠️ 跳过非当前会话消息:', payload.sessionKey);
-      return;
+    // 检查是否是当前会话（宽松匹配，只检查后缀）
+    if (payload.sessionKey && currentSessionKey) {
+      const payloadSuffix = payload.sessionKey.split(':').pop();
+      const currentSuffix = currentSessionKey.split(':').pop();
+      if (payloadSuffix !== currentSuffix && payload.sessionKey !== currentSessionKey) {
+        console.log('⚠️ 跳过非当前会话消息:', payload.sessionKey, '当前:', currentSessionKey);
+        return;
+      }
     }
     
     const runId = payload.runId;
@@ -441,10 +445,13 @@ function sendMessage() {
   console.log('🔌 WebSocket 状态:', ws ? ws.readyState : 'null', '(OPEN=1)');
   if (ws && ws.readyState === WebSocket.OPEN) {
     console.log('✅ 通过 WebSocket 发送消息');
+    console.log('📦 sessionKey:', currentSessionKey);
     addTyping();
-    ws.send(JSON.stringify({
+    
+    const reqId = `req_${requestId++}`;
+    const req = {
       type: 'req',
-      id: `req_${requestId++}`,
+      id: reqId,
       method: 'chat.send',
       params: {
         sessionKey: currentSessionKey,
@@ -452,7 +459,9 @@ function sendMessage() {
         idempotencyKey: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         deliver: false
       }
-    }));
+    };
+    console.log('📤 发送请求:', reqId, 'sessionKey:', currentSessionKey);
+    ws.send(JSON.stringify(req));
   } else {
     // WebSocket 未连接，使用 HTTP 代理
     console.log('📡 WebSocket 未连接，使用 HTTP 代理');
@@ -1432,7 +1441,7 @@ function switchAgent(agentId) {
   // 更新列表
   renderAgentDropdown();
   
-  // 🔑 切换到对应的 agent 会话
+  // 🎯 切换到对应的 agent 会话（每个 agent 独立工作区）
   if (agentId === 'lingxi') {
     // 灵犀是主会话
     currentSessionKey = SESSION_KEY;
@@ -1441,7 +1450,7 @@ function switchAgent(agentId) {
     currentSessionKey = `${SESSION_PREFIX}:${agentId}`;
   }
   
-  console.log('🔄 切换到 agent 会话:', currentSessionKey);
+  console.log('🔄 切换到 agent:', agentId, '会话:', currentSessionKey);
   
   // 清空当前消息，显示加载中
   const container = document.getElementById('messages');
