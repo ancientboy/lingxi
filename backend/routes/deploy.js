@@ -108,10 +108,22 @@ async function quickGeneratePackage(userId, token, sessionId, releasesDir) {
   const packageName = `lingxi-team-${userId}-${OPENCLAW_VERSION}`;
   const packageDir = path.join(releasesDir, packageName);
   const packagePath = path.join(releasesDir, `${packageName}.tar.gz`);
+  const templatesDir = path.join(PROJECT_ROOT, 'backend', 'templates');
   
-  // 创建目录结构
-  fs.mkdirSync(path.join(packageDir, '.openclaw', 'agents', 'lingxi', 'agent'), { recursive: true });
+  // 创建目录结构 - 所有 8 个 agent
+  const agents = ['main', 'coder', 'ops', 'inventor', 'pm', 'noter', 'media', 'smart'];
+  for (const agent of agents) {
+    fs.mkdirSync(path.join(packageDir, '.openclaw', 'agents', agent), { recursive: true });
+  }
   fs.mkdirSync(path.join(packageDir, '.openclaw', 'workspace'), { recursive: true });
+  
+  // 复制所有 agent 的 SOUL.md
+  for (const agent of agents) {
+    const soulPath = path.join(templatesDir, 'agents', agent, 'SOUL.md');
+    if (fs.existsSync(soulPath)) {
+      fs.copyFileSync(soulPath, path.join(packageDir, '.openclaw', 'agents', agent, 'SOUL.md'));
+    }
+  }
   
   // 生成配置文件
   const configJson = {
@@ -141,14 +153,14 @@ async function quickGeneratePackage(userId, token, sessionId, releasesDir) {
     "agents": {
       "defaults": { "model": { "primary": "zhipu/glm-5" }, "workspace": "~/.openclaw/workspace" },
       "list": [
-        { "id": "main", "default": true, "name": "灵犀", "subagents": { "allowAgents": ["coder", "ops", "inventor", "pm", "noter", "media", "smart"] } },
-        { "id": "coder", "name": "云溪" },
-        { "id": "ops", "name": "若曦" },
-        { "id": "inventor", "name": "紫萱" },
-        { "id": "pm", "name": "梓萱" },
-        { "id": "noter", "name": "晓琳" },
-        { "id": "media", "name": "音韵" },
-        { "id": "smart", "name": "智家" }
+        { "id": "main", "default": true, "name": "灵犀", "agentDir": "~/.openclaw/agents/main", "subagents": { "allowAgents": ["coder", "ops", "inventor", "pm", "noter", "media", "smart"] } },
+        { "id": "coder", "name": "云溪", "agentDir": "~/.openclaw/agents/coder" },
+        { "id": "ops", "name": "若曦", "agentDir": "~/.openclaw/agents/ops" },
+        { "id": "inventor", "name": "紫萱", "agentDir": "~/.openclaw/agents/inventor" },
+        { "id": "pm", "name": "梓萱", "agentDir": "~/.openclaw/agents/pm" },
+        { "id": "noter", "name": "晓琳", "agentDir": "~/.openclaw/agents/noter" },
+        { "id": "media", "name": "音韵", "agentDir": "~/.openclaw/agents/media" },
+        { "id": "smart", "name": "智家", "agentDir": "~/.openclaw/agents/smart" }
       ]
     },
     "gateway": {

@@ -75,37 +75,45 @@
         "id": "main",
         "default": true,
         "name": "灵犀",
+        "agentDir": "/root/.openclaw/agents/main",
         "subagents": {
           "allowAgents": ["coder", "ops", "inventor", "pm", "noter", "media", "smart"]
         }
       },
       {
         "id": "coder",
-        "name": "云溪"
+        "name": "云溪",
+        "agentDir": "/root/.openclaw/agents/coder"
       },
       {
         "id": "ops",
-        "name": "若曦"
+        "name": "若曦",
+        "agentDir": "/root/.openclaw/agents/ops"
       },
       {
         "id": "inventor",
-        "name": "紫萱"
+        "name": "紫萱",
+        "agentDir": "/root/.openclaw/agents/inventor"
       },
       {
         "id": "pm",
-        "name": "梓萱"
+        "name": "梓萱",
+        "agentDir": "/root/.openclaw/agents/pm"
       },
       {
         "id": "noter",
-        "name": "晓琳"
+        "name": "晓琳",
+        "agentDir": "/root/.openclaw/agents/noter"
       },
       {
         "id": "media",
-        "name": "音韵"
+        "name": "音韵",
+        "agentDir": "/root/.openclaw/agents/media"
       },
       {
         "id": "smart",
-        "name": "智家"
+        "name": "智家",
+        "agentDir": "/root/.openclaw/agents/smart"
       }
     ]
   },
