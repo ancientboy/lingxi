@@ -189,20 +189,17 @@ function connectWebSocket() {
     
     ws.onerror = (error) => {
       console.error('WebSocket 错误:', error);
-      statusEl.textContent = '连接错误';
-      statusEl.className = 'status-dot';
+      statusEl.className = 'status-dot';  // 红色
     };
     
     ws.onclose = () => {
-      console.log('WebSocket 已断开');
-      statusEl.textContent = '已断开，5秒后重连...';
-      statusEl.className = 'status-dot';
+      console.log('WebSocket 已断开，5秒后重连...');
+      statusEl.className = 'status-dot';  // 红色
       setTimeout(connectWebSocket, 5000);
     };
   } catch (e) {
     console.error('WebSocket 连接失败:', e);
-    statusEl.textContent = '连接失败';
-    statusEl.className = 'status-dot';
+    statusEl.className = 'status-dot';  // 红色
   }
 }
 
@@ -244,15 +241,13 @@ function handleWebSocketMessage(data) {
   // 连接挑战 - 设备认证已禁用时不应该收到
   if (data.type === 'event' && data.event === 'connect.challenge') {
     console.log('收到挑战，但设备认证已禁用，这不应该发生');
-    statusEl.textContent = '认证失败（需要重启Gateway）';
-    statusEl.className = 'status-dot';
+    statusEl.className = 'status-dot';  // 红色
     return;
   }
   
   // 连接响应
   if (data.type === 'res' && data.ok && data.payload?.type === 'hello-ok') {
-    statusEl.textContent = '已连接';
-    statusEl.className = 'status-dot connected';
+    statusEl.className = 'status-dot connected';  // 绿色
     console.log('✅ 认证成功');
     // 加载会话列表和历史
     loadSessions();
@@ -274,10 +269,9 @@ function handleWebSocketMessage(data) {
     const errorMsg = data.error?.message || JSON.stringify(data.error) || '未知错误';
     console.error('❌ 请求失败:', errorMsg, data);
     
-    // 如果是认证错误，特殊处理
+    // 如果是认证错误，显示红色状态
     if (errorMsg.includes('auth') || errorMsg.includes('token') || errorMsg.includes('认证')) {
-      statusEl.textContent = '认证失败';
-      statusEl.className = 'status-dot';
+      statusEl.className = 'status-dot';  // 红色
     }
     
     removeTyping();
@@ -352,10 +346,10 @@ function handleWebSocketMessage(data) {
 // 从消息对象中提取文本
 function extractText(message) {
   if (!message) return null;
-  if (typeof message === 'string') return message;
-  if (message.text) return message.text;
+  if (typeof message === 'string') return cleanMessageText(message);
+  if (message.text) return cleanMessageText(message.text);
   if (message.content) {
-    if (typeof message.content === 'string') return message.content;
+    if (typeof message.content === 'string') return cleanMessageText(message.content);
     if (Array.isArray(message.content)) {
       return message.content
         .filter(block => block.type === 'text')
@@ -364,6 +358,28 @@ function extractText(message) {
     }
   }
   return null;
+}
+
+// 清理消息文本，过滤掉元数据等技术信息
+function cleanMessageText(text) {
+  if (!text || typeof text !== 'string') return text;
+  
+  // 过滤掉 Conversation info (untrusted metadata) 等技术信息
+  let cleaned = text;
+  
+  // 移除 Conversation info 块
+  cleaned = cleaned.replace(/Conversation info \(untrusted metadata\):[\s\S]*?```/g, '');
+  
+  // 移除 ```json ... ``` 块中只包含元数据的内容
+  cleaned = cleaned.replace(/```json\s*\{[\s\S]*?"message_id"[\s\S]*?\}\s*```/g, '');
+  
+  // 移除 [message_id: ...] 行
+  cleaned = cleaned.replace(/\[message_id:\s*[a-f0-9-]+\]/gi, '');
+  
+  // 移除多余空行
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
+  
+  return cleaned.trim();
 }
 
 // 流式消息管理
