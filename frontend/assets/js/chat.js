@@ -143,6 +143,9 @@ async function init() {
     this.style.height = 'auto';
     this.style.height = Math.min(this.scrollHeight, 150) + 'px';
   });
+  
+  // 初始化 agent 下拉（放在最后，确保 user 已加载）
+  initAgentDropdown();
 }
 
 let requestId = 1;
@@ -1441,6 +1444,7 @@ function switchAgent(agentId) {
 
 // 初始化时渲染 agent 下拉
 function initAgentDropdown() {
+  console.log('🎯 initAgentDropdown 调用, user:', user);
   // 使用已加载的 user 变量
   if (user?.agents && user.agents.length > 0) {
     userAgentList = user.agents;
@@ -1454,13 +1458,6 @@ function initAgentDropdown() {
       document.getElementById('currentAgentName').textContent = agent.name;
     }
   }
+  console.log('🎯 userAgentList:', userAgentList, 'ALL_AGENTS:', Object.keys(ALL_AGENTS));
   renderAgentDropdown();
 }
-
-// 在 init() 完成后调用
-const originalInit = init;
-init = async function() {
-  await originalInit();
-  // init 完成后初始化 agent 下拉
-  setTimeout(initAgentDropdown, 500);
-};
