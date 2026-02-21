@@ -1360,19 +1360,16 @@ try {
 
 // ==================== Agent 切换功能 ====================
 
-const ALL_AGENTS = {
-  main: { id: 'main', name: '灵犀', emoji: '⚡', desc: '团队队长' },
-  coder: { id: 'coder', name: '云溪', emoji: '💻', desc: '代码专家' },
-  ops: { id: 'ops', name: '若曦', emoji: '📊', desc: '数据分析' },
-  inventor: { id: 'inventor', name: '紫萱', emoji: '💡', desc: '创意设计' },
-  pm: { id: 'pm', name: '梓萱', emoji: '🎯', desc: '产品专家' },
-  noter: { id: 'noter', name: '晓琳', emoji: '📝', desc: '知识管理' },
-  media: { id: 'media', name: '音韵', emoji: '🎧', desc: '多媒体' },
-  smart: { id: 'smart', name: '智家', emoji: '🏠', desc: '智能家居' }
-};
+// 直接复用 AGENT_INFO，确保 key 一致（lingxi, coder, ops 等）
+const ALL_AGENTS = Object.fromEntries(
+  Object.keys(AGENT_INFO).map(id => {
+    const info = AGENT_INFO[id];
+    return [id, { id, name: info.name, emoji: info.emoji, desc: info.scene }];
+  })
+);
 
-let currentAgentId = 'main';
-let userAgentList = ['main'];
+let currentAgentId = 'lingxi';
+let userAgentList = ['lingxi'];
 
 function toggleAgentDropdown() {
   const dropdown = document.getElementById('agentDropdown');
@@ -1442,25 +1439,28 @@ function switchAgent(agentId) {
   }
 }
 
-// 初始化时渲染
-document.addEventListener('DOMContentLoaded', () => {
-  // 从用户信息获取团队配置
-  setTimeout(async () => {
-    const token = localStorage.getItem('lingxi_token');
-    if (token && window.userInfo?.id) {
-      try {
-        const res = await fetch(`${API_BASE}/api/auth/me`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const data = await res.json();
-        if (data.user?.agents && data.user.agents.length > 0) {
-          userAgentList = data.user.agents;
-          renderAgentDropdown();
-        }
-      } catch (e) {
-        console.log('加载团队配置失败');
-      }
+// 初始化时渲染 agent 下拉
+function initAgentDropdown() {
+  // 使用已加载的 user 变量
+  if (user?.agents && user.agents.length > 0) {
+    userAgentList = user.agents;
+    // 设置当前 agent 为用户的第一个（或 lingxi）
+    currentAgentId = userAgentList.includes('lingxi') ? 'lingxi' : userAgentList[0];
+    
+    // 更新显示
+    const agent = ALL_AGENTS[currentAgentId];
+    if (agent) {
+      document.getElementById('currentAgentEmoji').textContent = agent.emoji;
+      document.getElementById('currentAgentName').textContent = agent.name;
     }
-    renderAgentDropdown();
-  }, 1000);
-});
+  }
+  renderAgentDropdown();
+}
+
+// 在 init() 完成后调用
+const originalInit = init;
+init = async function() {
+  await originalInit();
+  // init 完成后初始化 agent 下拉
+  setTimeout(initAgentDropdown, 500);
+};
