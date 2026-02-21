@@ -162,15 +162,15 @@ let connectNonce = null;
 // WebSocket 连接
 function connectWebSocket() {
   const statusEl = document.getElementById('connectionStatus');
-  statusEl.textContent = '连接中...';
-  statusEl.className = 'status';
+  statusEl.className = 'status-dot';
+  statusEl.className = 'status-dot';
   
   try {
     ws = new WebSocket(`${GATEWAY_WS}/${GATEWAY_SESSION}/ws`);
     
     ws.onopen = () => {
       console.log('WebSocket 已连接，等待 750ms 后发送 connect...');
-      statusEl.textContent = '认证中...';
+      
       
       // OpenClaw 要求等待 750ms 后再发送 connect
       setTimeout(() => {
@@ -190,19 +190,19 @@ function connectWebSocket() {
     ws.onerror = (error) => {
       console.error('WebSocket 错误:', error);
       statusEl.textContent = '连接错误';
-      statusEl.className = 'status error';
+      statusEl.className = 'status-dot';
     };
     
     ws.onclose = () => {
       console.log('WebSocket 已断开');
       statusEl.textContent = '已断开，5秒后重连...';
-      statusEl.className = 'status error';
+      statusEl.className = 'status-dot';
       setTimeout(connectWebSocket, 5000);
     };
   } catch (e) {
     console.error('WebSocket 连接失败:', e);
     statusEl.textContent = '连接失败';
-    statusEl.className = 'status error';
+    statusEl.className = 'status-dot';
   }
 }
 
@@ -245,14 +245,14 @@ function handleWebSocketMessage(data) {
   if (data.type === 'event' && data.event === 'connect.challenge') {
     console.log('收到挑战，但设备认证已禁用，这不应该发生');
     statusEl.textContent = '认证失败（需要重启Gateway）';
-    statusEl.className = 'status error';
+    statusEl.className = 'status-dot';
     return;
   }
   
   // 连接响应
   if (data.type === 'res' && data.ok && data.payload?.type === 'hello-ok') {
     statusEl.textContent = '已连接';
-    statusEl.className = 'status connected';
+    statusEl.className = 'status-dot connected';
     console.log('✅ 认证成功');
     // 加载会话列表和历史
     loadSessions();
@@ -277,7 +277,7 @@ function handleWebSocketMessage(data) {
     // 如果是认证错误，特殊处理
     if (errorMsg.includes('auth') || errorMsg.includes('token') || errorMsg.includes('认证')) {
       statusEl.textContent = '认证失败';
-      statusEl.className = 'status error';
+      statusEl.className = 'status-dot';
     }
     
     removeTyping();
@@ -1353,11 +1353,11 @@ async function changePassword(e) {
   }
 }
 
-// 更新导航栏用户名
+// 更新导航栏用户名（显示首字母）
 function updateNavUserName() {
-  const nameEl = document.getElementById('navUserName');
+  const nameEl = document.getElementById('navUserInitial');
   if (nameEl && user?.nickname) {
-    nameEl.textContent = user.nickname;
+    nameEl.textContent = user.nickname.charAt(0).toUpperCase();
   }
 }
 
@@ -1441,7 +1441,6 @@ function switchAgent(agentId) {
   
   // 更新显示
   document.getElementById('currentAgentEmoji').textContent = agent.emoji;
-  document.getElementById('currentAgentName').textContent = agent.name;
   
   // 关闭下拉
   document.getElementById('agentDropdown')?.classList.remove('show');
@@ -1480,7 +1479,6 @@ function initAgentDropdown() {
     const agent = ALL_AGENTS[currentAgentId];
     if (agent) {
       document.getElementById('currentAgentEmoji').textContent = agent.emoji;
-      document.getElementById('currentAgentName').textContent = agent.name;
     }
   }
   console.log('🎯 userAgentList:', userAgentList, 'ALL_AGENTS:', Object.keys(ALL_AGENTS));

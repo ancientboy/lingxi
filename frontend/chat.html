@@ -11,24 +11,25 @@
   <nav class="navbar">
     <div class="nav-left">
       <a href="index.html" class="logo">灵犀云</a>
-      <div class="status" id="connectionStatus">连接中...</div>
+      <div class="status-dot" id="connectionStatus" title="已连接"></div>
     </div>
     <div class="nav-right">
-      <button class="nav-btn" onclick="showSessionList()">会话</button>
-      <div class="agent-switcher" onclick="toggleAgentDropdown()">
-        <div class="agent-avatar-mini" id="currentAgentEmoji">◈</div>
-        <span id="currentAgentName">灵犀</span>
-        <span>▼</span>
+      <div class="agent-switcher" onclick="toggleAgentDropdown()" title="切换 Agent">
+        <div class="agent-avatar-mini" id="currentAgentEmoji">⚡</div>
         <div class="agent-dropdown" id="agentDropdown"></div>
       </div>
-      <button class="nav-btn" onclick="clearChat()">清空</button>
       <div class="dropdown">
-        <div class="user-info" onclick="toggleDropdown()">
-          <div class="user-avatar">◈</div>
-          <div class="user-name" id="navUserName">用户</div>
+        <div class="user-avatar-circle" onclick="toggleDropdown()" title="菜单">
+          <span id="navUserInitial">U</span>
         </div>
         <div class="dropdown-content" id="userDropdown">
+          <div class="dropdown-header">
+            <span id="navUserName">用户</span>
+          </div>
+          <div class="dropdown-divider"></div>
           <div class="dropdown-item" onclick="showMyTeam()">我的团队</div>
+          <div class="dropdown-item" onclick="showSessionList()">历史会话</div>
+          <div class="dropdown-item" onclick="clearChat()">清空对话</div>
           <div class="dropdown-divider"></div>
           <div class="dropdown-item" onclick="showFeishuConfig()">飞书配置</div>
           <div class="dropdown-item" onclick="showWecomConfig()">企业微信</div>

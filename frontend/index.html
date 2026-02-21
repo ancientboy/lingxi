@@ -4,17 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>灵犀云 - 一键拥有你的 AI 团队</title>
+  <link rel="stylesheet" href="assets/css/chat.css">
+  <link rel="stylesheet" href="assets/css/dark.css" id="darkTheme" disabled>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #f7f7f8;
-      min-height: 100vh;
-      color: #202123;
-    }
-    
-    .container {
+    /* 首页专用样式 */
+    .home-container {
       max-width: 480px;
       margin: 0 auto;
       padding: 40px 24px;
@@ -23,56 +17,53 @@
       flex-direction: column;
     }
     
-    /* Logo */
-    .logo {
+    .home-logo {
       text-align: center;
-      margin-bottom: 48px;
+      margin-bottom: 40px;
       padding-top: 40px;
     }
     
-    .logo-icon {
-      width: 64px;
-      height: 64px;
+    .home-logo-icon {
+      width: 72px;
+      height: 72px;
       background: #10a37f;
-      border-radius: 16px;
+      border-radius: 18px;
       display: flex;
       align-items: center;
       justify-content: center;
-      margin: 0 auto 16px;
-      font-size: 28px;
+      margin: 0 auto 20px;
+      font-size: 32px;
       color: white;
     }
     
-    .logo h1 {
-      font-size: 28px;
+    .home-logo h1 {
+      font-size: 32px;
       font-weight: 700;
-      color: #202123;
       margin-bottom: 8px;
     }
     
-    .logo p {
+    .home-logo p {
       font-size: 16px;
       color: #6e6e80;
     }
     
-    /* 表单 */
-    .card {
+    .home-card {
       background: #ffffff;
       border: 1px solid #e5e5e5;
       border-radius: 16px;
-      padding: 32px;
+      padding: 28px;
       box-shadow: 0 2px 12px rgba(0,0,0,0.08);
     }
     
-    .tabs {
+    .home-tabs {
       display: flex;
-      margin-bottom: 32px;
+      margin-bottom: 24px;
       background: #f4f4f4;
       border-radius: 10px;
       padding: 4px;
     }
     
-    .tab {
+    .home-tab {
       flex: 1;
       padding: 12px;
       text-align: center;
@@ -84,44 +75,37 @@
       transition: all 0.2s;
     }
     
-    .tab.active {
+    .home-tab.active {
       background: #ffffff;
       color: #202123;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
     }
     
-    .form-group {
-      margin-bottom: 20px;
+    .home-form-group {
+      margin-bottom: 16px;
     }
     
-    .form-group label {
+    .home-form-group label {
       display: block;
       font-size: 14px;
       font-weight: 500;
-      color: #202123;
       margin-bottom: 8px;
     }
     
-    .form-group input {
+    .home-form-group input {
       width: 100%;
       padding: 14px 16px;
       border: 1px solid #d9d9e3;
       border-radius: 10px;
       font-size: 16px;
-      color: #202123;
       outline: none;
       transition: border-color 0.2s;
     }
     
-    .form-group input:focus {
+    .home-form-group input:focus {
       border-color: #10a37f;
     }
     
-    .form-group input::placeholder {
-      color: #acacbe;
-    }
-    
-    .btn {
+    .home-btn {
       width: 100%;
       padding: 14px;
       background: #10a37f;
@@ -134,82 +118,101 @@
       transition: background 0.2s;
     }
     
-    .btn:hover {
+    .home-btn:hover {
       background: #0d8a6a;
     }
     
-    .btn:disabled {
+    .home-btn:disabled {
       background: #d9d9e3;
       cursor: not-allowed;
     }
     
-    .btn-secondary {
+    .home-btn-secondary {
       background: #f4f4f4;
       color: #202123;
     }
     
-    .btn-secondary:hover {
+    .home-btn-secondary:hover {
       background: #e5e5e5;
     }
     
-    .divider {
+    .home-btn-enter {
+      font-size: 18px;
+      padding: 18px;
+      margin-bottom: 12px;
+    }
+    
+    .home-divider {
       display: flex;
       align-items: center;
-      margin: 24px 0;
+      margin: 20px 0;
       color: #6e6e80;
       font-size: 14px;
     }
     
-    .divider::before,
-    .divider::after {
+    .home-divider::before,
+    .home-divider::after {
       content: '';
       flex: 1;
       height: 1px;
       background: #e5e5e5;
     }
     
-    .divider span {
+    .home-divider span {
       padding: 0 16px;
     }
     
-    /* 团队展示 */
-    .team-section {
+    .home-error {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #dc2626;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      margin-bottom: 16px;
+      display: none;
+    }
+    
+    .home-error.show {
+      display: block;
+    }
+    
+    .home-team {
       margin-top: 32px;
     }
     
-    .team-title {
+    .home-team-title {
       font-size: 14px;
       color: #6e6e80;
       text-align: center;
       margin-bottom: 16px;
     }
     
-    .team-grid {
+    .home-team-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       gap: 12px;
     }
     
-    .team-member {
+    .home-team-member {
       text-align: center;
-      padding: 12px 8px;
+      padding: 16px 8px;
       background: #ffffff;
       border: 1px solid #e5e5e5;
       border-radius: 12px;
     }
     
-    .team-member .emoji {
-      font-size: 24px;
-      margin-bottom: 4px;
+    .home-team-member .emoji {
+      font-size: 28px;
+      margin-bottom: 6px;
     }
     
-    .team-member .name {
-      font-size: 12px;
-      color: #202123;
+    .home-team-member .name {
+      font-size: 13px;
+      font-weight: 500;
     }
     
-    /* 页脚 */
-    .footer {
+    .home-footer {
       margin-top: auto;
       padding-top: 32px;
       text-align: center;
@@ -217,141 +220,221 @@
       color: #6e6e80;
     }
     
-    .footer a {
+    .home-footer a {
       color: #10a37f;
       text-decoration: none;
     }
     
-    /* 错误提示 */
-    .error {
-      background: #fef2f2;
-      border: 1px solid #fecaca;
-      color: #dc2626;
-      padding: 12px 16px;
-      border-radius: 8px;
+    .home-user-info {
+      text-align: center;
+      margin-bottom: 24px;
+      padding: 16px;
+      background: #f4f4f4;
+      border-radius: 12px;
+    }
+    
+    .home-user-info .greeting {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    
+    .home-user-info .hint {
       font-size: 14px;
-      margin-bottom: 20px;
-      display: none;
+      color: #6e6e80;
     }
     
-    .error.show {
-      display: block;
-    }
-    
-    /* 隐藏 */
-    .hidden {
+    .home-hidden {
       display: none !important;
     }
     
-    /* 响应式 */
     @media (max-width: 480px) {
-      .container {
+      .home-container {
         padding: 24px 16px;
       }
       
-      .logo {
+      .home-logo {
         padding-top: 24px;
-        margin-bottom: 32px;
       }
       
-      .card {
-        padding: 24px;
-      }
-      
-      .team-grid {
-        grid-template-columns: repeat(4, 1fr);
+      .home-team-grid {
         gap: 8px;
+      }
+      
+      .home-team-member {
+        padding: 12px 6px;
+      }
+      
+      .home-team-member .emoji {
+        font-size: 24px;
+      }
+      
+      .home-team-member .name {
+        font-size: 11px;
       }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="logo">
-      <div class="logo-icon">◈</div>
+  <div class="home-container">
+    <div class="home-logo">
+      <div class="home-logo-icon">◈</div>
       <h1>灵犀云</h1>
       <p>一键拥有你的 AI 团队</p>
     </div>
     
-    <div class="card">
-      <div class="tabs">
-        <div class="tab active" onclick="showTab('login')">登录</div>
-        <div class="tab" onclick="showTab('register')">注册</div>
+    <!-- 已登录视图 -->
+    <div id="loggedInView" class="home-hidden">
+      <div class="home-card">
+        <div class="home-user-info">
+          <div class="greeting">欢迎回来，<span id="welcomeName">用户</span></div>
+          <div class="hint">准备好与你的 AI 团队对话了吗？</div>
+        </div>
+        
+        <button class="home-btn home-btn-enter" onclick="goToChat()">
+          开始对话
+        </button>
+        
+        <button class="home-btn home-btn-secondary" onclick="handleLogout()">
+          退出登录
+        </button>
       </div>
-      
-      <!-- 登录表单 -->
-      <form id="loginForm" onsubmit="handleLogin(event)">
-        <div class="error" id="loginError"></div>
-        <div class="form-group">
-          <label>邀请码</label>
-          <input type="text" id="loginCode" placeholder="输入邀请码" required>
+    </div>
+    
+    <!-- 未登录视图 -->
+    <div id="loggedOutView">
+      <div class="home-card">
+        <div class="home-tabs">
+          <div class="home-tab active" onclick="showHomeTab('login')">登录</div>
+          <div class="home-tab" onclick="showHomeTab('register')">注册</div>
         </div>
-        <div class="form-group">
-          <label>密码</label>
-          <input type="password" id="loginPassword" placeholder="输入密码" required>
-        </div>
-        <button type="submit" class="btn" id="loginBtn">登录</button>
-      </form>
-      
-      <!-- 注册表单 -->
-      <form id="registerForm" class="hidden" onsubmit="handleRegister(event)">
-        <div class="error" id="registerError"></div>
-        <div class="form-group">
-          <label>邀请码</label>
-          <input type="text" id="registerCode" placeholder="输入邀请码" required>
-        </div>
-        <div class="form-group">
-          <label>昵称</label>
-          <input type="text" id="registerName" placeholder="你的昵称" required>
-        </div>
-        <div class="form-group">
-          <label>密码</label>
-          <input type="password" id="registerPassword" placeholder="设置密码（至少6位）" required minlength="6">
-        </div>
-        <button type="submit" class="btn" id="registerBtn">注册</button>
-      </form>
-      
-      <div class="divider"><span>或者</span></div>
-      
-      <button class="btn btn-secondary" onclick="handleDemo()">体验 Demo</button>
+        
+        <!-- 登录表单 -->
+        <form id="loginForm" onsubmit="handleLogin(event)">
+          <div class="home-error" id="loginError"></div>
+          <div class="home-form-group">
+            <label>邀请码</label>
+            <input type="text" id="loginCode" placeholder="输入邀请码" required>
+          </div>
+          <div class="home-form-group">
+            <label>密码</label>
+            <input type="password" id="loginPassword" placeholder="输入密码" required>
+          </div>
+          <button type="submit" class="home-btn" id="loginBtn">登录</button>
+        </form>
+        
+        <!-- 注册表单 -->
+        <form id="registerForm" class="home-hidden" onsubmit="handleRegister(event)">
+          <div class="home-error" id="registerError"></div>
+          <div class="home-form-group">
+            <label>邀请码</label>
+            <input type="text" id="registerCode" placeholder="输入邀请码" required>
+          </div>
+          <div class="home-form-group">
+            <label>昵称</label>
+            <input type="text" id="registerName" placeholder="你的昵称" required>
+          </div>
+          <div class="home-form-group">
+            <label>密码</label>
+            <input type="password" id="registerPassword" placeholder="设置密码（至少6位）" required minlength="6">
+          </div>
+          <button type="submit" class="home-btn" id="registerBtn">注册</button>
+        </form>
+        
+        <div class="home-divider"><span>或者</span></div>
+        
+        <button class="home-btn home-btn-secondary" onclick="handleDemo()">体验 Demo</button>
+      </div>
     </div>
     
     <!-- 团队展示 -->
-    <div class="team-section">
-      <div class="team-title">你的 8 人 AI 团队</div>
-      <div class="team-grid">
-        <div class="team-member"><div class="emoji">⚡</div><div class="name">灵犀</div></div>
-        <div class="team-member"><div class="emoji">💻</div><div class="name">云溪</div></div>
-        <div class="team-member"><div class="emoji">📊</div><div class="name">若曦</div></div>
-        <div class="team-member"><div class="emoji">💡</div><div class="name">紫萱</div></div>
-        <div class="team-member"><div class="emoji">🎯</div><div class="name">梓萱</div></div>
-        <div class="team-member"><div class="emoji">📝</div><div class="name">晓琳</div></div>
-        <div class="team-member"><div class="emoji">🎨</div><div class="name">音韵</div></div>
-        <div class="team-member"><div class="emoji">🏠</div><div class="name">智家</div></div>
+    <div class="home-team">
+      <div class="home-team-title">你的 8 人 AI 团队</div>
+      <div class="home-team-grid">
+        <div class="home-team-member"><div class="emoji">⚡</div><div class="name">灵犀</div></div>
+        <div class="home-team-member"><div class="emoji">💻</div><div class="name">云溪</div></div>
+        <div class="home-team-member"><div class="emoji">📊</div><div class="name">若曦</div></div>
+        <div class="home-team-member"><div class="emoji">💡</div><div class="name">紫萱</div></div>
+        <div class="home-team-member"><div class="emoji">🎯</div><div class="name">梓萱</div></div>
+        <div class="home-team-member"><div class="emoji">📝</div><div class="name">晓琳</div></div>
+        <div class="home-team-member"><div class="emoji">🎨</div><div class="name">音韵</div></div>
+        <div class="home-team-member"><div class="emoji">🏠</div><div class="name">智家</div></div>
       </div>
     </div>
     
-    <div class="footer">
+    <div class="home-footer">
       <p>还没有邀请码？<a href="mailto:hi@lingxi.cloud">联系我们</a></p>
     </div>
   </div>
   
   <script>
     const API_BASE = window.location.origin;
+    const THEME_KEY = 'lingxi_theme';
     
-    function showTab(tab) {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      event.target.classList.add('active');
+    // 初始化
+    function init() {
+      // 初始化主题
+      initTheme();
       
-      if (tab === 'login') {
-        document.getElementById('loginForm').classList.remove('hidden');
-        document.getElementById('registerForm').classList.add('hidden');
+      // 检查登录状态
+      const token = localStorage.getItem('lingxi_token');
+      const user = JSON.parse(localStorage.getItem('lingxi_user') || '{}');
+      
+      if (token && user.nickname) {
+        // 已登录：显示欢迎视图
+        document.getElementById('loggedInView').classList.remove('home-hidden');
+        document.getElementById('loggedOutView').classList.add('home-hidden');
+        document.getElementById('welcomeName').textContent = user.nickname;
       } else {
-        document.getElementById('loginForm').classList.add('hidden');
-        document.getElementById('registerForm').classList.remove('hidden');
+        // 未登录：显示登录表单
+        document.getElementById('loggedInView').classList.add('home-hidden');
+        document.getElementById('loggedOutView').classList.remove('home-hidden');
       }
     }
     
+    // 初始化主题
+    function initTheme() {
+      const savedTheme = localStorage.getItem(THEME_KEY) || 'light';
+      applyTheme(savedTheme);
+    }
+    
+    // 应用主题
+    function applyTheme(theme) {
+      const darkTheme = document.getElementById('darkTheme');
+      if (theme === 'dark') {
+        darkTheme.disabled = false;
+      } else {
+        darkTheme.disabled = true;
+      }
+    }
+    
+    // 切换表单
+    function showHomeTab(tab) {
+      document.querySelectorAll('.home-tab').forEach(t => t.classList.remove('active'));
+      event.target.classList.add('active');
+      
+      if (tab === 'login') {
+        document.getElementById('loginForm').classList.remove('home-hidden');
+        document.getElementById('registerForm').classList.add('home-hidden');
+      } else {
+        document.getElementById('loginForm').classList.add('home-hidden');
+        document.getElementById('registerForm').classList.remove('home-hidden');
+      }
+    }
+    
+    // 进入聊天
+    function goToChat() {
+      window.location.href = 'chat.html';
+    }
+    
+    // 退出登录
+    function handleLogout() {
+      localStorage.removeItem('lingxi_token');
+      localStorage.removeItem('lingxi_user');
+      location.reload();
+    }
+    
+    // 登录
     async function handleLogin(e) {
       e.preventDefault();
       const code = document.getElementById('loginCode').value.trim();
@@ -389,6 +472,7 @@
       btn.textContent = '登录';
     }
     
+    // 注册
     async function handleRegister(e) {
       e.preventDefault();
       const code = document.getElementById('registerCode').value.trim();
@@ -427,14 +511,13 @@
       btn.textContent = '注册';
     }
     
+    // Demo
     function handleDemo() {
       alert('Demo 功能开发中，请联系管理员获取邀请码');
     }
     
-    // 检查是否已登录
-    if (localStorage.getItem('lingxi_token')) {
-      window.location.href = 'chat.html';
-    }
+    // 启动
+    init();
   </script>
 </body>
 </html>

@@ -23,7 +23,7 @@ body {
 .navbar {
   background: #ffffff;
   border-bottom: 1px solid #e5e5e5;
-  padding: 12px 24px;
+  padding: 0 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -32,41 +32,200 @@ body {
   left: 0;
   right: 0;
   z-index: 100;
-  height: 60px;
+  height: 56px;
 }
 
 .nav-left {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 12px;
 }
 
 .logo {
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   font-weight: 600;
   color: #202123;
   text-decoration: none;
 }
 
-.status {
-  font-size: 0.85rem;
-  color: #6e6e80;
-  padding: 4px 12px;
-  background: #f4f4f4;
-  border-radius: 20px;
+/* 连接状态 - 只显示圆点 */
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ef4444;
+  transition: background 0.3s;
 }
 
-.status.connected {
-  color: #10a37f;
-  background: #e6f7f1;
+.status-dot.connected {
+  background: #10a37f;
 }
 
 .nav-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
+/* Agent 切换器 - 只显示图标 */
+.agent-switcher {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.2s;
+  position: relative;
+}
+
+.agent-switcher:hover {
+  background: #f4f4f4;
+}
+
+.agent-avatar-mini {
+  font-size: 1.3rem;
+}
+
+/* Agent 下拉菜单 */
+.agent-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: -8px;
+  min-width: 240px;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+  padding: 8px;
+  display: none;
+  z-index: 1000;
+}
+
+.agent-dropdown.show {
+  display: block;
+}
+
+.agent-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.agent-dropdown-item:hover {
+  background: #f4f4f4;
+}
+
+.agent-dropdown-item.active {
+  background: #e6f7f1;
+}
+
+.agent-dropdown-item .emoji {
+  font-size: 1.3rem;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f4f4f4;
+  border-radius: 50%;
+}
+
+.agent-dropdown-item .info h4 {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #202123;
+}
+
+.agent-dropdown-item .info p {
+  font-size: 0.75rem;
+  color: #6e6e80;
+}
+
+/* 用户头像圆圈 */
+.user-avatar-circle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #10a37f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.user-avatar-circle:hover {
+  transform: scale(1.05);
+}
+
+/* 下拉菜单 */
+.dropdown {
+  position: relative;
+}
+
+.dropdown-content {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 200px;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+  padding: 8px;
+  display: none;
+}
+
+.dropdown-content.show {
+  display: block;
+}
+
+.dropdown-header {
+  padding: 12px 14px;
+  font-weight: 600;
+  color: #202123;
+  border-bottom: 1px solid #e5e5e5;
+  margin-bottom: 8px;
+}
+
+.dropdown-item {
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: #202123;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.dropdown-item:hover {
+  background: #f4f4f4;
+}
+
+.dropdown-item.danger {
+  color: #ef4444;
+}
+
+.dropdown-item.danger:hover {
+  background: #fef2f2;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: #e5e5e5;
+  margin: 8px 0;
+}
+
+/* 旧样式保留兼容 */
 .nav-btn {
   padding: 8px 16px;
   background: transparent;
