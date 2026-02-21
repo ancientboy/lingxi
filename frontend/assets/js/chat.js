@@ -1432,16 +1432,29 @@ function switchAgent(agentId) {
   // 更新列表
   renderAgentDropdown();
   
-  // 发送切换通知（可选，暂时不需要后端处理）
-  // 如果需要后端记录切换行为，取消下面的注释
-  // if (ws && ws.readyState === WebSocket.OPEN) {
-  //   ws.send(JSON.stringify({
-  //     type: 'req',
-  //     id: 'req_' + Date.now(),
-  //     method: 'agent.switch',
-  //     params: { agentId }
-  //   }));
-  // }
+  // 🔑 切换到对应的 agent 会话
+  if (agentId === 'lingxi') {
+    // 灵犀是主会话
+    currentSessionKey = SESSION_KEY;
+  } else {
+    // 其他 agent 用独立的子会话
+    currentSessionKey = `${SESSION_PREFIX}:${agentId}`;
+  }
+  
+  console.log('🔄 切换到 agent 会话:', currentSessionKey);
+  
+  // 清空当前消息，显示加载中
+  const container = document.getElementById('messages');
+  container.innerHTML = `
+    <div class="welcome" id="welcome">
+      <div class="welcome-emoji">${agent.emoji}</div>
+      <div class="welcome-title">${agent.name}</div>
+      <div class="welcome-desc">${agent.desc} · 加载中...</div>
+    </div>
+  `;
+  
+  // 加载该 agent 会话的历史消息
+  setTimeout(() => loadChatHistory(), 100);
 }
 
 // 初始化时渲染 agent 下拉
