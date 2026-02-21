@@ -1449,30 +1449,31 @@ function switchAgent(agentId) {
   // 更新列表
   renderAgentDropdown();
   
-  // 🎯 所有消息都发给主会话，通过 @agent 标记派发
-  // 灵犀会根据标记自动调用 sessions_spawn 派发给对应 agent
-  currentSessionKey = SESSION_KEY;
-  
-  // 更新欢迎界面
-  const welcome = document.getElementById('welcome');
-  if (welcome) {
-    if (agentId === 'lingxi') {
-      welcome.innerHTML = `
-        <div class="welcome-emoji">${agent.emoji}</div>
-        <div class="welcome-title">${agent.name}</div>
-        <div class="welcome-desc">我是队长，有什么可以帮你的？</div>
-      `;
-    } else {
-      welcome.innerHTML = `
-        <div class="welcome-emoji">${agent.emoji}</div>
-        <div class="welcome-title">${agent.name}</div>
-        <div class="welcome-desc">${agent.desc}<br><small style="opacity:0.6">发送消息会自动派发给 ${agent.name}</small></div>
-      `;
-    }
-    welcome.classList.remove('hidden');
+  // 🎯 每个 agent 有独立的会话，直接对话
+  // 会话格式: agent:{agentId}:session:{uuid} 或 user_xxx:{agentId}
+  if (agentId === 'lingxi') {
+    // 灵犀是主会话
+    currentSessionKey = SESSION_KEY;
+  } else {
+    // 其他 agent 使用 agent:xxx 格式的会话
+    // OpenClaw 会根据 agentId 加载对应的配置
+    currentSessionKey = `agent:${agentId}`;
   }
   
-  console.log('🔄 切换到 agent:', agentId, '(消息会派发给', agent.name, ')');
+  console.log('🔄 切换到 agent:', agentId, '会话:', currentSessionKey);
+  
+  // 更新欢迎界面
+  const container = document.getElementById('messages');
+  container.innerHTML = `
+    <div class="welcome" id="welcome">
+      <div class="welcome-emoji">${agent.emoji}</div>
+      <div class="welcome-title">${agent.name}</div>
+      <div class="welcome-desc">${agent.desc}</div>
+    </div>
+  `;
+  
+  // 加载该 agent 的历史消息（可选，首次可能没有）
+  // setTimeout(() => loadChatHistory(), 100);
 }
 
 // 初始化时渲染 agent 下拉
