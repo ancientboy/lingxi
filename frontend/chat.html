@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>灵犀云 - AI 团队</title>
   <link rel="stylesheet" href="assets/css/chat.css">
+  <link rel="stylesheet" href="assets/css/dark.css" id="darkTheme" disabled>
 </head>
 <body>
   <nav class="navbar">
@@ -29,14 +30,16 @@
         <div class="dropdown-content" id="userDropdown">
           <div class="dropdown-item" onclick="showMyTeam()">我的团队</div>
           <div class="dropdown-divider"></div>
-          <div class="dropdown-item" onclick="showFeishuConfig()">📱 飞书配置</div>
-          <div class="dropdown-item" onclick="showWecomConfig()">💼 企业微信</div>
+          <div class="dropdown-item" onclick="showFeishuConfig()">飞书配置</div>
+          <div class="dropdown-item" onclick="showWecomConfig()">企业微信</div>
           <div class="dropdown-divider"></div>
-          <div class="dropdown-item" onclick="showPasswordChange()">🔒 修改密码</div>
-          <div class="dropdown-item" onclick="showSettings()">⚙️ 设置</div>
-          <div class="dropdown-item" onclick="showAbout()">ℹ️ 关于</div>
+          <div class="dropdown-item" onclick="toggleTheme()">
+            <span id="themeToggleText">🌙 深色模式</span>
+          </div>
+          <div class="dropdown-item" onclick="showPasswordChange()">修改密码</div>
+          <div class="dropdown-item" onclick="showAbout()">关于</div>
           <div class="dropdown-divider"></div>
-          <div class="dropdown-item danger" onclick="logout()">🚪 退出登录</div>
+          <div class="dropdown-item danger" onclick="logout()">退出登录</div>
         </div>
       </div>
     </div>
@@ -189,6 +192,46 @@
     </div>
   </div>
 
+  <!-- 主题切换 -->
+  <script>
+    const THEME_KEY = 'lingxi_theme';
+    
+    // 初始化主题
+    function initTheme() {
+      const savedTheme = localStorage.getItem(THEME_KEY) || 'light';
+      applyTheme(savedTheme);
+    }
+    
+    // 应用主题
+    function applyTheme(theme) {
+      const darkTheme = document.getElementById('darkTheme');
+      const toggleText = document.getElementById('themeToggleText');
+      
+      if (theme === 'dark') {
+        darkTheme.disabled = false;
+        if (toggleText) toggleText.textContent = '☀️ 浅色模式';
+      } else {
+        darkTheme.disabled = true;
+        if (toggleText) toggleText.textContent = '🌙 深色模式';
+      }
+      
+      localStorage.setItem(THEME_KEY, theme);
+    }
+    
+    // 切换主题
+    function toggleTheme() {
+      const currentTheme = localStorage.getItem(THEME_KEY) || 'light';
+      const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+      applyTheme(newTheme);
+      
+      // 关闭下拉菜单
+      document.getElementById('userDropdown').classList.remove('show');
+    }
+    
+    // 页面加载时初始化主题
+    initTheme();
+  </script>
+  
   <script src="assets/js/chat.js"></script>
 </body>
 </html>
