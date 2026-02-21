@@ -14,56 +14,64 @@ const AGENT_INFO = {
     name: '灵犀', 
     desc: '智能调度 · 日程管理',
     scene: '日程管理',
-    skills: '任务规划、提醒、邮件'
+    skills: '任务规划、提醒、邮件',
+    agentId: 'main'  // OpenClaw 内部的 agent ID
   },
   coder: { 
     emoji: '💻', 
     name: '云溪', 
     desc: '全栈开发 · 编程专家',
     scene: '编程开发',
-    skills: '代码、调试、架构、API'
+    skills: '代码、调试、架构、API',
+    agentId: 'coder'
   },
   ops: { 
     emoji: '📊', 
     name: '若曦', 
     desc: '增长运营 · 数据专家',
     scene: '数据分析',
-    skills: '报表、增长、SEO、用户研究'
+    skills: '报表、增长、SEO、用户研究',
+    agentId: 'ops'
   },
   inventor: { 
     emoji: '💡', 
     name: '紫萱', 
     desc: '内容创意 · 文案总监',
     scene: '内容创作',
-    skills: '文案、创意、社媒、营销'
+    skills: '文案、创意、社媒、营销',
+    agentId: 'inventor'
   },
   pm: { 
     emoji: '🎯', 
     name: '梓萱', 
     desc: '产品设计 · 需求专家',
     scene: '产品设计',
-    skills: '需求、原型、UX、商业模式'
+    skills: '需求、原型、UX、商业模式',
+    agentId: 'pm'
   },
   noter: { 
     emoji: '📝', 
     name: '晓琳', 
     desc: '学习顾问 · 知识管理',
     scene: '知识管理',
-    skills: '学习、翻译、笔记、搜索'
+    skills: '学习、翻译、笔记、搜索',
+    agentId: 'noter'
   },
   media: { 
     emoji: '🎨', 
     name: '音韵', 
     desc: '多媒体创作 · AI绘图',
     scene: '多媒体娱乐',
-    skills: 'AI绘图、视频、音乐、剧本'
+    skills: 'AI绘图、视频、音乐、剧本',
+    agentId: 'media'
   },
   smart: { 
     emoji: '🏠', 
     name: '智家', 
     desc: '效率工具 · 自动化专家',
     scene: '智能工具',
-    skills: '自动化、脚本、工具、效率'
+    skills: '自动化、脚本、工具、效率',
+    agentId: 'smart'
   }
 };
 
@@ -423,20 +431,12 @@ function sendMessage() {
   }
   
   const input = document.getElementById('inputField');
-  let text = input.value.trim();
+  const text = input.value.trim();
   console.log('📝 输入文本:', text ? `"${text}"` : '(空)');
   
   if (!text) {
     console.log('⚠️ 文本为空，跳过发送');
     return;
-  }
-  
-  // 🎯 如果当前不是灵犀，自动加上 @agent 标记
-  // 灵犀会根据这个标记派发给对应的 agent
-  if (currentAgentId !== 'lingxi') {
-    const agentName = ALL_AGENTS[currentAgentId]?.name || currentAgentId;
-    text = `@${agentName} ${text}`;
-    console.log('📤 已添加派发标记:', text);
   }
   
   // 隐藏欢迎界面（如果存在）
@@ -1450,17 +1450,11 @@ function switchAgent(agentId) {
   renderAgentDropdown();
   
   // 🎯 每个 agent 有独立的会话，直接对话
-  // 会话格式: agent:{agentId}:session:{uuid} 或 user_xxx:{agentId}
-  if (agentId === 'lingxi') {
-    // 灵犀是主会话
-    currentSessionKey = SESSION_KEY;
-  } else {
-    // 其他 agent 使用 agent:xxx 格式的会话
-    // OpenClaw 会根据 agentId 加载对应的配置
-    currentSessionKey = `agent:${agentId}`;
-  }
+  // OpenClaw 会话格式: agent:{agentId}:main
+  const targetAgentId = agent.agentId || agentId;
+  currentSessionKey = `agent:${targetAgentId}:main`;
   
-  console.log('🔄 切换到 agent:', agentId, '会话:', currentSessionKey);
+  console.log('🔄 切换到 agent:', agentId, 'agentId:', targetAgentId, '会话:', currentSessionKey);
   
   // 更新欢迎界面
   const container = document.getElementById('messages');
@@ -1468,12 +1462,9 @@ function switchAgent(agentId) {
     <div class="welcome" id="welcome">
       <div class="welcome-emoji">${agent.emoji}</div>
       <div class="welcome-title">${agent.name}</div>
-      <div class="welcome-desc">${agent.desc}</div>
+      <div class="welcome-desc">${agent.desc}<br><small style="opacity:0.5">直接对话模式</small></div>
     </div>
   `;
-  
-  // 加载该 agent 的历史消息（可选，首次可能没有）
-  // setTimeout(() => loadChatHistory(), 100);
 }
 
 // 初始化时渲染 agent 下拉
