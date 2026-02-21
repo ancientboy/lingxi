@@ -1432,14 +1432,16 @@ function switchAgent(agentId) {
   // 更新列表
   renderAgentDropdown();
   
-  // 发送切换通知
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({
-      id: 'req_' + Date.now(),
-      method: 'agent.switch',
-      params: { agentId }
-    }));
-  }
+  // 发送切换通知（可选，暂时不需要后端处理）
+  // 如果需要后端记录切换行为，取消下面的注释
+  // if (ws && ws.readyState === WebSocket.OPEN) {
+  //   ws.send(JSON.stringify({
+  //     type: 'req',
+  //     id: 'req_' + Date.now(),
+  //     method: 'agent.switch',
+  //     params: { agentId }
+  //   }));
+  // }
 }
 
 // 初始化时渲染 agent 下拉
