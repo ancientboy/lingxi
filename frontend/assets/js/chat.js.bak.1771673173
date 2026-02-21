@@ -8,79 +8,70 @@ let SESSION_PREFIX = null;
 let SESSION_KEY = null;  // 用户主会话（根据用户ID生成）
 let currentSessionKey = null;  // 当前活动会话
 
-// ===== 主题系统 =====
-const THEME_KEY = 'lingxi_theme';
-let currentTheme = localStorage.getItem(THEME_KEY) || 'stellar';
-
-// 生成 DiceBear 头像 URL（毛玻璃风格）
-const getAgentAvatar = (agentId) => {
-  return `https://api.dicebear.com/7.x/glass/svg?seed=${agentId}&backgroundColor=0a1628`;
-};
-
 const AGENT_INFO = {
   lingxi: { 
+    emoji: '⚡', 
     name: '灵犀', 
     desc: '智能调度 · 日程管理',
     scene: '日程管理',
     skills: '任务规划、提醒、邮件',
-    agentId: 'main',
-    color: '#3b82f6'  // 蓝色
+    agentId: 'main'  // OpenClaw 内部的 agent ID
   },
   coder: { 
+    emoji: '💻', 
     name: '云溪', 
     desc: '全栈开发 · 编程专家',
     scene: '编程开发',
     skills: '代码、调试、架构、API',
-    agentId: 'coder',
-    color: '#06b6d4'  // 青色
+    agentId: 'coder'
   },
   ops: { 
+    emoji: '📊', 
     name: '若曦', 
     desc: '增长运营 · 数据专家',
     scene: '数据分析',
     skills: '报表、增长、SEO、用户研究',
-    agentId: 'ops',
-    color: '#8b5cf6'  // 紫色
+    agentId: 'ops'
   },
   inventor: { 
+    emoji: '💡', 
     name: '紫萱', 
     desc: '内容创意 · 文案总监',
     scene: '内容创作',
     skills: '文案、创意、社媒、营销',
-    agentId: 'inventor',
-    color: '#f97316'  // 橙色
+    agentId: 'inventor'
   },
   pm: { 
+    emoji: '🎯', 
     name: '梓萱', 
     desc: '产品设计 · 需求专家',
     scene: '产品设计',
     skills: '需求、原型、UX、商业模式',
-    agentId: 'pm',
-    color: '#10b981'  // 绿色
+    agentId: 'pm'
   },
   noter: { 
+    emoji: '📝', 
     name: '晓琳', 
     desc: '学习顾问 · 知识管理',
     scene: '知识管理',
     skills: '学习、翻译、笔记、搜索',
-    agentId: 'noter',
-    color: '#ec4899'  // 粉色
+    agentId: 'noter'
   },
   media: { 
+    emoji: '🎨', 
     name: '音韵', 
     desc: '多媒体创作 · AI绘图',
     scene: '多媒体娱乐',
     skills: 'AI绘图、视频、音乐、剧本',
-    agentId: 'media',
-    color: '#eab308'  // 黄色
+    agentId: 'media'
   },
   smart: { 
+    emoji: '🏠', 
     name: '智家', 
     desc: '效率工具 · 自动化专家',
     scene: '智能工具',
     skills: '自动化、脚本、工具、效率',
-    agentId: 'smart',
-    color: '#14b8a6'  // 青绿色
+    agentId: 'smart'
   }
 };
 
@@ -424,11 +415,8 @@ function renderTeamTags() {
   const tags = document.getElementById('teamTags');
   if (!tags) return;  // 元素不存在时跳过
   tags.innerHTML = agents.map(id => {
-    const agent = AGENT_INFO[id] || { name: id, color: '#3b82f6' };
-    return `<span class="team-tag" style="border-color: ${agent.color}30;">
-      <img src="${getAgentAvatar(id)}" style="width:18px;height:18px;border-radius:50%;vertical-align:middle;margin-right:4px;">
-      ${agent.name}
-    </span>`;
+    const agent = AGENT_INFO[id] || { emoji: '🤖', name: id };
+    return `<span class="team-tag">${agent.emoji} ${agent.name}</span>`;
   }).join('');
 }
 
@@ -879,13 +867,10 @@ function addMessage(role, content, name) {
   const div = document.createElement('div');
   div.className = `message ${role}`;
   
-  // 使用头像
-  const avatarHtml = role === 'user' 
-    ? `<img src="${getAgentAvatar('user_' + (user?.id || 'default'))}" style="width:100%;height:100%;border-radius:50%;">`
-    : `<img src="${getAgentAvatar(currentAgentId)}" style="width:100%;height:100%;border-radius:50%;">`;
+  const emoji = role === 'user' ? '👤' : '⚡';
   
   div.innerHTML = `
-    <div class="avatar">${avatarHtml}</div>
+    <div class="avatar">${emoji}</div>
     <div class="bubble">${escapeHtml(content)}</div>
   `;
   
@@ -902,7 +887,7 @@ function addTyping() {
   div.className = 'message assistant';
   div.id = 'typing-indicator';
   div.innerHTML = `
-    <div class="avatar"><img src="${getAgentAvatar(currentAgentId)}" style="width:100%;height:100%;border-radius:50%;"></div>
+    <div class="avatar">⚡</div>
     <div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div>
   `;
   messages.appendChild(div);
@@ -1399,7 +1384,7 @@ try {
 const ALL_AGENTS = Object.fromEntries(
   Object.keys(AGENT_INFO).map(id => {
     const info = AGENT_INFO[id];
-    return [id, { id, name: info.name, desc: info.scene, color: info.color }];
+    return [id, { id, name: info.name, emoji: info.emoji, desc: info.scene }];
   })
 );
 
@@ -1439,9 +1424,7 @@ function renderAgentDropdown() {
   dropdown.innerHTML = agents.map(agent => `
     <div class="agent-dropdown-item ${agent.id === currentAgentId ? 'active' : ''}" 
          onclick="switchAgent('${agent.id}')">
-      <div class="avatar">
-        <img src="${getAgentAvatar(agent.id)}" style="width:100%;height:100%;border-radius:50%;">
-      </div>
+      <span class="emoji">${agent.emoji}</span>
       <div class="info">
         <h4>${agent.name}</h4>
         <p>${agent.desc}</p>
@@ -1457,15 +1440,8 @@ function switchAgent(agentId) {
   const agent = ALL_AGENTS[agentId];
   
   // 更新显示
-  const emojiEl = document.getElementById('currentAgentEmoji');
-  const nameEl = document.getElementById('currentAgentName');
-  
-  if (emojiEl) {
-    emojiEl.innerHTML = `<img src="${getAgentAvatar(agentId)}" style="width:24px;height:24px;border-radius:50%;">`;
-  }
-  if (nameEl) {
-    nameEl.textContent = agent.name;
-  }
+  document.getElementById('currentAgentEmoji').textContent = agent.emoji;
+  document.getElementById('currentAgentName').textContent = agent.name;
   
   // 关闭下拉
   document.getElementById('agentDropdown')?.classList.remove('show');
@@ -1484,9 +1460,9 @@ function switchAgent(agentId) {
   const container = document.getElementById('messages');
   container.innerHTML = `
     <div class="welcome" id="welcome">
-      <div class="welcome-emoji"><img src="${getAgentAvatar(agentId)}" style="width:60px;height:60px;border-radius:50%;"></div>
+      <div class="welcome-emoji">${agent.emoji}</div>
       <div class="welcome-title">${agent.name}</div>
-      <div class="welcome-desc">${agent.desc}</div>
+      <div class="welcome-desc">${agent.desc}<br><small style="opacity:0.5">直接对话模式</small></div>
     </div>
   `;
 }
@@ -1503,14 +1479,8 @@ function initAgentDropdown() {
     // 更新显示
     const agent = ALL_AGENTS[currentAgentId];
     if (agent) {
-      const emojiEl = document.getElementById('currentAgentEmoji');
-      const nameEl = document.getElementById('currentAgentName');
-      if (emojiEl) {
-        emojiEl.innerHTML = `<img src="${getAgentAvatar(currentAgentId)}" style="width:24px;height:24px;border-radius:50%;">`;
-      }
-      if (nameEl) {
-        nameEl.textContent = agent.name;
-      }
+      document.getElementById('currentAgentEmoji').textContent = agent.emoji;
+      document.getElementById('currentAgentName').textContent = agent.name;
     }
   }
   console.log('🎯 userAgentList:', userAgentList, 'ALL_AGENTS:', Object.keys(ALL_AGENTS));

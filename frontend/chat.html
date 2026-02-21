@@ -3,31 +3,34 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>我的 AI 团队 - 灵犀云</title>
-  <link rel="stylesheet" href="assets/css/chat.css">
+  <title>灵犀云 - 星际 AI 团队</title>
+  <!-- 主题样式 -->
+  <link rel="stylesheet" href="assets/themes/stellar.css">
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
 </head>
 <body>
   <nav class="navbar">
     <div class="nav-left">
-      <a href="index.html" class="logo">⚡ 灵犀云</a>
+      <a href="index.html" class="logo">★ 灵犀云</a>
       <div class="status" id="connectionStatus">连接中...</div>
     </div>
     <div class="nav-right">
-      <button class="nav-btn" onclick="showSessionList()">💬 会话</button>
+      <button class="nav-btn" onclick="showSessionList()">会话</button>
       <div class="agent-switcher" onclick="toggleAgentDropdown()">
-        <span id="currentAgentEmoji">⚡</span>
+        <div class="agent-avatar-mini" id="currentAgentEmoji">◈</div>
         <span id="currentAgentName">灵犀</span>
         <span>▼</span>
         <div class="agent-dropdown" id="agentDropdown"></div>
       </div>
-      <button class="nav-btn" onclick="clearChat()">🗑️ 清空</button>
+      <button class="nav-btn" onclick="clearChat()">清空</button>
       <div class="dropdown">
         <div class="user-info" onclick="toggleDropdown()">
-          <div class="user-avatar">👤</div>
+          <div class="user-avatar">◈</div>
           <div class="user-name" id="navUserName">用户</div>
         </div>
         <div class="dropdown-content" id="userDropdown">
-          <div class="dropdown-item" onclick="showMyTeam()">👥 我的团队</div>
+          <div class="dropdown-item" onclick="showMyTeam()">我的团队</div>
           <div class="dropdown-divider"></div>
           <div class="dropdown-item" onclick="showFeishuConfig()">📱 飞书配置</div>
           <div class="dropdown-item" onclick="showWecomConfig()">💼 企业微信</div>
@@ -168,19 +171,19 @@
   <div class="chat-container">
     <div class="messages" id="messages">
       <div class="welcome" id="welcome">
-        <div class="welcome-emoji">⚡</div>
-        <div class="welcome-title">你好！我是灵犀</div>
-        <div class="welcome-desc">你的 AI 团队队长，有什么可以帮你的？</div>
+        <div class="welcome-emoji">◈</div>
+        <div class="welcome-title">你好，我是灵犀</div>
+        <div class="welcome-desc">你的 AI 团队队长，来自星际的智能助手</div>
         <div class="team-tags" id="teamTags"></div>
       </div>
     </div>
 
     <div class="input-area">
       <div class="quick-actions">
-        <button class="quick-btn" onclick="quickSend('帮我写一个脚本')">📝 写脚本</button>
-        <button class="quick-btn" onclick="quickSend('分析一下这个数据')">📊 分析数据</button>
-        <button class="quick-btn" onclick="quickSend('帮我做个计划')">📋 做计划</button>
-        <button class="quick-btn" onclick="quickSend('给点创意建议')">💡 创意建议</button>
+        <button class="quick-btn" onclick="quickSend('帮我写一个脚本')">写脚本</button>
+        <button class="quick-btn" onclick="quickSend('分析一下这个数据')">分析数据</button>
+        <button class="quick-btn" onclick="quickSend('帮我做个计划')">做计划</button>
+        <button class="quick-btn" onclick="quickSend('给点创意建议')">创意建议</button>
       </div>
       <div class="input-wrapper">
         <textarea class="input-field" id="inputField" placeholder="输入消息..." rows="1"></textarea>
