@@ -423,12 +423,20 @@ function sendMessage() {
   }
   
   const input = document.getElementById('inputField');
-  const text = input.value.trim();
+  let text = input.value.trim();
   console.log('📝 输入文本:', text ? `"${text}"` : '(空)');
   
   if (!text) {
     console.log('⚠️ 文本为空，跳过发送');
     return;
+  }
+  
+  // 🎯 如果当前不是灵犀，自动加上 @agent 标记
+  // 灵犀会根据这个标记派发给对应的 agent
+  if (currentAgentId !== 'lingxi') {
+    const agentName = ALL_AGENTS[currentAgentId]?.name || currentAgentId;
+    text = `@${agentName} ${text}`;
+    console.log('📤 已添加派发标记:', text);
   }
   
   // 隐藏欢迎界面（如果存在）
@@ -1441,29 +1449,30 @@ function switchAgent(agentId) {
   // 更新列表
   renderAgentDropdown();
   
-  // 🎯 切换到对应的 agent 会话（每个 agent 独立工作区）
-  if (agentId === 'lingxi') {
-    // 灵犀是主会话
-    currentSessionKey = SESSION_KEY;
-  } else {
-    // 其他 agent 用独立的子会话
-    currentSessionKey = `${SESSION_PREFIX}:${agentId}`;
+  // 🎯 所有消息都发给主会话，通过 @agent 标记派发
+  // 灵犀会根据标记自动调用 sessions_spawn 派发给对应 agent
+  currentSessionKey = SESSION_KEY;
+  
+  // 更新欢迎界面
+  const welcome = document.getElementById('welcome');
+  if (welcome) {
+    if (agentId === 'lingxi') {
+      welcome.innerHTML = `
+        <div class="welcome-emoji">${agent.emoji}</div>
+        <div class="welcome-title">${agent.name}</div>
+        <div class="welcome-desc">我是队长，有什么可以帮你的？</div>
+      `;
+    } else {
+      welcome.innerHTML = `
+        <div class="welcome-emoji">${agent.emoji}</div>
+        <div class="welcome-title">${agent.name}</div>
+        <div class="welcome-desc">${agent.desc}<br><small style="opacity:0.6">发送消息会自动派发给 ${agent.name}</small></div>
+      `;
+    }
+    welcome.classList.remove('hidden');
   }
   
-  console.log('🔄 切换到 agent:', agentId, '会话:', currentSessionKey);
-  
-  // 清空当前消息，显示加载中
-  const container = document.getElementById('messages');
-  container.innerHTML = `
-    <div class="welcome" id="welcome">
-      <div class="welcome-emoji">${agent.emoji}</div>
-      <div class="welcome-title">${agent.name}</div>
-      <div class="welcome-desc">${agent.desc} · 加载中...</div>
-    </div>
-  `;
-  
-  // 加载该 agent 会话的历史消息
-  setTimeout(() => loadChatHistory(), 100);
+  console.log('🔄 切换到 agent:', agentId, '(消息会派发给', agent.name, ')');
 }
 
 // 初始化时渲染 agent 下拉
