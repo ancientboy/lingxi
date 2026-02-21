@@ -37,3 +37,4 @@ dist/
 # OpenClaw 离线包（太大，不上传）
 releases/packages/*.tgz
 
+backend/.env
