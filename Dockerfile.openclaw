@@ -1,0 +1,20 @@
+# 灵犀云 OpenClaw 镜像
+FROM ghcr.io/openclaw/openclaw:main
+
+# 复制 OpenClaw 配置
+COPY config/openclaw-minimal.json /data/lingxi/config/openclaw.json
+
+# 复制 agent 配置
+COPY agents/ /data/lingxi/agents/
+
+# 复制前端
+COPY frontend/ /data/lingxi/frontend/
+
+# 设置工作目录
+WORKDIR /data/lingxi
+
+# 暴露端口
+EXPOSE 18789 3000
+
+# 启动命令
+CMD ["node", "/app/dist/src/main.js", "--config", "/data/lingxi/config/openclaw.json"]

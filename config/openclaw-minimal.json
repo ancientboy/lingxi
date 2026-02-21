@@ -1,0 +1,127 @@
+{
+  "meta": {
+    "lastTouchedVersion": "2026.2.3",
+    "lastTouchedAt": "2026-02-13T12:25:00.000Z"
+  },
+  "env": {
+    "ZHIPU_API_KEY": "77c2b59d03e646a9884f78f8c4787885.XunhoXmFaErSD0dR"
+  },
+  "auth": {
+    "profiles": {
+      "zhipu:default": {
+        "provider": "zhipu",
+        "mode": "api_key"
+      }
+    }
+  },
+  "models": {
+    "providers": {
+      "zhipu": {
+        "baseUrl": "https://open.bigmodel.cn/api/coding/paas/v4",
+        "api": "openai-completions",
+        "authHeader": true,
+        "models": [
+          {
+            "id": "glm-5",
+            "name": "GLM-5 (最新版)",
+            "reasoning": false,
+            "input": ["text"],
+            "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0},
+            "contextWindow": 128000,
+            "maxTokens": 4096
+          }
+        ]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "zhipu/glm-5"
+      },
+      "workspace": "/home/admin/.openclaw/workspace",
+      "compaction": {"mode": "safeguard"},
+      "maxConcurrent": 4,
+      "subagents": {"maxConcurrent": 8}
+    },
+    "list": [
+      {
+        "id": "main",
+        "name": "灵犀",
+        "default": true,
+        "agentDir": "~/.openclaw/agents/main/agent",
+        "model": {"primary": "zhipu/glm-5"},
+        "subagents": {
+          "allowAgents": ["coder", "ops", "inventor", "pm", "noter", "media", "smart"]
+        }
+      },
+      {
+        "id": "coder",
+        "name": "云溪",
+        "agentDir": "~/.openclaw/agents/coder/agent",
+        "model": {"primary": "zhipu/glm-5"}
+      },
+      {
+        "id": "ops",
+        "name": "若曦",
+        "agentDir": "~/.openclaw/agents/ops/agent",
+        "model": {"primary": "zhipu/glm-5"}
+      },
+      {
+        "id": "inventor",
+        "name": "紫萱",
+        "agentDir": "~/.openclaw/agents/inventor/agent",
+        "model": {"primary": "zhipu/glm-5"}
+      },
+      {
+        "id": "pm",
+        "name": "梓萱",
+        "agentDir": "~/.openclaw/agents/pm/agent",
+        "model": {"primary": "zhipu/glm-5"}
+      },
+      {
+        "id": "noter",
+        "name": "晓琳",
+        "agentDir": "~/.openclaw/agents/noter/agent",
+        "model": {"primary": "zhipu/glm-5"}
+      },
+      {
+        "id": "media",
+        "name": "音韵",
+        "agentDir": "~/.openclaw/agents/media/agent",
+        "model": {"primary": "zhipu/glm-5"}
+      },
+      {
+        "id": "smart",
+        "name": "智家",
+        "agentDir": "~/.openclaw/agents/smart/agent",
+        "model": {"primary": "zhipu/glm-5"}
+      }
+    ]
+  },
+  "gateway": {
+    "port": 18789,
+    "mode": "local",
+    "bind": "lan",
+    "controlUi": {
+      "enabled": true,
+      "basePath": "c308f1f0",
+      "allowInsecureAuth": true,
+      "dangerouslyDisableDeviceAuth": false
+    },
+    "auth": {
+      "mode": "token",
+      "token": "6f3719a52fa12799fea8e4a06655703f"
+    },
+    "reload": {"mode": "hybrid"},
+    "tls": {"enabled": false},
+    "http": {
+      "endpoints": {
+        "chatCompletions": {"enabled": true},
+        "responses": {"enabled": true}
+      }
+    }
+  },
+  "commands": {"native": true, "restart": true},
+  "cron": {"enabled": true}
+}
