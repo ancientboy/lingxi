@@ -49,7 +49,15 @@
   },
   "tools": {
     "agentToAgent": { "enabled": true, "allow": ["main", "coder", "ops", "inventor", "pm", "noter", "media", "smart"] },
-    "subagents": { "tools": { "allow": ["sessions_spawn", "sessions_list", "sessions_history", "sessions_send", "session_status", "group:sessions"] } }
+    "subagents": { 
+      "tools": { 
+        "allow": ["group:fs", "group:runtime", "group:sessions", "group:memory", "web_search", "web_fetch"] 
+      } 
+    }
+  },
+  "hooks": {
+    "enabled": true,
+    "token": "GATEWAY_TOKEN_PLACEHOLDER"
   },
   "gateway": {
     "port": 18789,

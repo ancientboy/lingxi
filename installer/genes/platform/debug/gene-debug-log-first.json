@@ -1,0 +1,47 @@
+{
+  "id": "gene-debug-log-first",
+  "version": "1.0.0",
+  "name": "先看日志再改代码",
+  "category": "debug",
+  "trigger": "遇到 bug 或错误需要定位原因",
+  "strategy": {
+    "description": "先收集信息，再动手修改",
+    "steps": [
+      "1. 查看错误日志，找到具体报错信息",
+      "2. 根据报错定位到代码位置",
+      "3. 构造最小复现场景",
+      "4. 分析原因后修改",
+      "5. 验证修复并查看相关代码是否有类似问题"
+    ],
+    "tips": [
+      "不要一上来就改代码",
+      "日志比猜测可靠"
+    ]
+  },
+  "capsules": {
+    "nodejs": {
+      "checkLog": "tail -100 logs/error.log",
+      "findCode": "grep -r 'error_message' src/"
+    },
+    "python": {
+      "checkLog": "tail -100 logs/app.log",
+      "findCode": "grep -r 'error_message' *.py"
+    }
+  },
+  "metadata": {
+    "author": "platform",
+    "roles": [
+      "coder",
+      "ops"
+    ],
+    "tags": [
+      "debug",
+      "logging",
+      "best-practice"
+    ],
+    "created_at": "2026-02-22T00:00:00Z",
+    "updated_at": "2026-02-22T08:33:20.400Z",
+    "score": 4.5,
+    "usage_count": 4
+  }
+}

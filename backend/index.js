@@ -84,6 +84,10 @@ app.use('/api/deploy', deployRoutes);
 import batchUpdateRoutes from './routes/batch-update.js';
 app.use('/api/batch-update', batchUpdateRoutes);
 
+// 基因系统
+import genesRoutes from './routes/genes.js';
+app.use('/api/genes', genesRoutes);
+
 // 错误处理
 app.use((err, req, res, next) => {
   console.error('Error:', err);

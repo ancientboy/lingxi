@@ -77,6 +77,15 @@ if [ -d "${SCRIPT_DIR}/skills" ]; then
   echo "  ✅ skills 已复制"
 fi
 
+echo "🧬 复制基因库..."
+
+# 复制 genes（平台种子基因）
+mkdir -p "${PACKAGE_DIR}/.openclaw/genes"
+if [ -d "${SCRIPT_DIR}/genes" ]; then
+  cp -r "${SCRIPT_DIR}/genes/"* "${PACKAGE_DIR}/.openclaw/genes/" 2>/dev/null || true
+  echo "  ✅ genes 已复制"
+fi
+
 echo "📝 创建部署脚本..."
 
 # 创建部署脚本
