@@ -684,18 +684,29 @@ async function loadChatHistory() {
 function renderHistory(messages) {
   const container = document.getElementById('messages');
   
-  // 如果没有消息，显示欢迎界面
+  // 如果没有消息，显示欢迎界面（带当前 Agent 的示例）
   if (!messages || messages.length === 0) {
+    const agentInfo = AGENT_INFO[currentAgentId] || AGENT_INFO['lingxi'];
+    const examplesHtml = (agentInfo?.examples || []).map(ex => `
+      <div class="welcome-example" onclick="sendWelcomeExample('${ex.text.replace(/'/g, "\\'").replace(/\n/g, '\\n')}')">
+        <span class="example-text">${ex.text}</span>
+        <span class="example-tag">${ex.desc}</span>
+      </div>
+    `).join('');
+    
     container.innerHTML = `
       <div class="welcome" id="welcome">
-        <div class="welcome-emoji">⚡</div>
-        <div class="welcome-title">继续对话</div>
-        <div class="welcome-desc">发送消息继续这个会话</div>
-        <div class="team-tags" id="teamTags"></div>
+        <div class="welcome-emoji">${agentInfo.emoji}</div>
+        <div class="welcome-title">${agentInfo.name}</div>
+        <div class="welcome-desc">${agentInfo.desc}</div>
+        ${examplesHtml ? `
+          <div class="welcome-examples">
+            <div class="welcome-examples-title">💬 试试这些</div>
+            <div class="welcome-examples-list">${examplesHtml}</div>
+          </div>
+        ` : ''}
       </div>
     `;
-    // 重新渲染团队标签
-    renderTeamTags();
     return;
   }
   
@@ -1715,63 +1726,16 @@ function renderAgentDropdown() {
     return;
   }
   
-  // 当前选中的 agent
-  const currentAgent = ALL_AGENTS[currentAgentId];
-  const currentInfo = AGENT_INFO[currentAgentId];
-  
-  let html = '';
-  
-  // Agent 列表
-  html += `<div class="agent-list">`;
-  for (const agent of agents) {
-    html += `
-      <div class="agent-dropdown-item ${agent.id === currentAgentId ? 'active' : ''}" 
-           onclick="switchAgent('${agent.id}')">
-        <span class="emoji">${agent.emoji}</span>
-        <div class="info">
-          <h4>${agent.name}</h4>
-          <p>${agent.desc}</p>
-        </div>
+  dropdown.innerHTML = agents.map(agent => `
+    <div class="agent-dropdown-item ${agent.id === currentAgentId ? 'active' : ''}" 
+         onclick="switchAgent('${agent.id}')">
+      <span class="emoji">${agent.emoji}</span>
+      <div class="info">
+        <h4>${agent.name}</h4>
+        <p>${agent.desc}</p>
       </div>
-    `;
-  }
-  html += `</div>`;
-  
-  // 当前 Agent 的示例
-  if (currentInfo && currentInfo.examples && currentInfo.examples.length > 0) {
-    html += `
-      <div class="agent-examples-dropdown">
-        <div class="examples-title">💬 试试这些</div>
-        <div class="examples-list">
-          ${currentInfo.examples.map(ex => `
-            <div class="agent-example-item" onclick="sendExampleFromDropdown('${ex.text.replace(/'/g, "\\'").replace(/\n/g, '\\n')}')">
-              <span class="example-text">${ex.text.substring(0, 35)}${ex.text.length > 35 ? '...' : ''}</span>
-              <span class="example-tag">${ex.desc}</span>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-    `;
-  }
-  
-  dropdown.innerHTML = html;
-}
-
-// 从下拉菜单发送示例
-function sendExampleFromDropdown(text) {
-  // 关闭下拉
-  document.getElementById('agentDropdown')?.classList.remove('show');
-  
-  // 隐藏欢迎界面
-  const welcome = document.getElementById('welcome');
-  if (welcome) {
-    welcome.classList.add('hidden');
-  }
-  
-  // 填入输入框并发送
-  const input = document.getElementById('inputField');
-  input.value = text;
-  sendMessage();
+    </div>
+  `).join('');
 }
 
 function switchAgent(agentId) {
@@ -1796,15 +1760,45 @@ function switchAgent(agentId) {
   
   console.log('🔄 切换到 agent:', agentId, 'agentId:', targetAgentId, '会话:', currentSessionKey);
   
-  // 更新欢迎界面
+  // 更新欢迎界面 - 显示当前 Agent 的示例
   const container = document.getElementById('messages');
+  container.innerHTML = '';
+  
+  const agentInfo = AGENT_INFO[agentId];
+  const examplesHtml = (agentInfo?.examples || []).map(ex => `
+    <div class="welcome-example" onclick="sendWelcomeExample('${ex.text.replace(/'/g, "\\'").replace(/\n/g, '\\n')}')">
+      <span class="example-text">${ex.text}</span>
+      <span class="example-tag">${ex.desc}</span>
+    </div>
+  `).join('');
+  
   container.innerHTML = `
     <div class="welcome" id="welcome">
       <div class="welcome-emoji">${agent.emoji}</div>
       <div class="welcome-title">${agent.name}</div>
-      <div class="welcome-desc">${agent.desc}<br><small style="opacity:0.5">直接对话模式</small></div>
+      <div class="welcome-desc">${agent.desc}</div>
+      ${examplesHtml ? `
+        <div class="welcome-examples">
+          <div class="welcome-examples-title">💬 试试这些</div>
+          <div class="welcome-examples-list">${examplesHtml}</div>
+        </div>
+      ` : ''}
     </div>
   `;
+}
+
+// 从欢迎界面发送示例
+function sendWelcomeExample(text) {
+  // 隐藏欢迎界面
+  const welcome = document.getElementById('welcome');
+  if (welcome) {
+    welcome.classList.add('hidden');
+  }
+  
+  // 填入并发送
+  const input = document.getElementById('inputField');
+  input.value = text;
+  sendMessage();
 }
 
 // 初始化时渲染 agent 下拉
