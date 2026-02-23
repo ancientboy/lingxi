@@ -34,6 +34,15 @@ echo ""
 # 检查系统
 log_info "检查系统环境..."
 
+# 获取当前用户信息（用于自动配置路径）
+CURRENT_USER=$(whoami)
+CURRENT_HOME=$(eval echo ~$CURRENT_USER)
+SERVER_IP=$(curl -s ifconfig.me 2>/dev/null || curl -s icanhazip.com 2>/dev/null || echo "YOUR_SERVER_IP")
+
+log_info "当前用户: $CURRENT_USER"
+log_info "用户目录: $CURRENT_HOME"
+log_info "服务器IP: $SERVER_IP"
+
 # 检查 Docker
 if ! command -v docker &> /dev/null; then
     log_error "Docker 未安装"
@@ -50,8 +59,8 @@ if ! command -v node &> /dev/null; then
 fi
 log_success "Node.js 已安装: $(node -v)"
 
-# 设置安装目录
-INSTALL_DIR="${INSTALL_DIR:-$HOME/.lingxi-cloud}"
+# 设置安装目录（自动使用当前用户目录）
+INSTALL_DIR="${INSTALL_DIR:-$CURRENT_HOME/.lingxi-cloud}"
 log_info "安装目录: $INSTALL_DIR"
 
 # 创建目录结构
