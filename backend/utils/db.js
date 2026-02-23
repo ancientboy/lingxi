@@ -99,20 +99,113 @@ export async function getAllInviteCodes() {
   return db.inviteCodes;
 }
 
+// ============ 用户专属邀请码 ============
+
+export async function generateUserInviteCode() {
+  const db = await getDB();
+  let code;
+  let attempts = 0;
+  
+  // 确保邀请码唯一
+  do {
+    code = `USER-${randomUUID().substring(0, 8).toUpperCase()}`;
+    attempts++;
+  } while (db.users.some(u => u.userInviteCode === code) && attempts < 100);
+  
+  return code;
+}
+
+export async function getUserByUserInviteCode(code) {
+  const db = await getDB();
+  return db.users.find(u => u.userInviteCode === code);
+}
+
+// ============ 积分系统 ============
+
+// 邀请奖励积分
+const INVITE_REWARD_POINTS = 100;
+// 领取团队消耗积分
+const CLAIM_TEAM_COST = 100;
+
+export async function addPoints(userId, points, reason = '') {
+  const db = await getDB();
+  const user = db.users.find(u => u.id === userId);
+  if (user) {
+    user.points = (user.points || 0) + points;
+    user.pointsHistory = user.pointsHistory || [];
+    user.pointsHistory.push({
+      type: 'earn',
+      points,
+      reason,
+      balance: user.points,
+      time: new Date().toISOString()
+    });
+    await saveDB(db);
+    console.log(`💰 用户 ${user.nickname} 获得 ${points} 积分 (${reason})，当前: ${user.points}`);
+    return user.points;
+  }
+  return 0;
+}
+
+export async function spendPoints(userId, points, reason = '') {
+  const db = await getDB();
+  const user = db.users.find(u => u.id === userId);
+  if (!user) return { success: false, error: '用户不存在' };
+  
+  if ((user.points || 0) < points) {
+    return { success: false, error: '积分不足' };
+  }
+  
+  user.points -= points;
+  user.pointsHistory = user.pointsHistory || [];
+  user.pointsHistory.push({
+    type: 'spend',
+    points,
+    reason,
+    balance: user.points,
+    time: new Date().toISOString()
+  });
+  await saveDB(db);
+  console.log(`💸 用户 ${user.nickname} 消耗 ${points} 积分 (${reason})，剩余: ${user.points}`);
+  return { success: true, balance: user.points };
+}
+
+export async function getPointsInfo(userId) {
+  const db = await getDB();
+  const user = db.users.find(u => u.id === userId);
+  if (!user) return null;
+  
+  return {
+    points: user.points || 0,
+    inviteReward: INVITE_REWARD_POINTS,
+    claimTeamCost: CLAIM_TEAM_COST,
+    canClaimTeam: (user.points || 0) >= CLAIM_TEAM_COST,
+    history: user.pointsHistory || []
+  };
+}
+
 // ============ 用户操作 ============
 
-export async function createUser(inviteCode, nickname = null, password = null) {
+export async function createUser(inviteCode, nickname = null, password = null, invitedBy = null) {
   const db = await getDB();
   const id = randomUUID();
   
   // 密码哈希
   const passwordHash = password ? hashPassword(password) : null;
   
+  // 生成用户专属邀请码
+  const userInviteCode = await generateUserInviteCode();
+  
   const user = {
     id,
     inviteCode,
     nickname,
     passwordHash,
+    userInviteCode,        // 用户专属邀请码
+    invitedBy,             // 被谁邀请的（用户ID）
+    inviteCount: 0,        // 邀请了多少人
+    points: 0,             // 积分
+    pointsHistory: [],     // 积分历史
     instanceId: null,
     instanceStatus: 'pending',
     createdAt: new Date().toISOString(),
@@ -120,9 +213,28 @@ export async function createUser(inviteCode, nickname = null, password = null) {
   };
   
   db.users.push(user);
+  
+  // 如果是通过用户邀请码注册的，更新邀请者的邀请数和积分
+  if (invitedBy) {
+    const inviter = db.users.find(u => u.id === invitedBy);
+    if (inviter) {
+      inviter.inviteCount = (inviter.inviteCount || 0) + 1;
+      inviter.points = (inviter.points || 0) + INVITE_REWARD_POINTS;
+      inviter.pointsHistory = inviter.pointsHistory || [];
+      inviter.pointsHistory.push({
+        type: 'earn',
+        points: INVITE_REWARD_POINTS,
+        reason: `邀请好友注册: ${nickname}`,
+        balance: inviter.points,
+        time: new Date().toISOString()
+      });
+      console.log(`🎉 ${inviter.nickname} 邀请了 ${nickname}，获得 ${INVITE_REWARD_POINTS} 积分`);
+    }
+  }
+  
   await saveDB(db);
   
-  // 标记邀请码已使用
+  // 标记系统邀请码已使用
   await useInviteCode(inviteCode, id);
   
   return user;

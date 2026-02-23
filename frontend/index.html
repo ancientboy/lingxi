@@ -291,11 +291,46 @@
           <div class="hint">准备好与你的 AI 团队对话了吗？</div>
         </div>
         
-        <button class="home-btn home-btn-enter" onclick="goToChat()">
-          开始对话
-        </button>
+        <!-- 积分展示 -->
+        <div class="points-section" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border-radius: 12px; padding: 16px; margin-bottom: 12px; color: white;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <div style="font-size: 13px; opacity: 0.9;">💰 我的积分</div>
+              <div style="font-size: 28px; font-weight: 700;" id="myPoints">0</div>
+            </div>
+            <div style="text-align: right; font-size: 12px; opacity: 0.8;">
+              <div>邀请好友 +100 积分</div>
+              <div>领取团队 -100 积分</div>
+            </div>
+          </div>
+        </div>
         
-        <button class="home-btn home-btn-secondary" onclick="handleLogout()">
+        <!-- 邀请码展示 -->
+        <div class="invite-section" style="background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%); border-radius: 12px; padding: 16px; margin-bottom: 16px; color: white;">
+          <div style="font-size: 13px; opacity: 0.9; margin-bottom: 8px;">🎁 我的专属邀请码</div>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <code id="myInviteCode" style="font-size: 18px; font-weight: 600; background: rgba(255,255,255,0.2); padding: 8px 12px; border-radius: 8px; flex: 1; text-align: center;">-</code>
+            <button onclick="copyInviteCode()" style="background: rgba(255,255,255,0.2); border: none; padding: 8px 12px; border-radius: 8px; color: white; cursor: pointer; font-size: 14px;">复制</button>
+          </div>
+          <div style="font-size: 12px; opacity: 0.8; margin-top: 8px;">已邀请 <span id="inviteCount">0</span> 位好友，获得 <span id="earnedPoints">0</span> 积分</div>
+        </div>
+        
+        <!-- 领取团队按钮（积分不足时显示） -->
+        <div id="claimTeamSection" class="home-hidden">
+          <button class="home-btn home-btn-enter" onclick="claimTeam()" id="claimTeamBtn">
+            🎉 领取 AI 团队（消耗 100 积分）
+          </button>
+          <div style="text-align: center; font-size: 13px; color: #6e6e80; margin-top: 8px;" id="claimTeamHint"></div>
+        </div>
+        
+        <!-- 已有团队时显示 -->
+        <div id="hasTeamSection" class="home-hidden">
+          <button class="home-btn home-btn-enter" onclick="goToChat()">
+            开始对话
+          </button>
+        </div>
+        
+        <button class="home-btn home-btn-secondary" onclick="handleLogout()" style="margin-top: 12px;">
           退出登录
         </button>
       </div>
@@ -313,8 +348,8 @@
         <form id="loginForm" onsubmit="handleLogin(event)">
           <div class="home-error" id="loginError"></div>
           <div class="home-form-group">
-            <label>邀请码</label>
-            <input type="text" id="loginCode" placeholder="输入邀请码" required>
+            <label>昵称</label>
+            <input type="text" id="loginName" placeholder="输入昵称" required>
           </div>
           <div class="home-form-group">
             <label>密码</label>
@@ -372,24 +407,151 @@
     const THEME_KEY = 'lingxi_theme';
     
     // 初始化
-    function init() {
+    async function init() {
       // 初始化主题
       initTheme();
       
       // 检查登录状态
       const token = localStorage.getItem('lingxi_token');
-      const user = JSON.parse(localStorage.getItem('lingxi_user') || '{}');
       
-      if (token && user.nickname) {
-        // 已登录：显示欢迎视图
-        document.getElementById('loggedInView').classList.remove('home-hidden');
-        document.getElementById('loggedOutView').classList.add('home-hidden');
-        document.getElementById('welcomeName').textContent = user.nickname;
+      if (token) {
+        // 从后端获取最新用户信息
+        try {
+          const res = await fetch(`${API_BASE}/api/auth/me`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          
+          if (res.ok) {
+            const user = await res.json();
+            // 更新本地存储
+            localStorage.setItem('lingxi_user', JSON.stringify(user));
+            
+            // 已登录：显示欢迎视图
+            document.getElementById('loggedInView').classList.remove('home-hidden');
+            document.getElementById('loggedOutView').classList.add('home-hidden');
+            document.getElementById('welcomeName').textContent = user.nickname;
+            
+            // 显示积分
+            document.getElementById('myPoints').textContent = user.points || 0;
+            document.getElementById('earnedPoints').textContent = (user.inviteCount || 0) * 100;
+            
+            // 显示邀请码
+            if (user.userInviteCode) {
+              document.getElementById('myInviteCode').textContent = user.userInviteCode;
+            }
+            if (user.inviteCount !== undefined) {
+              document.getElementById('inviteCount').textContent = user.inviteCount;
+            }
+            
+            // 显示领取团队或开始对话按钮
+            const hasAgents = user.agents && user.agents.length > 0;
+            const canClaim = user.canClaimTeam;
+            
+            if (hasAgents) {
+              // 已有团队
+              document.getElementById('hasTeamSection').classList.remove('home-hidden');
+              document.getElementById('claimTeamSection').classList.add('home-hidden');
+            } else {
+              // 未领取团队
+              document.getElementById('hasTeamSection').classList.add('home-hidden');
+              document.getElementById('claimTeamSection').classList.remove('home-hidden');
+              
+              const btn = document.getElementById('claimTeamBtn');
+              const hint = document.getElementById('claimTeamHint');
+              
+              if (canClaim) {
+                btn.disabled = false;
+                btn.style.background = '#10a37f';
+                hint.textContent = '点击领取您的 AI 团队';
+              } else {
+                btn.disabled = true;
+                btn.style.background = '#d9d9e3';
+                const need = 100 - (user.points || 0);
+                hint.textContent = `还需 ${need} 积分才能领取，邀请好友快速获取积分~`;
+              }
+            }
+          } else {
+            // Token 无效，清除并显示登录
+            localStorage.removeItem('lingxi_token');
+            localStorage.removeItem('lingxi_user');
+            showLoginView();
+          }
+        } catch (err) {
+          console.error('获取用户信息失败:', err);
+          // 网络错误时用本地缓存
+          const user = JSON.parse(localStorage.getItem('lingxi_user') || '{}');
+          if (user.nickname) {
+            document.getElementById('loggedInView').classList.remove('home-hidden');
+            document.getElementById('loggedOutView').classList.add('home-hidden');
+            document.getElementById('welcomeName').textContent = user.nickname;
+            if (user.userInviteCode) {
+              document.getElementById('myInviteCode').textContent = user.userInviteCode;
+            }
+          } else {
+            showLoginView();
+          }
+        }
       } else {
-        // 未登录：显示登录表单
-        document.getElementById('loggedInView').classList.add('home-hidden');
-        document.getElementById('loggedOutView').classList.remove('home-hidden');
+        showLoginView();
       }
+    }
+    
+    function showLoginView() {
+      document.getElementById('loggedInView').classList.add('home-hidden');
+      document.getElementById('loggedOutView').classList.remove('home-hidden');
+    }
+    
+    // 领取 AI 团队
+    async function claimTeam() {
+      const token = localStorage.getItem('lingxi_token');
+      const btn = document.getElementById('claimTeamBtn');
+      
+      btn.disabled = true;
+      btn.textContent = '领取中...';
+      
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/claim-team`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({})
+        });
+        
+        const data = await res.json();
+        
+        if (res.ok && data.success) {
+          alert(data.message);
+          // 刷新页面显示新状态
+          location.reload();
+        } else {
+          alert(data.error || '领取失败');
+          btn.disabled = false;
+          btn.textContent = '🎉 领取 AI 团队（消耗 100 积分）';
+        }
+      } catch (err) {
+        alert('网络错误，请重试');
+        btn.disabled = false;
+        btn.textContent = '🎉 领取 AI 团队（消耗 100 积分）';
+      }
+    }
+    
+    // 复制邀请码
+    function copyInviteCode() {
+      const code = document.getElementById('myInviteCode').textContent;
+      navigator.clipboard.writeText(code).then(() => {
+        alert('邀请码已复制！分享给好友注册吧~');
+      }).catch(() => {
+        // 降级方案
+        const input = document.createElement('input');
+        input.value = code;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
+        alert('邀请码已复制！分享给好友注册吧~');
+      });
     }
     
     // 初始化主题
@@ -437,7 +599,7 @@
     // 登录
     async function handleLogin(e) {
       e.preventDefault();
-      const code = document.getElementById('loginCode').value.trim();
+      const nickname = document.getElementById('loginName').value.trim();
       const password = document.getElementById('loginPassword').value;
       const btn = document.getElementById('loginBtn');
       const error = document.getElementById('loginError');
@@ -450,7 +612,7 @@
         const res = await fetch(`${API_BASE}/api/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code, password })
+          body: JSON.stringify({ nickname, password })
         });
         
         const data = await res.json();
@@ -475,7 +637,7 @@
     // 注册
     async function handleRegister(e) {
       e.preventDefault();
-      const code = document.getElementById('registerCode').value.trim();
+      const inviteCode = document.getElementById('registerCode').value.trim();
       const nickname = document.getElementById('registerName').value.trim();
       const password = document.getElementById('registerPassword').value;
       const btn = document.getElementById('registerBtn');
@@ -489,7 +651,7 @@
         const res = await fetch(`${API_BASE}/api/auth/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code, nickname, password })
+          body: JSON.stringify({ inviteCode, nickname, password })
         });
         
         const data = await res.json();
