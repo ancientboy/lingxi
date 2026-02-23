@@ -140,8 +140,41 @@ async function init() {
     return;
   }
   
-  user = JSON.parse(localStorage.getItem('lingxi_user') || '{}');
-  console.log('👤 用户信息:', user);
+  // 🔒 先从服务器获取最新用户信息并检查团队状态
+  try {
+    console.log('🔍 检查用户团队状态...');
+    const meRes = await fetch(`${API_BASE}/api/auth/me`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    if (!meRes.ok) {
+      console.log('❌ 获取用户信息失败，跳转首页');
+      localStorage.removeItem('lingxi_token');
+      window.location.href = 'index.html';
+      return;
+    }
+    
+    const userData = await meRes.json();
+    user = userData;
+    localStorage.setItem('lingxi_user', JSON.stringify(userData));
+    
+    console.log('👤 用户信息:', userData);
+    
+    // 🔒 检查是否有团队（agents 不为空）
+    if (!userData.agents || userData.agents.length === 0) {
+      console.log('⚠️ 用户没有团队，跳转首页领取');
+      alert('请先在首页领取 AI 团队');
+      window.location.href = 'index.html';
+      return;
+    }
+    
+    console.log('✅ 用户已有团队:', userData.agents);
+    
+  } catch (e) {
+    console.error('❌ 检查团队失败:', e);
+    window.location.href = 'index.html';
+    return;
+  }
   
   // 初始化用户专属会话
   if (!user.id) {

@@ -6,10 +6,13 @@ const router = Router();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'lingxi-cloud-secret-key-2026';
 
+// MVP 模式：默认关闭
+const MVP_MODE = process.env.MVP_MODE === 'true';
+
 const SHARED_GATEWAY = {
   url: process.env.OPENCLAW_URL || 'http://localhost:18789',
-  token: process.env.OPENCLAW_TOKEN || '6f3719a52fa12799fea8e4a06655703f',
-  session: process.env.OPENCLAW_SESSION || 'c308f1f0'
+  token: process.env.MVP_OPENCLAW_TOKEN || process.env.OPENCLAW_TOKEN || '6f3719a52fa12799fea8e4a06655703f',
+  session: process.env.MVP_OPENCLAW_SESSION || process.env.OPENCLAW_SESSION || 'c308f1f0'
 };
 
 router.get('/ws-info', (req, res) => {
@@ -46,9 +49,21 @@ router.get('/connect-info', async (req, res) => {
     return res.status(401).json({ error: '用户不存在' });
   }
   
+  // 🔒 生产模式：检查用户是否有团队
+  if (!MVP_MODE) {
+    if (!user.agents || user.agents.length === 0) {
+      return res.status(403).json({ 
+        error: '请先领取 AI 团队',
+        needTeam: true 
+      });
+    }
+  }
+  
+  // 查找用户的独立服务器
   const userServer = db.userServers?.find(s => s.userId === user.id && s.status === 'running');
   
   if (userServer && userServer.ip) {
+    // 用户有独立服务器
     res.json({
       mode: 'dedicated',
       wsUrl: `ws://${userServer.ip}:${userServer.openclawPort}`,
@@ -61,7 +76,8 @@ router.get('/connect-info', async (req, res) => {
         status: userServer.status
       }
     });
-  } else {
+  } else if (MVP_MODE) {
+    // MVP 模式：使用共享实例
     const host = req.get('host') || 'localhost:3000';
     const wsHost = host.split(':')[0];
     
@@ -72,6 +88,12 @@ router.get('/connect-info', async (req, res) => {
       token: SHARED_GATEWAY.token,
       sessionPrefix: `user_${user.id.substring(0, 8)}`,
       server: null
+    });
+  } else {
+    // 生产模式且无独立服务器：返回错误
+    return res.status(403).json({ 
+      error: '您还没有专属服务器，请联系管理员',
+      needServer: true 
     });
   }
 });
