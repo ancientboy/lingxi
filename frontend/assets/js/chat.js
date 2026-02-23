@@ -15,7 +15,13 @@ const AGENT_INFO = {
     desc: '智能调度 · 日程管理',
     scene: '日程管理',
     skills: '任务规划、提醒、邮件',
-    agentId: 'main'  // OpenClaw 内部的 agent ID
+    agentId: 'main',  // OpenClaw 内部的 agent ID
+    examples: [
+      { text: '帮我安排明天的日程', desc: '日程规划' },
+      { text: '提醒我下午3点开会', desc: '设置提醒' },
+      { text: '帮我起草一封工作邮件', desc: '邮件撰写' },
+      { text: '这个任务应该派给谁？', desc: '智能调度' }
+    ]
   },
   coder: { 
     emoji: '💻', 
@@ -23,7 +29,13 @@ const AGENT_INFO = {
     desc: '全栈开发 · 编程专家',
     scene: '编程开发',
     skills: '代码、调试、架构、API',
-    agentId: 'coder'
+    agentId: 'coder',
+    examples: [
+      { text: '帮我写一个 Python 爬虫', desc: '代码生成' },
+      { text: '这段代码有什么 bug？\n```python\nfor i in range(10)\n    print(i)\n```', desc: '代码审查' },
+      { text: '设计一个用户登录 API', desc: 'API 设计' },
+      { text: '优化这个 SQL 查询语句', desc: '性能优化' }
+    ]
   },
   ops: { 
     emoji: '📊', 
@@ -31,7 +43,13 @@ const AGENT_INFO = {
     desc: '增长运营 · 数据专家',
     scene: '数据分析',
     skills: '报表、增长、SEO、用户研究',
-    agentId: 'ops'
+    agentId: 'ops',
+    examples: [
+      { text: '分析一下这周的用户增长数据', desc: '数据分析' },
+      { text: '给我一个 SEO 优化方案', desc: 'SEO 优化' },
+      { text: '如何提高用户留存率？', desc: '增长策略' },
+      { text: '分析竞品的优劣势', desc: '竞品分析' }
+    ]
   },
   inventor: { 
     emoji: '💡', 
@@ -39,7 +57,13 @@ const AGENT_INFO = {
     desc: '内容创意 · 文案总监',
     scene: '内容创作',
     skills: '文案、创意、社媒、营销',
-    agentId: 'inventor'
+    agentId: 'inventor',
+    examples: [
+      { text: '写一个产品宣传文案', desc: '文案创作' },
+      { text: '给我的小红书账号想个选题', desc: '内容策划' },
+      { text: '设计一个营销活动方案', desc: '活动策划' },
+      { text: '头脑风暴：新产品的卖点', desc: '创意生成' }
+    ]
   },
   pm: { 
     emoji: '🎯', 
@@ -47,7 +71,13 @@ const AGENT_INFO = {
     desc: '产品设计 · 需求专家',
     scene: '产品设计',
     skills: '需求、原型、UX、商业模式',
-    agentId: 'pm'
+    agentId: 'pm',
+    examples: [
+      { text: '帮我写一个产品需求文档', desc: '需求分析' },
+      { text: '设计一个用户注册流程', desc: '流程设计' },
+      { text: '这个功能如何设计更好？', desc: '产品建议' },
+      { text: '分析一下商业模式可行性', desc: '商业分析' }
+    ]
   },
   noter: { 
     emoji: '📝', 
@@ -55,7 +85,13 @@ const AGENT_INFO = {
     desc: '学习顾问 · 知识管理',
     scene: '知识管理',
     skills: '学习、翻译、笔记、搜索',
-    agentId: 'noter'
+    agentId: 'noter',
+    examples: [
+      { text: '翻译这段话成英文', desc: '翻译服务' },
+      { text: '帮我整理一下今天的会议笔记', desc: '笔记整理' },
+      { text: '搜索一下 AI Agent 的最新进展', desc: '信息检索' },
+      { text: '给我制定一个学习计划', desc: '学习规划' }
+    ]
   },
   media: { 
     emoji: '🎨', 
@@ -63,7 +99,13 @@ const AGENT_INFO = {
     desc: '多媒体创作 · AI绘图',
     scene: '多媒体娱乐',
     skills: 'AI绘图、视频、音乐、剧本',
-    agentId: 'media'
+    agentId: 'media',
+    examples: [
+      { text: '生成一张科幻风格的封面图', desc: 'AI 绘图' },
+      { text: '写一个短视频脚本', desc: '剧本创作' },
+      { text: '给我推荐一些 BGM', desc: '音乐推荐' },
+      { text: '设计一张海报', desc: '设计建议' }
+    ]
   },
   smart: { 
     emoji: '🏠', 
@@ -71,7 +113,13 @@ const AGENT_INFO = {
     desc: '效率工具 · 自动化专家',
     scene: '智能工具',
     skills: '自动化、脚本、工具、效率',
-    agentId: 'smart'
+    agentId: 'smart',
+    examples: [
+      { text: '写一个自动备份脚本', desc: '脚本编写' },
+      { text: '如何批量重命名文件？', desc: '效率工具' },
+      { text: '帮我设计一个自动化工作流', desc: '流程自动化' },
+      { text: '推荐一些提高效率的工具', desc: '工具推荐' }
+    ]
   }
 };
 
@@ -433,10 +481,60 @@ function renderTeamTags() {
   const agents = user?.agents || ['lingxi'];
   const tags = document.getElementById('teamTags');
   if (!tags) return;  // 元素不存在时跳过
-  tags.innerHTML = agents.map(id => {
-    const agent = AGENT_INFO[id] || { emoji: '🤖', name: id };
-    return `<span class="team-tag">${agent.emoji} ${agent.name}</span>`;
-  }).join('');
+  
+  // 生成示例列表
+  const allExamples = [];
+  agents.forEach(id => {
+    const agent = AGENT_INFO[id];
+    if (agent && agent.examples) {
+      agent.examples.forEach(ex => {
+        allExamples.push({
+          ...ex,
+          agentId: id,
+          agentName: agent.name,
+          agentEmoji: agent.emoji
+        });
+      });
+    }
+  });
+  
+  // 随机选 4 个示例
+  const shuffled = allExamples.sort(() => Math.random() - 0.5);
+  const selectedExamples = shuffled.slice(0, 4);
+  
+  // 渲染
+  tags.innerHTML = `
+    <div class="team-avatars">
+      ${agents.map(id => {
+        const agent = AGENT_INFO[id] || { emoji: '🤖', name: id };
+        return `<span class="team-avatar" title="${agent.name}">${agent.emoji}</span>`;
+      }).join('')}
+    </div>
+    <div class="welcome-examples">
+      <div class="welcome-examples-title">💬 试试这些</div>
+      <div class="welcome-examples-list">
+        ${selectedExamples.map(ex => `
+          <div class="welcome-example" onclick="switchAgentAndSend('${ex.agentId}', '${ex.text.replace(/'/g, "\\'").replace(/\n/g, '\\n')}')">
+            <span class="example-emoji">${ex.agentEmoji}</span>
+            <span class="example-text">${ex.text.substring(0, 25)}${ex.text.length > 25 ? '...' : ''}</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+// 切换 Agent 并发送示例
+function switchAgentAndSend(agentId, text) {
+  // 切换 agent
+  switchAgent(agentId);
+  
+  // 等待切换完成后发送
+  setTimeout(() => {
+    const input = document.getElementById('inputField');
+    input.value = text;
+    sendMessage();
+  }, 100);
 }
 
 // 发送消息
@@ -634,8 +732,11 @@ function renderHistory(messages) {
         <div class="welcome-emoji">⚡</div>
         <div class="welcome-title">继续对话</div>
         <div class="welcome-desc">发送消息继续这个会话</div>
+        <div class="team-tags" id="teamTags"></div>
       </div>
     `;
+    // 重新渲染团队标签
+    renderTeamTags();
     return;
   }
   
@@ -1005,10 +1106,19 @@ function renderMyTeam() {
   }
   
   container.innerHTML = myAgents.map(agentId => {
-    const agent = AGENT_INFO[agentId] || { emoji: '🤖', name: agentId, desc: 'AI 助手', scene: '通用', skills: '' };
+    const agent = AGENT_INFO[agentId] || { emoji: '🤖', name: agentId, desc: 'AI 助手', scene: '通用', skills: '', examples: [] };
     const isRequired = agentId === 'lingxi';
+    
+    // 生成示例 HTML
+    const examplesHtml = (agent.examples || []).map(ex => `
+      <div class="agent-example" onclick="sendExample('${ex.text.replace(/'/g, "\\'").replace(/\n/g, '\\n')}')">
+        <span class="example-text">${ex.text.substring(0, 30)}${ex.text.length > 30 ? '...' : ''}</span>
+        <span class="example-desc">${ex.desc}</span>
+      </div>
+    `).join('');
+    
     return `
-      <div class="team-member" style="flex-direction:column;align-items:flex-start;gap:8px;">
+      <div class="team-member" style="flex-direction:column;align-items:flex-start;gap:12px;">
         <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
           <div class="team-member-info">
             <div class="team-member-avatar">${agent.emoji}</div>
@@ -1030,9 +1140,36 @@ function renderMyTeam() {
             🔧 ${agent.skills || '多技能'}
           </span>
         </div>
+        ${examplesHtml ? `
+          <div class="agent-examples">
+            <div class="examples-title">💬 试试这些</div>
+            <div class="examples-list">${examplesHtml}</div>
+          </div>
+        ` : ''}
       </div>
     `;
   }).join('');
+}
+
+// 发送示例消息
+function sendExample(text) {
+  // 关闭团队弹窗
+  closeTeamModal();
+  
+  // 切换到对应的 agent
+  // 从 text 中找不到是哪个 agent，所以需要另外方式
+  // 直接发送消息
+  const input = document.getElementById('inputField');
+  input.value = text;
+  
+  // 隐藏欢迎界面
+  const welcome = document.getElementById('welcome');
+  if (welcome) {
+    welcome.classList.add('hidden');
+  }
+  
+  // 发送
+  sendMessage();
 }
 
 // 渲染可添加的成员
