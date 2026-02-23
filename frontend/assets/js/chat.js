@@ -976,7 +976,9 @@ function addMessage(role, content, name) {
   const div = document.createElement('div');
   div.className = `message ${role}`;
   
-  const emoji = role === 'user' ? '👤' : '⚡';
+  // 获取当前 Agent 的头像
+  const currentAgent = AGENT_INFO[currentAgentId] || { emoji: '⚡', name: '灵犀' };
+  const emoji = role === 'user' ? '👤' : currentAgent.emoji;
   
   div.innerHTML = `
     <div class="avatar">${emoji}</div>
@@ -995,8 +997,12 @@ function addTyping() {
   const div = document.createElement('div');
   div.className = 'message assistant';
   div.id = 'typing-indicator';
+  
+  // 获取当前 Agent 的头像
+  const currentAgent = AGENT_INFO[currentAgentId] || { emoji: '⚡' };
+  
   div.innerHTML = `
-    <div class="avatar">⚡</div>
+    <div class="avatar">${currentAgent.emoji}</div>
     <div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div>
   `;
   messages.appendChild(div);
