@@ -7,10 +7,15 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs/promises';
 import path from 'path';
+import { randomBytes } from 'crypto';
 import { updateUserAgents, getUser } from '../utils/db.js';
 
 const execAsync = promisify(exec);
 const router = express.Router();
+
+// 🔧 自动检测用户目录（不再硬编码）
+const HOME_DIR = process.env.HOME || process.env.USERPROFILE || '/root';
+const OPENCLAW_DIR = path.join(HOME_DIR, '.openclaw');
 
 // 配置
 const INSTANCES_DIR = process.env.INSTANCES_DIR || '/data/lingxi-instances';
@@ -19,18 +24,105 @@ const BASE_PORT = parseInt(process.env.BASE_PORT || '19000');
 const SERVER_IP = process.env.SERVER_IP || '120.26.137.51';
 
 // MVP 模式：复用现有 OpenClaw 实例（18789 端口）
-// 生产环境默认关闭 MVP 模式，每个用户独立实例
-const MVP_MODE = process.env.MVP_MODE === 'true'; // 默认关闭
+const MVP_MODE = process.env.MVP_MODE === 'true';
 const MVP_OPENCLAW_PORT = parseInt(process.env.MVP_OPENCLAW_PORT || '18789');
+
+// 🔧 MVP 模式的 Token 和 Session 从环境变量读取，或使用默认值
 const MVP_OPENCLAW_TOKEN = process.env.MVP_OPENCLAW_TOKEN || '6f3719a52fa12799fea8e4a06655703f';
 const MVP_OPENCLAW_SESSION = process.env.MVP_OPENCLAW_SESSION || 'c308f1f0';
 
-// OpenClaw 配置路径
-const OPENCLAW_CONFIG_PATH = '/home/admin/.openclaw/agents_config.json';
+// 🔧 动态配置路径
+const OPENCLAW_CONFIG_PATH = path.join(OPENCLAW_DIR, 'agents_config.json');
+const OPENCLAW_MAIN_CONFIG = path.join(OPENCLAW_DIR, 'openclaw.json');
 
-// 实例池（内存存储，MVP 阶段够用）
+// Agent 名称映射
+const AGENT_NAMES = {
+  lingxi: '灵犀', coder: '云溪', ops: '若曦', inventor: '紫萱',
+  pm: '梓萱', noter: '晓琳', media: '音韵', smart: '智家'
+};
+
+// 实例池
 let instancePool = [];
 let nextPort = BASE_PORT;
+
+/**
+ * 🔧 生成随机 Token
+ */
+function generateToken() {
+  return randomBytes(16).toString('hex');
+}
+
+/**
+ * 🔧 生成随机 Session basePath
+ */
+function generateSessionPath() {
+  return randomBytes(4).toString('hex');
+}
+
+/**
+ * 🔧 获取当前服务器 IP
+ */
+async function detectServerIP() {
+  try {
+    const { stdout } = await execAsync('curl -s --connect-timeout 3 ifconfig.me 2>/dev/null || curl -s --connect-timeout 3 icanhazip.com 2>/dev/null');
+    return stdout.trim() || SERVER_IP;
+  } catch {
+    return SERVER_IP;
+  }
+}
+
+/**
+ * 🔧 生成完整的 OpenClaw 实例配置
+ */
+async function generateInstanceConfig(options = {}) {
+  const { 
+    token = generateToken(), 
+    basePath = generateSessionPath(),
+    serverIp = await detectServerIP(),
+    agents = ['lingxi']
+  } = options;
+
+  const config = {
+    agents: {
+      defaults: {
+        model: { primary: 'zhipu/glm-5' },
+        workspace: path.join(OPENCLAW_DIR, 'workspace')
+      },
+      list: agents.map(id => ({
+        id,
+        default: id === 'lingxi',
+        name: AGENT_NAMES[id] || id
+      }))
+    },
+    tools: {
+      subagents: {
+        tools: { allow: [] }
+      }
+    },
+    gateway: {
+      port: 18789,
+      mode: 'local',
+      bind: 'lan',
+      controlUi: {
+        enabled: true,
+        basePath: basePath,
+        allowedOrigins: [
+          '*',
+          `http://${serverIp}:3000`,
+          'http://localhost:3000',
+          'http://127.0.0.1:3000'
+        ],
+        allowInsecureAuth: true
+      },
+      auth: {
+        mode: 'token',
+        token: token
+      }
+    }
+  };
+
+  return { config, token, basePath };
+}
 
 /**
  * 初始化实例池
