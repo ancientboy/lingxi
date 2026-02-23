@@ -154,6 +154,9 @@ async function init() {
   
   // 初始化 agent 下拉（放在最后，确保 user 已加载）
   initAgentDropdown();
+  
+  // 🎯 检查是否需要引导（放在初始化最后）
+  await checkOnboarding();
 }
 
 let requestId = 1;
@@ -1425,6 +1428,204 @@ const ALL_AGENTS = Object.fromEntries(
 
 let currentAgentId = 'lingxi';
 let userAgentList = ['lingxi'];
+
+// ==================== 引导系统 ====================
+
+let selectedJobType = null;
+let recommendationData = null;
+
+// 检查并启动引导
+async function checkOnboarding() {
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/me`, {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('lingxi_token')}` }
+    });
+    
+    if (!res.ok) return false;
+    
+    const userData = await res.json();
+    
+    // 更新全局 user 对象
+    user = { ...user, ...userData };
+    
+    // 检查是否完成引导
+    if (userData.onboardingCompleted !== true) {
+      console.log('🎯 用户未完成引导，启动引导流程');
+      startOnboarding();
+      return false;
+    }
+    
+    return true;
+  } catch (e) {
+    console.error('检查引导状态失败:', e);
+    return true; // 出错时跳过引导
+  }
+}
+
+// 启动引导
+async function startOnboarding() {
+  // 加载职业类型
+  await loadJobTypes();
+  
+  // 显示引导弹窗
+  document.getElementById('onboardingModal').style.display = 'flex';
+  
+  // 重置到第一步
+  goToOnboardingStep(1);
+}
+
+// 加载职业类型
+async function loadJobTypes() {
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/onboarding/job-types`);
+    const data = await res.json();
+    
+    const grid = document.getElementById('jobTypeGrid');
+    grid.innerHTML = data.jobTypes.map(job => `
+      <div class="job-type-item" onclick="selectJobType('${job.id}')" data-job="${job.id}">
+        ${job.label}
+      </div>
+    `).join('');
+  } catch (e) {
+    console.error('加载职业类型失败:', e);
+  }
+}
+
+// 选择职业类型
+async function selectJobType(jobId) {
+  // 更新选中状态
+  document.querySelectorAll('.job-type-item').forEach(el => {
+    el.classList.remove('selected');
+  });
+  document.querySelector(`[data-job="${jobId}"]`)?.classList.add('selected');
+  
+  selectedJobType = jobId;
+  
+  // 获取推荐
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/onboarding/recommendation/${jobId}`);
+    recommendationData = await res.json();
+    
+    // 延迟跳转，让用户看到选中效果
+    setTimeout(() => goToOnboardingStep(3), 300);
+  } catch (e) {
+    console.error('获取推荐失败:', e);
+  }
+}
+
+// 切换引导步骤
+function goToOnboardingStep(step) {
+  // 隐藏所有步骤
+  for (let i = 1; i <= 4; i++) {
+    document.getElementById(`onboardingStep${i}`).style.display = 'none';
+  }
+  
+  // 显示当前步骤
+  document.getElementById(`onboardingStep${step}`).style.display = 'block';
+  
+  // 如果是步骤3，渲染推荐
+  if (step === 3 && recommendationData) {
+    renderRecommendation();
+  }
+}
+
+// 渲染推荐配置
+function renderRecommendation() {
+  const rec = recommendationData.recommendation;
+  const hint = document.getElementById('recommendationHint');
+  const agentsContainer = document.getElementById('recommendationAgents');
+  
+  hint.textContent = `${rec.label}的推荐配置`;
+  
+  agentsContainer.innerHTML = rec.agents.map(agentId => {
+    const agent = AGENT_INFO[agentId];
+    return `
+      <div class="recommendation-agent">
+        <div class="emoji">${agent.emoji}</div>
+        <div class="info">
+          <div class="name">${agent.name}</div>
+          <div class="desc">${agent.desc}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+  
+  // 添加灵犀（始终存在）
+  agentsContainer.innerHTML = `
+    <div class="recommendation-agent">
+      <div class="emoji">⚡</div>
+      <div class="info">
+        <div class="name">灵犀</div>
+        <div class="desc">队长 · 智能调度</div>
+      </div>
+    </div>
+  ` + agentsContainer.innerHTML;
+}
+
+// 应用推荐配置
+async function applyRecommendation() {
+  const btn = document.getElementById('applyRecommendationBtn');
+  btn.disabled = true;
+  btn.textContent = '配置中...';
+  
+  try {
+    const agents = ['lingxi', ...recommendationData.recommendation.agents];
+    
+    const res = await fetch(`${API_BASE}/api/auth/onboarding/complete`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('lingxi_token')}`
+      },
+      body: JSON.stringify({
+        jobType: selectedJobType,
+        agents: agents
+      })
+    });
+    
+    const data = await res.json();
+    
+    if (data.success) {
+      // 更新本地用户信息
+      user = { ...user, ...data.user };
+      localStorage.setItem('lingxi_user', JSON.stringify(user));
+      
+      // 渲染团队预览
+      renderTeamPreview(agents);
+      
+      // 跳转到完成步骤
+      goToOnboardingStep(4);
+    } else {
+      alert('配置失败: ' + (data.error || '未知错误'));
+    }
+  } catch (e) {
+    alert('网络错误: ' + e.message);
+  }
+  
+  btn.disabled = false;
+  btn.textContent = '应用配置';
+}
+
+// 渲染团队预览
+function renderTeamPreview(agents) {
+  const preview = document.getElementById('teamPreview');
+  preview.innerHTML = agents.map(agentId => {
+    const agent = AGENT_INFO[agentId];
+    return `<div class="team-preview-avatar">${agent.emoji}</div>`;
+  }).join('');
+}
+
+// 开始对话（完成引导后）
+function startChat() {
+  // 关闭引导弹窗
+  document.getElementById('onboardingModal').style.display = 'none';
+  
+  // 更新界面
+  renderTeamTags();
+  initAgentDropdown();
+  
+  console.log('✅ 引导完成，开始对话');
+}
 
 function toggleAgentDropdown() {
   const dropdown = document.getElementById('agentDropdown');

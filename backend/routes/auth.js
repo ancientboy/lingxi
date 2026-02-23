@@ -161,7 +161,7 @@ router.get('/me', async (req, res) => {
   
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    const { getUser, getDB } = await import('../utils/db.js');
+    const { getUser, getDB, isOnboardingCompleted } = await import('../utils/db.js');
     const user = await getUser(decoded.userId);
     
     if (!user) {
@@ -197,10 +197,72 @@ router.get('/me', async (req, res) => {
       points,
       canClaimTeam,
       claimTeamCost: 100,
-      inviteReward: 100
+      inviteReward: 100,
+      // 引导状态
+      onboardingCompleted: user.onboardingCompleted === true
     });
   } catch (error) {
     res.status(401).json({ error: '令牌无效' });
+  }
+});
+
+// ============ 引导系统 ============
+
+// 获取职业类型列表
+router.get('/onboarding/job-types', async (req, res) => {
+  try {
+    const { getJobTypes } = await import('../utils/db.js');
+    res.json({ jobTypes: getJobTypes() });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 获取推荐配置
+router.get('/onboarding/recommendation/:jobType', async (req, res) => {
+  try {
+    const { jobType } = req.params;
+    const { getRecommendation } = await import('../utils/db.js');
+    const recommendation = getRecommendation(jobType);
+    res.json({ recommendation });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 完成引导
+router.post('/onboarding/complete', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: '未登录' });
+  }
+  
+  const token = authHeader.substring(7);
+  const { jobType, agents } = req.body;
+  
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const { completeOnboarding, getUser } = await import('../utils/db.js');
+    
+    const user = await completeOnboarding(decoded.userId, jobType, agents);
+    
+    if (!user) {
+      return res.status(404).json({ error: '用户不存在' });
+    }
+    
+    res.json({
+      success: true,
+      message: '🎉 引导完成！你的 AI 团队已就绪',
+      user: {
+        id: user.id,
+        nickname: user.nickname,
+        agents: user.agents || [],
+        onboardingCompleted: true
+      }
+    });
+  } catch (error) {
+    console.error('完成引导错误:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 

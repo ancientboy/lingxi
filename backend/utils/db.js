@@ -99,7 +99,96 @@ export async function getAllInviteCodes() {
   return db.inviteCodes;
 }
 
-// ============ 用户专属邀请码 ============
+// ============ 用户引导系统 ============
+
+// 用户职业类型和推荐的 Agent 配置
+const JOB_RECOMMENDATIONS = {
+  'developer': {
+    label: '程序员/开发者',
+    agents: ['coder', 'noter', 'smart'],
+    skills: ['代码审查', '文档整理', '自动化脚本']
+  },
+  'operator': {
+    label: '运营人员',
+    agents: ['ops', 'inventor', 'noter'],
+    skills: ['数据分析', '文案写作', '知识管理']
+  },
+  'product': {
+    label: '产品经理',
+    agents: ['pm', 'ops', 'coder'],
+    skills: ['需求分析', '数据驱动', '技术沟通']
+  },
+  'creator': {
+    label: '内容创作者',
+    agents: ['inventor', 'media', 'noter'],
+    skills: ['创意生成', '多媒体制作', '素材管理']
+  },
+  'designer': {
+    label: '设计师',
+    agents: ['media', 'inventor', 'pm'],
+    skills: ['视觉创作', '创意灵感', '用户体验']
+  },
+  'entrepreneur': {
+    label: '创业者/老板',
+    agents: ['pm', 'ops', 'coder', 'smart'],
+    skills: ['商业分析', '增长策略', '效率工具']
+  },
+  'student': {
+    label: '学生/学习者',
+    agents: ['noter', 'coder', 'inventor'],
+    skills: ['知识管理', '学习辅导', '创意思考']
+  },
+  'other': {
+    label: '其他职业',
+    agents: ['lingxi', 'noter', 'smart'],
+    skills: ['智能助手', '信息整理', '效率提升']
+  }
+};
+
+// 检查用户是否完成引导
+export async function isOnboardingCompleted(userId) {
+  const db = await getDB();
+  const user = db.users.find(u => u.id === userId);
+  return user?.onboardingCompleted === true;
+}
+
+// 完成引导
+export async function completeOnboarding(userId, jobType, selectedAgents) {
+  const db = await getDB();
+  const user = db.users.find(u => u.id === userId);
+  
+  if (user) {
+    user.onboardingCompleted = true;
+    user.onboardingJobType = jobType;
+    user.onboardingCompletedAt = new Date().toISOString();
+    // 如果选择了 Agent，更新用户的团队
+    if (selectedAgents && selectedAgents.length > 0) {
+      // 确保灵犀始终在
+      if (!selectedAgents.includes('lingxi')) {
+        selectedAgents.unshift('lingxi');
+      }
+      user.agents = selectedAgents;
+      user.agentsUpdatedAt = new Date().toISOString();
+    }
+    await saveDB(db);
+    console.log(`✅ 用户 ${user.nickname} 完成引导，职业: ${jobType}，团队: ${selectedAgents?.join(',')}`);
+    return user;
+  }
+  return null;
+}
+
+// 获取推荐配置
+export function getRecommendation(jobType) {
+  return JOB_RECOMMENDATIONS[jobType] || JOB_RECOMMENDATIONS['other'];
+}
+
+// 获取所有职业类型
+export function getJobTypes() {
+  return Object.entries(JOB_RECOMMENDATIONS).map(([key, value]) => ({
+    id: key,
+    label: value.label
+  }));
+}
 
 export async function generateUserInviteCode() {
   const db = await getDB();

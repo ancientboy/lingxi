@@ -169,6 +169,185 @@
     </div>
   </div>
 
+  <!-- 新用户引导弹窗 -->
+  <div class="modal-overlay" id="onboardingModal" style="display:none;">
+    <div class="modal onboarding-modal" style="max-width:480px;">
+      <!-- Step 1: 欢迎 -->
+      <div id="onboardingStep1" class="onboarding-step">
+        <div class="onboarding-welcome">
+          <div class="onboarding-emoji">⚡</div>
+          <h2>你好！我是灵犀</h2>
+          <p>你的 AI 团队队长，来自星际的智能助手</p>
+          <p style="font-size:14px;color:rgba(255,255,255,0.6);margin-top:16px;">
+            看起来你是第一次来，让我先了解一下你～
+          </p>
+        </div>
+        <button class="home-btn" onclick="goToOnboardingStep(2)" style="margin-top:24px;">
+          开始了解
+        </button>
+      </div>
+      
+      <!-- Step 2: 选择职业 -->
+      <div id="onboardingStep2" class="onboarding-step" style="display:none;">
+        <h3 style="text-align:center;margin-bottom:20px;">请问你主要是做什么工作的？</h3>
+        <div class="job-type-grid" id="jobTypeGrid"></div>
+      </div>
+      
+      <!-- Step 3: 推荐配置 -->
+      <div id="onboardingStep3" class="onboarding-step" style="display:none;">
+        <h3 style="text-align:center;margin-bottom:8px;">根据你的需求，我建议配置</h3>
+        <p id="recommendationHint" style="text-align:center;font-size:13px;color:rgba(255,255,255,0.5);margin-bottom:20px;"></p>
+        
+        <div class="recommendation-agents" id="recommendationAgents"></div>
+        
+        <div style="margin-top:24px;display:flex;gap:12px;">
+          <button class="home-btn home-btn-secondary" onclick="goToOnboardingStep(2)" style="flex:1;">
+            重新选择
+          </button>
+          <button class="home-btn" onclick="applyRecommendation()" id="applyRecommendationBtn" style="flex:1;">
+            应用配置
+          </button>
+        </div>
+      </div>
+      
+      <!-- Step 4: 完成 -->
+      <div id="onboardingStep4" class="onboarding-step" style="display:none;">
+        <div class="onboarding-complete">
+          <div class="onboarding-emoji" style="background:#10a37f;">✓</div>
+          <h2>🎉 配置完成！</h2>
+          <p>你的 AI 团队已就绪，现在可以开始对话了</p>
+          <div class="team-preview" id="teamPreview"></div>
+        </div>
+        <button class="home-btn" onclick="startChat()" style="margin-top:24px;">
+          开始对话
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    /* 引导弹窗样式 */
+    .onboarding-modal {
+      background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%);
+    }
+    
+    .onboarding-step {
+      padding: 20px;
+    }
+    
+    .onboarding-welcome {
+      text-align: center;
+      padding: 20px 0;
+    }
+    
+    .onboarding-emoji {
+      width: 80px;
+      height: 80px;
+      background: #10a37f;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+      font-size: 40px;
+    }
+    
+    .onboarding-welcome h2 {
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+    
+    .job-type-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    
+    .job-type-item {
+      padding: 16px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    
+    .job-type-item:hover {
+      background: rgba(255,255,255,0.1);
+      border-color: #10a37f;
+    }
+    
+    .job-type-item.selected {
+      background: rgba(16,163,127,0.2);
+      border-color: #10a37f;
+    }
+    
+    .recommendation-agents {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    
+    .recommendation-agent {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 12px;
+    }
+    
+    .recommendation-agent .emoji {
+      width: 48px;
+      height: 48px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+    }
+    
+    .recommendation-agent .info {
+      flex: 1;
+    }
+    
+    .recommendation-agent .name {
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    
+    .recommendation-agent .desc {
+      font-size: 13px;
+      color: rgba(255,255,255,0.6);
+    }
+    
+    .onboarding-complete {
+      text-align: center;
+      padding: 20px 0;
+    }
+    
+    .team-preview {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+    
+    .team-preview-avatar {
+      width: 48px;
+      height: 48px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+    }
+  </style>
+
   <div class="chat-container">
     <div class="messages" id="messages">
       <div class="welcome" id="welcome">
