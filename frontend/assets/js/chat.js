@@ -1742,9 +1742,15 @@ function switchAgent(agentId) {
   if (agentId === currentAgentId) return;
   
   currentAgentId = agentId;
-  const agent = ALL_AGENTS[agentId];
   
-  // 更新显示
+  // 从完整的 AGENT_INFO 获取信息
+  const agent = AGENT_INFO[agentId];
+  if (!agent) {
+    console.error('找不到 Agent:', agentId);
+    return;
+  }
+  
+  // 更新导航栏头像
   document.getElementById('currentAgentEmoji').textContent = agent.emoji;
   
   // 关闭下拉
@@ -1754,18 +1760,24 @@ function switchAgent(agentId) {
   renderAgentDropdown();
   
   // 🎯 每个 agent 有独立的会话，直接对话
-  // OpenClaw 会话格式: agent:{agentId}:main
   const targetAgentId = agent.agentId || agentId;
   currentSessionKey = `agent:${targetAgentId}:main`;
   
   console.log('🔄 切换到 agent:', agentId, 'agentId:', targetAgentId, '会话:', currentSessionKey);
   
   // 更新欢迎界面 - 显示当前 Agent 的示例
+  updateWelcomeForAgent(agentId);
+}
+
+// 更新欢迎界面为指定 Agent
+function updateWelcomeForAgent(agentId) {
+  const agentInfo = AGENT_INFO[agentId];
+  if (!agentInfo) return;
+  
   const container = document.getElementById('messages');
   container.innerHTML = '';
   
-  const agentInfo = AGENT_INFO[agentId];
-  const examplesHtml = (agentInfo?.examples || []).map(ex => `
+  const examplesHtml = (agentInfo.examples || []).map(ex => `
     <div class="welcome-example" onclick="sendWelcomeExample('${ex.text.replace(/'/g, "\\'").replace(/\n/g, '\\n')}')">
       <span class="example-text">${ex.text}</span>
       <span class="example-tag">${ex.desc}</span>
@@ -1774,9 +1786,9 @@ function switchAgent(agentId) {
   
   container.innerHTML = `
     <div class="welcome" id="welcome">
-      <div class="welcome-emoji">${agent.emoji}</div>
-      <div class="welcome-title">${agent.name}</div>
-      <div class="welcome-desc">${agent.desc}</div>
+      <div class="welcome-emoji">${agentInfo.emoji}</div>
+      <div class="welcome-title">${agentInfo.name}</div>
+      <div class="welcome-desc">${agentInfo.desc}</div>
       ${examplesHtml ? `
         <div class="welcome-examples">
           <div class="welcome-examples-title">💬 试试这些</div>
