@@ -329,7 +329,7 @@ async function configureOpenClawAgents(selectedAgents) {
 
     // 保存配置
     await fs.writeFile(OPENCLAW_CONFIG_PATH, JSON.stringify(config, null, 2));
-    console.log(`✅ 已配置 Agents: ${selectedAgents).join(', ')}`);
+    console.log(`✅ 已配置 Agents: ${selectedAgents.join(', ')}`);
     
     return true;
   } catch (error) {
@@ -346,12 +346,18 @@ router.post('/assign', async (req, res) => {
     // 验证输入
     const { userId, agents: inputAgents = ['lingxi'] } = req.body;
     
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+    
+    // 验证 userId
     try {
       validateUserId(userId);
     } catch (e) {
       return res.status(400).json({ error: e.message });
     }
     
+    // 验证并处理 agents
     let selectedAgents;
     try {
       selectedAgents = validateAgents(inputAgents);
@@ -359,15 +365,9 @@ router.post('/assign', async (req, res) => {
       return res.status(400).json({ error: e.message });
     }
     
-    const { userId: validatedUserId, agents: selectedAgents = ['lingxi'] } = req.body;
-    
-    if (!userId) {
-      return res.status(400).json({ error: 'userId is required' });
-    }
-    
     // MVP 模式：配置 OpenClaw agents 并返回访问 URL
     if (MVP_MODE) {
-      console.log(`🎯 MVP 模式：为用户 ${userId} 配置团队: ${selectedAgents).join(', ')}`);
+      console.log(`🎯 MVP 模式：为用户 ${userId} 配置团队: ${selectedAgents.join(', ')}`);
       
       // 🔒 保存用户的团队配置
       await updateUserAgents(userId, selectedAgents);
