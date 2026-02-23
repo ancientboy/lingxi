@@ -329,7 +329,7 @@ async function configureOpenClawAgents(selectedAgents) {
 
     // 保存配置
     await fs.writeFile(OPENCLAW_CONFIG_PATH, JSON.stringify(config, null, 2));
-    console.log(`✅ 已配置 Agents: ${selectedAgents.join(', ')}`);
+    console.log(`✅ 已配置 Agents: ${selectedAgents).join(', ')}`);
     
     return true;
   } catch (error) {
@@ -343,7 +343,23 @@ async function configureOpenClawAgents(selectedAgents) {
  */
 router.post('/assign', async (req, res) => {
   try {
-    const { userId, agents: selectedAgents = ['lingxi'] } = req.body;
+    // 验证输入
+    const { userId, agents: inputAgents = ['lingxi'] } = req.body;
+    
+    try {
+      validateUserId(userId);
+    } catch (e) {
+      return res.status(400).json({ error: e.message });
+    }
+    
+    let selectedAgents;
+    try {
+      selectedAgents = validateAgents(inputAgents);
+    } catch (e) {
+      return res.status(400).json({ error: e.message });
+    }
+    
+    const { userId: validatedUserId, agents: selectedAgents = ['lingxi'] } = req.body;
     
     if (!userId) {
       return res.status(400).json({ error: 'userId is required' });
@@ -351,7 +367,7 @@ router.post('/assign', async (req, res) => {
     
     // MVP 模式：配置 OpenClaw agents 并返回访问 URL
     if (MVP_MODE) {
-      console.log(`🎯 MVP 模式：为用户 ${userId} 配置团队: ${selectedAgents.join(', ')}`);
+      console.log(`🎯 MVP 模式：为用户 ${userId} 配置团队: ${selectedAgents).join(', ')}`);
       
       // 🔒 保存用户的团队配置
       await updateUserAgents(userId, selectedAgents);
@@ -498,3 +514,105 @@ router.get('/', (req, res) => {
 initInstancePool();
 
 export default router;
+
+/**
+ * 🔧 错误处理包装器
+ */
+function handleAsyncError(fn) {
+  return async (req, res, next) => {
+    try {
+      await fn(req, res, next);
+    } catch (error) {
+      console.error(`[Error] ${req.method} ${req.path}:`, error);
+      
+      // 判断错误类型
+      if (error.code === 'ENOENT') {
+        res.status(404).json({ error: '文件或目录不存在', details: error.message });
+      } else if (error.code === 'EACCES') {
+        res.status(403).json({ error: '权限不足', details: error.message });
+      } else if (error.code === 'ECONNREFUSED') {
+        res.status(503).json({ error: '服务不可用', details: '无法连接到目标服务' });
+      } else if (error.message?.includes('docker')) {
+        res.status(500).json({ error: 'Docker 操作失败', details: error.message });
+      } else {
+        res.status(500).json({ error: error.message || '未知错误' });
+      }
+    }
+  };
+}
+
+/**
+ * 🔧 安全执行命令
+ */
+async function safeExec(command, options = {}) {
+  const { timeout = 30000, ignoreError = false } = options;
+  
+  try {
+    const { stdout, stderr } = await execAsync(command, { 
+      timeout,
+      maxBuffer: 1024 * 1024 * 10  // 10MB buffer
+    });
+    
+    if (stderr && !ignoreError) {
+      console.warn(`[Warn] Command stderr: ${stderr}`);
+    }
+    
+    return { success: true, stdout, stderr };
+  } catch (error) {
+    if (ignoreError) {
+      return { success: false, error: error.message, stdout: '', stderr: '' };
+    }
+    throw error;
+  }
+}
+
+/**
+ * 🔧 验证用户 ID
+ */
+function validateUserId(userId) {
+  if (!userId) {
+    throw new Error('userId 是必需的');
+  }
+  if (typeof userId !== 'string') {
+    throw new Error('userId 必须是字符串');
+  }
+  if (userId.length < 8 || userId.length > 64) {
+    throw new Error('userId 长度必须在 8-64 之间');
+  }
+  if (!/^[a-zA-Z0-9_-]+$/.test(userId)) {
+    throw new Error('userId 只能包含字母、数字、下划线和连字符');
+  }
+  return true;
+}
+
+/**
+ * 🔧 验证 Agent 列表
+ */
+function validateAgents(agents) {
+  const validAgents = ['lingxi', 'coder', 'ops', 'inventor', 'pm', 'noter', 'media', 'smart'];
+  
+  if (!Array.isArray(agents)) {
+    throw new Error('agents 必须是数组');
+  }
+  
+  if (agents.length === 0) {
+    throw new Error('agents 不能为空');
+  }
+  
+  for (const agent of agents) {
+    if (!validAgents.includes(agent)) {
+      throw new Error(`无效的 Agent: ${agent}`);
+    }
+  }
+  
+  // 确保 lingxi 始终存在
+  if (!agents.includes('lingxi')) {
+    agents.unshift('lingxi');
+  }
+  
+  return agents;
+}
+
+console.log('✅ 实例管理路由已加载');
+console.log(`   配置目录: ${OPENCLAW_DIR}`);
+console.log(`   MVP 模式: ${MVP_MODE}`);
