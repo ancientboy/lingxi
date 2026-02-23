@@ -503,6 +503,11 @@
     
     // 领取 AI 团队
     async function claimTeam() {
+      // 显示选择弹窗
+      showClaimTeamModal();
+      return;
+      // 旧代码保留但不执行
+      
       const token = localStorage.getItem('lingxi_token');
       const btn = document.getElementById('claimTeamBtn');
       
@@ -681,5 +686,6 @@
     // 启动
     init();
   </script>
+<script src="claim-team.js"></script>
 </body>
 </html>
