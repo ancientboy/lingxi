@@ -478,31 +478,14 @@ function finalizeStreamingMessage(text, runId) {
 
 // 渲染团队标签
 function renderTeamTags() {
-  const agents = user?.agents || ['lingxi'];
+  const agents = user?.agents || [];
+  if (agents.length === 0) {
+    agents.push('lingxi');
+  }
+  
   const tags = document.getElementById('teamTags');
-  if (!tags) return;  // 元素不存在时跳过
+  if (!tags) return;
   
-  // 生成示例列表
-  const allExamples = [];
-  agents.forEach(id => {
-    const agent = AGENT_INFO[id];
-    if (agent && agent.examples) {
-      agent.examples.forEach(ex => {
-        allExamples.push({
-          ...ex,
-          agentId: id,
-          agentName: agent.name,
-          agentEmoji: agent.emoji
-        });
-      });
-    }
-  });
-  
-  // 随机选 4 个示例
-  const shuffled = allExamples.sort(() => Math.random() - 0.5);
-  const selectedExamples = shuffled.slice(0, 4);
-  
-  // 渲染
   tags.innerHTML = `
     <div class="team-avatars">
       ${agents.map(id => {
@@ -510,31 +493,7 @@ function renderTeamTags() {
         return `<span class="team-avatar" title="${agent.name}">${agent.emoji}</span>`;
       }).join('')}
     </div>
-    <div class="welcome-examples">
-      <div class="welcome-examples-title">💬 试试这些</div>
-      <div class="welcome-examples-list">
-        ${selectedExamples.map(ex => `
-          <div class="welcome-example" onclick="switchAgentAndSend('${ex.agentId}', '${ex.text.replace(/'/g, "\\'").replace(/\n/g, '\\n')}')">
-            <span class="example-emoji">${ex.agentEmoji}</span>
-            <span class="example-text">${ex.text.substring(0, 25)}${ex.text.length > 25 ? '...' : ''}</span>
-          </div>
-        `).join('')}
-      </div>
-    </div>
   `;
-}
-
-// 切换 Agent 并发送示例
-function switchAgentAndSend(agentId, text) {
-  // 切换 agent
-  switchAgent(agentId);
-  
-  // 等待切换完成后发送
-  setTimeout(() => {
-    const input = document.getElementById('inputField');
-    input.value = text;
-    sendMessage();
-  }, 100);
 }
 
 // 发送消息
@@ -1096,55 +1055,30 @@ function closeTeamModal() {
 
 // 渲染我的团队
 function renderMyTeam() {
-  // 空团队时默认显示灵犀
   let myAgents = user?.agents || [];
   if (myAgents.length === 0) {
     myAgents = ['lingxi'];
   }
   const container = document.getElementById('myTeamList');
-  if (!container) return;  // 元素不存在时跳过
+  if (!container) return;
   
   container.innerHTML = myAgents.map(agentId => {
-    const agent = AGENT_INFO[agentId] || { emoji: '🤖', name: agentId, desc: 'AI 助手', scene: '通用', skills: '', examples: [] };
+    const agent = AGENT_INFO[agentId] || { emoji: '🤖', name: agentId, desc: 'AI 助手', scene: '通用', skills: '' };
     const isRequired = agentId === 'lingxi';
     
-    // 生成示例 HTML
-    const examplesHtml = (agent.examples || []).map(ex => `
-      <div class="agent-example" onclick="sendExample('${ex.text.replace(/'/g, "\\'").replace(/\n/g, '\\n')}')">
-        <span class="example-text">${ex.text.substring(0, 30)}${ex.text.length > 30 ? '...' : ''}</span>
-        <span class="example-desc">${ex.desc}</span>
-      </div>
-    `).join('');
-    
     return `
-      <div class="team-member" style="flex-direction:column;align-items:flex-start;gap:12px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
-          <div class="team-member-info">
-            <div class="team-member-avatar">${agent.emoji}</div>
-            <div>
-              <div class="team-member-name">${agent.name}</div>
-              <div class="team-member-role">${agent.desc}</div>
-            </div>
+      <div class="team-member">
+        <div class="team-member-info">
+          <div class="team-member-avatar">${agent.emoji}</div>
+          <div>
+            <div class="team-member-name">${agent.name}</div>
+            <div class="team-member-role">${agent.desc}</div>
           </div>
-          ${isRequired ? 
-            '<span style="color:#4ade80;font-size:12px;background:rgba(74,222,128,0.1);padding:4px 8px;border-radius:4px;">队长</span>' : 
-            `<button class="remove-btn" onclick="removeAgent('${agentId}')">移除</button>`
-          }
         </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-left:52px;">
-          <span style="font-size:11px;color:rgba(255,255,255,0.5);background:rgba(255,255,255,0.05);padding:3px 8px;border-radius:4px;">
-            🎯 ${agent.scene || '通用'}
-          </span>
-          <span style="font-size:11px;color:rgba(255,255,255,0.4);background:rgba(255,255,255,0.05);padding:3px 8px;border-radius:4px;">
-            🔧 ${agent.skills || '多技能'}
-          </span>
-        </div>
-        ${examplesHtml ? `
-          <div class="agent-examples">
-            <div class="examples-title">💬 试试这些</div>
-            <div class="examples-list">${examplesHtml}</div>
-          </div>
-        ` : ''}
+        ${isRequired ? 
+          '<span class="team-badge">队长</span>' : 
+          `<button class="remove-btn" onclick="removeAgent('${agentId}')">移除</button>`
+        }
       </div>
     `;
   }).join('');
@@ -1152,32 +1086,11 @@ function renderMyTeam() {
   // 如果用户没有团队，显示提示
   if (!user?.agents || user.agents.length === 0) {
     container.innerHTML += `
-      <div style="text-align:center;padding:20px;color:rgba(255,255,255,0.5);font-size:13px;margin-top:12px;border-top:1px solid rgba(255,255,255,0.1);">
-        💡 你还没有领取 AI 团队，<br>邀请好友获得积分后即可领取完整团队
+      <div style="text-align:center;padding:16px;color:rgba(255,255,255,0.5);font-size:13px;margin-top:12px;border-top:1px solid rgba(255,255,255,0.1);">
+        💡 你还没有领取完整团队<br>邀请好友获得积分后即可领取
       </div>
     `;
   }
-}
-
-// 发送示例消息
-function sendExample(text) {
-  // 关闭团队弹窗
-  closeTeamModal();
-  
-  // 切换到对应的 agent
-  // 从 text 中找不到是哪个 agent，所以需要另外方式
-  // 直接发送消息
-  const input = document.getElementById('inputField');
-  input.value = text;
-  
-  // 隐藏欢迎界面
-  const welcome = document.getElementById('welcome');
-  if (welcome) {
-    welcome.classList.add('hidden');
-  }
-  
-  // 发送
-  sendMessage();
 }
 
 // 渲染可添加的成员
@@ -1802,16 +1715,63 @@ function renderAgentDropdown() {
     return;
   }
   
-  dropdown.innerHTML = agents.map(agent => `
-    <div class="agent-dropdown-item ${agent.id === currentAgentId ? 'active' : ''}" 
-         onclick="switchAgent('${agent.id}')">
-      <span class="emoji">${agent.emoji}</span>
-      <div class="info">
-        <h4>${agent.name}</h4>
-        <p>${agent.desc}</p>
+  // 当前选中的 agent
+  const currentAgent = ALL_AGENTS[currentAgentId];
+  const currentInfo = AGENT_INFO[currentAgentId];
+  
+  let html = '';
+  
+  // Agent 列表
+  html += `<div class="agent-list">`;
+  for (const agent of agents) {
+    html += `
+      <div class="agent-dropdown-item ${agent.id === currentAgentId ? 'active' : ''}" 
+           onclick="switchAgent('${agent.id}')">
+        <span class="emoji">${agent.emoji}</span>
+        <div class="info">
+          <h4>${agent.name}</h4>
+          <p>${agent.desc}</p>
+        </div>
       </div>
-    </div>
-  `).join('');
+    `;
+  }
+  html += `</div>`;
+  
+  // 当前 Agent 的示例
+  if (currentInfo && currentInfo.examples && currentInfo.examples.length > 0) {
+    html += `
+      <div class="agent-examples-dropdown">
+        <div class="examples-title">💬 试试这些</div>
+        <div class="examples-list">
+          ${currentInfo.examples.map(ex => `
+            <div class="agent-example-item" onclick="sendExampleFromDropdown('${ex.text.replace(/'/g, "\\'").replace(/\n/g, '\\n')}')">
+              <span class="example-text">${ex.text.substring(0, 35)}${ex.text.length > 35 ? '...' : ''}</span>
+              <span class="example-tag">${ex.desc}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+  
+  dropdown.innerHTML = html;
+}
+
+// 从下拉菜单发送示例
+function sendExampleFromDropdown(text) {
+  // 关闭下拉
+  document.getElementById('agentDropdown')?.classList.remove('show');
+  
+  // 隐藏欢迎界面
+  const welcome = document.getElementById('welcome');
+  if (welcome) {
+    welcome.classList.add('hidden');
+  }
+  
+  // 填入输入框并发送
+  const input = document.getElementById('inputField');
+  input.value = text;
+  sendMessage();
 }
 
 function switchAgent(agentId) {
