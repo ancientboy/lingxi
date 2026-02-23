@@ -1096,14 +1096,13 @@ function closeTeamModal() {
 
 // 渲染我的团队
 function renderMyTeam() {
-  const myAgents = user?.agents || ['lingxi'];
+  // 空团队时默认显示灵犀
+  let myAgents = user?.agents || [];
+  if (myAgents.length === 0) {
+    myAgents = ['lingxi'];
+  }
   const container = document.getElementById('myTeamList');
   if (!container) return;  // 元素不存在时跳过
-  
-  if (myAgents.length === 0) {
-    container.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.5);">还没有添加团队成员</p>';
-    return;
-  }
   
   container.innerHTML = myAgents.map(agentId => {
     const agent = AGENT_INFO[agentId] || { emoji: '🤖', name: agentId, desc: 'AI 助手', scene: '通用', skills: '', examples: [] };
@@ -1149,6 +1148,15 @@ function renderMyTeam() {
       </div>
     `;
   }).join('');
+  
+  // 如果用户没有团队，显示提示
+  if (!user?.agents || user.agents.length === 0) {
+    container.innerHTML += `
+      <div style="text-align:center;padding:20px;color:rgba(255,255,255,0.5);font-size:13px;margin-top:12px;border-top:1px solid rgba(255,255,255,0.1);">
+        💡 你还没有领取 AI 团队，<br>邀请好友获得积分后即可领取完整团队
+      </div>
+    `;
+  }
 }
 
 // 发送示例消息
