@@ -37,14 +37,14 @@
       "workspace": "~/.openclaw/workspace" 
     },
     "list": [
-      { "id": "main", "default": true, "name": "灵犀", "agentDir": "~/.openclaw/agents/main/agent", "subagents": { "allowAgents": ["coder", "ops", "inventor", "pm", "noter", "media", "smart"] } },
-      { "id": "coder", "name": "云溪", "agentDir": "~/.openclaw/agents/coder/agent" },
-      { "id": "ops", "name": "若曦", "agentDir": "~/.openclaw/agents/ops/agent" },
-      { "id": "inventor", "name": "紫萱", "agentDir": "~/.openclaw/agents/inventor/agent" },
-      { "id": "pm", "name": "梓萱", "agentDir": "~/.openclaw/agents/pm/agent" },
-      { "id": "noter", "name": "晓琳", "agentDir": "~/.openclaw/agents/noter/agent" },
-      { "id": "media", "name": "音韵", "agentDir": "~/.openclaw/agents/media/agent" },
-      { "id": "smart", "name": "智家", "agentDir": "~/.openclaw/agents/smart/agent" }
+      { "id": "main", "default": true, "name": "Lume", "agentDir": "~/.openclaw/agents/main/agent", "subagents": { "allowAgents": ["coder", "ops", "inventor", "pm", "noter", "media", "smart"] } },
+      { "id": "coder", "name": "Spark", "agentDir": "~/.openclaw/agents/coder/agent" },
+      { "id": "ops", "name": "Pulse", "agentDir": "~/.openclaw/agents/ops/agent" },
+      { "id": "inventor", "name": "Nova", "agentDir": "~/.openclaw/agents/inventor/agent" },
+      { "id": "pm", "name": "Scope", "agentDir": "~/.openclaw/agents/pm/agent" },
+      { "id": "noter", "name": "Echo", "agentDir": "~/.openclaw/agents/noter/agent" },
+      { "id": "media", "name": "Prism", "agentDir": "~/.openclaw/agents/media/agent" },
+      { "id": "smart", "name": "Nest", "agentDir": "~/.openclaw/agents/smart/agent" }
     ]
   },
   "tools": {
