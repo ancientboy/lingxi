@@ -3,6 +3,14 @@
  * 所有环境变量和默认值集中管理
  */
 
+// 🚨 必须在最开始加载 .env（ES Module 方式）
+import { createRequire } from 'module';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+const require = createRequire(import.meta.url);
+const __dirname = dirname(fileURLToPath(import.meta.url));
+require('dotenv').config({ path: join(__dirname, '..', '.env') });
+
 export const config = {
   // 服务配置
   server: {

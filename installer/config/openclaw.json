@@ -1,8 +1,8 @@
 {
   "meta": { "lastTouchedVersion": "2026.2.17" },
   "env": {
-    "ZHIPU_API_KEY": "ZHIPU_API_KEY_PLACEHOLDER",
-    "DASHSCOPE_API_KEY": "DASHSCOPE_API_KEY_PLACEHOLDER"
+    "ZHIPU_API_KEY": "77c2b59d03e646a9884f78f8c4787885.XunhoXmFaErSD0dR",
+    "DASHSCOPE_API_KEY": "sk-64985bfe63dd45e0a8e2e456624e3d21"
   },
   "auth": {
     "profiles": {
@@ -75,11 +75,7 @@
   "plugins": {
     "entries": {
       "feishu": {
-        "enabled": false,
-        "config": {
-          "appId": "FEISHU_APP_ID_PLACEHOLDER",
-          "appSecret": "FEISHU_APP_SECRET_PLACEHOLDER"
-        }
+        "enabled": false
       }
     }
   }

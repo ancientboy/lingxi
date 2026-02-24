@@ -7,14 +7,15 @@
  * - 用户管理
  */
 
+// 🚨 必须在最开始加载环境变量（ES Module 方式）
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+require('dotenv').config({ path: require('path').join(require('path').dirname(require('url').fileURLToPath(import.meta.url)), '.env') });
+
 import express from 'express';
 import cors from 'cors';
-import { config } from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-
-// 加载环境变量
-config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

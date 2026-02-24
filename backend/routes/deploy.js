@@ -6,9 +6,13 @@
 import { Router } from 'express';
 import { getDB, saveDB } from '../utils/db.js';
 import crypto from 'crypto';
-import Ecs20140526, * as $Ecs20140526 from '@alicloud/ecs20140526';
-import * as $OpenApi from '@alicloud/openapi-client';
-import { Client } from 'ssh2';
+// 阿里云 SDK 使用 CommonJS 方式导入
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const Ecs = require('@alicloud/ecs20140526');
+const EcsClient = Ecs.default;
+const $OpenApi = require('@alicloud/openapi-client');
+const { Client: SSHClient } = require('ssh2');
 import { config } from '../config/index.js';
 import { execSync } from 'child_process';
 import path from 'path';
@@ -40,7 +44,10 @@ function createEcsClient() {
     accessKeySecret: config.aliyun.accessKeySecret,
   });
   clientConfig.endpoint = 'ecs.aliyuncs.com';
-  return new Ecs20140526(clientConfig);
+  // 增加超时时间到 120 秒（阿里云 API 有时较慢）
+  clientConfig.readTimeout = 120000;
+  clientConfig.connectTimeout = 60000;
+  return new EcsClient(clientConfig);
 }
 
 /**
@@ -241,7 +248,7 @@ router.post('/one-click', async (req, res) => {
       return res.json({
         success: true,
         server: existingServer,
-        openclawUrl: `http://${existingServer.ip}:${existingServer.openclawPort}/${existingServer.openclawSession}?token=${existingServer.openclawToken}`,
+        openclawUrl: `http://${existingServer.ip}:${existingServer.openclawPort}/${existingServer.openclawSession}/?token=${existingServer.openclawToken}`,
         message: '已有运行中的服务器'
       });
     }
@@ -332,6 +339,11 @@ async function deployServerAsync(serverId, taskId, openclawToken, openclawSessio
       throw new Error('阿里云密钥未配置');
     }
     
+    // 获取用户信息用于命名实例
+    const serverInfo = db.userServers?.find(s => s.id === serverId);
+    const userInfo = serverInfo ? db.users?.find(u => u.id === serverInfo.userId) : null;
+    const userName = userInfo?.nickname || 'user';
+    
     // 0. 生成用户部署包
     await updateTask(taskId, 5, '正在生成部署包...');
     const { packagePath, packageName } = await generateUserPackage(
@@ -345,16 +357,22 @@ async function deployServerAsync(serverId, taskId, openclawToken, openclawSessio
     
     const client = createEcsClient();
     
-    const createRequest = new $Ecs20140526.CreateInstanceRequest({
+    // 优先使用自定义镜像（预装 Node.js 22 + OpenClaw）
+    const customImageId = process.env.ALIYUN_CUSTOM_IMAGE_ID;
+    const useCustomImage = !!customImageId;
+    
+    const createRequest = new Ecs.CreateInstanceRequest({
       regionId: config.aliyun.region,
       instanceType: config.aliyun.instanceType,
-      imageId: process.env.ALIYUN_IMAGE_ID || 'ubuntu_22_04_x64_20G_alibase_20240819.vhd',
+      imageId: useCustomImage ? customImageId : (process.env.ALIYUN_IMAGE_ID || 'ubuntu_22_04_x64_20G_alibase_20260119.vhd'),
       securityGroupId: process.env.ALIYUN_SECURITY_GROUP_ID,
       vSwitchId: process.env.ALIYUN_VSWITCH_ID,
-      instanceName: `lingxi-${serverId}`,
+      instanceName: `lingxi-${userName}`,
       password: SERVER_PASSWORD,
+      // 公网 IP 配置（按量付费实例需要）
       internetMaxBandwidthOut: config.aliyun.bandwidth,
-      spotStrategy: 'SpotAsYouGo',
+      allocatePublicIp: true,
+      networkChargeType: 'PayByBandwidth',
     });
     
     const createResponse = await client.createInstance(createRequest);
@@ -362,7 +380,7 @@ async function deployServerAsync(serverId, taskId, openclawToken, openclawSessio
     
     console.log(`✅ ECS 实例已创建: ${instanceId}`);
     
-    await updateTask(taskId, 20, '实例创建成功，等待启动...');
+    await updateTask(taskId, 20, '实例创建成功，等待初始化...');
     
     const server = db.userServers?.find(s => s.id === serverId);
     if (server) {
@@ -370,39 +388,127 @@ async function deployServerAsync(serverId, taskId, openclawToken, openclawSessio
       await saveDB(db);
     }
     
-    try {
-      await client.startInstance(new $Ecs20140526.StartInstanceRequest({ instanceId }));
-    } catch (startErr) {
-      console.log('启动请求已发送，等待实例就绪...');
-    }
+    // 等待实例初始化完成（状态从 Creating 变为 Stopped）
+    console.log(`⏳ 等待实例初始化...`);
+    let instanceReady = false;
+    let initRetries = 0;
+    const maxInitRetries = 30; // 最多等待 2.5 分钟
     
-    // 等待实例就绪
-    let publicIp = null;
-    let retries = 0;
-    const maxRetries = 60;
-    
-    while (!publicIp && retries < maxRetries) {
+    while (!instanceReady && initRetries < maxInitRetries) {
       await sleep(5000);
-      retries++;
+      initRetries++;
       
       try {
-        const describeRequest = new $Ecs20140526.DescribeInstancesRequest({
+        const describeRequest = new Ecs.DescribeInstancesRequest({
           regionId: config.aliyun.region,
           instanceIds: JSON.stringify([instanceId]),
         });
         
         const describeResponse = await client.describeInstances(describeRequest);
         const instance = describeResponse.body.instances.instance[0];
+        const status = instance?.status;
         
-        if (instance && instance.status === 'Running') {
-          publicIp = instance.publicIpAddress.ipAddress[0];
-          console.log(`✅ 实例已运行，IP: ${publicIp}`);
-        } else {
-          console.log(`⏳ 等待实例启动... (${retries}/${maxRetries})`);
-          await updateTask(taskId, 20 + Math.floor(retries / 2), `等待实例启动... (${instance?.status || 'unknown'})`);
+        console.log(`  状态: ${status} (${initRetries}/${maxInitRetries})`);
+        
+        if (status === 'Stopped') {
+          instanceReady = true;
+          console.log(`✅ 实例初始化完成，准备启动...`);
+        } else if (status === 'Running') {
+          // 实例已经在运行（可能启动成功了）
+          instanceReady = true;
+          console.log(`✅ 实例已在运行中`);
         }
-      } catch (describeErr) {
-        console.log(`查询实例状态失败: ${describeErr.message}`);
+      } catch (err) {
+        console.log(`查询状态失败: ${err.message}`);
+      }
+    }
+    
+    // 启动实例
+    console.log(`🔄 正在启动实例 ${instanceId}...`);
+    try {
+      await client.startInstance(new Ecs.StartInstanceRequest({ instanceId }));
+      console.log(`✅ 启动请求已发送`);
+    } catch (startErr) {
+      console.log(`⚠️ 启动请求异常: ${startErr.message}`);
+      // 如果已经在运行，继续执行
+    }
+    
+    // 等待实例进入 Running 状态
+    console.log(`⏳ 等待实例进入 Running 状态...`);
+    let isRunning = false;
+    let runRetries = 0;
+    const maxRunRetries = 60;
+    
+    while (!isRunning && runRetries < maxRunRetries) {
+      await sleep(5000);
+      runRetries++;
+      
+      try {
+        const describeRequest = new Ecs.DescribeInstancesRequest({
+          regionId: config.aliyun.region,
+          instanceIds: JSON.stringify([instanceId]),
+        });
+        
+        const describeResponse = await client.describeInstances(describeRequest);
+        const instance = describeResponse.body.instances.instance[0];
+        const status = instance?.status;
+        
+        console.log(`  状态: ${status} (${runRetries}/${maxRunRetries})`);
+        
+        if (status === 'Running') {
+          isRunning = true;
+          console.log(`✅ 实例已运行`);
+        }
+      } catch (err) {
+        console.log(`查询状态失败: ${err.message}`);
+      }
+    }
+    
+    // 分配公网 IP
+    console.log(`🌐 正在分配公网 IP...`);
+    let publicIp = null;
+    try {
+      const allocateResponse = await client.allocatePublicIpAddress(
+        new Ecs.AllocatePublicIpAddressRequest({ instanceId })
+      );
+      publicIp = allocateResponse.body?.ipAddress;
+      console.log(`✅ 公网 IP 已分配: ${publicIp}`);
+    } catch (allocErr) {
+      console.log(`⚠️ 分配公网 IP 异常: ${allocErr.message}`);
+      // 可能已经分配过了，尝试从实例信息中获取
+    }
+    
+    // 如果分配失败，从实例信息中获取
+    if (!publicIp) {
+      let retries = 0;
+      const maxRetries = 120;
+      
+      while (!publicIp && retries < maxRetries) {
+        await sleep(5000);
+        retries++;
+        
+        try {
+          const describeRequest = new Ecs.DescribeInstancesRequest({
+            regionId: config.aliyun.region,
+            instanceIds: JSON.stringify([instanceId]),
+          });
+          
+          const describeResponse = await client.describeInstances(describeRequest);
+          const instance = describeResponse.body.instances.instance[0];
+          
+          if (instance && instance.status === 'Running') {
+            // 安全获取公网 IP
+            const ipList = instance.publicIpAddress?.ipAddress || [];
+            publicIp = ipList[0];
+            if (publicIp) {
+              console.log(`✅ 获取到公网 IP: ${publicIp}`);
+            } else {
+              console.log(`⏳ 等待公网 IP... (${retries}/${maxRetries})`);
+            }
+          }
+        } catch (describeErr) {
+          console.log(`查询实例状态失败: ${describeErr.message}`);
+        }
       }
     }
     
@@ -422,7 +528,7 @@ async function deployServerAsync(serverId, taskId, openclawToken, openclawSessio
     await waitForSSH(publicIp, 22, SERVER_PASSWORD, 120000);
     
     await updateTask(taskId, 70, '正在上传部署包...');
-    await uploadAndDeploy(publicIp, packagePath, packageName);
+    await uploadAndDeploy(publicIp, packagePath, packageName, useCustomImage);
     
     await updateTask(taskId, 95, '验证服务状态...');
     await sleep(5000);
@@ -436,10 +542,10 @@ async function deployServerAsync(serverId, taskId, openclawToken, openclawSessio
     
     await updateTask(taskId, 100, '部署完成', 'success', {
       ip: publicIp,
-      openclawUrl: `http://${publicIp}:${OPENCLAW_PORT}/${openclawSession}?token=${openclawToken}`
+      openclawUrl: `http://${publicIp}:${OPENCLAW_PORT}/${openclawSession}/?token=${openclawToken}`
     });
     
-    console.log(`🎉 部署完成: http://${publicIp}:${OPENCLAW_PORT}/${openclawSession}?token=${openclawToken}`);
+    console.log(`🎉 部署完成: http://${publicIp}:${OPENCLAW_PORT}/${openclawSession}/?token=${openclawToken}`);
     
   } catch (error) {
     console.error('异步部署失败:', error);
@@ -467,7 +573,7 @@ async function waitForSSH(host, port, password, timeout = 120000) {
         return;
       }
       
-      const conn = new Client();
+      const conn = new SSHClient();
       
       conn.on('ready', () => {
         conn.end();
@@ -496,14 +602,14 @@ async function waitForSSH(host, port, password, timeout = 120000) {
  * 上传部署包并执行部署
  * 优先使用离线包，回退到淘宝镜像
  */
-async function uploadAndDeploy(host, packagePath, packageName) {
+async function uploadAndDeploy(host, packagePath, packageName, useCustomImage = false) {
   const packageFile = `${packageName}.tar.gz`;
   const projectRoot = path.resolve(__dirname, '..', '..');
   const openclawPackagePath = path.join(projectRoot, 'releases', 'packages', 'openclaw-2026.2.17.tgz');
   const hasOfflinePackage = fs.existsSync(openclawPackagePath);
   
   return new Promise((resolve, reject) => {
-    const conn = new Client();
+    const conn = new SSHClient();
     
     conn.on('ready', () => {
       console.log('SSH 连接成功，开始部署...');
@@ -521,33 +627,8 @@ async function uploadAndDeploy(host, packagePath, packageName) {
         
         writeStream.on('close', () => {
           console.log('✅ 部署包上传完成');
-          
-          // 决定安装命令
-          let installCmd;
-          if (hasOfflinePackage) {
-            // 上传离线包并安装
-            console.log('📦 使用离线安装包...');
-            const offlineRemotePath = '/root/openclaw-2026.2.17.tgz';
-            const offlineWriteStream = sftp.createWriteStream(offlineRemotePath);
-            
-            offlineWriteStream.on('close', () => {
-              installCmd = `npm install -g /root/openclaw-2026.2.17.tgz`;
-              executeDeploy(conn, packageFile, packageName, installCmd, resolve, reject);
-            });
-            
-            offlineWriteStream.on('error', (err) => {
-              console.log('⚠️ 离线包上传失败，使用淘宝镜像:', err.message);
-              installCmd = `npm install -g openclaw@2026.2.17 --registry=https://registry.npmmirror.com`;
-              executeDeploy(conn, packageFile, packageName, installCmd, resolve, reject);
-            });
-            
-            fs.createReadStream(openclawPackagePath).pipe(offlineWriteStream);
-          } else {
-            // 使用淘宝镜像
-            console.log('🌐 使用淘宝镜像安装...');
-            installCmd = `npm install -g openclaw@2026.2.17 --registry=https://registry.npmmirror.com`;
-            executeDeploy(conn, packageFile, packageName, installCmd, resolve, reject);
-          }
+          // 直接执行部署（OSS 加速，无需上传其他文件）
+          executeDeploy(conn, packageFile, packageName, useCustomImage, resolve, reject);
         });
         
         writeStream.on('error', (err) => {
@@ -570,7 +651,9 @@ async function uploadAndDeploy(host, packagePath, packageName) {
       port: 22,
       username: 'root',
       password: SERVER_PASSWORD,
-      readyTimeout: 30000,
+      readyTimeout: 60000,
+      keepaliveInterval: 10000,  // 每 10 秒发送心跳
+      keepaliveCountMax: 30,      // 最多 30 次无响应后断开
     });
   });
 }
@@ -578,7 +661,43 @@ async function uploadAndDeploy(host, packagePath, packageName) {
 /**
  * 执行部署命令
  */
-function executeDeploy(conn, packageFile, packageName, installCmd, resolve, reject) {
+function executeDeploy(conn, packageFile, packageName, useCustomImage, resolve, reject) {
+  // OSS 签名 URL（有效期 1 年：2026-02-24 ~ 2027-02-24）
+  // Node.js 22 (OpenClaw 需要 >= 22.12.0)
+  const NODE_URL = 'https://lume-openclaw.oss-cn-hangzhou.aliyuncs.com/packages%2Fnode22.tar.xz?Expires=1803473753&OSSAccessKeyId=LTAI5tFwob255ZynLRpQB628&Signature=85q3T7ZuqtvSCmYt2SlSgoi4jRg%3D';
+  const OPENCLAW_URL = 'https://lume-openclaw.oss-cn-hangzhou.aliyuncs.com/packages%2Fopenclaw-2026.2.17.tgz?Expires=1803470246&OSSAccessKeyId=LTAI5tFwob255ZynLRpQB628&Signature=TJ5QX24i7H5dXfEbBcxdSujLHAE%3D';
+
+  // 根据是否使用自定义镜像选择部署脚本
+  const installSteps = useCustomImage ? `
+echo "⚡ 使用自定义镜像，跳过 Node.js 和 OpenClaw 安装..."
+echo "Node 版本: $(node --version)"
+echo "OpenClaw 版本: $(openclaw --version 2>/dev/null || echo '已预装')"
+` : `
+echo "2️⃣ 安装 Node.js 22 (OSS 加速)..."
+if ! node --version 2>/dev/null | grep -q "v22"; then
+    apt-get update -qq
+    apt-get install -y xz-utils
+    wget -q '${NODE_URL}' -O /tmp/node22.tar.xz
+    tar -xf /tmp/node22.tar.xz -C /tmp
+    cp -r /tmp/node-v22.14.0-linux-x64/* /usr/local/
+    rm -f /usr/bin/node /usr/bin/npm
+    ln -s /usr/local/bin/node /usr/bin/node
+    ln -s /usr/local/bin/npm /usr/bin/npm
+    rm -rf /tmp/node22.tar.xz /tmp/node-v22.14.0-linux-x64
+fi
+echo "Node 版本: $(node --version)"
+
+echo "3️⃣ 配置 git 使用 HTTPS..."
+git config --global url."https://github.com/".insteadOf git@github.com:
+git config --global url."https://github.com/".insteadOf ssh://git@github.com/
+
+echo "4️⃣ 安装 OpenClaw (OSS 加速)..."
+wget -q '${OPENCLAW_URL}' -O /tmp/openclaw.tgz
+npm install -g /tmp/openclaw.tgz
+rm -f /tmp/openclaw.tgz
+echo "OpenClaw 版本: $(openclaw --version)"
+`;
+
   const deployCommands = `
 set -e
 
@@ -587,57 +706,31 @@ cd /root
 echo "1️⃣ 解压部署包..."
 tar -xzf ${packageFile}
 
-echo "2️⃣ 检查 Node.js..."
-if ! command -v node &> /dev/null; then
-    echo "安装 Node.js 20..."
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-    apt-get install -y nodejs
-fi
-echo "Node 版本: $(node --version)"
-
-echo "3️⃣ 停止旧进程..."
-pkill -f openclaw 2>/dev/null || true
-systemctl stop openclaw 2>/dev/null || true
-sleep 2
-
-echo "4️⃣ 安装 OpenClaw..."
-${installCmd}
-echo "OpenClaw 版本: $(openclaw --version)"
+${installSteps}
 
 echo "5️⃣ 复制配置文件..."
 cd ${packageName}
-cp -r .openclaw ~/.openclaw
+mkdir -p ~/.openclaw
+cp -r .openclaw/* ~/.openclaw/
 
-echo "6️⃣ 配置 Systemd 自动重启..."
-cat > /etc/systemd/system/openclaw.service << 'SYSTEMD_EOF'
-[Unit]
-Description=OpenClaw Gateway
-After=network.target
-
-[Service]
-Type=simple
-User=root
-WorkingDirectory=/root/.openclaw
-ExecStart=/usr/bin/openclaw gateway
-Restart=always
-RestartSec=5
-StandardOutput=append:/var/log/openclaw.log
-StandardError=append:/var/log/openclaw.log
-
-[Install]
-WantedBy=multi-user.target
-SYSTEMD_EOF
-
-systemctl daemon-reload
-systemctl enable openclaw
-systemctl start openclaw
-sleep 5
+echo "6️⃣ 启动 OpenClaw..."
+cd ~/.openclaw
+killall node 2>/dev/null || true
+sleep 1
+nohup openclaw gateway > /var/log/openclaw.log 2>&1 &
+sleep 3
 
 echo "7️⃣ 检查服务状态..."
-systemctl status openclaw --no-pager | head -5
-ss -tlnp | grep 18789 || netstat -tlnp | grep 18789 || echo "端口检查完成"
+if pgrep -f "openclaw gateway" > /dev/null; then
+    echo "✅ OpenClaw 正在运行"
+    ss -tlnp | grep 18789 || echo "端口 18789 已监听"
+else
+    echo "❌ OpenClaw 启动失败"
+    cat /var/log/openclaw.log | tail -20
+    exit 1
+fi
 
-echo "✅ 部署完成! (自动重启已启用)"
+echo "✅ 部署完成!"
 `;
 
   conn.exec(deployCommands, (err, stream) => {
@@ -823,7 +916,7 @@ async function manualDeployAsync(serverId, taskId, openclawToken, openclawSessio
     
     await updateTask(taskId, 100, '部署完成', 'success', {
       ip: host,
-      openclawUrl: `http://${host}:${OPENCLAW_PORT}/${openclawSession}?token=${openclawToken}`
+      openclawUrl: `http://${host}:${OPENCLAW_PORT}/${openclawSession}/?token=${openclawToken}`
     });
     
   } catch (error) {
@@ -843,7 +936,7 @@ async function uploadAndDeployCustom(host, port, password, packagePath, packageN
   const packageFile = `${packageName}.tar.gz`;
   
   return new Promise((resolve, reject) => {
-    const conn = new Client();
+    const conn = new SSHClient();
     
     conn.on('ready', () => {
       conn.sftp((err, sftp) => {

@@ -68,6 +68,13 @@ for agent in lingxi coder ops inventor pm noter media smart; do
   fi
 done
 
+# 复制 auth-profiles.json（API 密钥配置）
+if [ -f "${SCRIPT_DIR}/agents/main/auth-profiles.json" ]; then
+  mkdir -p "${PACKAGE_DIR}/.openclaw/agents/main/agent"
+  cp "${SCRIPT_DIR}/agents/main/auth-profiles.json" "${PACKAGE_DIR}/.openclaw/agents/main/agent/"
+  echo "  ✅ auth-profiles.json (API 密钥)"
+fi
+
 echo "📦 复制 Skills..."
 
 # 复制 skills

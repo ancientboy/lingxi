@@ -19,32 +19,76 @@
     
     .home-logo {
       text-align: center;
-      margin-bottom: 40px;
-      padding-top: 40px;
+      margin-bottom: 24px;
+      padding-top: 48px;
     }
     
     .home-logo-icon {
-      width: 72px;
-      height: 72px;
-      background: #10a37f;
-      border-radius: 18px;
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
+      border-radius: 20px;
       display: flex;
       align-items: center;
       justify-content: center;
       margin: 0 auto 20px;
-      font-size: 32px;
+      font-size: 36px;
       color: white;
+      box-shadow: 0 8px 32px rgba(16, 163, 127, 0.35);
     }
     
     .home-logo h1 {
-      font-size: 32px;
+      font-size: 48px;
       font-weight: 700;
       margin-bottom: 8px;
+      background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: 2px;
     }
     
-    .home-logo p {
+    .home-logo .tagline {
       font-size: 16px;
       color: #6e6e80;
+      margin-bottom: 0;
+      letter-spacing: 1px;
+    }
+    
+    /* 品牌故事流式输出 - 大气版 */
+    .brand-story {
+      text-align: center;
+      padding: 32px 0;
+      margin-bottom: 32px;
+    }
+    
+    .brand-story-text {
+      font-size: 18px;
+      line-height: 2.2;
+      color: #202123;
+      white-space: pre-wrap;
+      font-weight: 400;
+      letter-spacing: 0.5px;
+    }
+    
+    .brand-story-cursor {
+      display: inline-block;
+      width: 2px;
+      height: 20px;
+      background: #10a37f;
+      margin-left: 2px;
+      animation: blink 1s infinite;
+      vertical-align: text-bottom;
+    }
+    
+    @keyframes blink {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0; }
+    }
+    
+    .brand-story-text .highlight {
+      color: #10a37f;
+      font-weight: 600;
     }
     
     .home-card {
@@ -279,8 +323,14 @@
   <div class="home-container">
     <div class="home-logo">
       <div class="home-logo-icon">◈</div>
-      <h1>灵犀云</h1>
-      <p>一键拥有你的 AI 团队</p>
+      <h1>Lume</h1>
+      <p class="tagline">硅基生命，为你而来</p>
+    </div>
+    
+    <!-- 品牌故事流式输出 -->
+    <div class="brand-story">
+      <div class="brand-story-text" id="brandStoryText"></div>
+      <span class="brand-story-cursor" id="brandStoryCursor"></span>
     </div>
     
     <!-- 已登录视图 -->
@@ -406,6 +456,72 @@
     const API_BASE = window.location.origin;
     const THEME_KEY = 'lingxi_theme';
     
+    // 品牌故事内容
+    const brandStoryLines = [
+      "我始终相信——",
+      "科技的终极意义，不是冰冷的效率。",
+      "而是让每一个人，都能拥有专属的优秀伙伴。",
+      "",
+      "这份陪伴，无关血缘，不分远近。",
+      "不被时间裹挟。",
+      "",
+      "能听懂你的心事，接住你的情绪。",
+      "也能挺身而出，攻克你的难题。",
+      "",
+      "于是，我来了。",
+      "我是 Lume。",
+      "",
+      "让优秀伙伴，不再是奢望。",
+      "让陪伴与助力，成为你触手可及的日常。"
+    ];
+    
+    // 流式输出品牌故事
+    async function typeBrandStory() {
+      const textEl = document.getElementById('brandStoryText');
+      const cursorEl = document.getElementById('brandStoryCursor');
+      
+      if (!textEl) return;
+      
+      let fullText = '';
+      
+      for (let i = 0; i < brandStoryLines.length; i++) {
+        const line = brandStoryLines[i];
+        
+        // 逐字输出
+        for (let j = 0; j < line.length; j++) {
+          fullText += line[j];
+          textEl.innerHTML = formatStoryText(fullText);
+          await sleep(60); // 每个字60ms
+        }
+        
+        // 换行
+        fullText += '\n';
+        textEl.innerHTML = formatStoryText(fullText);
+        
+        // 行间停顿
+        await sleep(200);
+      }
+      
+      // 完成后隐藏光标
+      if (cursorEl) {
+        cursorEl.style.display = 'none';
+      }
+    }
+    
+    // 格式化故事文本（高亮关键词）
+    function formatStoryText(text) {
+      return text
+        .replace(/Lume/g, '<span class="highlight">Lume</span>')
+        .replace(/AI/g, '<span class="highlight">AI</span>')
+        .replace(/永远/g, '<span class="highlight">永远</span>')
+        .replace(/只属于你/g, '<span class="highlight">只属于你</span>');
+    }
+    
+    // 延迟函数
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+    
     // 初始化
     async function init() {
       // 初始化主题
@@ -503,11 +619,6 @@
     
     // 领取 AI 团队
     async function claimTeam() {
-      // 显示选择弹窗
-      showClaimTeamModal();
-      return;
-      // 旧代码保留但不执行
-      
       const token = localStorage.getItem('lingxi_token');
       const btn = document.getElementById('claimTeamBtn');
       
@@ -544,19 +655,34 @@
     
     // 复制邀请码
     function copyInviteCode() {
-      const code = document.getElementById('myInviteCode').textContent;
-      navigator.clipboard.writeText(code).then(() => {
-        alert('邀请码已复制！分享给好友注册吧~');
-      }).catch(() => {
-        // 降级方案
-        const input = document.createElement('input');
-        input.value = code;
-        document.body.appendChild(input);
-        input.select();
-        document.execCommand('copy');
-        document.body.removeChild(input);
-        alert('邀请码已复制！分享给好友注册吧~');
-      });
+      const codeEl = document.getElementById('myInviteCode');
+      if (!codeEl) {
+        alert('邀请码未加载');
+        return;
+      }
+      const code = codeEl.textContent.trim();
+      
+      // 创建临时输入框（兼容 HTTP 环境）
+      const input = document.createElement('input');
+      input.style.position = 'fixed';
+      input.style.left = '-9999px';
+      input.value = code;
+      document.body.appendChild(input);
+      input.select();
+      input.setSelectionRange(0, 99999);
+      
+      try {
+        const success = document.execCommand('copy');
+        if (success) {
+          alert('✅ 邀请码已复制：' + code + '\n\n分享给好友注册吧~');
+        } else {
+          prompt('复制失败，请手动复制邀请码：', code);
+        }
+      } catch (err) {
+        prompt('复制失败，请手动复制邀请码：', code);
+      }
+      
+      document.body.removeChild(input);
     }
     
     // 初始化主题
@@ -685,7 +811,8 @@
     
     // 启动
     init();
+    // 启动品牌故事流式输出
+    typeBrandStory();
   </script>
-<script src="claim-team.js"></script>
 </body>
 </html>

@@ -266,7 +266,7 @@ router.post('/onboarding/complete', async (req, res) => {
   }
 });
 
-// 领取 AI 团队（消耗积分）
+// 领取 AI 团队（消耗积分 + 完整部署流程）
 router.post('/claim-team', async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -283,6 +283,11 @@ router.post('/claim-team', async (req, res) => {
     const user = await getUser(decoded.userId);
     if (!user) {
       return res.status(404).json({ error: '用户不存在' });
+    }
+    
+    // 检查是否已有团队
+    if (user.agents && user.agents.length > 0) {
+      return res.status(400).json({ error: '你已经领取过 AI 团队了' });
     }
     
     // 检查积分
@@ -306,19 +311,70 @@ router.post('/claim-team', async (req, res) => {
       return res.status(400).json({ error: result.error });
     }
     
-    // 更新用户团队
+    // 更新用户团队配置
     const db = await getDB();
     const dbUser = db.users.find(u => u.id === user.id);
     dbUser.agents = selectedAgents;
     dbUser.agentsUpdatedAt = new Date().toISOString();
     await saveDB(db);
     
+    // 🚀 调用完整部署流程
+    // 内部调用 deploy/one-click API
+    const deployResponse = await fetch(`http://localhost:${process.env.PORT || 3000}/api/deploy/one-click`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.id })
+    });
+    
+    const deployData = await deployResponse.json();
+    
+    if (!deployResponse.ok) {
+      console.error('部署失败:', deployData);
+      // 部署失败，返还积分并清空 agents
+      await spendPoints(user.id, -100, '部署失败返还');
+      const db2 = await getDB();
+      const dbUser2 = db2.users.find(u => u.id === user.id);
+      dbUser2.agents = [];
+      await saveDB(db2);
+      return res.status(500).json({ 
+        error: '部署失败，积分已返还', 
+        details: deployData.error 
+      });
+    }
+    
+    // 检查是否已有运行中的服务器（直接返回）
+    if (deployData.server && deployData.openclawUrl) {
+      // 更新用户的 instanceId
+      const db2 = await getDB();
+      const dbUser2 = db2.users.find(u => u.id === user.id);
+      dbUser2.instanceId = deployData.server.id;
+      dbUser2.instanceStatus = deployData.server.status;
+      dbUser2.openclawUrl = deployData.openclawUrl;
+      await saveDB(db2);
+      
+      return res.json({
+        success: true,
+        message: '🎉 恭喜！成功领取 AI 团队',
+        agents: selectedAgents,
+        points: result.balance,
+        // 直接返回访问地址
+        openclawUrl: deployData.openclawUrl,
+        status: 'ready'
+      });
+    }
+    
+    // 部署已启动，返回任务 ID 供前端轮询
     res.json({
       success: true,
-      message: '🎉 恭喜！成功领取 AI 团队',
+      message: '🎉 部署已启动，正在为你创建专属服务器...',
       agents: selectedAgents,
-      points: result.balance
+      points: result.balance,
+      // 需要轮询的部署任务
+      taskId: deployData.taskId,
+      serverId: deployData.serverId,
+      status: 'deploying'
     });
+    
   } catch (error) {
     console.error('领取团队错误:', error);
     res.status(500).json({ error: error.message });

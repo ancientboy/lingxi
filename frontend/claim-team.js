@@ -121,7 +121,7 @@ async function confirmClaimTeam() {
   try {
     // 显示进度
     showProgressModal();
-    updateProgress(10, '正在验证积分...');
+    updateProgress(5, '正在验证积分...');
     
     const res = await fetch(`${API_BASE}/api/auth/claim-team`, {
       method: 'POST',
@@ -132,41 +132,42 @@ async function confirmClaimTeam() {
       body: JSON.stringify({ agents: selectedAgents })
     });
     
-    updateProgress(30, '正在扣除积分...');
-    
     const data = await res.json();
     
     if (!res.ok) {
       throw new Error(data.error || '领取失败');
     }
     
-    updateProgress(50, '正在配置团队...');
-    await sleep(500);
-    
-    updateProgress(70, '正在初始化...');
-    await sleep(500);
-    
-    updateProgress(90, '即将完成...');
-    await sleep(300);
-    
-    updateProgress(100, '领取成功！');
-    
-    // 更新本地用户信息
-    const userRes = await fetch(`${API_BASE}/api/auth/me`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    
-    if (userRes.ok) {
-      const userData = await userRes.json();
-      localStorage.setItem('lingxi_user', JSON.stringify(userData));
-    }
-    
-    // 关闭所有弹窗，刷新页面
-    setTimeout(() => {
+    // 检查返回状态
+    if (data.status === 'ready' && data.openclawUrl) {
+      // 直接可以访问（已有服务器或 MVP 模式）
+      updateProgress(100, '领取成功！');
+      await sleep(1000);
+      
+      // 更新本地用户信息
+      localStorage.setItem('lingxi_user', JSON.stringify({
+        ...JSON.parse(localStorage.getItem('lingxi_user') || '{}'),
+        agents: data.agents,
+        openclawUrl: data.openclawUrl
+      }));
+      
       closeClaimTeamModal();
       closeProgressModal();
-      location.reload();
-    }, 1000);
+      
+      // 直接跳转到聊天
+      window.location.href = 'chat.html';
+      return;
+    }
+    
+    // 需要轮询部署状态
+    if (data.status === 'deploying' && data.taskId) {
+      updateProgress(5, '正在初始化...');
+      await pollDeployStatus(data.taskId, data.agents);
+      return;
+    }
+    
+    // 未知状态
+    throw new Error('未知返回状态');
     
   } catch (err) {
     closeProgressModal();
@@ -174,6 +175,83 @@ async function confirmClaimTeam() {
     btn.textContent = '确认领取';
     alert(err.message);
   }
+}
+
+// 轮询部署状态
+async function pollDeployStatus(taskId, agents) {
+  const maxPolls = 180; // 最多轮询 3 分钟（每秒一次）
+  
+  for (let i = 0; i < maxPolls; i++) {
+    try {
+      const res = await fetch(`${API_BASE}/api/deploy/task/${taskId}`);
+      const data = await res.json();
+      
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || '查询部署状态失败');
+      }
+      
+      const task = data.task;
+      // 直接使用后端进度，不再做转换
+      const progress = Math.min(Math.max(task.progress, 0), 100);
+      
+      // 根据进度更新提示（与后端 deploy.js 保持一致）
+      let statusText = '正在部署...';
+      if (progress < 5) statusText = '正在验证信息...';
+      else if (progress < 10) statusText = '正在生成配置包...';
+      else if (progress < 20) statusText = '正在创建云服务器...';
+      else if (progress < 60) statusText = '等待服务器启动...';
+      else if (progress < 65) statusText = '等待 SSH 就绪...';
+      else if (progress < 70) statusText = '正在上传部署包...';
+      else if (progress < 95) statusText = '正在安装 OpenClaw...';
+      else if (progress < 100) statusText = '验证服务状态...';
+      else statusText = '部署完成！';
+      
+      updateProgress(progress, statusText);
+      
+      // 部署失败
+      if (task.status === 'failed') {
+        throw new Error(task.errorMessage || '部署失败');
+      }
+      
+      // 部署完成
+      if (task.status === 'success' && task.result) {
+        const result = typeof task.result === 'string' ? JSON.parse(task.result) : task.result;
+        
+        updateProgress(100, '领取成功！');
+        await sleep(1000);
+        
+        // 更新本地用户信息
+        localStorage.setItem('lingxi_user', JSON.stringify({
+          ...JSON.parse(localStorage.getItem('lingxi_user') || '{}'),
+          agents: agents,
+          openclawUrl: result.openclawUrl
+        }));
+        
+        closeClaimTeamModal();
+        closeProgressModal();
+        
+        // 跳转到聊天
+        window.location.href = 'chat.html';
+        return;
+      }
+      
+      // 部署失败
+      if (task.status === 'failed') {
+        throw new Error(task.errorMessage || '部署失败');
+      }
+      
+      // 继续等待
+      await sleep(1000);
+      
+    } catch (err) {
+      // 网络错误，继续重试
+      console.error('轮询错误:', err);
+      await sleep(1000);
+    }
+  }
+  
+  // 超时
+  throw new Error('部署超时，请联系客服');
 }
 
 // 显示进度弹窗
