@@ -434,4 +434,111 @@ router.post('/update', async (req, res) => {
   }
 });
 
+// 每日签到
+router.post('/checkin', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: '未登录' });
+  }
+  
+  const token = authHeader.substring(7);
+  
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const { getDB, saveDB } = await import('../utils/db.js');
+    
+    const db = await getDB();
+    const user = db.users.find(u => u.id === decoded.userId);
+    
+    if (!user) {
+      return res.status(404).json({ error: '用户不存在' });
+    }
+    
+    // 检查今天是否已签到
+    const today = new Date().toDateString();
+    const lastCheckin = user.lastCheckinDate;
+    
+    if (lastCheckin && new Date(lastCheckin).toDateString() === today) {
+      // 今天已签到
+      return res.json({
+        success: false,
+        message: '今天已经签到过了',
+        alreadyCheckedIn: true,
+        points: user.points || 0,
+        checkinStreak: user.checkinStreak || 0
+      });
+    }
+    
+    // 计算连续签到天数
+    let streak = user.checkinStreak || 0;
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    if (lastCheckin && new Date(lastCheckin).toDateString() === yesterday.toDateString()) {
+      streak++;
+    } else {
+      streak = 1;
+    }
+    
+    // 签到奖励：基础10分 + 连续签到奖励
+    let bonus = 10;
+    if (streak >= 7) bonus = 20;      // 连续7天+：20分
+    else if (streak >= 3) bonus = 15; // 连续3天+：15分
+    
+    // 更新用户数据
+    user.points = (user.points || 0) + bonus;
+    user.lastCheckinDate = new Date().toISOString();
+    user.checkinStreak = streak;
+    
+    await saveDB(db);
+    
+    res.json({
+      success: true,
+      message: `签到成功！获得 ${bonus} 积分`,
+      bonus,
+      points: user.points,
+      checkinStreak: streak,
+      alreadyCheckedIn: false
+    });
+  } catch (error) {
+    console.error('签到错误:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 获取签到状态
+router.get('/checkin/status', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: '未登录' });
+  }
+  
+  const token = authHeader.substring(7);
+  
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const { getDB } = await import('../utils/db.js');
+    
+    const db = await getDB();
+    const user = db.users.find(u => u.id === decoded.userId);
+    
+    if (!user) {
+      return res.status(404).json({ error: '用户不存在' });
+    }
+    
+    const today = new Date().toDateString();
+    const lastCheckin = user.lastCheckinDate;
+    const alreadyCheckedIn = lastCheckin && new Date(lastCheckin).toDateString() === today;
+    
+    res.json({
+      alreadyCheckedIn: !!alreadyCheckedIn,
+      points: user.points || 0,
+      checkinStreak: user.checkinStreak || 0,
+      lastCheckinDate: user.lastCheckinDate || null
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;

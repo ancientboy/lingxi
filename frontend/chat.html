@@ -10,10 +10,16 @@
 <body>
   <nav class="navbar">
     <div class="nav-left">
-      <a href="index.html" class="logo">灵犀云</a>
+      <a href="index.html" class="logo">Lume</a>
       <div class="status-dot" id="connectionStatus" title="已连接"></div>
     </div>
     <div class="nav-right">
+      <!-- 签到按钮 -->
+      <div class="checkin-btn" id="checkinBtn" onclick="handleCheckin()" title="每日签到">
+        <span class="checkin-icon">📅</span>
+        <span class="checkin-text" id="checkinText">签到</span>
+        <span class="checkin-points" id="checkinPoints"></span>
+      </div>
       <div class="agent-switcher" onclick="toggleAgentDropdown()" title="切换 Agent">
         <div class="agent-avatar-mini" id="currentAgentEmoji">⚡</div>
         <div class="agent-dropdown" id="agentDropdown"></div>
@@ -346,13 +352,52 @@
       justify-content: center;
       font-size: 24px;
     }
+    /* 签到按钮 */
+    .checkin-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      border-radius: 20px;
+      color: white;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-right: 8px;
+    }
+    
+    .checkin-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+    }
+    
+    .checkin-btn.checked-in {
+      background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
+      cursor: default;
+    }
+    
+    .checkin-btn.checked-in:hover {
+      transform: none;
+      box-shadow: none;
+    }
+    
+    .checkin-icon {
+      font-size: 16px;
+    }
+    
+    .checkin-points {
+      font-size: 11px;
+      opacity: 0.9;
+    }
+    
   </style>
 
   <div class="chat-container">
     <div class="messages" id="messages">
       <div class="welcome" id="welcome">
-        <div class="welcome-emoji">◈</div>
-        <div class="welcome-title">你好，我是灵犀</div>
+        <div class="welcome-emoji">✨</div>
+        <div class="welcome-title">你好，我是 Lume</div>
         <div class="welcome-desc">你的 AI 团队队长，来自星际的智能助手</div>
         <div class="team-tags" id="teamTags"></div>
       </div>
@@ -404,6 +449,7 @@
     
     // 页面加载时初始化主题
     initTheme();
+    checkCheckinStatus();
   </script>
   
   <script src="assets/js/chat.js"></script>
