@@ -546,6 +546,7 @@ body {
   border-radius: 16px;
   padding: 16px;
   box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  margin-top: auto;
 }
 
 .quick-actions {
@@ -863,12 +864,64 @@ body {
 
 /* ===== 响应式 ===== */
 @media (max-width: 768px) {
+  /* 移动端基础适配 */
+  html, body {
+    height: 100%;
+    overflow: hidden;
+  }
+  
+  body {
+    display: flex;
+    flex-direction: column;
+  }
+  
   .navbar {
-    padding: 10px 16px;
+    padding: 8px 12px;
+    height: 56px;
+    min-height: 56px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    flex-shrink: 0;
   }
   
   .chat-container {
-    padding: 70px 16px 16px;
+    padding: 70px 12px 24px;
+    margin-top: 56px;
+    min-height: auto;
+    height: calc(100vh - 56px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .messages {
+    flex: 1;
+    padding-bottom: 20px;
+    overflow-y: auto;
+  }
+  
+  .input-area {
+    padding: 12px;
+    margin-top: auto;
+    background: #fff;
+    border-radius: 16px;
+    position: sticky;
+    bottom: 0;
+    flex-shrink: 0;
+  }
+  
+  /* 隐藏签到文字，只显示图标 */
+  .checkin-text, .checkin-points {
+    display: none;
+  }
+  
+  .checkin-btn {
+    padding: 8px;
+    border-radius: 50%;
   }
   
   .nav-btn {
@@ -878,6 +931,31 @@ body {
   
   .user-name {
     display: none;
+  }
+  
+  /* 欢迎界面适配 */
+  .welcome {
+    padding: 40px 16px;
+  }
+  
+  .welcome-emoji {
+    font-size: 2.5rem;
+  }
+  
+  .welcome-title {
+    font-size: 1.5rem;
+  }
+  
+  /* 下拉菜单适配 */
+  .dropdown-content {
+    right: 0;
+    left: auto;
+    min-width: 200px;
+  }
+  
+  .agent-dropdown {
+    right: -60px;
+    min-width: 200px;
   }
 }
 
