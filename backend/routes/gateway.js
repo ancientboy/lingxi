@@ -60,10 +60,10 @@ router.get('/connect-info', async (req, res) => {
   }
   
   // 查找用户的独立服务器
-  const userServer = db.userServers?.find(s => s.userId === user.id && s.status === 'running');
+  const userServer = db.userServers?.find(s => s.userId === user.id);
   
-  if (userServer && userServer.ip) {
-    // 用户有独立服务器
+  if (userServer && userServer.status === 'running' && userServer.ip) {
+    // 用户有独立服务器且已运行
     res.json({
       mode: 'dedicated',
       wsUrl: `ws://${userServer.ip}:${userServer.openclawPort}`,
@@ -75,6 +75,13 @@ router.get('/connect-info', async (req, res) => {
         port: userServer.openclawPort,
         status: userServer.status
       }
+    });
+  } else if (userServer && userServer.status === 'creating') {
+    // 服务器正在创建中
+    return res.status(403).json({ 
+      error: '服务器正在创建中，请稍候...',
+      needServer: true,
+      status: 'creating'
     });
   } else if (MVP_MODE) {
     // MVP 模式：使用共享实例

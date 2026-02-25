@@ -24,6 +24,12 @@ export const config = {
     adminKey: process.env.ADMIN_KEY || 'lingxi-admin-2026',
   },
   
+  // API Keys（用于用户服务器配置）
+  env: {
+    ZHIPU_API_KEY: process.env.ZHIPU_API_KEY || '77c2b59d03e646a9884f78f8c4787885.XunhoXmFaErSD0dR',
+    DASHSCOPE_API_KEY: process.env.DASHSCOPE_API_KEY || 'sk-sp-8a1ddcacc5f94df4a24dd998c895fc4d',
+  },
+  
   // 用户服务器配置
   userServer: {
     password: process.env.USER_SERVER_PASSWORD || 'Lingxi@2026!',

@@ -10,7 +10,7 @@ let currentSessionKey = null;  // 当前活动会话
 
 const AGENT_INFO = {
   lingxi: { 
-    emoji: '⚡', 
+    icon: 'zap', 
     name: '灵犀', 
     desc: '智能调度 · 日程管理',
     scene: '日程管理',
@@ -24,7 +24,7 @@ const AGENT_INFO = {
     ]
   },
   coder: { 
-    emoji: '💻', 
+    icon: 'code', 
     name: '云溪', 
     desc: '全栈开发 · 编程专家',
     scene: '编程开发',
@@ -38,7 +38,7 @@ const AGENT_INFO = {
     ]
   },
   ops: { 
-    emoji: '📊', 
+    icon: 'bar-chart-2', 
     name: '若曦', 
     desc: '增长运营 · 数据专家',
     scene: '数据分析',
@@ -52,7 +52,7 @@ const AGENT_INFO = {
     ]
   },
   inventor: { 
-    emoji: '💡', 
+    icon: 'lightbulb', 
     name: '紫萱', 
     desc: '内容创意 · 文案总监',
     scene: '内容创作',
@@ -66,7 +66,7 @@ const AGENT_INFO = {
     ]
   },
   pm: { 
-    emoji: '🎯', 
+    icon: 'target', 
     name: '梓萱', 
     desc: '产品设计 · 需求专家',
     scene: '产品设计',
@@ -80,7 +80,7 @@ const AGENT_INFO = {
     ]
   },
   noter: { 
-    emoji: '📝', 
+    icon: 'file-text', 
     name: '晓琳', 
     desc: '学习顾问 · 知识管理',
     scene: '知识管理',
@@ -94,7 +94,7 @@ const AGENT_INFO = {
     ]
   },
   media: { 
-    emoji: '🎨', 
+    icon: 'palette', 
     name: '音韵', 
     desc: '多媒体创作 · AI绘图',
     scene: '多媒体娱乐',
@@ -108,7 +108,7 @@ const AGENT_INFO = {
     ]
   },
   smart: { 
-    emoji: '🏠', 
+    icon: 'home', 
     name: '智家', 
     desc: '效率工具 · 自动化专家',
     scene: '智能工具',
@@ -122,6 +122,12 @@ const AGENT_INFO = {
     ]
   }
 };
+
+// 辅助函数：生成 Lucide 图标 HTML
+function agentIcon(agent, size = 'sm') {
+  const icon = agent.icon || 'bot';
+  return `<i data-lucide="${icon}" class="icon icon-${size} icon-primary"></i>`;
+}
 
 let user = null;
 let ws = null;
@@ -192,9 +198,33 @@ async function init() {
     });
     
     if (!res.ok) {
-      console.error('❌ 获取连接信息失败');
-      alert('登录已过期，请重新登录');
-      localStorage.removeItem('lingxi_token');
+      const errorData = await res.json().catch(() => ({}));
+      console.error('❌ 获取连接信息失败:', errorData);
+      
+      // 检查是否是服务器正在创建中
+      if (errorData.needServer && errorData.status === 'creating') {
+        alert('服务器正在创建中，请稍候...\n\n将返回首页等待创建完成。');
+        window.location.href = 'index.html';
+        return;
+      }
+      
+      // 检查是否是需要服务器的错误
+      if (errorData.needServer) {
+        alert('您还没有专属服务器，请先在首页领取团队');
+        window.location.href = 'index.html';
+        return;
+      }
+      
+      // 检查是否是 token 过期
+      if (errorData.error === '登录已过期' || errorData.error === '未登录') {
+        alert('登录已过期，请重新登录');
+        localStorage.removeItem('lingxi_token');
+        window.location.href = 'index.html';
+        return;
+      }
+      
+      // 其他错误
+      alert(errorData.error || '获取连接信息失败');
       window.location.href = 'index.html';
       return;
     }
@@ -522,8 +552,8 @@ function renderTeamTags() {
   tags.innerHTML = `
     <div class="team-avatars">
       ${agents.map(id => {
-        const agent = AGENT_INFO[id] || { emoji: '🤖', name: id };
-        return `<span class="team-avatar" title="${agent.name}">${agent.emoji}</span>`;
+        const agent = AGENT_INFO[id] || { icon: 'bot', name: id };
+        return `<span class="team-avatar" title="${agent.name}">${agentIcon(agent)}</span>`;
       }).join('')}
     </div>
   `;
@@ -729,12 +759,12 @@ function renderHistory(messages) {
     
     container.innerHTML = `
       <div class="welcome" id="welcome">
-        <div class="welcome-emoji">${agentInfo.emoji}</div>
+        <div class="welcome-icon">${agentIcon(agentInfo, 'lg')}</div>
         <div class="welcome-title">${agentInfo.name}</div>
         <div class="welcome-desc">${agentInfo.desc}</div>
         ${examplesHtml ? `
           <div class="welcome-examples">
-            <div class="welcome-examples-title">💬 试试这些</div>
+            <div class="welcome-examples-title">试试这些</div>
             <div class="welcome-examples-list">${examplesHtml}</div>
           </div>
         ` : ''}
@@ -786,7 +816,29 @@ function renderHistory(messages) {
 
 // ===== 会话管理 =====
 
-let sessions = [];
+// 会话列表（挂载到 window，让 chat.html 可以访问）
+window.sessions = [];
+
+// 本地已删除的会话 key 列表（持久化到 localStorage）
+const DELETED_SESSIONS_KEY = 'lingxi_deleted_sessions';
+function getDeletedSessions() {
+  try {
+    return JSON.parse(localStorage.getItem(DELETED_SESSIONS_KEY) || '[]');
+  } catch {
+    return [];
+  }
+}
+function addDeletedSession(key) {
+  const deleted = getDeletedSessions();
+  if (!deleted.includes(key)) {
+    deleted.push(key);
+    localStorage.setItem(DELETED_SESSIONS_KEY, JSON.stringify(deleted));
+    console.log('📝 记录已删除会话:', key);
+  }
+}
+function isSessionDeleted(key) {
+  return getDeletedSessions().includes(key);
+}
 
 // 加载会话列表
 async function loadSessions() {
@@ -823,21 +875,63 @@ async function loadSessions() {
       }));
     });
     
-    console.log('📋 sessions.list 响应:', res);
+      console.log('📋 sessions.list 响应:', res);
     
     if (res.ok && res.payload?.sessions) {
-      sessions = res.payload.sessions;
-      console.log('✅ 加载了', sessions.length, '个会话:', sessions.map(s => s.key));
+      // 过滤掉本地已删除的会话
+      const deletedSessions = getDeletedSessions();
+      let allSessions = res.payload.sessions.filter(s => !deletedSessions.includes(s.key));
+      
+      // 过滤掉系统会话（心跳、健康检查等）
+      const systemPatterns = ['heartbeat', 'health', 'ping', 'pong', '_system', '_internal'];
+      allSessions = allSessions.filter(s => {
+        const key = s.key.toLowerCase();
+        return !systemPatterns.some(p => key.includes(p));
+      });
+      
+      // 按更新时间排序（最新的在前）
+      allSessions.sort((a, b) => {
+        const timeA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+        const timeB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+        return timeB - timeA;
+      });
+      
+      // 限制最多显示 50 个会话
+      const maxSessions = 50;
+      if (allSessions.length > maxSessions) {
+        console.log('📋 会话数量超过', maxSessions, '，只显示最近的', maxSessions, '个');
+        allSessions = allSessions.slice(0, maxSessions);
+      }
+      
+      window.sessions = allSessions;
+      console.log('✅ 加载了', allSessions.length, '个会话（原始:', res.payload.sessions.length, '）');
       renderSessionList();
+      // 更新侧边栏会话列表
+      console.log('🔍 检查 loadSidebarSessions:', typeof loadSidebarSessions);
+      if (typeof loadSidebarSessions === 'function') {
+        console.log('📞 调用 loadSidebarSessions()');
+        loadSidebarSessions();
+      } else {
+        console.log('⚠️ loadSidebarSessions 不是函数，尝试 window.loadSidebarSessions');
+        if (typeof window.loadSidebarSessions === 'function') {
+          window.loadSidebarSessions();
+        }
+      }
     } else {
       console.log('⚠️ 无会话数据');
-      sessions = [];
+      window.sessions = [];
       renderSessionList();
+      if (typeof loadSidebarSessions === 'function') {
+        loadSidebarSessions();
+      }
     }
   } catch (e) {
     console.error('❌ 加载会话列表失败:', e);
-    sessions = [];
+    window.sessions = [];
     renderSessionList();
+    if (typeof loadSidebarSessions === 'function') {
+      loadSidebarSessions();
+    }
   }
 }
 
@@ -845,7 +939,13 @@ async function loadSessions() {
 function renderSessionList() {
   const container = document.getElementById('sessionList');
   
-  console.log('📋 渲染会话列表, 总会话数:', sessions.length);
+  // 如果 sessionList 容器不存在（新布局使用侧边栏），跳过
+  if (!container) {
+    console.log('📋 sessionList 容器不存在，跳过 renderSessionList');
+    return;
+  }
+  
+  console.log('📋 渲染会话列表, 总会话数:', window.sessions.length);
   console.log('📋 当前会话:', currentSessionKey);
   
   // 添加"新会话"按钮
@@ -859,10 +959,10 @@ function renderSessionList() {
     </div>
   `;
   
-  // 显示所有会话（不过滤，因为用户可能使用不同的 key 前缀）
-  for (const session of sessions) {
+  // 显示所有会话
+  for (const session of window.sessions) {
     const isActive = session.key === currentSessionKey;
-    // 解析显示名称：main -> 灵犀（主会话），其他取最后一段
+    // 解析显示名称
     let displayName = session.label || session.displayName || session.key;
     if (session.key === 'main') {
       displayName = '灵犀（主会话）';
@@ -888,7 +988,7 @@ function renderSessionList() {
   }
   
   // 如果没有会话，显示提示
-  if (sessions.length === 0) {
+  if (window.sessions.length === 0) {
     html += `
       <div style="text-align:center;padding:20px;color:rgba(255,255,255,0.5);font-size:13px;">
         暂无历史会话<br>点击"新会话"开始
@@ -925,23 +1025,44 @@ async function createNewSession() {
 // 切换会话
 async function switchSession(sessionKey) {
   if (sessionKey === currentSessionKey) {
-    closeSessionModal();
     return;
   }
   
-  closeSessionModal();
   currentSessionKey = sessionKey;
   console.log('🔄 切换到会话:', sessionKey);
   
-  // 清空当前消息，重建欢迎界面
+  // 从 sessionKey 解析 agent（格式：agent:{agentId}:{namespace}:{sessionId}）
+  const parts = sessionKey.split(':');
+  if (parts.length >= 2 && parts[0] === 'agent') {
+    const agentId = parts[1];
+    // 更新当前 agent
+    if (AGENT_INFO[agentId] && currentAgentId !== agentId) {
+      currentAgentId = agentId;
+      console.log('🔄 同时切换 agent:', agentId);
+      
+      // 更新导航栏图标
+      const iconEl = document.getElementById('currentAgentIcon');
+      if (iconEl) {
+        iconEl.setAttribute('data-lucide', AGENT_INFO[agentId].icon || 'bot');
+        if (window.lucide) lucide.createIcons();
+      }
+    }
+  }
+  
+  // 清空当前消息，显示加载状态
   const container = document.getElementById('messages');
   container.innerHTML = `
     <div class="welcome" id="welcome">
-      <div class="welcome-emoji">⚡</div>
+      <div class="welcome-icon">
+        <i data-lucide="loader-2" class="icon-lg" style="animation: spin 1s linear infinite;"></i>
+      </div>
       <div class="welcome-title">加载中...</div>
       <div class="welcome-desc">正在获取聊天历史</div>
     </div>
   `;
+  
+  // 重新渲染 Lucide 图标
+  if (window.lucide) lucide.createIcons();
   
   // 加载该会话的历史
   try {
@@ -953,22 +1074,115 @@ async function switchSession(sessionKey) {
   // 重新渲染会话列表以更新选中状态
   renderSessionList();
   
+  // 更新侧边栏选中状态
+  if (typeof loadSidebarSessions === 'function') {
+    loadSidebarSessions();
+  }
+  
   console.log('✅ 会话切换完成, currentSessionKey:', currentSessionKey);
 }
 
 // 删除会话
 async function deleteSession(sessionKey) {
-  if (!confirm('确定删除这个会话吗？')) return;
   if (sessionKey === currentSessionKey) {
     alert('无法删除当前会话');
     return;
   }
   
-  // TODO: 调用 API 删除会话
-  sessions = sessions.filter(s => s.key !== sessionKey);
-  renderSessionList();
-  console.log('✅ 删除会话:', sessionKey);
+  if (!confirm('确定删除这个会话吗？')) return;
+  
+  console.log('🗑️ 开始删除会话:', sessionKey);
+  
+  try {
+    // 调用 WebSocket API 删除会话
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      console.log('📡 WebSocket 已连接，发送删除请求...');
+      
+      const res = await new Promise((resolve, reject) => {
+        const id = `req_${requestId++}`;
+        const timeout = setTimeout(() => {
+          console.log('⏱️ 删除请求超时');
+          reject(new Error('timeout'));
+        }, 10000);
+        
+        const handler = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            console.log('📥 收到响应:', data.id, '期待:', id);
+            if (data.id === id) {
+              clearTimeout(timeout);
+              ws.removeEventListener('message', handler);
+              resolve(data);
+            }
+          } catch (e) {}
+        };
+        
+        ws.addEventListener('message', handler);
+        
+        const deleteReq = {
+          type: 'req',
+          id,
+          method: 'sessions.delete',
+          params: { key: sessionKey }
+        };
+        console.log('📤 发送删除请求:', deleteReq);
+        ws.send(JSON.stringify(deleteReq));
+      });
+      
+      console.log('📋 sessions.delete 响应:', res);
+      
+      if (res.ok) {
+        // 记录到本地已删除列表（防止刷新后重新出现）
+        addDeletedSession(sessionKey);
+        
+        // 从本地列表中移除
+        window.sessions = window.sessions.filter(s => s.key !== sessionKey);
+        renderSessionList();
+        console.log('✅ 删除会话成功:', sessionKey);
+        
+        // 刷新侧边栏
+        if (typeof loadSidebarSessions === 'function') {
+          loadSidebarSessions();
+        }
+      } else {
+        const errorMsg = res.error?.message || JSON.stringify(res.error) || '未知错误';
+        console.error('❌ 删除失败:', errorMsg);
+        alert('删除失败: ' + errorMsg);
+      }
+    } else {
+      console.log('⚠️ WebSocket 未连接，只删除本地');
+      // WebSocket 未连接，只删除本地
+      addDeletedSession(sessionKey);
+      window.sessions = window.sessions.filter(s => s.key !== sessionKey);
+      renderSessionList();
+      
+      // 刷新侧边栏
+      if (typeof loadSidebarSessions === 'function') {
+        loadSidebarSessions();
+      }
+    }
+  } catch (e) {
+    console.error('❌ 删除会话异常:', e);
+    // 失败时也删除本地
+    addDeletedSession(sessionKey);
+    window.sessions = window.sessions.filter(s => s.key !== sessionKey);
+    renderSessionList();
+    
+    // 刷新侧边栏
+    if (typeof loadSidebarSessions === 'function') {
+      loadSidebarSessions();
+    }
+  }
 }
+
+// 带刷新的删除函数（供侧边栏调用）
+window.deleteSessionWithRefresh = async function(sessionKey) {
+  await deleteSession(sessionKey);
+  // 刷新侧边栏
+  if (typeof loadSidebarSessions === 'function') {
+    loadSidebarSessions();
+  }
+};
 
 // HTTP 代理备用方案
 async function sendViaHTTP(text) {
@@ -1010,16 +1224,21 @@ function addMessage(role, content, name) {
   div.className = `message ${role}`;
   
   // 获取当前 Agent 的头像
-  const currentAgent = AGENT_INFO[currentAgentId] || { emoji: '⚡', name: '灵犀' };
-  const emoji = role === 'user' ? '👤' : currentAgent.emoji;
+  const currentAgent = AGENT_INFO[currentAgentId] || { icon: 'zap', name: '灵犀' };
+  const avatarHtml = role === 'user' 
+    ? '<div class="avatar user-avatar"><i data-lucide="user" class="icon-sm"></i></div>'
+    : `<div class="avatar">${agentIcon(currentAgent, 'sm')}</div>`;
   
   div.innerHTML = `
-    <div class="avatar">${emoji}</div>
+    ${avatarHtml}
     <div class="bubble">${escapeHtml(content)}</div>
   `;
   
   messages.appendChild(div);
   messages.scrollTop = messages.scrollHeight;
+  
+  // 重新渲染 Lucide 图标
+  if (window.lucide) lucide.createIcons();
   
   return div;
 }
@@ -1032,10 +1251,10 @@ function addTyping() {
   div.id = 'typing-indicator';
   
   // 获取当前 Agent 的头像
-  const currentAgent = AGENT_INFO[currentAgentId] || { emoji: '⚡' };
+  const currentAgent = AGENT_INFO[currentAgentId] || { icon: 'zap' };
   
   div.innerHTML = `
-    <div class="avatar">${currentAgent.emoji}</div>
+    <div class="avatar">${agentIcon(currentAgent, 'sm')}</div>
     <div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div>
   `;
   messages.appendChild(div);
@@ -1059,13 +1278,14 @@ function clearChat() {
 // 切换下拉菜单
 function toggleDropdown() {
   const dropdown = document.getElementById('userDropdown');
-  dropdown.classList.toggle('show');
+  if (dropdown) dropdown.classList.toggle('show');
 }
 
 // 点击其他地方关闭下拉菜单
 document.addEventListener('click', (e) => {
-  if (!e.target.closest('.dropdown')) {
+  if (!e.target.closest('.dropdown') && !e.target.closest('.sidebar-footer')) {
     document.getElementById('userDropdown')?.classList.remove('show');
+    document.getElementById('sidebarUserMenu')?.classList.remove('show');
   }
 });
 
@@ -1092,7 +1312,10 @@ function logout() {
 
 // 显示我的团队
 function showMyTeam() {
-  document.getElementById('userDropdown').classList.remove('show');
+  const dropdown = document.getElementById('userDropdown');
+  if (dropdown) dropdown.classList.remove('show');
+  const userMenu = document.getElementById('sidebarUserMenu');
+  if (userMenu) userMenu.classList.remove('show');
   renderMyTeam();
   renderAvailableAgents();
   document.getElementById('teamModal').classList.add('show');
@@ -1113,13 +1336,13 @@ function renderMyTeam() {
   if (!container) return;
   
   container.innerHTML = myAgents.map(agentId => {
-    const agent = AGENT_INFO[agentId] || { emoji: '🤖', name: agentId, desc: 'AI 助手', scene: '通用', skills: '' };
+    const agent = AGENT_INFO[agentId] || { icon: 'bot', name: agentId, desc: 'AI 助手', scene: '通用', skills: '' };
     const isRequired = agentId === 'lingxi';
     
     return `
       <div class="team-member">
         <div class="team-member-info">
-          <div class="team-member-avatar">${agent.emoji}</div>
+          <div class="team-member-avatar">${agentIcon(agent)}</div>
           <div>
             <div class="team-member-name">${agent.name}</div>
             <div class="team-member-role">${agent.desc}</div>
@@ -1160,12 +1383,15 @@ function renderAvailableAgents() {
     const agent = AGENT_INFO[agentId];
     return `
       <div class="agent-chip" onclick="addAgent('${agentId}')" title="${agent.scene} · ${agent.skills}">
-        <span>${agent.emoji}</span>
+        ${agentIcon(agent, 'sm')}
         <span>${agent.name}</span>
-        <span style="font-size:10px;color:rgba(255,255,255,0.4);margin-left:4px;">${agent.scene}</span>
+        <span style="font-size:10px;color:#6e6e80;margin-left:4px;">${agent.scene}</span>
       </div>
     `;
   }).join('');
+  
+  // 重新渲染 Lucide 图标
+  if (window.lucide) lucide.createIcons();
 }
 
 // 添加成员
@@ -1269,7 +1495,10 @@ function closeSessionModal() {
 // ===== 飞书配置 =====
 
 function showFeishuConfig() {
-  document.getElementById('userDropdown').classList.remove('show');
+  const dropdown = document.getElementById('userDropdown');
+  if (dropdown) dropdown.classList.remove('show');
+  const userMenu = document.getElementById('sidebarUserMenu');
+  if (userMenu) userMenu.classList.remove('show');
   
   if (!user || !user.id) {
     alert('请先登录');
@@ -1353,7 +1582,10 @@ function copyFeishuWebhook() {
 // ===== 企业微信配置 =====
 
 function showWecomConfig() {
-  document.getElementById('userDropdown').classList.remove('show');
+  const dropdown = document.getElementById('userDropdown');
+  if (dropdown) dropdown.classList.remove('show');
+  const userMenu = document.getElementById('sidebarUserMenu');
+  if (userMenu) userMenu.classList.remove('show');
   
   if (!user || !user.id) {
     alert('请先登录');
@@ -1447,7 +1679,10 @@ function copyWecomWebhook() {
 // ===== 修改密码 =====
 
 function showPasswordChange() {
-  document.getElementById('userDropdown').classList.remove('show');
+  const dropdown = document.getElementById('userDropdown');
+  if (dropdown) dropdown.classList.remove('show');
+  const userMenu = document.getElementById('sidebarUserMenu');
+  if (userMenu) userMenu.classList.remove('show');
   document.getElementById('passwordForm').reset();
   document.getElementById('passwordModal').classList.add('show');
 }
@@ -1530,7 +1765,7 @@ try {
 const ALL_AGENTS = Object.fromEntries(
   Object.keys(AGENT_INFO).map(id => {
     const info = AGENT_INFO[id];
-    return [id, { id, name: info.name, emoji: info.emoji, desc: info.scene }];
+    return [id, { id, name: info.name, icon: info.icon, desc: info.scene }];
   })
 );
 
@@ -1649,7 +1884,7 @@ function renderRecommendation() {
     const agent = AGENT_INFO[agentId];
     return `
       <div class="recommendation-agent">
-        <div class="emoji">${agent.emoji}</div>
+        <div class="emoji">${agentIcon(agent)}</div>
         <div class="info">
           <div class="name">${agent.name}</div>
           <div class="desc">${agent.desc}</div>
@@ -1659,9 +1894,10 @@ function renderRecommendation() {
   }).join('');
   
   // 添加灵犀（始终存在）
+  const lingxiAgent = AGENT_INFO['lingxi'];
   agentsContainer.innerHTML = `
     <div class="recommendation-agent">
-      <div class="emoji">⚡</div>
+      <div class="emoji">${agentIcon(lingxiAgent)}</div>
       <div class="info">
         <div class="name">灵犀</div>
         <div class="desc">队长 · 智能调度</div>
@@ -1719,8 +1955,11 @@ function renderTeamPreview(agents) {
   const preview = document.getElementById('teamPreview');
   preview.innerHTML = agents.map(agentId => {
     const agent = AGENT_INFO[agentId];
-    return `<div class="team-preview-avatar">${agent.emoji}</div>`;
+    return `<div class="team-preview-avatar">${agentIcon(agent)}</div>`;
   }).join('');
+  
+  // 重新渲染 Lucide 图标
+  if (window.lucide) lucide.createIcons();
 }
 
 // 开始对话（完成引导后）
@@ -1761,20 +2000,23 @@ function renderAgentDropdown() {
   const agents = userAgentList.map(id => ALL_AGENTS[id]).filter(Boolean);
   
   if (agents.length === 0) {
-    dropdown.innerHTML = '<div style="padding: 20px; text-align: center; color: rgba(255,255,255,0.5);">暂无团队成员</div>';
+    dropdown.innerHTML = '<div style="padding: 20px; text-align: center; color: #6e6e80;">暂无团队成员</div>';
     return;
   }
   
   dropdown.innerHTML = agents.map(agent => `
     <div class="agent-dropdown-item ${agent.id === currentAgentId ? 'active' : ''}" 
          onclick="switchAgent('${agent.id}')">
-      <span class="emoji">${agent.emoji}</span>
+      <span class="emoji">${agentIcon(agent)}</span>
       <div class="info">
         <h4>${agent.name}</h4>
         <p>${agent.desc}</p>
       </div>
     </div>
   `).join('');
+  
+  // 重新渲染 Lucide 图标
+  if (window.lucide) lucide.createIcons();
 }
 
 function switchAgent(agentId) {
@@ -1789,8 +2031,12 @@ function switchAgent(agentId) {
     return;
   }
   
-  // 更新导航栏头像
-  document.getElementById('currentAgentEmoji').textContent = agent.emoji;
+  // 更新导航栏图标
+  const iconEl = document.getElementById('currentAgentIcon');
+  if (iconEl) {
+    iconEl.setAttribute('data-lucide', agent.icon || 'bot');
+    if (window.lucide) lucide.createIcons();
+  }
   
   // 关闭下拉
   document.getElementById('agentDropdown')?.classList.remove('show');
@@ -1825,17 +2071,20 @@ function updateWelcomeForAgent(agentId) {
   
   container.innerHTML = `
     <div class="welcome" id="welcome">
-      <div class="welcome-emoji">${agentInfo.emoji}</div>
+      <div class="welcome-icon">${agentIcon(agentInfo, 'lg')}</div>
       <div class="welcome-title">${agentInfo.name}</div>
       <div class="welcome-desc">${agentInfo.desc}</div>
       ${examplesHtml ? `
         <div class="welcome-examples">
-          <div class="welcome-examples-title">💬 试试这些</div>
+          <div class="welcome-examples-title">试试这些</div>
           <div class="welcome-examples-list">${examplesHtml}</div>
         </div>
       ` : ''}
     </div>
   `;
+  
+  // 重新渲染 Lucide 图标
+  if (window.lucide) lucide.createIcons();
 }
 
 // 从欢迎界面发送示例
@@ -1864,7 +2113,11 @@ function initAgentDropdown() {
     // 更新显示
     const agent = ALL_AGENTS[currentAgentId];
     if (agent) {
-      document.getElementById('currentAgentEmoji').textContent = agent.emoji;
+      const iconEl = document.getElementById('currentAgentIcon');
+      if (iconEl) {
+        iconEl.setAttribute('data-lucide', agent.icon || 'bot');
+        if (window.lucide) lucide.createIcons();
+      }
     }
   }
   console.log('🎯 userAgentList:', userAgentList, 'ALL_AGENTS:', Object.keys(ALL_AGENTS));

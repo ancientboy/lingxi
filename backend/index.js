@@ -27,8 +27,16 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// 托管前端静态文件
-app.use(express.static(join(__dirname, '../frontend')));
+// 托管前端静态文件（禁用 HTML 缓存）
+app.use(express.static(join(__dirname, '../frontend'), {
+  setHeaders: (res, path) => {
+    if (path.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  }
+}));
 
 // ============ 路由 ============
 

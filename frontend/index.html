@@ -4,8 +4,76 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>灵犀云 - 一键拥有你的 AI 团队</title>
+  <meta name="version" content="2026.02.26.0350">
   <link rel="stylesheet" href="assets/css/chat.css">
   <link rel="stylesheet" href="assets/css/dark.css" id="darkTheme" disabled>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    /* 图标统一样式 */
+    .icon { width: 20px; height: 20px; color: currentColor; }
+    .icon-sm { width: 16px; height: 16px; }
+    .icon-lg { width: 24px; height: 24px; }
+    .icon-primary { color: #10a37f; }
+    
+    /* 加载动画 */
+    .loading-spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #ffffff40;
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 1s ease-in-out infinite;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    /* 部署步骤样式 */
+    .deploy-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .deploy-step {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.5);
+      transition: all 0.3s ease;
+    }
+    
+    .deploy-step.step-active {
+      background: rgba(16, 163, 127, 0.2);
+    }
+    
+    .deploy-step.step-done {
+      background: rgba(16, 163, 127, 0.3);
+    }
+    
+    .step-icon {
+      font-size: 16px;
+      width: 24px;
+      text-align: center;
+    }
+    
+    .step-text {
+      font-size: 14px;
+      color: #374151;
+    }
+    
+    .deploy-step.step-done .step-text {
+      color: #10a37f;
+      font-weight: 500;
+    }
+  </style>
   <style>
     /* 首页专用样式 */
     .home-container {
@@ -247,8 +315,19 @@
     }
     
     .home-team-member .emoji {
-      font-size: 28px;
+      width: 48px;
+      height: 48px;
       margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f4f4f4;
+      border-radius: 50%;
+    }
+    
+    .home-team-member .emoji svg {
+      width: 24px;
+      height: 24px;
     }
     
     .home-team-member .name {
@@ -357,7 +436,7 @@
         <div class="points-section" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border-radius: 12px; padding: 16px; margin-bottom: 12px; color: white;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <div>
-              <div style="font-size: 13px; opacity: 0.9;">💰 我的积分</div>
+              <div style="font-size: 13px; opacity: 0.9; display: flex; align-items: center; gap: 6px;"><i data-lucide="coins" class="icon-sm"></i> 我的积分</div>
               <div style="font-size: 28px; font-weight: 700;" id="myPoints">0</div>
             </div>
             <div style="text-align: right; font-size: 12px; opacity: 0.8;">
@@ -369,10 +448,10 @@
         
         <!-- 邀请码展示 -->
         <div class="invite-section" style="background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%); border-radius: 12px; padding: 16px; margin-bottom: 16px; color: white;">
-          <div style="font-size: 13px; opacity: 0.9; margin-bottom: 8px;">🎁 我的专属邀请码</div>
+          <div style="font-size: 13px; opacity: 0.9; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;"><i data-lucide="gift" class="icon-sm"></i> 我的专属邀请码</div>
           <div style="display: flex; align-items: center; gap: 12px;">
             <code id="myInviteCode" style="font-size: 18px; font-weight: 600; background: rgba(255,255,255,0.2); padding: 8px 12px; border-radius: 8px; flex: 1; text-align: center;">-</code>
-            <button onclick="copyInviteCode()" style="background: rgba(255,255,255,0.2); border: none; padding: 8px 12px; border-radius: 8px; color: white; cursor: pointer; font-size: 14px;">复制</button>
+            <button onclick="copyInviteCode()" style="background: rgba(255,255,255,0.2); border: none; padding: 8px 12px; border-radius: 8px; color: white; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 4px;"><i data-lucide="copy" class="icon-sm"></i> 复制</button>
           </div>
           <div style="font-size: 12px; opacity: 0.8; margin-top: 8px;">已邀请 <span id="inviteCount">0</span> 位好友，获得 <span id="earnedPoints">0</span> 积分</div>
         </div>
@@ -380,15 +459,19 @@
         <!-- 领取团队按钮（积分不足时显示） -->
         <div id="claimTeamSection" class="home-hidden">
           <button class="home-btn home-btn-enter" onclick="claimTeam()" id="claimTeamBtn">
-            🎉 领取 AI 团队（消耗 100 积分）
+            <i data-lucide="sparkles" class="icon-sm"></i> 领取 AI 团队（消耗 100 积分）
           </button>
           <div style="text-align: center; font-size: 13px; color: #6e6e80; margin-top: 8px;" id="claimTeamHint"></div>
+          
+          <!-- 部署进度区域 -->
+          <div id="deployProgress" class="home-hidden" style="margin-top: 16px; padding: 16px; background: rgba(16, 163, 127, 0.1); border-radius: 12px;">
+          </div>
         </div>
         
         <!-- 已有团队时显示 -->
         <div id="hasTeamSection" class="home-hidden">
           <button class="home-btn home-btn-enter" onclick="goToChat()">
-            开始对话
+            <i data-lucide="message-circle" class="icon-sm"></i> 开始对话
           </button>
         </div>
         
@@ -448,14 +531,14 @@
     <div class="home-team">
       <div class="home-team-title">你的 8 位硅基伙伴</div>
       <div class="home-team-grid">
-        <div class="home-team-member"><div class="emoji">✨</div><div class="name">Lume</div><div class="role">总管</div></div>
-        <div class="home-team-member"><div class="emoji">⚡</div><div class="name">Spark</div><div class="role">编程</div></div>
-        <div class="home-team-member"><div class="emoji">💓</div><div class="name">Pulse</div><div class="role">运维</div></div>
-        <div class="home-team-member"><div class="emoji">🌟</div><div class="name">Nova</div><div class="role">发明</div></div>
-        <div class="home-team-member"><div class="emoji">🔭</div><div class="name">Scope</div><div class="role">产品</div></div>
-        <div class="home-team-member"><div class="emoji">🔔</div><div class="name">Echo</div><div class="role">笔记</div></div>
-        <div class="home-team-member"><div class="emoji">💎</div><div class="name">Prism</div><div class="role">媒体</div></div>
-        <div class="home-team-member"><div class="emoji">🪺</div><div class="name">Nest</div><div class="role">智家</div></div>
+        <div class="home-team-member"><div class="emoji"><i data-lucide="sparkles" class="icon icon-primary"></i></div><div class="name">Lume</div><div class="role">总管</div></div>
+        <div class="home-team-member"><div class="emoji"><i data-lucide="zap" class="icon icon-primary"></i></div><div class="name">Spark</div><div class="role">编程</div></div>
+        <div class="home-team-member"><div class="emoji"><i data-lucide="activity" class="icon icon-primary"></i></div><div class="name">Pulse</div><div class="role">运维</div></div>
+        <div class="home-team-member"><div class="emoji"><i data-lucide="star" class="icon icon-primary"></i></div><div class="name">Nova</div><div class="role">发明</div></div>
+        <div class="home-team-member"><div class="emoji"><i data-lucide="search" class="icon icon-primary"></i></div><div class="name">Scope</div><div class="role">产品</div></div>
+        <div class="home-team-member"><div class="emoji"><i data-lucide="bell" class="icon icon-primary"></i></div><div class="name">Echo</div><div class="role">笔记</div></div>
+        <div class="home-team-member"><div class="emoji"><i data-lucide="gem" class="icon icon-primary"></i></div><div class="name">Prism</div><div class="role">媒体</div></div>
+        <div class="home-team-member"><div class="emoji"><i data-lucide="home" class="icon icon-primary"></i></div><div class="name">Nest</div><div class="role">智家</div></div>
       </div>
     </div>
     
@@ -576,9 +659,8 @@
             const canClaim = user.canClaimTeam;
             
             if (hasAgents) {
-              // 已有团队
-              document.getElementById('hasTeamSection').classList.remove('home-hidden');
-              document.getElementById('claimTeamSection').classList.add('home-hidden');
+              // 已有团队，检查服务器状态
+              checkServerStatus(user);
             } else {
               // 未领取团队
               document.getElementById('hasTeamSection').classList.add('home-hidden');
@@ -629,13 +711,180 @@
       document.getElementById('loggedOutView').classList.remove('home-hidden');
     }
     
+    // 检查服务器状态并决定跳转
+    async function checkServerAndRedirect() {
+      const token = localStorage.getItem('lingxi_token');
+      
+      try {
+        const res = await fetch(`${API_BASE}/api/gateway/connect-info`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const data = await res.json();
+        
+        if (res.ok && data.wsUrl) {
+          // 服务器已就绪，跳转到聊天页面
+          window.location.href = 'chat.html';
+          return;
+        }
+        
+        // 服务器还在创建中，显示进度
+        if (data.needServer) {
+          // 刷新页面，显示创建进度
+          location.reload();
+          return;
+        }
+        
+        // 其他错误，也刷新页面
+        location.reload();
+        
+      } catch (err) {
+        console.error('检查服务器状态失败:', err);
+        // 网络错误，也刷新页面
+        location.reload();
+      }
+    }
+    
+    // 检查服务器状态（用于首页显示）
+    async function checkServerStatus(user) {
+      const token = localStorage.getItem('lingxi_token');
+      
+      try {
+        const res = await fetch(`${API_BASE}/api/gateway/connect-info`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const data = await res.json();
+        
+        if (res.ok && data.wsUrl) {
+          // 服务器已就绪，显示开始对话按钮
+          document.getElementById('hasTeamSection').classList.remove('home-hidden');
+          document.getElementById('claimTeamSection').classList.add('home-hidden');
+        } else if (data.needServer) {
+          // 服务器正在创建中，显示进度
+          document.getElementById('hasTeamSection').classList.add('home-hidden');
+          document.getElementById('claimTeamSection').classList.remove('home-hidden');
+          
+          const btn = document.getElementById('claimTeamBtn');
+          const hint = document.getElementById('claimTeamHint');
+          const progressEl = document.getElementById('deployProgress');
+          
+          btn.disabled = true;
+          btn.innerHTML = '<span class="loading-spinner"></span> 正在创建服务器...';
+          hint.textContent = '⏳ 服务器正在创建中，请稍候...';
+          
+          // 显示进度区域
+          if (progressEl) {
+            progressEl.classList.remove('home-hidden');
+            progressEl.innerHTML = `
+              <div class="deploy-steps">
+                <div class="deploy-step step-done">
+                  <span class="step-icon">✅</span>
+                  <span class="step-text">领取 AI 团队</span>
+                </div>
+                <div class="deploy-step step-active">
+                  <span class="step-icon">⏳</span>
+                  <span class="step-text">创建专属服务器</span>
+                </div>
+                <div class="deploy-step">
+                  <span class="step-icon">○</span>
+                  <span class="step-text">安装运行环境</span>
+                </div>
+                <div class="deploy-step">
+                  <span class="step-icon">○</span>
+                  <span class="step-text">启动 AI 服务</span>
+                </div>
+              </div>
+            `;
+          }
+          
+          // 开始轮询服务器状态
+          pollServerStatusForHome(token);
+        } else {
+          // 其他情况，显示开始对话按钮
+          document.getElementById('hasTeamSection').classList.remove('home-hidden');
+          document.getElementById('claimTeamSection').classList.add('home-hidden');
+        }
+      } catch (err) {
+        console.error('检查服务器状态失败:', err);
+        // 网络错误，显示开始对话按钮
+        document.getElementById('hasTeamSection').classList.remove('home-hidden');
+        document.getElementById('claimTeamSection').classList.add('home-hidden');
+      }
+    }
+    
+    // 首页轮询服务器状态
+    async function pollServerStatusForHome(token) {
+      let attempts = 0;
+      const maxAttempts = 120;
+      const pollInterval = 3000;
+      
+      const poll = async () => {
+        attempts++;
+        
+        try {
+          const res = await fetch(`${API_BASE}/api/gateway/connect-info`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          
+          const data = await res.json();
+          
+          if (res.ok && data.wsUrl) {
+            // 服务器就绪，跳转到聊天页面
+            window.location.href = 'chat.html';
+            return;
+          }
+          
+          if (attempts < maxAttempts) {
+            setTimeout(poll, pollInterval);
+          }
+        } catch (err) {
+          if (attempts < maxAttempts) {
+            setTimeout(poll, pollInterval);
+          }
+        }
+      };
+      
+      poll();
+    }
+    
     // 领取 AI 团队
     async function claimTeam() {
       const token = localStorage.getItem('lingxi_token');
       const btn = document.getElementById('claimTeamBtn');
+      const hint = document.getElementById('claimTeamHint');
+      const progressEl = document.getElementById('deployProgress');
+      
+      console.log('[claimTeam] 开始领取团队');
       
       btn.disabled = true;
-      btn.textContent = '领取中...';
+      btn.innerHTML = '<span class="loading-spinner"></span> 正在领取团队...';
+      hint.textContent = '正在为您分配 AI 成员，请稍候...';
+      
+      // 显示进度区域
+      if (progressEl) {
+        progressEl.classList.remove('home-hidden');
+        progressEl.innerHTML = `
+          <div class="deploy-steps">
+            <div class="deploy-step" id="step1">
+              <span class="step-icon">⏳</span>
+              <span class="step-text">领取 AI 团队</span>
+            </div>
+            <div class="deploy-step" id="step2">
+              <span class="step-icon">○</span>
+              <span class="step-text">创建专属服务器</span>
+            </div>
+            <div class="deploy-step" id="step3">
+              <span class="step-icon">○</span>
+              <span class="step-text">安装运行环境</span>
+            </div>
+            <div class="deploy-step" id="step4">
+              <span class="step-icon">○</span>
+              <span class="step-text">启动 AI 服务</span>
+            </div>
+          </div>
+        `;
+      }
       
       try {
         const res = await fetch(`${API_BASE}/api/auth/claim-team`, {
@@ -648,21 +897,208 @@
         });
         
         const data = await res.json();
+        console.log('[claimTeam] API 返回:', data);
         
         if (res.ok && data.success) {
-          alert(data.message);
-          // 刷新页面显示新状态
-          location.reload();
+          // 更新步骤1完成
+          updateDeployStep(1, 'done');
+          updateDeployStep(2, 'active');
+          hint.textContent = '✅ 团队已分配，正在创建服务器...';
+          btn.innerHTML = '<span class="loading-spinner"></span> 正在创建服务器...';
+          
+          // 如果服务器已就绪，直接跳转
+          if (data.status === 'ready' && data.openclawUrl) {
+            updateDeployStep(2, 'done');
+            updateDeployStep(3, 'done');
+            updateDeployStep(4, 'done');
+            hint.textContent = '✅ 专属服务器已就绪！正在跳转...';
+            setTimeout(() => { window.location.href = 'chat.html'; }, 500);
+            return;
+          }
+          
+          // 开始轮询服务器状态
+          console.log('[claimTeam] 开始轮询服务器状态...');
+          if (data.taskId) {
+            pollDeployTask(token, data.taskId, data.serverId);
+          } else {
+            pollServerStatus(token);
+          }
         } else {
           alert(data.error || '领取失败');
           btn.disabled = false;
-          btn.textContent = '🎉 领取 AI 团队（消耗 100 积分）';
+          btn.innerHTML = '<i data-lucide="sparkles" class="icon-sm"></i> 领取 AI 团队（消耗 100 积分）';
+          hint.textContent = '领取失败: ' + (data.error || '未知错误');
+          if (progressEl) progressEl.classList.add('home-hidden');
         }
       } catch (err) {
+        console.error('[claimTeam] 错误:', err);
         alert('网络错误，请重试');
         btn.disabled = false;
-        btn.textContent = '🎉 领取 AI 团队（消耗 100 积分）';
+        btn.innerHTML = '<i data-lucide="sparkles" class="icon-sm"></i> 领取 AI 团队（消耗 100 积分）';
+        hint.textContent = '网络错误，请重试';
+        if (progressEl) progressEl.classList.add('home-hidden');
       }
+    }
+    
+    // 更新部署步骤状态
+    function updateDeployStep(step, status) {
+      const stepEl = document.getElementById(`step${step}`);
+      if (!stepEl) return;
+      
+      const iconEl = stepEl.querySelector('.step-icon');
+      if (status === 'done') {
+        iconEl.textContent = '✅';
+        stepEl.classList.add('step-done');
+      } else if (status === 'active') {
+        iconEl.textContent = '⏳';
+        stepEl.classList.add('step-active');
+      } else {
+        iconEl.textContent = '○';
+        stepEl.classList.remove('step-done', 'step-active');
+      }
+    }
+    
+    // 轮询部署任务进度
+    async function pollDeployTask(token, taskId, serverId) {
+      const btn = document.getElementById('claimTeamBtn');
+      const hint = document.getElementById('claimTeamHint');
+      let attempts = 0;
+      const maxAttempts = 120;
+      const pollInterval = 3000;
+      
+      const poll = async () => {
+        attempts++;
+        
+        try {
+          // 查询任务进度
+          const taskRes = await fetch(`${API_BASE}/api/deploy/task/${taskId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const taskData = await taskRes.json();
+          console.log(`[部署任务 ${attempts}]`, taskData);
+          
+          if (taskData.success && taskData.task) {
+            const task = taskData.task;
+            const progress = task.progress || 0;
+            
+            // 根据进度更新步骤
+            if (progress >= 10) updateDeployStep(2, 'active');
+            if (progress >= 50) { updateDeployStep(2, 'done'); updateDeployStep(3, 'active'); }
+            if (progress >= 80) { updateDeployStep(3, 'done'); updateDeployStep(4, 'active'); }
+            if (progress >= 100) { updateDeployStep(4, 'done'); }
+            
+            hint.textContent = task.errorMessage || `正在部署... ${progress}%`;
+          }
+          
+          // 检查服务器是否就绪
+          const res = await fetch(`${API_BASE}/api/gateway/connect-info`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          
+          const data = await res.json();
+          console.log(`[轮询 ${attempts}/${maxAttempts}] connect-info:`, data);
+          
+          // 服务器已就绪
+          if (res.ok && data.wsUrl) {
+            updateDeployStep(4, 'done');
+            hint.textContent = '✅ 专属服务器已就绪！正在跳转...';
+            btn.innerHTML = '<span class="loading-spinner"></span> 正在跳转到对话页面...';
+            btn.style.background = '#10a37f';
+            
+            setTimeout(() => {
+              window.location.href = 'chat.html';
+            }, 500);
+            return;
+          }
+          
+          if (attempts < maxAttempts) {
+            setTimeout(poll, pollInterval);
+          } else {
+            hint.textContent = '⚠️ 服务器创建超时，点击重试';
+            btn.disabled = false;
+            btn.innerHTML = '<i data-lucide="sparkles" class="icon-sm"></i> 领取 AI 团队（消耗 100 积分）';
+          }
+        } catch (err) {
+          console.error(`[轮询 ${attempts}] 错误:`, err);
+          if (attempts < maxAttempts) {
+            setTimeout(poll, pollInterval);
+          } else {
+            hint.textContent = '⚠️ 检查超时，点击进入对话';
+            btn.innerHTML = '<i data-lucide="message-circle" class="icon-sm"></i> 进入对话';
+            btn.disabled = false;
+            btn.onclick = () => { window.location.href = 'chat.html'; };
+          }
+        }
+      };
+      
+      poll();
+    }
+    
+    // 轮询服务器状态
+    async function pollServerStatus(token) {
+      const btn = document.getElementById('claimTeamBtn');
+      const hint = document.getElementById('claimTeamHint');
+      let attempts = 0;
+      const maxAttempts = 120;
+      const pollInterval = 3000;
+      
+      const poll = async () => {
+        attempts++;
+        
+        try {
+          const res = await fetch(`${API_BASE}/api/gateway/connect-info`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          
+          const data = await res.json();
+          console.log(`[轮询 ${attempts}/${maxAttempts}] HTTP ${res.status}:`, data);
+          
+          if (res.ok && data.wsUrl) {
+            hint.textContent = '✅ 专属服务器已就绪！正在跳转...';
+            btn.innerHTML = '<span class="loading-spinner"></span> 正在跳转到对话页面...';
+            btn.style.background = '#10a37f';
+            
+            setTimeout(() => {
+              window.location.href = 'chat.html';
+            }, 500);
+            return;
+          }
+          
+          const dots = '.'.repeat((attempts % 3) + 1);
+          
+          if (data.needServer) {
+            hint.textContent = `⏳ 正在创建专属服务器${dots} (${attempts}/${maxAttempts})`;
+          } else if (data.needTeam) {
+            hint.textContent = `⏳ 正在配置团队${dots} (${attempts}/${maxAttempts})`;
+          } else if (data.error) {
+            hint.textContent = `⏳ ${data.error}${dots} (${attempts}/${maxAttempts})`;
+          } else {
+            hint.textContent = `⏳ 正在准备专属服务器${dots} (${attempts}/${maxAttempts})`;
+          }
+          
+          if (attempts < maxAttempts) {
+            setTimeout(poll, pollInterval);
+          } else {
+            hint.textContent = '⚠️ 服务器创建超时，点击重试';
+            btn.disabled = false;
+            btn.innerHTML = '<i data-lucide="sparkles" class="icon-sm"></i> 领取 AI 团队（消耗 100 积分）';
+          }
+        } catch (err) {
+          console.error(`[轮询 ${attempts}] 错误:`, err);
+          const dots = '.'.repeat((attempts % 3) + 1);
+          hint.textContent = `⏳ 正在检查服务器状态${dots} (${attempts}/${maxAttempts})`;
+          if (attempts < maxAttempts) {
+            setTimeout(poll, pollInterval);
+          } else {
+            hint.textContent = '⚠️ 检查超时，点击进入对话';
+            btn.innerHTML = '<i data-lucide="message-circle" class="icon-sm"></i> 进入对话';
+            btn.disabled = false;
+            btn.onclick = () => { window.location.href = 'chat.html'; };
+          }
+        }
+      };
+      
+      poll();
     }
     
     // 复制邀请码
@@ -728,8 +1164,88 @@
     }
     
     // 进入聊天
-    function goToChat() {
-      window.location.href = 'chat.html';
+    async function goToChat() {
+      const token = localStorage.getItem('lingxi_token');
+      if (!token) {
+        window.location.href = 'index.html';
+        return;
+      }
+      
+      const btn = document.querySelector('.home-btn-enter');
+      const originalText = btn ? btn.innerHTML : '';
+      
+      try {
+        // 检查用户是否有服务器
+        const res = await fetch(`${API_BASE}/api/gateway/connect-info`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const data = await res.json();
+        console.log('[goToChat] connect-info 返回:', data);
+        
+        // 服务器已就绪，直接跳转
+        if (res.ok && data.wsUrl) {
+          window.location.href = 'chat.html';
+          return;
+        }
+        
+        // 服务器还在创建中
+        if (data.needServer) {
+          if (btn) {
+            btn.innerHTML = '<span class="loading-spinner"></span> 服务器准备中...';
+            btn.disabled = true;
+          }
+          
+          // 开始轮询
+          let attempts = 0;
+          const maxAttempts = 120;
+          const pollInterval = 3000;
+          
+          const poll = async () => {
+            attempts++;
+            try {
+              const pollRes = await fetch(`${API_BASE}/api/gateway/connect-info`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+              });
+              const pollData = await pollRes.json();
+              console.log(`[goToChat 轮询 ${attempts}]`, pollData);
+              
+              if (pollRes.ok && pollData.wsUrl) {
+                // 服务器就绪，跳转
+                window.location.href = 'chat.html';
+                return;
+              }
+              
+              if (attempts < maxAttempts) {
+                if (btn) {
+                  btn.innerHTML = `<span class="loading-spinner"></span> 服务器准备中... (${attempts}/${maxAttempts})`;
+                }
+                setTimeout(poll, pollInterval);
+              } else {
+                // 超时，也尝试跳转
+                window.location.href = 'chat.html';
+              }
+            } catch (err) {
+              console.error(`[goToChat 轮询 ${attempts}] 错误:`, err);
+              if (attempts < maxAttempts) {
+                setTimeout(poll, pollInterval);
+              } else {
+                window.location.href = 'chat.html';
+              }
+            }
+          };
+          
+          poll();
+          return;
+        }
+        
+        // 其他情况，直接跳转
+        window.location.href = 'chat.html';
+        
+      } catch (e) {
+        console.error('[goToChat] 错误:', e);
+        window.location.href = 'chat.html';
+      }
     }
     
     // 退出登录
@@ -763,7 +1279,15 @@
         if (res.ok && data.success) {
           localStorage.setItem('lingxi_token', data.token);
           localStorage.setItem('lingxi_user', JSON.stringify(data.user));
-          window.location.href = 'chat.html';
+          
+          // 根据用户是否有团队决定跳转目标
+          if (data.user.agents && data.user.agents.length > 0) {
+            // 有团队，检查服务器状态
+            checkServerAndRedirect();
+          } else {
+            // 没有团队，刷新首页显示领取团队按钮
+            location.reload();
+          }
         } else {
           error.textContent = data.error || '登录失败';
           error.classList.add('show');
@@ -802,7 +1326,15 @@
         if (res.ok && data.success) {
           localStorage.setItem('lingxi_token', data.token);
           localStorage.setItem('lingxi_user', JSON.stringify(data.user));
-          window.location.href = 'chat.html';
+          
+          // 根据用户是否有团队决定跳转目标
+          if (data.user.agents && data.user.agents.length > 0) {
+            // 有团队，检查服务器状态
+            checkServerAndRedirect();
+          } else {
+            // 没有团队，刷新首页显示领取团队按钮
+            location.reload();
+          }
         } else {
           error.textContent = data.error || '注册失败';
           error.classList.add('show');
@@ -825,6 +1357,10 @@
     init();
     // 启动品牌故事流式输出
     typeBrandStory();
+    // 初始化 Lucide 图标
+    if (window.lucide) {
+      lucide.createIcons();
+    }
   </script>
 </body>
 </html>

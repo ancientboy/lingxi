@@ -1,7 +1,7 @@
 {
   "meta": {
     "lastTouchedVersion": "2026.2.17",
-    "description": "灵犀云统一部署配置模板（不含个性化记忆）"
+    "description": "灵犀云统一部署配置模板"
   },
   "env": {
     "ZHIPU_API_KEY": "{{ZHIPU_API_KEY}}",
@@ -26,12 +26,10 @@
         "baseUrl": "https://coding.dashscope.aliyuncs.com/v1",
         "api": "openai-completions",
         "models": [
-          {
-            "id": "qwen3-max-2026-01-23",
-            "name": "qwen3-max-thinking",
-            "contextWindow": 262144,
-            "maxTokens": 65536
-          }
+          { "id": "qwen3.5-plus", "name": "通义千问3.5-Plus", "contextWindow": 262144, "maxTokens": 65536 },
+          { "id": "qwen3-max-2026-01-23", "name": "通义千问3-Max", "contextWindow": 262144, "maxTokens": 65536 },
+          { "id": "qwen3-coder-plus", "name": "通义千问3-Coder", "contextWindow": 262144, "maxTokens": 65536 },
+          { "id": "glm-5", "name": "GLM-5 (智谱)", "contextWindow": 200000, "maxTokens": 8192 }
         ]
       },
       "zhipu": {
@@ -39,18 +37,8 @@
         "api": "openai-completions",
         "authHeader": true,
         "models": [
-          {
-            "id": "glm-5",
-            "name": "GLM-5 (最新版)",
-            "contextWindow": 200000,
-            "maxTokens": 8192
-          },
-          {
-            "id": "glm-4-air",
-            "name": "GLM-4-Air (轻量版)",
-            "contextWindow": 128000,
-            "maxTokens": 4096
-          }
+          { "id": "glm-5", "name": "GLM-5 (最新版)", "contextWindow": 200000, "maxTokens": 8192 },
+          { "id": "glm-4-air", "name": "GLM-4-Air (轻量版)", "contextWindow": 128000, "maxTokens": 4096 }
         ]
       }
     }
@@ -80,41 +68,13 @@
           "allowAgents": ["coder", "ops", "inventor", "pm", "noter", "media", "smart"]
         }
       },
-      {
-        "id": "coder",
-        "name": "云溪",
-        "agentDir": "/root/.openclaw/agents/coder"
-      },
-      {
-        "id": "ops",
-        "name": "若曦",
-        "agentDir": "/root/.openclaw/agents/ops"
-      },
-      {
-        "id": "inventor",
-        "name": "紫萱",
-        "agentDir": "/root/.openclaw/agents/inventor"
-      },
-      {
-        "id": "pm",
-        "name": "梓萱",
-        "agentDir": "/root/.openclaw/agents/pm"
-      },
-      {
-        "id": "noter",
-        "name": "晓琳",
-        "agentDir": "/root/.openclaw/agents/noter"
-      },
-      {
-        "id": "media",
-        "name": "音韵",
-        "agentDir": "/root/.openclaw/agents/media"
-      },
-      {
-        "id": "smart",
-        "name": "智家",
-        "agentDir": "/root/.openclaw/agents/smart"
-      }
+      { "id": "coder", "name": "云溪", "agentDir": "/root/.openclaw/agents/coder" },
+      { "id": "ops", "name": "若曦", "agentDir": "/root/.openclaw/agents/ops" },
+      { "id": "inventor", "name": "紫萱", "agentDir": "/root/.openclaw/agents/inventor" },
+      { "id": "pm", "name": "梓萱", "agentDir": "/root/.openclaw/agents/pm" },
+      { "id": "noter", "name": "晓琳", "agentDir": "/root/.openclaw/agents/noter" },
+      { "id": "media", "name": "音韵", "agentDir": "/root/.openclaw/agents/media" },
+      { "id": "smart", "name": "智家", "agentDir": "/root/.openclaw/agents/smart" }
     ]
   },
   "tools": {
@@ -142,12 +102,23 @@
     "controlUi": {
       "enabled": true,
       "basePath": "{{SESSION_ID}}",
-      "allowInsecureAuth": true
+      "allowedOrigins": [
+        "*",
+        "http://120.26.137.51:3000",
+        "http://120.26.137.51",
+        "http://lumeword.com",
+        "http://www.lumeword.com",
+        "http://localhost:3000",
+        "http://120.55.192.144:3000",
+        "http://120.55.192.144",
+        "http://localhost"
+      ],
+      "allowInsecureAuth": true,
+      "dangerouslyDisableDeviceAuth": true
     },
     "auth": {
       "mode": "token",
       "token": "{{TOKEN}}"
     }
-  },
-  "plugins": { "entries": {} }
+  }
 }

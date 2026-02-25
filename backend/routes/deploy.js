@@ -137,16 +137,26 @@ async function quickGeneratePackage(userId, token, sessionId, releasesDir) {
     "meta": { "lastTouchedVersion": OPENCLAW_VERSION },
     "env": {
       "ZHIPU_API_KEY": "77c2b59d03e646a9884f78f8c4787885.XunhoXmFaErSD0dR",
-      "DASHSCOPE_API_KEY": "sk-64985bfe63dd45e0a8e2e456624e3d21"
+      "DASHSCOPE_API_KEY": "sk-sp-8a1ddcacc5f94df4a24dd998c895fc4d"
     },
     "auth": {
       "profiles": {
-        "zhipu:default": { "provider": "zhipu", "mode": "api_key" }
+        "zhipu:default": { "provider": "zhipu", "mode": "api_key" },
+        "alibaba-cloud:default": { "provider": "alibaba-cloud", "mode": "api_key" }
       }
     },
     "models": {
       "mode": "merge",
       "providers": {
+        "alibaba-cloud": {
+          "baseUrl": "https://coding.dashscope.aliyuncs.com/v1",
+          "api": "openai-completions",
+          "models": [
+            { "id": "qwen3.5-plus", "name": "通义千问3.5-Plus", "contextWindow": 262144, "maxTokens": 65536 },
+            { "id": "qwen3-max-2026-01-23", "name": "通义千问3-Max", "contextWindow": 262144, "maxTokens": 65536 },
+            { "id": "glm-5", "name": "GLM-5 (智谱)", "contextWindow": 200000, "maxTokens": 8192 }
+          ]
+        },
         "zhipu": {
           "baseUrl": "https://open.bigmodel.cn/api/coding/paas/v4",
           "api": "openai-completions",
@@ -177,7 +187,17 @@ async function quickGeneratePackage(userId, token, sessionId, releasesDir) {
       "controlUi": {
         "enabled": true,
         "basePath": sessionId,
-        "allowedOrigins": ["*"],
+        "allowedOrigins": [
+          "*",
+          "http://120.26.137.51:3000",
+          "http://120.26.137.51",
+          "http://lumeword.com",
+          "http://www.lumeword.com",
+          "http://localhost:3000",
+          "http://120.55.192.144:3000",
+          "http://120.55.192.144",
+          "http://localhost"
+        ],
         "allowInsecureAuth": true,
         "dangerouslyDisableDeviceAuth": true
       },
@@ -211,7 +231,36 @@ npm install -g openclaw@${OPENCLAW_VERSION}
 echo "4️⃣ 复制配置..."
 cp -r .openclaw ~/.openclaw
 
-echo "5️⃣ 启动 Gateway..."
+echo "5️⃣ 配置 auth-profiles.json..."
+mkdir -p ~/.openclaw/agents/main/agent
+
+# 位置1: agents/main/auth-profiles.json (主配置目录)
+cat > ~/.openclaw/agents/main/auth-profiles.json << 'AUTHEOF'
+{
+  "version": 1,
+  "profiles": {
+    "zhipu:default": {
+      "type": "api_key",
+      "provider": "zhipu",
+      "key": "77c2b59d03e646a9884f78f8c4787885.XunhoXmFaErSD0dR"
+    },
+    "alibaba-cloud:default": {
+      "type": "api_key",
+      "provider": "alibaba-cloud",
+      "key": "sk-sp-8a1ddcacc5f94df4a24dd998c895fc4d"
+    }
+  },
+  "lastGood": {
+    "zhipu": "zhipu:default",
+    "alibaba-cloud": "alibaba-cloud:default"
+  }
+}
+AUTHEOF
+
+# 位置2: agents/main/agent/auth-profiles.json (agent子目录)
+cp ~/.openclaw/agents/main/auth-profiles.json ~/.openclaw/agents/main/agent/auth-profiles.json
+
+echo "6️⃣ 启动 Gateway..."
 cd ~/.openclaw
 nohup openclaw gateway > /var/log/openclaw.log 2>&1 &
 sleep 5
@@ -713,14 +762,45 @@ cd ${packageName}
 mkdir -p ~/.openclaw
 cp -r .openclaw/* ~/.openclaw/
 
-echo "6️⃣ 启动 OpenClaw..."
+echo "6️⃣ 配置 auth-profiles.json (API Keys)..."
+mkdir -p ~/.openclaw/agents/main/agent
+
+# 位置1: agents/main/auth-profiles.json (主配置目录)
+cat > ~/.openclaw/agents/main/auth-profiles.json << 'AUTHEOF'
+{
+  "version": 1,
+  "profiles": {
+    "zhipu:default": {
+      "type": "api_key",
+      "provider": "zhipu",
+      "key": "77c2b59d03e646a9884f78f8c4787885.XunhoXmFaErSD0dR"
+    },
+    "alibaba-cloud:default": {
+      "type": "api_key",
+      "provider": "alibaba-cloud",
+      "key": "sk-sp-8a1ddcacc5f94df4a24dd998c895fc4d"
+    }
+  },
+  "lastGood": {
+    "zhipu": "zhipu:default",
+    "alibaba-cloud": "alibaba-cloud:default"
+  }
+}
+AUTHEOF
+
+# 位置2: agents/main/agent/auth-profiles.json (agent子目录)
+cp ~/.openclaw/agents/main/auth-profiles.json ~/.openclaw/agents/main/agent/auth-profiles.json
+
+echo "✅ auth-profiles.json 已配置"
+
+echo "7️⃣ 启动 OpenClaw..."
 cd ~/.openclaw
 killall node 2>/dev/null || true
 sleep 1
 nohup openclaw gateway > /var/log/openclaw.log 2>&1 &
 sleep 3
 
-echo "7️⃣ 检查服务状态..."
+echo "8️⃣ 检查服务状态..."
 if pgrep -f "openclaw gateway" > /dev/null; then
     echo "✅ OpenClaw 正在运行"
     ss -tlnp | grep 18789 || echo "端口 18789 已监听"
