@@ -1204,12 +1204,6 @@ function addMessage(role, content, name) {
   const avatarHtml = role === 'user' 
     ? '<div class="avatar user-avatar"><i data-lucide="user" class="icon-sm"></i></div>'
     : `<div class="avatar">${agentIcon(currentAgent, 'sm')}</div>`;
-<<<<<<< HEAD
-  
-  div.innerHTML = `
-    ${avatarHtml}
-    <div class="bubble">${escapeHtml(content)}</div>
-=======
   
   // 格式化内容（解析 MEDIA: 等特殊格式）
   const formattedContent = formatMessageContent(content);
@@ -1217,7 +1211,6 @@ function addMessage(role, content, name) {
   div.innerHTML = `
     ${avatarHtml}
     <div class="bubble">${formattedContent}</div>
->>>>>>> 44df510f05970dacc3654228f88a82f8bb14722b
   `;
   
   messages.appendChild(div);
