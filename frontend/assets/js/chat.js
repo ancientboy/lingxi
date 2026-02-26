@@ -1192,9 +1192,12 @@ function addMessage(role, content, name) {
     ? '<div class="avatar user-avatar"><i data-lucide="user" class="icon-sm"></i></div>'
     : `<div class="avatar">${agentIcon(currentAgent, 'sm')}</div>`;
   
+  // 格式化内容（解析 MEDIA: 等特殊格式）
+  const formattedContent = formatMessageContent(content);
+  
   div.innerHTML = `
     ${avatarHtml}
-    <div class="bubble">${escapeHtml(content)}</div>
+    <div class="bubble">${formattedContent}</div>
   `;
   
   messages.appendChild(div);
@@ -1204,6 +1207,35 @@ function addMessage(role, content, name) {
   if (window.lucide) lucide.createIcons();
   
   return div;
+}
+
+// 格式化消息内容（解析 MEDIA: 等特殊格式）
+function formatMessageContent(content) {
+  if (!content || typeof content !== 'string') return escapeHtml(content || '');
+  
+  // 解析 MEDIA: 格式（TTS 语音等）
+  // 格式: MEDIA:/path/to/file.mp3
+  const mediaRegex = /MEDIA:([^\s\n]+)/g;
+  let formatted = content;
+  
+  formatted = formatted.replace(mediaRegex, (match, mediaPath) => {
+    // 转换为代理 URL
+    const mediaUrl = `${API_BASE}/api/gateway/media?path=${encodeURIComponent(mediaPath)}`;
+    return `<div class="media-player">
+      <audio controls style="max-width: 100%; height: 36px;">
+        <source src="${mediaUrl}" type="audio/mpeg">
+        您的浏览器不支持音频播放
+      </audio>
+    </div>`;
+  });
+  
+  // 如果有音频，只显示音频播放器
+  if (formatted.includes('<audio')) {
+    return formatted;
+  }
+  
+  // 否则正常转义 HTML
+  return escapeHtml(formatted);
 }
 
 // 添加打字动画
