@@ -677,7 +677,7 @@ async function uploadAndDeploy(host, packagePath, packageName, useCustomImage = 
         writeStream.on('close', () => {
           console.log('✅ 部署包上传完成');
           // 直接执行部署（OSS 加速，无需上传其他文件）
-          executeDeploy(conn, packageFile, packageName, useCustomImage, resolve, reject);
+          executeDeploy(conn, packageFile, packageName, useCustomImage, host, resolve, reject);
         });
         
         writeStream.on('error', (err) => {
@@ -710,7 +710,7 @@ async function uploadAndDeploy(host, packagePath, packageName, useCustomImage = 
 /**
  * 执行部署命令
  */
-function executeDeploy(conn, packageFile, packageName, useCustomImage, resolve, reject) {
+function executeDeploy(conn, packageFile, packageName, useCustomImage, serverIp, resolve, reject) {
   // OSS 签名 URL（有效期 1 年：2026-02-24 ~ 2027-02-24）
   // Node.js 22 (OpenClaw 需要 >= 22.12.0)
   const NODE_URL = 'https://lume-openclaw.oss-cn-hangzhou.aliyuncs.com/packages%2Fnode22.tar.xz?Expires=1803473753&OSSAccessKeyId=LTAI5tFwob255ZynLRpQB628&Signature=85q3T7ZuqtvSCmYt2SlSgoi4jRg%3D';
@@ -762,7 +762,48 @@ cd ${packageName}
 mkdir -p ~/.openclaw
 cp -r .openclaw/* ~/.openclaw/
 
-echo "6️⃣ 配置 auth-profiles.json (API Keys)..."
+echo "6️⃣ 动态添加服务器 IP 到 allowedOrigins..."
+SERVER_IP="${serverIp}"
+if [ -n "$SERVER_IP" ]; then
+    # 使用 Python 更新 JSON 配置
+    python3 << PYEOF
+import json
+import os
+
+config_file = os.path.expanduser("~/.openclaw/openclaw.json")
+
+with open(config_file, 'r') as f:
+    config = json.load(f)
+
+# 确保 gateway.controlUi 存在
+if 'gateway' not in config:
+    config['gateway'] = {}
+if 'controlUi' not in config['gateway']:
+    config['gateway']['controlUi'] = {}
+if 'allowedOrigins' not in config['gateway']['controlUi']:
+    config['gateway']['controlUi']['allowedOrigins'] = []
+
+origins = config['gateway']['controlUi']['allowedOrigins']
+
+# 添加服务器 IP 相关的 origin
+new_origins = [
+    "http://${serverIp}:18789",
+    "http://${serverIp}"
+]
+
+for origin in new_origins:
+    if origin not in origins:
+        origins.append(origin)
+        print(f"添加 origin: {origin}")
+
+with open(config_file, 'w') as f:
+    json.dump(config, f, indent=2)
+
+print("✅ allowedOrigins 已更新")
+PYEOF
+fi
+
+echo "7️⃣ 配置 auth-profiles.json (API Keys)..."
 mkdir -p ~/.openclaw/agents/main/agent
 
 # 位置1: agents/main/auth-profiles.json (主配置目录)
@@ -793,14 +834,14 @@ cp ~/.openclaw/agents/main/auth-profiles.json ~/.openclaw/agents/main/agent/auth
 
 echo "✅ auth-profiles.json 已配置"
 
-echo "7️⃣ 启动 OpenClaw..."
+echo "8️⃣ 启动 OpenClaw..."
 cd ~/.openclaw
 killall node 2>/dev/null || true
 sleep 1
 nohup openclaw gateway > /var/log/openclaw.log 2>&1 &
 sleep 3
 
-echo "8️⃣ 检查服务状态..."
+echo "9️⃣ 检查服务状态..."
 if pgrep -f "openclaw gateway" > /dev/null; then
     echo "✅ OpenClaw 正在运行"
     ss -tlnp | grep 18789 || echo "端口 18789 已监听"
