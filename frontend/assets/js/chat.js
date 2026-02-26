@@ -485,6 +485,12 @@ function extractText(message) {
 function cleanMessageText(text) {
   if (!text || typeof text !== 'string') return text;
   
+  // 过滤系统消息（NO_REPLY、HEARTBEAT_OK 等）
+  const systemMessages = ['NO_REPLY', 'HEARTBEAT_OK'];
+  if (systemMessages.includes(text.trim())) {
+    return null;  // 返回 null 表示不显示
+  }
+  
   // 过滤掉 Conversation info (untrusted metadata) 等技术信息
   let cleaned = text;
   
