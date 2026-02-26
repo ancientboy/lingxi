@@ -191,6 +191,8 @@ async function quickGeneratePackage(userId, token, sessionId, releasesDir) {
           "*",
           "http://120.26.137.51:3000",
           "http://120.26.137.51",
+          "http://8.219.243.199:3000",
+          "http://8.219.243.199",
           "http://lumeword.com",
           "http://www.lumeword.com",
           "http://localhost:3000",
