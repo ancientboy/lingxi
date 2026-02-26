@@ -332,14 +332,14 @@ function sendConnect() {
     minProtocol: 3,
     maxProtocol: 3,
     client: {
-      id: 'openclaw-control-ui',  // 使用 control-ui 获得完整 operator 权限
+      id: 'openclaw-control-ui',
       version: '1.0.0',
       platform: 'web',
       mode: 'webchat'
     },
     role: 'operator',
     scopes: ['operator.admin', 'operator.read', 'operator.write'],
-    auth: { token: OPENCLAW_TOKEN },  // 使用 OpenClaw token
+    auth: { token: OPENCLAW_TOKEN },
     locale: 'zh-CN',
     userAgent: navigator.userAgent
   };
