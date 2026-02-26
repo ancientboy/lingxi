@@ -106,9 +106,14 @@ app.use((err, req, res, next) => {
 });
 
 // 启动服务
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`🚀 灵犀云后端服务已启动: http://localhost:${PORT}`);
   console.log(`📝 健康检查: http://localhost:${PORT}/health`);
 });
+
+// 设置 WebSocket 代理（必须在 app.listen 之后）
+import { setupWebSocketProxy } from './routes/ws-proxy.js';
+setupWebSocketProxy(app);
+
 
 export default app;

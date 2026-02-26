@@ -62,13 +62,19 @@ router.get('/connect-info', async (req, res) => {
   // 查找用户的独立服务器
   const userServer = db.userServers?.find(s => s.userId === user.id);
   
+  // 🔧 修复：使用后端 WebSocket 代理，而不是直接连接用户服务器
+  // 前端连接 wss://lumeword.com/api/ws，后端代理到用户服务器
+  const host = req.get('host') || 'localhost:3000';
+  const protocol = req.protocol === 'https' ? 'wss' : 'ws';
+  const wsUrl = `${protocol}://${host}/api/ws`;
+  
   if (userServer && userServer.status === 'running' && userServer.ip) {
     // 用户有独立服务器且已运行
     res.json({
       mode: 'dedicated',
-      wsUrl: `ws://${userServer.ip}:${userServer.openclawPort}`,
+      wsUrl: wsUrl,
       session: userServer.openclawSession,
-      token: userServer.openclawToken,
+      token: token,  // 返回用户的 JWT token，代理需要它来验证身份
       sessionPrefix: `user_${user.id.substring(0, 8)}`,
       server: {
         ip: userServer.ip,
@@ -85,14 +91,11 @@ router.get('/connect-info', async (req, res) => {
     });
   } else if (MVP_MODE) {
     // MVP 模式：使用共享实例
-    const host = req.get('host') || 'localhost:3000';
-    const wsHost = host.split(':')[0];
-    
     res.json({
       mode: 'shared',
-      wsUrl: `ws://${wsHost}:18789`,
+      wsUrl: wsUrl,
       session: SHARED_GATEWAY.session,
-      token: SHARED_GATEWAY.token,
+      token: token,  // 返回用户的 JWT token
       sessionPrefix: `user_${user.id.substring(0, 8)}`,
       server: null
     });

@@ -28,7 +28,7 @@ const router = Router();
 // 从统一配置获取
 const SERVER_PASSWORD = config.userServer.password;
 const OPENCLAW_PORT = config.userServer.openclawPort;
-const OPENCLAW_VERSION = '2026.2.17';
+const OPENCLAW_VERSION = '2026.2.25';
 
 function generateToken() {
   return crypto.randomBytes(16).toString('hex');

@@ -280,7 +280,12 @@ function connectWebSocket() {
   statusEl.className = 'status-dot';
   
   try {
-    ws = new WebSocket(`${GATEWAY_WS}/${GATEWAY_SESSION}/ws`);
+    // 🔧 修复：通过后端 WebSocket 代理连接，解决 HTTPS 混合内容问题
+    // 代理地址格式：wss://lumeword.com/api/ws?token=xxx
+    const wsUrl = `${GATEWAY_WS}?token=${encodeURIComponent(GATEWAY_TOKEN)}`;
+    console.log('🔌 连接 WebSocket 代理:', wsUrl.replace(/token=[^&]+/, 'token=***'));
+    
+    ws = new WebSocket(wsUrl);
     
     ws.onopen = () => {
       console.log('WebSocket 已连接，等待 750ms 后发送 connect...');
