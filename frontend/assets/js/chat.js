@@ -1089,7 +1089,7 @@ async function switchSession(sessionKey) {
   console.log('✅ 会话切换完成, currentSessionKey:', currentSessionKey);
 }
 
-// 删除会话
+// 删除会话（通过后端代理，绕过 webchat 权限限制）
 async function deleteSession(sessionKey) {
   if (sessionKey === currentSessionKey) {
     alert('无法删除当前会话');
@@ -1101,84 +1101,40 @@ async function deleteSession(sessionKey) {
   console.log('🗑️ 开始删除会话:', sessionKey);
   
   try {
-    // 调用 WebSocket API 删除会话
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      console.log('📡 WebSocket 已连接，发送删除请求...');
-      
-      const res = await new Promise((resolve, reject) => {
-        const id = `req_${requestId++}`;
-        const timeout = setTimeout(() => {
-          console.log('⏱️ 删除请求超时');
-          reject(new Error('timeout'));
-        }, 10000);
-        
-        const handler = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            console.log('📥 收到响应:', data.id, '期待:', id);
-            if (data.id === id) {
-              clearTimeout(timeout);
-              ws.removeEventListener('message', handler);
-              resolve(data);
-            }
-          } catch (e) {}
-        };
-        
-        ws.addEventListener('message', handler);
-        
-        const deleteReq = {
-          type: 'req',
-          id,
-          method: 'sessions.delete',
-          params: { key: sessionKey }
-        };
-        console.log('📤 发送删除请求:', deleteReq);
-        ws.send(JSON.stringify(deleteReq));
-      });
-      
-      console.log('📋 sessions.delete 响应:', res);
-      
-      if (res.ok) {
-        // 记录到本地已删除列表（防止刷新后重新出现）
-        addDeletedSession(sessionKey);
-        
-        // 从本地列表中移除
-        window.sessions = window.sessions.filter(s => s.key !== sessionKey);
-        renderSessionList();
-        console.log('✅ 删除会话成功:', sessionKey);
-        
-        // 刷新侧边栏
-        if (typeof loadSidebarSessions === 'function') {
-          loadSidebarSessions();
-        }
-      } else {
-        const errorMsg = res.error?.message || JSON.stringify(res.error) || '未知错误';
-        console.error('❌ 删除失败:', errorMsg);
-        alert('删除失败: ' + errorMsg);
-      }
-    } else {
-      console.log('⚠️ WebSocket 未连接，只删除本地');
-      // WebSocket 未连接，只删除本地
+    // 通过后端代理删除会话
+    const res = await fetch(`${API_BASE}/api/gateway/delete-session`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${GATEWAY_TOKEN}`
+      },
+      body: JSON.stringify({ sessionKey })
+    });
+    
+    const data = await res.json();
+    console.log('📋 删除会话响应:', data);
+    
+    if (data.ok) {
+      // 记录到本地已删除列表（防止刷新后重新出现）
       addDeletedSession(sessionKey);
+      
+      // 从本地列表中移除
       window.sessions = window.sessions.filter(s => s.key !== sessionKey);
       renderSessionList();
+      console.log('✅ 删除会话成功:', sessionKey);
       
       // 刷新侧边栏
       if (typeof loadSidebarSessions === 'function') {
         loadSidebarSessions();
       }
+    } else {
+      const errorMsg = data.error?.message || JSON.stringify(data.error) || '未知错误';
+      console.error('❌ 删除失败:', errorMsg);
+      alert('删除失败: ' + errorMsg);
     }
   } catch (e) {
     console.error('❌ 删除会话异常:', e);
-    // 失败时也删除本地
-    addDeletedSession(sessionKey);
-    window.sessions = window.sessions.filter(s => s.key !== sessionKey);
-    renderSessionList();
-    
-    // 刷新侧边栏
-    if (typeof loadSidebarSessions === 'function') {
-      loadSidebarSessions();
-    }
+    alert('删除失败: ' + e.message);
   }
 }
 

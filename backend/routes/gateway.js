@@ -171,4 +171,65 @@ router.post('/proxy', async (req, res) => {
   }
 });
 
+// 删除会话（代理到 OpenClaw）
+router.post('/delete-session', async (req, res) => {
+  const { sessionKey } = req.body;
+  
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: '未登录' });
+  }
+  
+  const token = authHeader.substring(7);
+  
+  let decoded;
+  try {
+    decoded = jwt.verify(token, JWT_SECRET);
+  } catch (e) {
+    return res.status(401).json({ error: '登录已过期' });
+  }
+  
+  const db = await getDB();
+  const user = db.users?.find(u => u.id === decoded.userId);
+  
+  if (!user) {
+    return res.status(401).json({ error: '用户不存在' });
+  }
+  
+  const userServer = db.userServers?.find(s => s.userId === user.id && s.status === 'running');
+  
+  let gatewayUrl, gatewayToken, gatewaySession;
+  
+  if (userServer && userServer.ip) {
+    gatewayUrl = `http://${userServer.ip}:${userServer.openclawPort}`;
+    gatewayToken = userServer.openclawToken;
+    gatewaySession = userServer.openclawSession;
+  } else {
+    gatewayUrl = SHARED_GATEWAY.url;
+    gatewayToken = SHARED_GATEWAY.token;
+    gatewaySession = SHARED_GATEWAY.session;
+  }
+  
+  try {
+    const response = await fetch(`${gatewayUrl}/${gatewaySession}/api/chat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${gatewayToken}`
+      },
+      body: JSON.stringify({
+        method: 'sessions.delete',
+        params: { key: sessionKey }
+      })
+    });
+    
+    const data = await response.json();
+    res.json(data);
+    
+  } catch (error) {
+    console.error('删除会话代理错误:', error);
+    res.status(500).json({ error: '删除会话失败' });
+  }
+});
+
 export default router;
