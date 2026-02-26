@@ -173,13 +173,9 @@ function generateOpenClawConfig(token, session) {
         "allowedOrigins": [
           "*",
           "http://120.26.137.51:3000",
-          "http://120.26.137.51",
-          "http://lumeword.com",
-          "http://www.lumeword.com",
-          "http://localhost:3000",
-          "http://120.55.192.144:3000",
-          "http://120.55.192.144",
-          "http://localhost"
+          "http://8.219.243.199:3000",
+          "https://lumeword.com",
+          "http://120.55.192.144:3000"
         ],
         "allowInsecureAuth": true,
         "dangerouslyDisableDeviceAuth": true
