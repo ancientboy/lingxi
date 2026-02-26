@@ -313,22 +313,28 @@ router.delete('/session/:sessionKey', async (req, res) => {
 
 // 获取媒体文件（TTS 语音等）
 router.get('/media', async (req, res) => {
-  const { path: mediaPath } = req.query;
+  const { path: mediaPath, token } = req.query;
   
   if (!mediaPath) {
     return res.status(400).json({ error: '缺少文件路径' });
   }
   
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  // 支持从查询参数或 Authorization header 获取 token
+  let jwtToken = token;
+  if (!jwtToken) {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      jwtToken = authHeader.substring(7);
+    }
+  }
+  
+  if (!jwtToken) {
     return res.status(401).json({ error: '未登录' });
   }
   
-  const token = authHeader.substring(7);
-  
   let decoded;
   try {
-    decoded = jwt.verify(token, JWT_SECRET);
+    decoded = jwt.verify(jwtToken, JWT_SECRET);
   } catch (e) {
     return res.status(401).json({ error: '登录已过期' });
   }

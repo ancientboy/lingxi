@@ -332,14 +332,14 @@ function sendConnect() {
     minProtocol: 3,
     maxProtocol: 3,
     client: {
-      id: 'openclaw-control-ui',
+      id: 'openclaw-control-ui',  // 使用 control-ui 获得完整 operator 权限
       version: '1.0.0',
       platform: 'web',
       mode: 'webchat'
     },
     role: 'operator',
     scopes: ['operator.admin', 'operator.read', 'operator.write'],
-    auth: { token: OPENCLAW_TOKEN },
+    auth: { token: OPENCLAW_TOKEN },  // 使用 OpenClaw token
     locale: 'zh-CN',
     userAgent: navigator.userAgent
   };
@@ -1204,6 +1204,12 @@ function addMessage(role, content, name) {
   const avatarHtml = role === 'user' 
     ? '<div class="avatar user-avatar"><i data-lucide="user" class="icon-sm"></i></div>'
     : `<div class="avatar">${agentIcon(currentAgent, 'sm')}</div>`;
+<<<<<<< HEAD
+  
+  div.innerHTML = `
+    ${avatarHtml}
+    <div class="bubble">${escapeHtml(content)}</div>
+=======
   
   // 格式化内容（解析 MEDIA: 等特殊格式）
   const formattedContent = formatMessageContent(content);
@@ -1211,6 +1217,7 @@ function addMessage(role, content, name) {
   div.innerHTML = `
     ${avatarHtml}
     <div class="bubble">${formattedContent}</div>
+>>>>>>> 44df510f05970dacc3654228f88a82f8bb14722b
   `;
   
   messages.appendChild(div);
