@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>选择你的团队 - 灵犀云</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0a0a0f;
+      min-height: 100vh;
+      color: #fff;
+      padding: 40px 20px;
+    }
+    .container { max-width: 800px; margin: 0 auto; text-align: center; }
+    .logo {
+      font-size: 48px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #667eea, #00d4ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 10px;
+    }
+    .subtitle { color: rgba(255,255,255,0.6); margin-bottom: 40px; }
+    .agents-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 15px;
+      margin-bottom: 40px;
+    }
+    .agent-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 20px 15px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .agent-card:hover {
+      background: rgba(255,255,255,0.08);
+      transform: translateY(-3px);
+    }
+    .agent-card.selected {
+      background: linear-gradient(135deg, rgba(102,126,234,0.2), rgba(0,212,255,0.1));
+      border-color: rgba(102,126,234,0.5);
+      box-shadow: 0 5px 20px rgba(102,126,234,0.3);
+    }
+    .agent-card.disabled { opacity: 0.5; cursor: not-allowed; }
+    .agent-emoji { font-size: 36px; margin-bottom: 8px; }
+    .agent-name { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+    .agent-desc { font-size: 12px; color: rgba(255,255,255,0.5); }
+    .submit-btn {
+      padding: 16px 60px;
+      font-size: 18px;
+      font-weight: 600;
+      color: #fff;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      border: none;
+      border-radius: 50px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .submit-btn:hover { transform: scale(1.02); }
+    .submit-btn:disabled { background: #333; cursor: not-allowed; }
+    @media (max-width: 768px) {
+      .agents-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">⚡ 灵犀云</div>
+    <p class="subtitle">选择你需要的团队成员</p>
+    
+    <div class="agents-grid" id="agentsGrid"></div>
+    
+    <button class="submit-btn" id="submitBtn" onclick="submitTeam()">
+      🚀 确认并开始使用
+    </button>
+  </div>
+
+  <script>
+    const API_BASE = window.location.origin;
+    
+    const agents = [
+      { id: 'lingxi', emoji: '⚡', name: '灵犀', desc: '队长', required: true },
+      { id: 'coder', emoji: '💻', name: '云溪', desc: '代码女王' },
+      { id: 'ops', emoji: '📊', name: '若曦', desc: '运营专家' },
+      { id: 'inventor', emoji: '💡', name: '紫萱', desc: '创意天才' },
+      { id: 'pm', emoji: '🎯', name: '梓萱', desc: '产品女王' },
+      { id: 'noter', emoji: '📝', name: '晓琳', desc: '知识管理' },
+      { id: 'media', emoji: '🎧', name: '音韵', desc: '多媒体' },
+      { id: 'smart', emoji: '🏠', name: '智家', desc: '智能家居' }
+    ];
+
+    let selectedAgents = ['lingxi'];
+    const token = localStorage.getItem('lingxi_token');
+
+    // 检查登录
+    if (!token) {
+      window.location.href = 'index.html';
+    }
+
+    // 渲染 Agent 卡片
+    function renderAgents() {
+      const grid = document.getElementById('agentsGrid');
+      grid.innerHTML = agents.map(agent => `
+        <div class="agent-card ${agent.required ? 'selected disabled' : ''}" 
+             id="agent-${agent.id}"
+             onclick="${agent.required ? '' : `toggleAgent('${agent.id}')`}">
+          <div class="agent-emoji">${agent.emoji}</div>
+          <div class="agent-name">${agent.name}</div>
+          <div class="agent-desc">${agent.desc}</div>
+        </div>
+      `).join('');
+    }
+
+    // 切换选择
+    function toggleAgent(id) {
+      const card = document.getElementById(`agent-${id}`);
+      if (selectedAgents.includes(id)) {
+        selectedAgents = selectedAgents.filter(a => a !== id);
+        card.classList.remove('selected');
+      } else {
+        selectedAgents.push(id);
+        card.classList.add('selected');
+      }
+    }
+
+    // 提交团队配置
+    async function submitTeam() {
+      const btn = document.getElementById('submitBtn');
+      btn.disabled = true;
+      btn.textContent = '⏳ 配置中...';
+      
+      try {
+        // 获取用户信息
+        const userStr = localStorage.getItem('lingxi_user');
+        const user = userStr ? JSON.parse(userStr) : null;
+        const userId = user?.id;
+        
+        if (!userId) {
+          alert('登录状态异常，请重新登录');
+          window.location.href = 'index.html';
+          return;
+        }
+        
+        // 调用后端配置团队
+        const res = await fetch(`${API_BASE}/api/instance/assign`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ userId, agents: selectedAgents })
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+          // 保存团队配置到本地
+          user.agents = selectedAgents;
+          localStorage.setItem('lingxi_user', JSON.stringify(user));
+          
+          // 跳转到聊天页面
+          window.location.href = 'chat.html';
+        } else {
+          alert(data.error || '配置失败');
+        }
+      } catch (e) {
+        alert('网络错误：' + e.message);
+      }
+      
+      btn.disabled = false;
+      btn.textContent = '🚀 确认并开始使用';
+    }
+
+    // 初始化
+    renderAgents();
+  </script>
+</body>
+</html>

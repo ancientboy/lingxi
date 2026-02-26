@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "profiles": {
+    "zhipu:default": {
+      "type": "api_key",
+      "provider": "zhipu",
+      "key": "77c2b59d03e646a9884f78f8c4787885.XunhoXmFaErSD0dR"
+    },
+    "alibaba-cloud:default": {
+      "type": "api_key",
+      "provider": "alibaba-cloud",
+      "key": "sk-64985bfe63dd45e0a8e2e456624e3d21"
+    }
+  },
+  "lastGood": {
+    "zhipu": "zhipu:default"
+  }
+}

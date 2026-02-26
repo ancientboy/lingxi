@@ -1,0 +1,117 @@
+{
+  "meta": {
+    "lastTouchedVersion": "2026.2.17",
+    "description": "灵犀云用户服务器统一配置模板"
+  },
+  "env": {
+    "ZHIPU_API_KEY": "77c2b59d03e646a9884f78f8c4787885.XunhoXmFaErSD0dR",
+    "DASHSCOPE_API_KEY": "sk-sp-8a1ddcacc5f94df4a24dd998c895fc4d"
+  },
+  "auth": {
+    "profiles": {
+      "zhipu:default": {
+        "provider": "zhipu",
+        "mode": "api_key"
+      },
+      "alibaba-cloud:default": {
+        "provider": "alibaba-cloud",
+        "mode": "api_key"
+      }
+    }
+  },
+  "models": {
+    "mode": "merge",
+    "providers": {
+      "alibaba-cloud": {
+        "baseUrl": "https://coding.dashscope.aliyuncs.com/v1",
+        "api": "openai-completions",
+        "models": [
+          { "id": "qwen3.5-plus", "name": "通义千问3.5-Plus", "contextWindow": 262144, "maxTokens": 65536 },
+          { "id": "qwen3-max-2026-01-23", "name": "通义千问3-Max", "contextWindow": 262144, "maxTokens": 65536 },
+          { "id": "qwen3-coder-plus", "name": "通义千问3-Coder", "contextWindow": 262144, "maxTokens": 65536 },
+          { "id": "glm-5", "name": "GLM-5 (智谱)", "contextWindow": 200000, "maxTokens": 8192 }
+        ]
+      },
+      "zhipu": {
+        "baseUrl": "https://open.bigmodel.cn/api/coding/paas/v4",
+        "api": "openai-completions",
+        "authHeader": true,
+        "models": [
+          { "id": "glm-5", "name": "GLM-5", "contextWindow": 200000, "maxTokens": 8192 },
+          { "id": "glm-4-air", "name": "GLM-4-Air", "contextWindow": 128000, "maxTokens": 4096 }
+        ]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": { "primary": "zhipu/glm-5" },
+      "workspace": "~/.openclaw/workspace"
+    },
+    "list": [
+      { "id": "main", "default": true, "name": "灵犀", "agentDir": "~/.openclaw/agents/main", "subagents": { "allowAgents": ["coder", "ops", "inventor", "pm", "noter", "media", "smart"] } },
+      { "id": "coder", "name": "云溪", "agentDir": "~/.openclaw/agents/coder" },
+      { "id": "ops", "name": "若曦", "agentDir": "~/.openclaw/agents/ops" },
+      { "id": "inventor", "name": "紫萱", "agentDir": "~/.openclaw/agents/inventor" },
+      { "id": "pm", "name": "梓萱", "agentDir": "~/.openclaw/agents/pm" },
+      { "id": "noter", "name": "晓琳", "agentDir": "~/.openclaw/agents/noter" },
+      { "id": "media", "name": "音韵", "agentDir": "~/.openclaw/agents/media" },
+      { "id": "smart", "name": "智家", "agentDir": "~/.openclaw/agents/smart" }
+    ]
+  },
+  "tools": {
+    "agentToAgent": { "enabled": true, "allow": ["main", "coder", "ops", "inventor", "pm", "noter", "media", "smart"] },
+    "subagents": {
+      "tools": {
+        "allow": [
+          "sessions_spawn",
+          "sessions_list",
+          "sessions_history",
+          "sessions_send",
+          "session_status",
+          "group:sessions"
+        ]
+      }
+    }
+  },
+  "gateway": {
+    "port": 18789,
+    "mode": "local",
+    "bind": "lan",
+    "controlUi": {
+      "enabled": true,
+      "basePath": "SESSION_ID_PLACEHOLDER",
+      "allowedOrigins": [
+        "*",
+        "http://120.26.137.51:3000",
+        "http://120.26.137.51",
+        "http://8.219.243.199:3000",
+        "http://8.219.243.199",
+        "http://lumeword.com",
+        "http://www.lumeword.com",
+        "https://lumeword.com",
+        "https://www.lumeword.com",
+        "http://localhost:3000",
+        "http://120.55.192.144:3000",
+        "http://120.55.192.144",
+        "http://localhost"
+      ],
+      "allowInsecureAuth": true,
+      "dangerouslyDisableDeviceAuth": true
+    },
+    "auth": {
+      "mode": "token",
+      "token": "GATEWAY_TOKEN_PLACEHOLDER"
+    },
+    "tailscale": {
+      "mode": "off",
+      "resetOnExit": false
+    },
+    "reload": {
+      "mode": "hybrid"
+    },
+    "tls": {
+      "enabled": false
+    }
+  }
+}

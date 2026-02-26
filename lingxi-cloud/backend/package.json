@@ -1,0 +1,27 @@
+{
+  "name": "lingxi-cloud-backend",
+  "version": "1.0.0",
+  "description": "灵犀云后端服务",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "@alicloud/ecs20140526": "^7.6.0",
+    "@alicloud/openapi-client": "^0.4.15",
+    "@alicloud/pop-core": "^1.8.0",
+    "@alicloud/tea-util": "^1.4.9",
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-ws": "^5.0.2",
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.11.3",
+    "redis": "^4.6.12",
+    "ssh2": "^1.15.0",
+    "uuid": "^9.0.0"
+  }
+}

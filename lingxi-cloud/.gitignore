@@ -1,0 +1,40 @@
+# Node
+node_modules/
+npm-debug.log*
+
+# 数据文件
+backend/data/
+*.db
+
+# 环境变量
+.env
+.env.local
+
+# 日志
+logs/
+*.log
+
+# 打包文件
+dist/
+*.tar.gz
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 临时测试脚本
+backend/*.cjs
+backend/*.mjs
+
+# 用户部署包（动态生成，不提交）
+releases/users/
+
+# 打包临时文件
+dist/
+*.tar.gz
+
+
+# OpenClaw 离线包（太大，不上传）
+releases/packages/*.tgz
+
+backend/.env

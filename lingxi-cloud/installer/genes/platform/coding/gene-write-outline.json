@@ -1,0 +1,39 @@
+{
+  "id": "gene-write-outline",
+  "version": "1.0.0",
+  "name": "先写大纲再展开",
+  "category": "coding",
+  "trigger": "编写长篇代码、文档或复杂功能时",
+  "strategy": {
+    "description": "结构化思考，层次化实现",
+    "steps": [
+      "1. 明确目标和最终输出",
+      "2. 列出主要模块/章节",
+      "3. 为每个模块添加简要说明",
+      "4. 逐个模块展开详细内容",
+      "5. 检查各模块之间的衔接"
+    ],
+    "tips": [
+      "大纲可以让思路更清晰",
+      "每完成一个模块就检查一下",
+      "保持大纲可见，随时参考"
+    ]
+  },
+  "capsules": {
+    "markdown": {
+      "createOutline": "# 标题\n## 1. 模块一\n## 2. 模块二\n## 3. 模块三"
+    },
+    "code": {
+      "createOutline": "// TODO: 模块一\n// TODO: 模块二\n// TODO: 模块三"
+    }
+  },
+  "metadata": {
+    "author": "platform",
+    "roles": ["coder", "inventor", "noter"],
+    "tags": ["writing", "structure", "planning", "best-practice"],
+    "created_at": "2026-02-22T00:00:00Z",
+    "updated_at": "2026-02-22T00:00:00Z",
+    "score": 4.2,
+    "usage_count": 0
+  }
+}

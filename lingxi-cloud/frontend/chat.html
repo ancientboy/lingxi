@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>灵犀云 - AI 团队</title>
+  <link rel="stylesheet" href="assets/css/chat.css">
+  <link rel="stylesheet" href="assets/css/dark.css" id="darkTheme" disabled>
+  <!-- Lucide Icons - 使用 cdnjs 备用源 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.454.0/lucide.min.js"></script>
+  <style>
+    /* 图标统一样式 */
+    .icon { width: 20px; height: 20px; color: currentColor; }
+    .icon-sm { width: 16px; height: 16px; }
+    .icon-lg { width: 24px; height: 24px; }
+    .icon-primary { color: #10a37f; }
+  </style>
+</head>
+<body>
+  <!-- 侧边栏 -->
+  <aside class="sidebar" id="sidebar">
+    <a href="index.html" class="sidebar-brand">
+      <div class="sidebar-brand-icon">
+        <i data-lucide="sparkles" class="icon-lg"></i>
+      </div>
+      <span class="sidebar-brand-name">Lume</span>
+    </a>
+    <div class="sidebar-header">
+      <button class="sidebar-new-chat" onclick="newChat()">
+        <i data-lucide="plus" class="icon-sm"></i>
+        <span>新对话</span>
+      </button>
+      <button class="sidebar-close" onclick="toggleSidebar()">
+        <i data-lucide="x" class="icon-sm"></i>
+      </button>
+    </div>
+    
+    <div class="sidebar-content">
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">今天</div>
+        <div class="sidebar-sessions" id="todaySessions"></div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">最近7天</div>
+        <div class="sidebar-sessions" id="weekSessions"></div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">更早</div>
+        <div class="sidebar-sessions" id="olderSessions"></div>
+      </div>
+    </div>
+    
+    <!-- 功能区（中间） -->
+    <div class="sidebar-tools">
+      <div class="sidebar-tool-item" onclick="showMyTeam()">
+        <i data-lucide="users" class="icon-sm icon-primary"></i>
+        <span>我的团队</span>
+      </div>
+      <div class="sidebar-tool-item" onclick="showFeishuConfig()">
+        <i data-lucide="message-square" class="icon-sm icon-primary"></i>
+        <span>飞书配置</span>
+      </div>
+      <div class="sidebar-tool-item" onclick="showWecomConfig()">
+        <i data-lucide="briefcase" class="icon-sm icon-primary"></i>
+        <span>企业微信</span>
+      </div>
+    </div>
+    
+    <!-- 底部用户区 -->
+    <div class="sidebar-footer">
+      <div class="sidebar-user-trigger" onclick="toggleUserMenu()">
+        <div class="sidebar-user-avatar" id="sidebarUserAvatar">U</div>
+        <span class="sidebar-user-name" id="sidebarUserName">用户</span>
+        <span class="sidebar-user-arrow">▼</span>
+      </div>
+      <!-- 用户下拉菜单 -->
+      <div class="sidebar-user-menu" id="sidebarUserMenu">
+        <div class="sidebar-menu-item" onclick="showPasswordChange()">
+          <i data-lucide="lock" class="icon-sm"></i>
+          <span>修改密码</span>
+        </div>
+        <div class="sidebar-menu-item" onclick="showAbout()">
+          <i data-lucide="info" class="icon-sm"></i>
+          <span>关于</span>
+        </div>
+        <div class="sidebar-divider"></div>
+        <div class="sidebar-menu-item danger" onclick="logout()">
+          <i data-lucide="log-out" class="icon-sm"></i>
+          <span>退出登录</span>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- 侧边栏遮罩（移动端） -->
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+  <!-- 侧边栏拖拽调整器 -->
+  <div class="sidebar-resizer" id="sidebarResizer"></div>
+
+  <!-- 主内容区 -->
+  <main class="main-content" id="mainContent">
+    <nav class="navbar">
+      <div class="nav-left">
+        <button class="sidebar-toggle" onclick="toggleSidebar()" title="切换侧边栏">
+          <i data-lucide="menu" class="icon"></i>
+        </button>
+        <a href="index.html" class="logo">Lume</a>
+        <div class="status-dot" id="connectionStatus" title="已连接"></div>
+      </div>
+      <div class="nav-right">
+        <div class="agent-switcher" onclick="toggleAgentDropdown()" title="切换 Agent">
+          <i data-lucide="zap" class="icon icon-primary" id="currentAgentIcon"></i>
+          <span class="agent-switcher-arrow">▼</span>
+          <div class="agent-dropdown" id="agentDropdown"></div>
+        </div>
+        <!-- 签到按钮 -->
+        <div class="checkin-btn" id="checkinBtn" onclick="handleCheckin()" title="每日签到">
+          <i data-lucide="calendar" class="icon-sm"></i>
+          <span class="checkin-text" id="checkinText">签到</span>
+          <span class="checkin-points" id="checkinPoints"></span>
+        </div>
+        <!-- 主题切换 -->
+        <button class="theme-toggle-btn" onclick="toggleTheme()" title="切换主题">
+          <i data-lucide="moon" class="icon" id="themeToggleIcon"></i>
+        </button>
+      </div>
+    </nav>
+
+    <!-- 团队管理弹窗 -->
+    <div class="modal-overlay" id="teamModal">
+      <div class="modal team-modal">
+        <div class="modal-header">
+          <h3><i data-lucide="users" class="icon-sm icon-primary"></i> 我的团队</h3>
+          <button class="close-btn" onclick="closeTeamModal()">
+            <i data-lucide="x" class="icon-sm"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="team-list" id="myTeamList"></div>
+          <div class="add-team-section">
+            <h4>添加成员</h4>
+            <div class="available-agents" id="availableAgents"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 飞书配置弹窗 -->
+    <div class="modal-overlay" id="feishuModal">
+      <div class="modal">
+        <div class="modal-header">
+          <h3><i data-lucide="message-square" class="icon-sm icon-primary"></i> 飞书配置</h3>
+          <button class="close-btn" onclick="closeFeishuModal()">
+            <i data-lucide="x" class="icon-sm"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div id="feishuStatus" style="margin-bottom:16px;"></div>
+          <form id="feishuForm" onsubmit="saveFeishuConfig(event)">
+            <div class="form-group">
+              <label>App ID</label>
+              <input type="text" id="feishuAppId" placeholder="cli_xxxxxxxxxxxx" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label>App Secret</label>
+              <input type="password" id="feishuAppSecret" placeholder="应用密钥" autocomplete="off">
+            </div>
+            <button type="submit" class="submit-btn">保存配置</button>
+          </form>
+          <div id="feishuWebhook" style="margin-top:16px;display:none;">
+            <label style="font-size:12px;color:#6e6e80;">Webhook 地址（复制到飞书开放平台）</label>
+            <div style="display:flex;gap:8px;margin-top:6px;">
+              <input type="text" id="feishuWebhookUrl" readonly style="flex:1;font-size:12px;">
+              <button type="button" class="nav-btn" onclick="copyFeishuWebhook()">复制</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 企业微信配置弹窗 -->
+    <div class="modal-overlay" id="wecomModal">
+      <div class="modal">
+        <div class="modal-header">
+          <h3><i data-lucide="briefcase" class="icon-sm icon-primary"></i> 企业微信配置</h3>
+          <button class="close-btn" onclick="closeWecomModal()">
+            <i data-lucide="x" class="icon-sm"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div id="wecomStatus" style="margin-bottom:16px;"></div>
+          <form id="wecomForm" onsubmit="saveWecomConfig(event)">
+            <div class="form-group">
+              <label>企业 ID (Corp ID)</label>
+              <input type="text" id="wecomCorpId" placeholder="wwxxxxxxxxxxxxxx" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label>Agent ID</label>
+              <input type="text" id="wecomAgentId" placeholder="1000001" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label>Agent Secret</label>
+              <input type="password" id="wecomAgentSecret" placeholder="应用密钥" autocomplete="off">
+            </div>
+            <button type="submit" class="submit-btn">保存配置</button>
+          </form>
+          <div id="wecomWebhook" style="margin-top:16px;display:none;">
+            <label style="font-size:12px;color:#6e6e80;">回调地址</label>
+            <div style="display:flex;gap:8px;margin-top:6px;">
+              <input type="text" id="wecomWebhookUrl" readonly style="flex:1;font-size:12px;">
+              <button type="button" class="nav-btn" onclick="copyWecomWebhook()">复制</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 修改密码弹窗 -->
+    <div class="modal-overlay" id="passwordModal">
+      <div class="modal">
+        <div class="modal-header">
+          <h3><i data-lucide="lock" class="icon-sm icon-primary"></i> 修改密码</h3>
+          <button class="close-btn" onclick="closePasswordModal()">
+            <i data-lucide="x" class="icon-sm"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <form id="passwordForm" onsubmit="changePassword(event)">
+            <div class="form-group">
+              <label>当前密码</label>
+              <input type="password" id="currentPassword" placeholder="输入当前密码" required>
+            </div>
+            <div class="form-group">
+              <label>新密码</label>
+              <input type="password" id="newPassword" placeholder="至少6位" required minlength="6">
+            </div>
+            <div class="form-group">
+              <label>确认新密码</label>
+              <input type="password" id="confirmPassword" placeholder="再次输入新密码" required>
+            </div>
+            <button type="submit" class="submit-btn">修改密码</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- 新用户引导弹窗 -->
+    <div class="modal-overlay" id="onboardingModal" style="display:none;">
+      <div class="modal onboarding-modal" style="max-width:480px;">
+        <!-- Step 1: 欢迎 -->
+        <div id="onboardingStep1" class="onboarding-step">
+          <div class="onboarding-welcome">
+            <div class="onboarding-icon">
+              <i data-lucide="zap" class="icon-lg"></i>
+            </div>
+            <h2>你好！我是灵犀</h2>
+            <p>你的 AI 团队队长，来自星际的智能助手</p>
+            <p style="font-size:14px;color:#6e6e80;margin-top:16px;">
+              看起来你是第一次来，让我先了解一下你～
+            </p>
+          </div>
+          <button class="home-btn" onclick="goToOnboardingStep(2)" style="margin-top:24px;">
+            开始了解
+          </button>
+        </div>
+        
+        <!-- Step 2: 选择职业 -->
+        <div id="onboardingStep2" class="onboarding-step" style="display:none;">
+          <h3 style="text-align:center;margin-bottom:20px;">请问你主要是做什么工作的？</h3>
+          <div class="job-type-grid" id="jobTypeGrid"></div>
+        </div>
+        
+        <!-- Step 3: 推荐配置 -->
+        <div id="onboardingStep3" class="onboarding-step" style="display:none;">
+          <h3 style="text-align:center;margin-bottom:8px;">根据你的需求，我建议配置</h3>
+          <p id="recommendationHint" style="text-align:center;font-size:13px;color:#6e6e80;margin-bottom:20px;"></p>
+          
+          <div class="recommendation-agents" id="recommendationAgents"></div>
+          
+          <div style="margin-top:24px;display:flex;gap:12px;">
+            <button class="home-btn home-btn-secondary" onclick="goToOnboardingStep(2)" style="flex:1;">
+              重新选择
+            </button>
+            <button class="home-btn" onclick="applyRecommendation()" id="applyRecommendationBtn" style="flex:1;">
+              应用配置
+            </button>
+          </div>
+        </div>
+        
+        <!-- Step 4: 完成 -->
+        <div id="onboardingStep4" class="onboarding-step" style="display:none;">
+          <div class="onboarding-complete">
+            <div class="onboarding-icon" style="background:#10a37f;">
+              <i data-lucide="check" class="icon-lg"></i>
+            </div>
+            <h2>🎉 配置完成！</h2>
+            <p>你的 AI 团队已就绪，现在可以开始对话了</p>
+            <div class="team-preview" id="teamPreview"></div>
+          </div>
+          <button class="home-btn" onclick="startChat()" style="margin-top:24px;">
+            开始对话
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <style>
+      /* 引导弹窗样式 */
+      .onboarding-modal {
+        background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%);
+      }
+      
+      .onboarding-step {
+        padding: 20px;
+      }
+      
+      .onboarding-welcome {
+        text-align: center;
+        padding: 20px 0;
+      }
+      
+      .onboarding-emoji {
+        width: 80px;
+        height: 80px;
+        background: #10a37f;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 20px;
+        font-size: 40px;
+      }
+      
+      .onboarding-icon{
+        width: 80px;
+        height: 80px;
+        background: #10a37f;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 20px;
+      }
+      
+      .onboarding-icon svg{
+        width: 40px;
+        height: 40px;
+        color: white;
+      }
+      
+      .onboarding-welcome h2{
+        font-size: 24px;
+        margin-bottom: 8px;
+      }
+      
+      .job-type-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+      }
+      
+      .job-type-item {
+        padding: 16px;
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 12px;
+        cursor: pointer;
+        text-align: center;
+        transition: all 0.2s;
+      }
+      
+      .job-type-item:hover {
+        background: rgba(255,255,255,0.1);
+        border-color: #10a37f;
+      }
+      
+      .job-type-item.selected {
+        background: rgba(16,163,127,0.2);
+        border-color: #10a37f;
+      }
+      
+      .recommendation-agents {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      
+      .recommendation-agent {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px;
+        background: rgba(255,255,255,0.05);
+        border-radius: 12px;
+      }
+      
+      .recommendation-agent .emoji {
+        width: 48px;
+        height: 48px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+      }
+      
+      .recommendation-agent .emoji svg{
+        width: 24px;
+        height: 24px;
+        color: #10a37f;
+      }
+      
+      .recommendation-agent .info{
+        flex: 1;
+      }
+      
+      .recommendation-agent .name {
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+      
+      .recommendation-agent .desc {
+        font-size: 13px;
+        color: rgba(255,255,255,0.6);
+      }
+      
+      .onboarding-complete {
+        text-align: center;
+        padding: 20px 0;
+      }
+      
+      .team-preview {
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 20px;
+        flex-wrap: wrap;
+      }
+      
+      .team-preview-avatar {
+        width: 48px;
+        height: 48px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+      }
+      
+      .team-preview-avatar svg{
+        width: 24px;
+        height: 24px;
+        color: #10a37f;
+      }
+      
+      /* 签到按钮 */
+      .checkin-btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        border-radius: 20px;
+        color: white;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.2s;
+        margin-right: 8px;
+        border: none;
+      }
+      
+      .checkin-btn:hover {
+        transform: scale(1.05);
+        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+      }
+      
+      .checkin-btn.checked-in {
+        background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
+        cursor: default;
+      }
+      
+      .checkin-btn.checked-in:hover {
+        transform: none;
+        box-shadow: none;
+      }
+      
+      .checkin-icon {
+        font-size: 16px;
+      }
+      
+      .checkin-points {
+        font-size: 11px;
+        opacity: 0.9;
+      }
+      
+      /* 主题切换按钮 */
+      .theme-toggle-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        background: #f4f4f4;
+        border: none;
+        border-radius: 50%;
+        font-size: 18px;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      
+      .theme-toggle-btn:hover {
+        background: #e5e5e5;
+        transform: scale(1.05);
+      }
+    </style>
+
+    <div class="chat-container">
+      <div class="messages" id="messages">
+        <div class="welcome" id="welcome">
+          <div class="welcome-icon">
+            <i data-lucide="sparkles" class="icon-lg"></i>
+          </div>
+          <div class="welcome-title">你好，我是 Lume</div>
+          <div class="welcome-desc">你的 AI 团队队长，来自星际的智能助手</div>
+          <div class="team-tags" id="teamTags"></div>
+        </div>
+      </div>
+
+      <div class="input-area">
+        <div class="input-wrapper">
+          <textarea class="input-field" id="inputField" placeholder="输入消息..." rows="1"></textarea>
+          <button class="send-btn" id="sendBtn" onclick="handleSendClick()">
+            <i data-lucide="send" class="icon-sm"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </main><!-- /.main-content -->
+
+  <!-- 主题切换 & 侧边栏逻辑 -->
+  <script>
+    const THEME_KEY = 'lingxi_theme';
+    const SIDEBAR_WIDTH_KEY = 'lingxi_sidebar_width';
+    
+    // 初始化主题
+    function initTheme() {
+      const savedTheme = localStorage.getItem(THEME_KEY) || 'light';
+      applyTheme(savedTheme);
+    }
+    
+    // 应用主题
+    function applyTheme(theme) {
+      const darkTheme = document.getElementById('darkTheme');
+      const toggleIcon = document.getElementById('themeToggleIcon');
+      
+      if (theme === 'dark') {
+        darkTheme.disabled = false;
+        if (toggleIcon) toggleIcon.textContent = '☀️';
+      } else {
+        darkTheme.disabled = true;
+        if (toggleIcon) toggleIcon.textContent = '🌙';
+      }
+      
+      localStorage.setItem(THEME_KEY, theme);
+    }
+    
+    // 切换主题
+    function toggleTheme() {
+      const currentTheme = localStorage.getItem(THEME_KEY) || 'light';
+      const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+      applyTheme(newTheme);
+    }
+
+    // ===== 侧边栏功能 =====
+    function initSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const mainContent = document.getElementById('mainContent');
+      const resizer = document.getElementById('sidebarResizer');
+      const savedWidth = localStorage.getItem(SIDEBAR_WIDTH_KEY);
+      
+      // 恢复保存的宽度（仅桌面端）
+      if (savedWidth && window.innerWidth > 768) {
+        sidebar.style.width = savedWidth + 'px';
+        mainContent.style.marginLeft = savedWidth + 'px';
+        resizer.style.left = savedWidth + 'px';
+      }
+      
+      // 初始化拖拽调整
+      initSidebarResizer();
+      
+      // 加载会话列表 - 延迟调用，等待 chat.js 加载完成
+      // loadSidebarSessions() 会在 loadSessions() 完成后自动调用
+      
+      // 加载用户信息
+      loadUserInfo();
+    }
+    
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const mainContent = document.getElementById('mainContent');
+      const overlay = document.getElementById('sidebarOverlay');
+      
+      const isMobile = window.innerWidth <= 768;
+      
+      if (isMobile) {
+        // 移动端：显示/隐藏侧边栏
+        sidebar.classList.toggle('show');
+        overlay.classList.toggle('show');
+      } else {
+        // 桌面端：收起/展开
+        sidebar.classList.toggle('collapsed');
+        mainContent.classList.toggle('expanded');
+      }
+    }
+    
+    function initSidebarResizer() {
+      const sidebar = document.getElementById('sidebar');
+      const mainContent = document.getElementById('mainContent');
+      const resizer = document.getElementById('sidebarResizer');
+      
+      let isResizing = false;
+      
+      resizer.addEventListener('mousedown', (e) => {
+        isResizing = true;
+        resizer.classList.add('dragging');
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+      });
+      
+      document.addEventListener('mousemove', (e) => {
+        if (!isResizing) return;
+        
+        const newWidth = Math.max(200, Math.min(400, e.clientX));
+        sidebar.style.width = newWidth + 'px';
+        mainContent.style.marginLeft = newWidth + 'px';
+        resizer.style.left = newWidth + 'px';
+      });
+      
+      document.addEventListener('mouseup', () => {
+        if (isResizing) {
+          isResizing = false;
+          resizer.classList.remove('dragging');
+          document.body.style.cursor = '';
+          document.body.style.userSelect = '';
+          
+          // 保存宽度
+          const width = parseInt(sidebar.style.width);
+          localStorage.setItem(SIDEBAR_WIDTH_KEY, width);
+        }
+      });
+    }
+    
+    function loadSidebarSessions() {
+      console.log('🔄 loadSidebarSessions 被调用');
+      console.log('🔄 window.sessions:', window.sessions);
+      
+      const todaySessions = document.getElementById('todaySessions');
+      const weekSessions = document.getElementById('weekSessions');
+      const olderSessions = document.getElementById('olderSessions');
+      
+      // 获取全局会话数据（从 chat.js）
+      const allSessions = window.sessions || [];
+      console.log('🔄 allSessions.length:', allSessions.length);
+      
+      if (allSessions.length === 0) {
+        // 没有会话数据时显示提示
+        console.log('⚠️ 没有会话数据');
+        todaySessions.innerHTML = `
+          <div style="padding: 20px; text-align: center; color: #6e6e80; font-size: 13px;">
+            暂无历史会话<br>点击上方"新对话"开始
+          </div>
+        `;
+        weekSessions.innerHTML = '';
+        olderSessions.innerHTML = '';
+        return;
+      }
+      
+      console.log('✅ 开始渲染', allSessions.length, '个会话');
+      
+      // 去重（基于 key）
+      const uniqueSessions = [];
+      const seenKeys = new Set();
+      allSessions.forEach(session => {
+        if (!seenKeys.has(session.key)) {
+          seenKeys.add(session.key);
+          uniqueSessions.push(session);
+        }
+      });
+      console.log('✅ 去重后', uniqueSessions.length, '个会话');
+      
+      // 按时间分组
+      const now = Date.now();
+      const today = [];
+      const week = [];
+      const older = [];
+      
+      uniqueSessions.forEach(session => {
+        const updatedAt = session.updatedAt ? new Date(session.updatedAt).getTime() : 0;
+        const daysAgo = (now - updatedAt) / (1000 * 60 * 60 * 24);
+        
+        if (daysAgo < 1) {
+          today.push(session);
+        } else if (daysAgo < 7) {
+          week.push(session);
+        } else {
+          older.push(session);
+        }
+      });
+      
+      // 渲染今天的会话
+      todaySessions.innerHTML = today.map(session => renderSessionItem(session)).join('') || 
+        '<div style="padding:10px;color:#6e6e80;font-size:13px;">暂无今天的对话</div>';
+      
+      // 渲染最近7天的会话
+      weekSessions.innerHTML = week.map(session => renderSessionItem(session)).join('') || '';
+      
+      // 渲染更早的会话
+      olderSessions.innerHTML = older.map(session => renderSessionItem(session)).join('') || '';
+      
+      if (window.lucide) lucide.createIcons();
+    }
+    
+    // 渲染单个会话项
+    function renderSessionItem(session) {
+      // 使用 chat.js 中的 currentSessionKey（如果可访问）
+      const currentKey = typeof currentSessionKey !== 'undefined' ? currentSessionKey : window.currentSessionKey;
+      const isActive = session.key === currentKey;
+      
+      console.log('📋 渲染会话项:', session.key, 'isActive:', isActive, 'currentKey:', currentKey);
+      
+      // 生成显示名称：优先使用 label，否则用 lastMessage 前15个字
+      let displayName = session.label || session.displayName;
+      if (!displayName) {
+        if (session.key === 'main' || session.key.endsWith(':main')) {
+          displayName = '灵犀（主会话）';
+        } else {
+          // 使用 lastMessage 前15个字作为名称
+          const lastMsg = session.lastMessage || session.preview || session.last_message || '';
+          console.log('📋 lastMsg:', lastMsg);
+          if (lastMsg && lastMsg.length > 0) {
+            displayName = lastMsg.substring(0, 15) + (lastMsg.length > 15 ? '...' : '');
+          } else {
+            // 如果没有消息内容，用时间戳或 key 作为名称
+            displayName = session.updatedAt 
+              ? new Date(session.updatedAt).toLocaleString('zh-CN', {month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'})
+              : '对话';
+          }
+        }
+      }
+      
+      // 预览内容
+      const preview = session.lastMessage || session.preview || session.last_message || '';
+      const previewText = preview.substring(0, 30) + (preview.length > 30 ? '...' : '');
+      
+      // 时间
+      const time = session.updatedAt ? new Date(session.updatedAt).toLocaleString('zh-CN', {month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit'}) : '';
+      
+      return `
+        <div class="sidebar-session ${isActive ? 'active' : ''}" onclick="switchToSession('${session.key}')" title="${escapeHtml(previewText)}">
+          <i data-lucide="message-circle" class="icon-sm ${isActive ? 'icon-primary' : ''}"></i>
+          <div class="sidebar-session-info">
+            <span class="sidebar-session-title">${escapeHtml(displayName)}</span>
+            ${time ? `<span class="sidebar-session-time">${time}</span>` : ''}
+          </div>
+          ${!isActive ? `<button class="sidebar-session-delete" onclick="event.stopPropagation(); deleteSessionFromSidebar('${session.key}')">
+            <i data-lucide="trash-2" class="icon-sm"></i>
+          </button>` : ''}
+        </div>
+      `;
+    }
+    
+    // 切换到指定会话
+    function switchToSession(sessionKey) {
+      console.log('🔄 switchToSession 被调用, sessionKey:', sessionKey);
+      
+      // 移动端关闭侧边栏
+      if (window.innerWidth <= 768) {
+        toggleSidebar();
+      }
+      
+      // 调用 chat.js 中的 switchSession 函数
+      if (typeof switchSession === 'function') {
+        console.log('📞 调用 chat.js 中的 switchSession');
+        switchSession(sessionKey);
+      } else if (typeof window.switchSession === 'function') {
+        console.log('📞 调用 window.switchSession');
+        window.switchSession(sessionKey);
+      } else {
+        console.log('⚠️ switchSession 函数不存在');
+        
+        // 备用方案：直接更新 currentSessionKey 并加载历史
+        if (typeof window.currentSessionKey !== 'undefined') {
+          window.currentSessionKey = sessionKey;
+        }
+        if (typeof loadChatHistory === 'function') {
+          loadChatHistory();
+        }
+      }
+    }
+    
+    // 从侧边栏删除会话
+    function deleteSessionFromSidebar(sessionKey) {
+      // 调用 chat.js 中的删除函数（已有确认弹窗）
+      if (typeof window.deleteSessionWithRefresh === 'function') {
+        window.deleteSessionWithRefresh(sessionKey);
+      } else if (typeof deleteSession === 'function') {
+        deleteSession(sessionKey);
+        // 重新加载侧边栏
+        setTimeout(() => loadSidebarSessions(), 500);
+      }
+    }
+    
+    // HTML 转义函数
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+    
+    function loadUserInfo() {
+      const user = JSON.parse(localStorage.getItem('lingxi_user') || '{}');
+      if (user.nickname) {
+        document.getElementById('sidebarUserName').textContent = user.nickname;
+        document.getElementById('sidebarUserAvatar').textContent = user.nickname.charAt(0).toUpperCase();
+      }
+    }
+    
+    function newChat() {
+      // 调用 chat.js 中的创建新会话函数
+      if (typeof createNewSession === 'function') {
+        createNewSession();
+      }
+      
+      // 清空消息区域，显示欢迎界面
+      const messages = document.getElementById('messages');
+      messages.innerHTML = `
+        <div class="welcome" id="welcome">
+          <div class="welcome-icon">
+            <i data-lucide="sparkles" class="icon-lg"></i>
+          </div>
+          <div class="welcome-title">你好，我是 Lume</div>
+          <div class="welcome-desc">你的 AI 团队队长，来自星际的智能助手</div>
+          <div class="team-tags" id="teamTags"></div>
+        </div>
+      `;
+      
+      // 重新渲染团队标签
+      if (typeof renderTeamTags === 'function') {
+        renderTeamTags();
+      }
+      
+      // 重新初始化 Lucide 图标
+      if (window.lucide) {
+        lucide.createIcons();
+      }
+      
+      // 更新侧边栏会话列表（取消激活状态）
+      document.querySelectorAll('.sidebar-session').forEach(el => {
+        el.classList.remove('active');
+      });
+    }
+    
+    function deleteSession(e) {
+      e.stopPropagation();
+      if (confirm('确定删除这个会话？')) {
+        const session = e.target.closest('.sidebar-session');
+        session.remove();
+      }
+    }
+    
+    // 关于弹窗
+    function showAbout() {
+      alert('灵犀云 v1.0\n\n你的 AI 团队，一键拥有');
+    }
+    
+    // 切换用户菜单
+    function toggleUserMenu() {
+      const trigger = document.querySelector('.sidebar-user-trigger');
+      const menu = document.getElementById('sidebarUserMenu');
+      trigger.classList.toggle('active');
+      menu.classList.toggle('show');
+    }
+    
+    // 点击其他地方关闭用户菜单
+    document.addEventListener('click', (e) => {
+      const footer = document.querySelector('.sidebar-footer');
+      const menu = document.getElementById('sidebarUserMenu');
+      const trigger = document.querySelector('.sidebar-user-trigger');
+      
+      if (footer && !footer.contains(e.target)) {
+        menu.classList.remove('show');
+        trigger.classList.remove('active');
+      }
+    });
+    
+    // 页面加载时初始化
+    initTheme();
+    initSidebar();
+    
+    // 初始化 Lucide 图标
+    if (window.lucide) {
+      lucide.createIcons();
+    }
+    
+    // ===== 签到功能 =====
+    // API 基础地址（如果 chat.js 还没加载）
+    if (typeof API_BASE === 'undefined') {
+      window.API_BASE = window.location.origin;
+    }
+    async function checkCheckinStatus() {
+      const token = localStorage.getItem('lingxi_token');
+      if (!token) return;
+      
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/checkin/status`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        
+        const checkinBtn = document.getElementById('checkinBtn');
+        const checkinText = document.getElementById('checkinText');
+        const checkinPoints = document.getElementById('checkinPoints');
+        
+        if (data.checkedIn) {
+          checkinBtn.classList.add('checked-in');
+          checkinText.textContent = '已签到';
+          checkinPoints.textContent = `+${data.todayBonus || 10}`;
+        } else {
+          checkinBtn.classList.remove('checked-in');
+          checkinText.textContent = '签到';
+          checkinPoints.textContent = '';
+        }
+      } catch (e) {
+        console.error('获取签到状态失败:', e);
+      }
+    }
+    
+    async function handleCheckin() {
+      const token = localStorage.getItem('lingxi_token');
+      if (!token) {
+        alert('请先登录');
+        return;
+      }
+      
+      const checkinBtn = document.getElementById('checkinBtn');
+      if (checkinBtn.classList.contains('checked-in')) {
+        return; // 已签到
+      }
+      
+      try {
+        checkinBtn.disabled = true;
+        const res = await fetch(`${API_BASE}/api/auth/checkin`, {
+          method: 'POST',
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        const data = await res.json();
+        
+        if (data.ok || res.ok) {
+          checkinBtn.classList.add('checked-in');
+          document.getElementById('checkinText').textContent = '已签到';
+          document.getElementById('checkinPoints').textContent = `+${data.bonus || 10}`;
+          alert(data.message || `签到成功！获得 ${data.bonus || 10} 积分`);
+        } else {
+          alert(data.message || '签到失败');
+        }
+      } catch (e) {
+        console.error('签到失败:', e);
+        alert('签到失败，请重试');
+      } finally {
+        checkinBtn.disabled = false;
+      }
+    }
+    
+    // 检查签到状态
+    checkCheckinStatus();
+  </script>
+  
+  <script src="assets/js/chat.js"></script>
+</body>
+</html>
