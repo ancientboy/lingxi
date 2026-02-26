@@ -237,10 +237,6 @@ router.delete('/session/:sessionKey', async (req, res) => {
     
     // 删除会话文件（.jsonl）
     let deletedFiles = [];
-    const possibleFiles = [
-      path.join(sessionsDir, `${sessionId}.jsonl`),
-      path.join(sessionsDir, `${sessionId}-topic-*.jsonl`),
-    ];
     
     // 查找匹配的文件
     if (fs.existsSync(sessionsDir)) {
@@ -312,6 +308,71 @@ router.delete('/session/:sessionKey', async (req, res) => {
   } catch (error) {
     console.error('删除会话错误:', error);
     res.status(500).json({ error: '删除会话失败: ' + error.message });
+  }
+});
+
+// 获取媒体文件（TTS 语音等）
+router.get('/media', async (req, res) => {
+  const { path: mediaPath } = req.query;
+  
+  if (!mediaPath) {
+    return res.status(400).json({ error: '缺少文件路径' });
+  }
+  
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: '未登录' });
+  }
+  
+  const token = authHeader.substring(7);
+  
+  let decoded;
+  try {
+    decoded = jwt.verify(token, JWT_SECRET);
+  } catch (e) {
+    return res.status(401).json({ error: '登录已过期' });
+  }
+  
+  const db = await getDB();
+  const user = db.users?.find(u => u.id === decoded.userId);
+  
+  if (!user) {
+    return res.status(401).json({ error: '用户不存在' });
+  }
+  
+  const userServer = db.userServers?.find(s => s.userId === user.id && s.status === 'running');
+  
+  let gatewayUrl, gatewayToken, gatewaySession;
+  
+  if (userServer && userServer.ip) {
+    gatewayUrl = `http://${userServer.ip}:${userServer.openclawPort}`;
+    gatewayToken = userServer.openclawToken;
+    gatewaySession = userServer.openclawSession;
+  } else {
+    gatewayUrl = SHARED_GATEWAY.url;
+    gatewayToken = SHARED_GATEWAY.token;
+    gatewaySession = SHARED_GATEWAY.session;
+  }
+  
+  try {
+    // 通过 OpenClaw 的静态文件服务获取媒体文件
+    const response = await fetch(`${gatewayUrl}/${gatewaySession}${mediaPath}`);
+    
+    if (!response.ok) {
+      return res.status(404).json({ error: '文件不存在' });
+    }
+    
+    // 获取 content-type
+    const contentType = response.headers.get('content-type') || 'audio/mpeg';
+    
+    // 流式返回
+    res.setHeader('Content-Type', contentType);
+    const buffer = await response.arrayBuffer();
+    res.send(Buffer.from(buffer));
+    
+  } catch (error) {
+    console.error('获取媒体文件错误:', error);
+    res.status(500).json({ error: '获取媒体文件失败' });
   }
 });
 

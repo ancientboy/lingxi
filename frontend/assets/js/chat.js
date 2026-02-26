@@ -1089,7 +1089,7 @@ async function switchSession(sessionKey) {
   console.log('✅ 会话切换完成, currentSessionKey:', currentSessionKey);
 }
 
-// 删除会话（通过后端 HTTP API 代理）
+// 删除会话（通过后端 HTTP API 直接操作文件系统）
 async function deleteSession(sessionKey) {
   if (sessionKey === currentSessionKey) {
     alert('无法删除当前会话');
@@ -1101,7 +1101,7 @@ async function deleteSession(sessionKey) {
   console.log('🗑️ 开始删除会话:', sessionKey);
   
   try {
-    // 🔧 修复：通过后端 HTTP API 删除，而不是 WebSocket（webchat 客户端无权限）
+    // 🔧 修复：通过后端 HTTP API 删除，直接操作文件系统
     const token = localStorage.getItem('lingxi_token');
     const res = await fetch(`${API_BASE}/api/gateway/session/${encodeURIComponent(sessionKey)}`, {
       method: 'DELETE',
@@ -1133,7 +1133,7 @@ async function deleteSession(sessionKey) {
     }
   } catch (e) {
     console.error('❌ 删除会话异常:', e);
-    // 失败时也删除本地
+    // 失败时也删除本地记录
     addDeletedSession(sessionKey);
     window.sessions = window.sessions.filter(s => s.key !== sessionKey);
     renderSessionList();
@@ -1198,10 +1198,20 @@ function addMessage(role, content, name) {
   const avatarHtml = role === 'user' 
     ? '<div class="avatar user-avatar"><i data-lucide="user" class="icon-sm"></i></div>'
     : `<div class="avatar">${agentIcon(currentAgent, 'sm')}</div>`;
+<<<<<<< HEAD
   
   div.innerHTML = `
     ${avatarHtml}
     <div class="bubble">${escapeHtml(content)}</div>
+=======
+  
+  // 格式化内容（解析 MEDIA: 等特殊格式）
+  const formattedContent = formatMessageContent(content);
+  
+  div.innerHTML = `
+    ${avatarHtml}
+    <div class="bubble">${formattedContent}</div>
+>>>>>>> 44df510f05970dacc3654228f88a82f8bb14722b
   `;
   
   messages.appendChild(div);
@@ -1211,6 +1221,35 @@ function addMessage(role, content, name) {
   if (window.lucide) lucide.createIcons();
   
   return div;
+}
+
+// 格式化消息内容（解析 MEDIA: 等特殊格式）
+function formatMessageContent(content) {
+  if (!content || typeof content !== 'string') return escapeHtml(content || '');
+  
+  // 解析 MEDIA: 格式（TTS 语音等）
+  // 格式: MEDIA:/path/to/file.mp3
+  const mediaRegex = /MEDIA:([^\s\n]+)/g;
+  let formatted = content;
+  
+  formatted = formatted.replace(mediaRegex, (match, mediaPath) => {
+    // 转换为代理 URL
+    const mediaUrl = `${API_BASE}/api/gateway/media?path=${encodeURIComponent(mediaPath)}`;
+    return `<div class="media-player">
+      <audio controls style="max-width: 100%; height: 36px;">
+        <source src="${mediaUrl}" type="audio/mpeg">
+        您的浏览器不支持音频播放
+      </audio>
+    </div>`;
+  });
+  
+  // 如果有音频，只显示音频播放器
+  if (formatted.includes('<audio')) {
+    return formatted;
+  }
+  
+  // 否则正常转义 HTML
+  return escapeHtml(formatted);
 }
 
 // 添加打字动画
