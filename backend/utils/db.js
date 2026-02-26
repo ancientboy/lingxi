@@ -293,8 +293,14 @@ export async function createUser(inviteCode, nickname = null, password = null, i
     userInviteCode,        // 用户专属邀请码
     invitedBy,             // 被谁邀请的（用户ID）
     inviteCount: 0,        // 邀请了多少人
-    points: 0,             // 积分
-    pointsHistory: [],     // 积分历史
+    points: 100,           // 🔧 初始积分 100（可直接领取团队）
+    pointsHistory: [{
+      type: 'earn',
+      points: 100,
+      reason: '新用户注册奖励',
+      balance: 100,
+      time: new Date().toISOString()
+    }],
     instanceId: null,
     instanceStatus: 'pending',
     createdAt: new Date().toISOString(),

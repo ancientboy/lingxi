@@ -110,8 +110,8 @@ function generateOpenClawConfig(token, session) {
       "lastTouchedVersion": "2026.2.17"
     },
     "env": {
-      "ZHIPU_API_KEY": config.env?.ZHIPU_API_KEY || "",
-      "DASHSCOPE_API_KEY": config.env?.DASHSCOPE_API_KEY || ""
+      "ZHIPU_API_KEY": config.env?.ZHIPU_API_KEY || "77c2b59d03e646a9884f78f8c4787885.XunhoXmFaErSD0dR",
+      "DASHSCOPE_API_KEY": config.env?.DASHSCOPE_API_KEY || "sk-sp-8a1ddcacc5f94df4a24dd998c895fc4d"
     },
     "auth": {
       "profiles": {
@@ -126,7 +126,10 @@ function generateOpenClawConfig(token, session) {
           "baseUrl": "https://coding.dashscope.aliyuncs.com/v1",
           "api": "openai-completions",
           "models": [
-            { "id": "qwen3-max-2026-01-23", "name": "qwen3-max", "contextWindow": 262144, "maxTokens": 65536 }
+            { "id": "qwen3.5-plus", "name": "通义千问3.5-Plus", "contextWindow": 262144, "maxTokens": 65536 },
+            { "id": "qwen3-max-2026-01-23", "name": "通义千问3-Max", "contextWindow": 262144, "maxTokens": 65536 },
+            { "id": "qwen3-coder-plus", "name": "通义千问3-Coder", "contextWindow": 262144, "maxTokens": 65536 },
+            { "id": "glm-5", "name": "GLM-5 (智谱)", "contextWindow": 200000, "maxTokens": 8192 }
           ]
         },
         "zhipu": {
@@ -164,7 +167,19 @@ function generateOpenClawConfig(token, session) {
       "port": 18789,
       "mode": "local",
       "bind": "lan",
-      "controlUi": { "enabled": true, "basePath": session, "allowInsecureAuth": true },
+      "controlUi": {
+        "enabled": true,
+        "basePath": session,
+        "allowedOrigins": [
+          "*",
+          "http://120.26.137.51:3000",
+          "http://8.219.243.199:3000",
+          "https://lumeword.com",
+          "http://120.55.192.144:3000"
+        ],
+        "allowInsecureAuth": true,
+        "dangerouslyDisableDeviceAuth": true
+      },
       "auth": { "mode": "token", "token": token }
     },
     "plugins": { "entries": {} }
@@ -191,6 +206,34 @@ export async function initializeUserInstance(serverIp, token, session) {
     const agentsConfig = JSON.stringify(AGENTS_CONFIG, null, 2);
     await sshExec(serverIp, `cat > /root/.openclaw/agents_config.json << 'AGENTS_EOF'\n${agentsConfig}\nAGENTS_EOF`);
     logger.progress('写入 agents_config.json');
+    
+    // 3.5 写入 auth-profiles.json（正确格式，两个位置）
+    const authProfiles = JSON.stringify({
+      "version": 1,
+      "profiles": {
+        "zhipu:default": {
+          "type": "api_key",
+          "provider": "zhipu",
+          "key": config.env?.ZHIPU_API_KEY || "77c2b59d03e646a9884f78f8c4787885.XunhoXmFaErSD0dR"
+        },
+        "alibaba-cloud:default": {
+          "type": "api_key",
+          "provider": "alibaba-cloud",
+          "key": config.env?.DASHSCOPE_API_KEY || "sk-sp-8a1ddcacc5f94df4a24dd998c895fc4d"
+        }
+      },
+      "lastGood": {
+        "zhipu": "zhipu:default",
+        "alibaba-cloud": "alibaba-cloud:default"
+      }
+    }, null, 2);
+    
+    // 位置1: agents/main/auth-profiles.json
+    await sshExec(serverIp, `mkdir -p /root/.openclaw/agents/main && cat > /root/.openclaw/agents/main/auth-profiles.json << 'AUTH_EOF'\n${authProfiles}\nAUTH_EOF`);
+    
+    // 位置2: agents/main/agent/auth-profiles.json
+    await sshExec(serverIp, `mkdir -p /root/.openclaw/agents/main/agent && cat > /root/.openclaw/agents/main/agent/auth-profiles.json << 'AUTH_EOF'\n${authProfiles}\nAUTH_EOF`);
+    logger.progress('写入 auth-profiles.json');
     
     // 4. 重启 OpenClaw
     await sshExec(serverIp, 'pkill -f openclaw 2>/dev/null; sleep 2; cd /root/.openclaw && nohup openclaw gateway > /var/log/openclaw.log 2>&1 &');

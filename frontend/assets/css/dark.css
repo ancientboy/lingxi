@@ -9,6 +9,138 @@ body {
   color: #ececf1;
 }
 
+/* 侧边栏 */
+.sidebar {
+  background: #171717;
+  border-right-color: #2d2d2d;
+}
+
+.sidebar-brand {
+  border-bottom-color: #2d2d2d;
+}
+
+.sidebar-brand:hover {
+  background: #2d2d2d;
+}
+
+.sidebar-brand-name {
+  color: #ececf1;
+}
+
+.sidebar-header {
+  border-bottom-color: #2d2d2d;
+}
+
+.sidebar-new-chat {
+  background: #10a37f;
+}
+
+.sidebar-new-chat:hover {
+  background: #0d8a6a;
+}
+
+.sidebar-close {
+  background: #2d2d2d;
+  color: #9a9b9f;
+}
+
+.sidebar-section-title {
+  color: #6e6e80;
+}
+
+.sidebar-session {
+  color: #ececf1;
+}
+
+.sidebar-session:hover {
+  background: #2d2d2d;
+}
+
+.sidebar-session.active {
+  background: #2a4a3e;
+}
+
+.sidebar-session-title {
+  color: #ececf1;
+}
+
+.sidebar-session-time {
+  color: #6e6e80;
+}
+
+.sidebar-session-delete {
+  color: #6e6e80;
+}
+
+.sidebar-session-delete:hover {
+  color: #ef4444;
+}
+
+.sidebar-tools {
+  border-top-color: #2d2d2d;
+  border-bottom-color: #2d2d2d;
+}
+
+.sidebar-tool-item {
+  color: #ececf1;
+}
+
+.sidebar-tool-item:hover {
+  background: #2d2d2d;
+}
+
+.sidebar-footer {
+  background: #171717;
+}
+
+.sidebar-user-trigger {
+  color: #ececf1;
+}
+
+.sidebar-user-trigger:hover {
+  background: #2d2d2d;
+}
+
+.sidebar-user-name {
+  color: #ececf1;
+}
+
+.sidebar-user-menu {
+  background: #171717;
+  border-color: #2d2d2d;
+}
+
+.sidebar-menu-item {
+  color: #ececf1;
+}
+
+.sidebar-menu-item:hover {
+  background: #2d2d2d;
+}
+
+.sidebar-menu-item.danger {
+  color: #ef4444;
+}
+
+.sidebar-menu-item.danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.sidebar-divider {
+  background: #2d2d2d;
+}
+
+/* 侧边栏遮罩 */
+.sidebar-overlay {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+/* 侧边栏拖拽器 */
+.sidebar-resizer:hover,
+.sidebar-resizer.dragging {
+  background: #10a37f;
+}
+
 /* 导航栏 */
 .navbar {
   background: #343541;
@@ -27,9 +159,41 @@ body {
   background: #10a37f;
 }
 
+/* 侧边栏切换按钮 */
+.sidebar-toggle {
+  color: #ececf1;
+}
+
+.sidebar-toggle:hover {
+  background: #444654;
+}
+
+/* 主题切换按钮 */
+.theme-toggle-btn {
+  background: #2d2d2d;
+  color: #ececf1;
+}
+
+.theme-toggle-btn:hover {
+  background: #3d3d3d;
+}
+
 /* Agent 切换器 */
+.agent-switcher {
+  background: #343541;
+  border-color: #4d4d4f;
+}
+
 .agent-switcher:hover {
   background: #444654;
+}
+
+.agent-avatar-mini {
+  color: #ececf1;
+}
+
+.agent-switcher-arrow {
+  color: #6e6e80;
 }
 
 /* Agent 下拉 */
@@ -51,11 +215,15 @@ body {
 }
 
 .agent-dropdown-item .info h4 {
-  color: #ececf1;
+  color: #ececf1 !important;
 }
 
 .agent-dropdown-item .info p {
-  color: #9a9b9f;
+  color: #9a9b9f !important;
+}
+
+.agent-dropdown-item .emoji svg {
+  color: #10a37f;
 }
 
 /* 用户头像 */

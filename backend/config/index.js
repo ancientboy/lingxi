@@ -3,6 +3,14 @@
  * 所有环境变量和默认值集中管理
  */
 
+// 🚨 必须在最开始加载 .env（ES Module 方式）
+import { createRequire } from 'module';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+const require = createRequire(import.meta.url);
+const __dirname = dirname(fileURLToPath(import.meta.url));
+require('dotenv').config({ path: join(__dirname, '..', '.env') });
+
 export const config = {
   // 服务配置
   server: {
@@ -14,6 +22,12 @@ export const config = {
   security: {
     jwtSecret: process.env.JWT_SECRET || 'lingxi-cloud-secret-key-2026',
     adminKey: process.env.ADMIN_KEY || 'lingxi-admin-2026',
+  },
+  
+  // API Keys（用于用户服务器配置）
+  env: {
+    ZHIPU_API_KEY: process.env.ZHIPU_API_KEY || '77c2b59d03e646a9884f78f8c4787885.XunhoXmFaErSD0dR',
+    DASHSCOPE_API_KEY: process.env.DASHSCOPE_API_KEY || 'sk-sp-8a1ddcacc5f94df4a24dd998c895fc4d',
   },
   
   // 用户服务器配置

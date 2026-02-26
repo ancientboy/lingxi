@@ -7,10 +7,15 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs/promises';
 import path from 'path';
+import { randomBytes } from 'crypto';
 import { updateUserAgents, getUser } from '../utils/db.js';
 
 const execAsync = promisify(exec);
 const router = express.Router();
+
+// 🔧 自动检测用户目录（不再硬编码）
+const HOME_DIR = process.env.HOME || process.env.USERPROFILE || '/root';
+const OPENCLAW_DIR = path.join(HOME_DIR, '.openclaw');
 
 // 配置
 const INSTANCES_DIR = process.env.INSTANCES_DIR || '/data/lingxi-instances';
@@ -19,18 +24,150 @@ const BASE_PORT = parseInt(process.env.BASE_PORT || '19000');
 const SERVER_IP = process.env.SERVER_IP || '120.26.137.51';
 
 // MVP 模式：复用现有 OpenClaw 实例（18789 端口）
-// 生产环境默认关闭 MVP 模式，每个用户独立实例
-const MVP_MODE = process.env.MVP_MODE === 'true'; // 默认关闭
+const MVP_MODE = process.env.MVP_MODE === 'true';
 const MVP_OPENCLAW_PORT = parseInt(process.env.MVP_OPENCLAW_PORT || '18789');
+
+// 🔧 MVP 模式的 Token 和 Session 从环境变量读取，或使用默认值
 const MVP_OPENCLAW_TOKEN = process.env.MVP_OPENCLAW_TOKEN || '6f3719a52fa12799fea8e4a06655703f';
 const MVP_OPENCLAW_SESSION = process.env.MVP_OPENCLAW_SESSION || 'c308f1f0';
 
-// OpenClaw 配置路径
-const OPENCLAW_CONFIG_PATH = '/home/admin/.openclaw/agents_config.json';
+// 🔧 动态配置路径
+const OPENCLAW_CONFIG_PATH = path.join(OPENCLAW_DIR, 'agents_config.json');
+const OPENCLAW_MAIN_CONFIG = path.join(OPENCLAW_DIR, 'openclaw.json');
 
-// 实例池（内存存储，MVP 阶段够用）
+// Agent 名称映射
+const AGENT_NAMES = {
+  lingxi: '灵犀', coder: '云溪', ops: '若曦', inventor: '紫萱',
+  pm: '梓萱', noter: '晓琳', media: '音韵', smart: '智家'
+};
+
+// 实例池
 let instancePool = [];
 let nextPort = BASE_PORT;
+
+/**
+ * 🔧 验证实例配置
+ */
+async function validateInstanceConfig(config) {
+  const errors = [];
+  
+  // 检查必要字段
+  if (!config.gateway?.port) {
+    errors.push('缺少 gateway.port');
+  }
+  if (!config.gateway?.controlUi?.basePath) {
+    errors.push('缺少 gateway.controlUi.basePath');
+  }
+  if (!config.gateway?.auth?.token) {
+    errors.push('缺少 gateway.auth.token');
+  }
+  if (!config.agents?.list || config.agents.list.length === 0) {
+    errors.push('缺少 agents.list');
+  }
+  
+  return {
+    valid: errors.length === 0,
+    errors
+  };
+}
+
+/**
+ * 🔧 健康检查实例
+ */
+async function healthCheckInstance(instanceUrl, timeout = 5000) {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    
+    const response = await fetch(`${instanceUrl}/health`, {
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 🔧 生成随机 Token
+ */
+function generateToken() {
+  return randomBytes(16).toString('hex');
+}
+
+/**
+ * 🔧 生成随机 Session basePath
+ */
+function generateSessionPath() {
+  return randomBytes(4).toString('hex');
+}
+
+/**
+ * 🔧 获取当前服务器 IP
+ */
+async function detectServerIP() {
+  try {
+    const { stdout } = await execAsync('curl -s --connect-timeout 3 ifconfig.me 2>/dev/null || curl -s --connect-timeout 3 icanhazip.com 2>/dev/null');
+    return stdout.trim() || SERVER_IP;
+  } catch {
+    return SERVER_IP;
+  }
+}
+
+/**
+ * 🔧 生成完整的 OpenClaw 实例配置
+ */
+async function generateInstanceConfig(options = {}) {
+  const { 
+    token = generateToken(), 
+    basePath = generateSessionPath(),
+    serverIp = await detectServerIP(),
+    agents = ['lingxi']
+  } = options;
+
+  const config = {
+    agents: {
+      defaults: {
+        model: { primary: 'zhipu/glm-5' },
+        workspace: path.join(OPENCLAW_DIR, 'workspace')
+      },
+      list: agents.map(id => ({
+        id,
+        default: id === 'lingxi',
+        name: AGENT_NAMES[id] || id
+      }))
+    },
+    tools: {
+      subagents: {
+        tools: { allow: [] }
+      }
+    },
+    gateway: {
+      port: 18789,
+      mode: 'local',
+      bind: 'lan',
+      controlUi: {
+        enabled: true,
+        basePath: basePath,
+        allowedOrigins: [
+          '*',
+          `http://${serverIp}:3000`,
+          'http://localhost:3000',
+          'http://127.0.0.1:3000'
+        ],
+        allowInsecureAuth: true
+      },
+      auth: {
+        mode: 'token',
+        token: token
+      }
+    }
+  };
+
+  return { config, token, basePath };
+}
 
 /**
  * 初始化实例池
@@ -69,7 +206,10 @@ async function saveInstancePool() {
 /**
  * 创建新实例
  */
-async function createInstance(instanceId) {
+/**
+ * 创建新实例
+ */
+async function createInstance(instanceId, options = {}) {
   const port = nextPort++;
   const configDir = path.join(INSTANCES_DIR, instanceId, 'config');
   const dataDir = path.join(INSTANCES_DIR, instanceId, 'data');
@@ -78,27 +218,17 @@ async function createInstance(instanceId) {
   await fs.mkdir(configDir, { recursive: true });
   await fs.mkdir(dataDir, { recursive: true });
   
-  // 复制基础配置
-  const baseConfig = {
-    agents: {
-      defaults: {
-        model: { primary: 'zhipu/glm-5' },
-        workspace: '/workspace'
-      },
-      list: [
-        { id: 'main', default: true, name: '灵犀' }
-      ]
-    },
-    tools: {
-      subagents: {
-        tools: { allow: [] }
-      }
-    }
-  };
+  // 🔧 生成完整的配置（包含 token、basePath、allowedOrigins）
+  const serverIp = await detectServerIP();
+  const { config, token, basePath } = await generateInstanceConfig({
+    serverIp,
+    agents: options.agents || ['lingxi']
+  });
   
+  // 写入配置文件
   await fs.writeFile(
     path.join(configDir, 'openclaw.json'),
-    JSON.stringify(baseConfig, null, 2)
+    JSON.stringify(config, null, 2)
   );
   
   // 启动 Docker 容器
@@ -115,12 +245,32 @@ async function createInstance(instanceId) {
   // 等待启动
   await new Promise(resolve => setTimeout(resolve, 5000));
   
+  // 验证实例是否启动成功
+  let ready = false;
+  for (let i = 0; i < 10; i++) {
+    try {
+      const response = await fetch(`http://localhost:${port}/health`);
+      if (response.ok) {
+        ready = true;
+        break;
+      }
+    } catch {}
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  }
+  
+  if (!ready) {
+    console.warn(`⚠️ 实例 ${instanceId} 可能未完全启动`);
+  }
+  
   return {
     id: instanceId,
     port,
-    status: 'ready',
-    url: `http://localhost:${port}`,
-    createdAt: new Date().toISOString()
+    status: ready ? 'ready' : 'starting',
+    url: `http://${serverIp}:${port}`,
+    localUrl: `http://localhost:${port}`,
+    token,
+    basePath,
+    publicUrl: `http://${serverIp}:${port}/${basePath}/?token=${token}`
   };
 }
 
@@ -193,10 +343,26 @@ async function configureOpenClawAgents(selectedAgents) {
  */
 router.post('/assign', async (req, res) => {
   try {
-    const { userId, agents: selectedAgents = ['lingxi'] } = req.body;
+    // 验证输入
+    const { userId, agents: inputAgents = ['lingxi'] } = req.body;
     
     if (!userId) {
       return res.status(400).json({ error: 'userId is required' });
+    }
+    
+    // 验证 userId
+    try {
+      validateUserId(userId);
+    } catch (e) {
+      return res.status(400).json({ error: e.message });
+    }
+    
+    // 验证并处理 agents
+    let selectedAgents;
+    try {
+      selectedAgents = validateAgents(inputAgents);
+    } catch (e) {
+      return res.status(400).json({ error: e.message });
     }
     
     // MVP 模式：配置 OpenClaw agents 并返回访问 URL
@@ -210,7 +376,8 @@ router.post('/assign', async (req, res) => {
       await configureOpenClawAgents(selectedAgents);
       
       // 返回带 token 的 URL
-      const openclawUrl = `http://${SERVER_IP}:${MVP_OPENCLAW_PORT}/${MVP_OPENCLAW_SESSION}?token=${MVP_OPENCLAW_TOKEN}`;
+      const serverIp = await detectServerIP();
+      const openclawUrl = `http://${serverIp}:${MVP_OPENCLAW_PORT}/${MVP_OPENCLAW_SESSION}?token=${MVP_OPENCLAW_TOKEN}`;
       
       return res.json({
         success: true,
@@ -218,7 +385,9 @@ router.post('/assign', async (req, res) => {
           id: 'lingxi-main',
           url: openclawUrl,
           status: 'ready',
-          agents: selectedAgents
+          agents: selectedAgents,
+          token: MVP_OPENCLAW_TOKEN,
+          basePath: MVP_OPENCLAW_SESSION
         }
       });
     }
@@ -227,11 +396,11 @@ router.post('/assign', async (req, res) => {
     let instance = instancePool.find(i => i.status === 'idle' && !i.assignedTo);
     
     if (!instance) {
-      // 创建新实例
+      // 创建新实例（传入 agents 配置）
       const instanceId = `lingxi-user-${Date.now()}`;
       console.log(`🔨 创建新实例: ${instanceId}`);
       
-      instance = await createInstance(instanceId);
+      instance = await createInstance(instanceId, { agents: selectedAgents });
       instancePool.push(instance);
       await saveInstancePool();
     }
@@ -240,19 +409,22 @@ router.post('/assign', async (req, res) => {
     instance.assignedTo = userId;
     instance.assignedAt = new Date().toISOString();
     instance.status = 'assigned';
+    instance.agents = selectedAgents;
     await saveInstancePool();
     
     console.log(`✅ 实例 ${instance.id} 已分配给用户 ${userId}`);
-    
-    // 返回外网可访问的 URL
-    const publicUrl = instance.url.replace('localhost', SERVER_IP);
+    console.log(`   Token: ${instance.token}`);
+    console.log(`   公网地址: ${instance.publicUrl}`);
     
     res.json({
       success: true,
       instance: {
         id: instance.id,
-        url: publicUrl,
-        status: instance.status
+        url: instance.publicUrl,
+        status: instance.status,
+        agents: selectedAgents,
+        token: instance.token,
+        basePath: instance.basePath
       }
     });
   } catch (error) {
@@ -342,3 +514,105 @@ router.get('/', (req, res) => {
 initInstancePool();
 
 export default router;
+
+/**
+ * 🔧 错误处理包装器
+ */
+function handleAsyncError(fn) {
+  return async (req, res, next) => {
+    try {
+      await fn(req, res, next);
+    } catch (error) {
+      console.error(`[Error] ${req.method} ${req.path}:`, error);
+      
+      // 判断错误类型
+      if (error.code === 'ENOENT') {
+        res.status(404).json({ error: '文件或目录不存在', details: error.message });
+      } else if (error.code === 'EACCES') {
+        res.status(403).json({ error: '权限不足', details: error.message });
+      } else if (error.code === 'ECONNREFUSED') {
+        res.status(503).json({ error: '服务不可用', details: '无法连接到目标服务' });
+      } else if (error.message?.includes('docker')) {
+        res.status(500).json({ error: 'Docker 操作失败', details: error.message });
+      } else {
+        res.status(500).json({ error: error.message || '未知错误' });
+      }
+    }
+  };
+}
+
+/**
+ * 🔧 安全执行命令
+ */
+async function safeExec(command, options = {}) {
+  const { timeout = 30000, ignoreError = false } = options;
+  
+  try {
+    const { stdout, stderr } = await execAsync(command, { 
+      timeout,
+      maxBuffer: 1024 * 1024 * 10  // 10MB buffer
+    });
+    
+    if (stderr && !ignoreError) {
+      console.warn(`[Warn] Command stderr: ${stderr}`);
+    }
+    
+    return { success: true, stdout, stderr };
+  } catch (error) {
+    if (ignoreError) {
+      return { success: false, error: error.message, stdout: '', stderr: '' };
+    }
+    throw error;
+  }
+}
+
+/**
+ * 🔧 验证用户 ID
+ */
+function validateUserId(userId) {
+  if (!userId) {
+    throw new Error('userId 是必需的');
+  }
+  if (typeof userId !== 'string') {
+    throw new Error('userId 必须是字符串');
+  }
+  if (userId.length < 8 || userId.length > 64) {
+    throw new Error('userId 长度必须在 8-64 之间');
+  }
+  if (!/^[a-zA-Z0-9_-]+$/.test(userId)) {
+    throw new Error('userId 只能包含字母、数字、下划线和连字符');
+  }
+  return true;
+}
+
+/**
+ * 🔧 验证 Agent 列表
+ */
+function validateAgents(agents) {
+  const validAgents = ['lingxi', 'coder', 'ops', 'inventor', 'pm', 'noter', 'media', 'smart'];
+  
+  if (!Array.isArray(agents)) {
+    throw new Error('agents 必须是数组');
+  }
+  
+  if (agents.length === 0) {
+    throw new Error('agents 不能为空');
+  }
+  
+  for (const agent of agents) {
+    if (!validAgents.includes(agent)) {
+      throw new Error(`无效的 Agent: ${agent}`);
+    }
+  }
+  
+  // 确保 lingxi 始终存在
+  if (!agents.includes('lingxi')) {
+    agents.unshift('lingxi');
+  }
+  
+  return agents;
+}
+
+console.log('✅ 实例管理路由已加载');
+console.log(`   配置目录: ${OPENCLAW_DIR}`);
+console.log(`   MVP 模式: ${MVP_MODE}`);

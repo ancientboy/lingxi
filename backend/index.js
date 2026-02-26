@@ -7,14 +7,15 @@
  * - 用户管理
  */
 
+// 🚨 必须在最开始加载环境变量（ES Module 方式）
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+require('dotenv').config({ path: require('path').join(require('path').dirname(require('url').fileURLToPath(import.meta.url)), '.env') });
+
 import express from 'express';
 import cors from 'cors';
-import { config } from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-
-// 加载环境变量
-config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -26,8 +27,16 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// 托管前端静态文件
-app.use(express.static(join(__dirname, '../frontend')));
+// 托管前端静态文件（禁用 HTML 缓存）
+app.use(express.static(join(__dirname, '../frontend'), {
+  setHeaders: (res, path) => {
+    if (path.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  }
+}));
 
 // ============ 路由 ============
 
@@ -96,10 +105,15 @@ app.use((err, req, res, next) => {
   });
 });
 
+// 设置 WebSocket 代理（必须在 app.listen 之前）
+import { setupWebSocketProxy } from './routes/ws-proxy.js';
+setupWebSocketProxy(app);
+
 // 启动服务
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`🚀 灵犀云后端服务已启动: http://localhost:${PORT}`);
   console.log(`📝 健康检查: http://localhost:${PORT}/health`);
 });
+
 
 export default app;
