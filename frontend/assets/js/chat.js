@@ -1,7 +1,8 @@
 // 配置变量（从后端动态获取）
 const API_BASE = window.location.origin;
 let GATEWAY_WS = null;
-let GATEWAY_TOKEN = null;
+let GATEWAY_TOKEN = null;  // JWT token，用于 WebSocket 代理认证
+let OPENCLAW_TOKEN = null;  // OpenClaw token，用于 connect 消息
 let GATEWAY_SESSION = null;
 let SESSION_PREFIX = null;
 
@@ -231,7 +232,8 @@ async function init() {
     
     const gatewayInfo = await res.json();
     GATEWAY_WS = gatewayInfo.wsUrl;
-    GATEWAY_TOKEN = gatewayInfo.token;
+    GATEWAY_TOKEN = gatewayInfo.token;  // JWT token，用于代理
+    OPENCLAW_TOKEN = gatewayInfo.gatewayToken;  // OpenClaw token，用于 connect
     GATEWAY_SESSION = gatewayInfo.session;
     SESSION_PREFIX = gatewayInfo.sessionPrefix;
     
@@ -337,7 +339,7 @@ function sendConnect() {
     },
     role: 'operator',
     scopes: ['operator.admin', 'operator.read', 'operator.write'],
-    auth: { token: GATEWAY_TOKEN },
+    auth: { token: OPENCLAW_TOKEN },  // 使用 OpenClaw token
     locale: 'zh-CN',
     userAgent: navigator.userAgent
   };
