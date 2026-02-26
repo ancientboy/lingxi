@@ -104,10 +104,15 @@ export function setupWebSocketProxy(app) {
       }
       
       const targetUrl = `${gatewayConfig.wsUrl}/${gatewayConfig.session}/ws`;
+      const wsHost = gatewayConfig.wsUrl.replace('ws://', '');
       console.log(`🔌 [${userId.substring(0, 8)}] 代理 WebSocket → ${targetUrl}`);
       
-      // 连接目标 WebSocket
-      targetWs = new WebSocket(targetUrl);
+      // 连接目标 WebSocket（设置 Origin 为用户服务器地址，绕过 CORS 检查）
+      targetWs = new WebSocket(targetUrl, {
+        headers: {
+          'Origin': `http://${wsHost}`
+        }
+      });
       
       targetWs.on('open', () => {
         console.log(`✅ [${userId.substring(0, 8)}] 已连接到目标 Gateway`);
