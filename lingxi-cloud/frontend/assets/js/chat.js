@@ -291,6 +291,14 @@ async function init() {
   currentSessionKey = SESSION_KEY;
   console.log('🔑 会话 Key:', currentSessionKey);
   
+// ═══════════════════════════════════════════════════════════════
+// 🔌 WebSocket 模块
+// - connectWebSocket(): 建立 WebSocket 连接
+// - sendConnect(): 发送连接认证
+// - handleWebSocketMessage(): 处理消息
+// - abortChat(): 中断生成
+// ═══════════════════════════════════════════════════════════════
+
   renderTeamTags();
   connectWebSocket();
   
@@ -472,6 +480,14 @@ function handleWebSocketMessage(data) {
         updateStreamingMessage(text, runId);
       }
     }
+// ═══════════════════════════════════════════════════════════════
+// 💬 消息模块
+// - sendMessage(): 发送消息
+// - addMessage(): 添加消息到界面
+// - extractText(): 提取消息文本
+// - updateStreamingMessage(): 更新流式消息
+// ═══════════════════════════════════════════════════════════════
+
     // final - 完成
     else if (payload.state === 'final') {
       const text = extractText(payload.message);
@@ -676,6 +692,15 @@ function sendMessage() {
 function handleSendClick() {
   console.log('🖱️ 发送按钮被点击, isGenerating:', isGenerating);
   if (isGenerating) {
+// ═══════════════════════════════════════════════════════════════
+// 📝 会话模块
+// - loadChatHistory(): 加载聊天历史
+// - loadSessions(): 加载会话列表
+// - createNewSession(): 创建新会话
+// - switchSession(): 切换会话
+// - deleteSession(): 删除会话
+// ═══════════════════════════════════════════════════════════════
+
     abortChat();
   } else {
     sendMessage();
@@ -1308,6 +1333,14 @@ function addTyping() {
   const messages = document.getElementById('messages');
   const div = document.createElement('div');
   div.className = 'message assistant';
+// ═══════════════════════════════════════════════════════════════
+// 👥 Agent 模块
+// - showMyTeam(): 显示团队配置
+// - addAgent(): 添加 Agent
+// - removeAgent(): 移除 Agent
+// - switchAgent(): 切换 Agent
+// ═══════════════════════════════════════════════════════════════
+
   div.id = 'typing-indicator';
   
   // 获取当前 Agent 的头像
@@ -2112,6 +2145,14 @@ function switchAgent(agentId) {
   
   // 关闭下拉
   document.getElementById('agentDropdown')?.classList.remove('show');
+// ═══════════════════════════════════════════════════════════════
+// 🎯 技能库模块
+// - showSkillLibrary(): 显示技能库
+// - loadInstalledSkills(): 加载已安装技能
+// - renderSkillGrid(): 渲染技能网格
+// - installSkill(): 安装技能
+// ═══════════════════════════════════════════════════════════════
+
   
   // 更新列表
   renderAgentDropdown();
