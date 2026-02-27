@@ -1,3 +1,23 @@
+/**
+ * 灵犀云 - 聊天界面主脚本
+ * 
+ * 总计: 2718 行，90 个函数
+ * 
+ * 模块索引:
+ * ─────────────────────────────────────────
+ * 📦 全局变量和配置         第 1-150 行
+ * 🔌 WebSocket 模块         第 294-695 行
+ * 💬 消息模块               第 483-1294 行
+ * 📝 会话模块               第 695-1210 行
+ * 👥 Agent 模块             第 1336-1509 行
+ * ⚙️ 配置模块               第 1519-1760 行
+ * 🎯 技能库模块             第 2148-2698 行
+ * 🚀 引导模块               第 1803-1988 行
+ * 🎨 UI 工具模块            第 143-1768 行
+ * 📍 初始化入口             第 155-294 行
+ * ─────────────────────────────────────────
+ */
+
 // 配置变量（从后端动态获取）
 const API_BASE = window.location.origin;
 let GATEWAY_WS = null;
@@ -140,6 +160,8 @@ const AGENT_SKILLS_MAP = {
 window.agentSkillsData = {};
 
 // 辅助函数：生成 Lucide 图标 HTML
+
+// ═══════════════════════════════════════════════════════════════
 function agentIcon(agent, size = 'sm') {
   const icon = agent.icon || 'bot';
   return `<i data-lucide="${icon}" class="icon icon-${size} icon-primary"></i>`;
@@ -152,6 +174,10 @@ let currentRunId = null;
 let isGenerating = false;
 
 // 初始化
+
+// ═══════════════════════════════════════════════════════════════
+// 📍 初始化入口
+// ═══════════════════════════════════════════════════════════════
 async function init() {
   console.log('🚀 初始化聊天页面...');
   
@@ -291,6 +317,10 @@ let requestId = 1;
 let connectNonce = null;
 
 // WebSocket 连接
+
+// ═══════════════════════════════════════════════════════════════
+// 🔌 WebSocket 模块
+// ═══════════════════════════════════════════════════════════════
 function connectWebSocket() {
   const statusEl = document.getElementById('connectionStatus');
   statusEl.querySelector('.status-dot').className = 'status-dot';
@@ -582,6 +612,10 @@ function renderTeamTags() {
 }
 
 // 发送消息
+
+// ═══════════════════════════════════════════════════════════════
+// 💬 消息模块
+// ═══════════════════════════════════════════════════════════════
 function sendMessage() {
   console.log('🔔 sendMessage 被调用, currentSessionKey:', currentSessionKey);
   
@@ -692,6 +726,10 @@ function abortChat() {
 }
 
 // 加载聊天历史
+
+// ═══════════════════════════════════════════════════════════════
+// 📝 会话模块
+// ═══════════════════════════════════════════════════════════════
 async function loadChatHistory() {
   console.log('📚 loadChatHistory 开始, currentSessionKey:', currentSessionKey);
   
@@ -1333,6 +1371,10 @@ function logout() {
 // ===== 团队管理 =====
 
 // 显示我的团队
+
+// ═══════════════════════════════════════════════════════════════
+// 👥 Agent 模块
+// ═══════════════════════════════════════════════════════════════
 function showMyTeam() {
   const dropdown = document.getElementById('userDropdown');
   if (dropdown) dropdown.classList.remove('show');
@@ -1516,6 +1558,10 @@ function closeSessionModal() {
 
 // ===== 飞书配置 =====
 
+
+// ═══════════════════════════════════════════════════════════════
+// ⚙️ 配置模块
+// ═══════════════════════════════════════════════════════════════
 function showFeishuConfig() {
   const dropdown = document.getElementById('userDropdown');
   if (dropdown) dropdown.classList.remove('show');
@@ -1800,6 +1846,10 @@ let selectedJobType = null;
 let recommendationData = null;
 
 // 检查并启动引导
+
+// ═══════════════════════════════════════════════════════════════
+// 🚀 引导模块
+// ═══════════════════════════════════════════════════════════════
 async function checkOnboarding() {
   try {
     const res = await fetch(`${API_BASE}/api/auth/me`, {
@@ -2145,6 +2195,10 @@ let localSkillsCache = [];
 /**
  * 显示技能库弹窗
  */
+
+// ═══════════════════════════════════════════════════════════════
+// 🎯 技能库模块
+// ═══════════════════════════════════════════════════════════════
 function showSkillLibrary() {
   // 关闭其他弹窗
   document.getElementById('userDropdown')?.classList.remove('show');
