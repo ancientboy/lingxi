@@ -2726,6 +2726,9 @@ function installSkill(skillId, btnElement) {
   closeSkillLibrary();
 }
 
+// 暴露到全局作用域（供 onclick 调用）
+window.installSkill = installSkill;
+
 // 初始化时渲染 agent 下拉
 function initAgentDropdown() {
   console.log('🎯 initAgentDropdown 调用, user:', user);

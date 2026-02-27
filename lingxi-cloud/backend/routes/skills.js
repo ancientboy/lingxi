@@ -269,10 +269,6 @@ router.post('/install/:skillId', authenticateUser, async (req, res) => {
     });
   }
 });
-      message: error.message 
-    });
-  }
-});
 
 /**
  * 获取用户已安装的技能（通过 SSH 连接用户实例）
@@ -295,8 +291,8 @@ router.get('/installed', authenticateUser, async (req, res) => {
       });
     }
     
-    // 通过 SSH 获取技能列表
-    const skills = await getInstalledSkillsViaSSH(server.ip, server.openclawPort || 22);
+    // 通过 SSH 获取技能列表（SSH 端口固定为 22）
+    const skills = await getInstalledSkillsViaSSH(server.ip);
     
     res.json({
       total: skills.length,
