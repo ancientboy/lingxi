@@ -2423,7 +2423,7 @@ function handleSkillSearch() {
                  <i data-lucide="check-circle" class="icon-sm"></i>
                  已安装
                </span>`
-            : `<button class="skill-btn install" onclick="event.stopPropagation(); installGlobalSkill('${skill.id}', this)">
+            : `<button class="skill-btn install" onclick="event.stopPropagation(); installSkill('${skill.id}', this)">
                  <i data-lucide="download" class="icon-sm"></i>
                  安装
                </button>`
@@ -2661,7 +2661,7 @@ function renderPopularSkills(skills, installedSet) {
         <div class="skill-actions">
           ${isInstalled 
             ? `<span class="skill-badge installed" onclick="event.stopPropagation();"><i data-lucide="check-circle" class="icon-sm"></i> 已安装</span>`
-            : `<button class="skill-btn install" onclick="event.stopPropagation(); installGlobalSkill('${skill.id}', this)"><i data-lucide="download" class="icon-sm"></i> 安装</button>`
+            : `<button class="skill-btn install" onclick="event.stopPropagation(); installSkill('${skill.id}', this)"><i data-lucide="download" class="icon-sm"></i> 安装</button>`
           }
         </div>
       </div>
@@ -2669,41 +2669,6 @@ function renderPopularSkills(skills, installedSet) {
   }).join('');
 
   if (window.lucide) lucide.createIcons();
-}
-
-// ===== 安装热门技能 =====
-async function installGlobalSkill(skillId, btnElement) {
-  const token = localStorage.getItem('lingxi_token');
-  if (!token) { alert('请先登录'); return; }
-
-  const btn = btnElement || event.target;
-  const originalText = btn.textContent;
-  btn.disabled = true;
-  btn.innerHTML = '<i data-lucide="loader" class="icon-sm"></i> 安装中...';
-
-  try {
-    const res = await fetch(`${API_BASE}/api/skills/install-global/${skillId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify({})
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      alert(data.message || `技能 ${skillId} 安装成功！`);
-      btn.textContent = '已安装';
-      btn.className = 'skill-btn installed';
-      installedSkills.add(skillId);
-    } else {
-      const errorData = await res.json();
-      alert(errorData.message || errorData.error || '安装失败');
-    }
-  } catch (error) {
-    console.error('安装失败:', error);
-    alert('安装失败: ' + error.message);
-  } finally {
-    btn.disabled = false;
-  }
 }
 
 // ===== 安装本地技能 =====
