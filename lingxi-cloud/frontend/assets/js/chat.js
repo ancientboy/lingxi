@@ -2132,6 +2132,13 @@ let allSkills = [];
 // 已安装的技能列表
 let installedSkills = new Set();
 
+// 当前 Tab (local/clawhub/popular)
+let currentSkillTab = 'local';
+
+// ClawHub 技能缓存
+let clawHubSkillsCache = [];
+let popularSkillsCache = [];
+
 /**
  * 显示技能库弹窗
  */
@@ -2488,6 +2495,174 @@ async function installSkill(skillId, btnElement) {
     
     console.error('安装技能失败:', e);
     alert('安装失败: ' + e.message);
+  }
+}
+
+// ===== 切换技能库 Tab =====
+function switchSkillTab(tabId) {
+  currentSkillTab = tabId;
+  
+  // 更新 Tab active 状态
+  document.querySelectorAll('.skill-tab-item').forEach(item => {
+    item.classList.remove('active');
+    if (item.getAttribute('data-tab') === tabId) {
+      item.classList.add('active');
+    }
+  });
+  
+  // 根据 Tab 加载数据
+  loadCurrentTabData();
+}
+
+// ===== 加载当前 Tab 的数据 =====
+async function loadCurrentTabData() {
+  if (currentSkillTab === 'local') {
+    loadLocalSkills();
+  } else if (currentSkillTab === 'clawhub') {
+    loadClawHubSkills();
+  } else if (currentSkillTab === 'popular') {
+    loadPopularSkills();
+  }
+}
+
+// ===== 加载本地技能 =====
+async function loadLocalSkills() {
+  const token = localStorage.getItem('lingxi_token');
+  if (!token) return;
+  try {
+    const res = await fetch(`${API_BASE}/api/skills/available`, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (res.ok) {
+      const data = await res.json();
+      renderSkills(data.skills || [], installedSkills, 'local');
+      document.getElementById('skillGroupTitle').innerHTML = '<i data-lucide="database" class="icon-sm icon-primary"></i> 本地技能';
+    }
+  } catch (error) {
+    console.error('加载本地技能失败:', error);
+  }
+}
+
+// ===== 加载 ClawHub 技能 =====
+async function loadClawHubSkills() {
+  const token = localStorage.getItem('lingxi_token');
+  if (!token) return;
+  try {
+    const res = await fetch(`${API_BASE}/api/skills/clawhub/popular`, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (res.ok) {
+      const data = await res.json();
+      renderClawHubSkills(data.skills || [], installedSkills, 'clawhub');
+      document.getElementById('skillGroupTitle').innerHTML = '<i data-lucide="globe" class="icon-sm icon-primary"></i> 全网技能';
+    }
+  } catch (error) {
+    console.error('加载全网技能失败:', error);
+  }
+}
+
+// ===== 加载热门技能 =====
+async function loadPopularSkills() {
+  const token = localStorage.getItem('lingxi_token');
+  if (!token) return;
+  try {
+    const res = await fetch(`${API_BASE}/api/skills/clawhub/popular`, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (res.ok) {
+      const data = await res.json();
+      renderClawHubSkills(data.skills || [], installedSkills, 'popular');
+      document.getElementById('skillGroupTitle').innerHTML = '<i data-lucide="star" class="icon-sm icon-primary"></i> 热门技能';
+    }
+  } catch (error) {
+    console.error('加载热门技能失败:', error);
+  }
+}
+
+// ===== 渲染 ClawHub 技能 =====
+function renderClawHubSkills(skills, installedSet, source = 'clawhub') {
+  const container = document.getElementById('skillGrid');
+  if (!container) return;
+
+  if (skills.length === 0) {
+    container.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px 20px;color:#6e6e80;"><i data-lucide="package" style="width:48px;height:48px;margin-bottom:16px;color:#d1d5db;"></i><p>暂无技能</p></div>';
+    if (window.lucide) lucide.createIcons();
+    return;
+  }
+
+  const agentMap = {
+    coder: { name: '云溪', icon: 'code', color: '#10a37f' },
+    ops: { name: '若曦', icon: 'bar-chart-2', color: '#f59e0b' },
+    inventor: { name: '紫萱', icon: 'lightbulb', color: '#8b5cf6' },
+    pm: { name: '梓萱', icon: 'target', color: '#06b6d4' },
+    noter: { name: '晓琳', icon: 'file-text', color: '#ef4444' },
+    media: { name: '音韵', icon: 'palette', color: '#ec4899' },
+    smart: { name: '智家', icon: 'home', color: '#3b82f6' },
+    lingxi: { name: '灵犀', icon: 'zap', color: '#6366f1' }
+  };
+
+  const getAgentColor = (agent) => agentMap[agent]?.color || '#10a37f';
+
+  container.innerHTML = skills.map(skill => {
+    const isInstalled = installedSet.has(skill.id);
+    const agent = skill.agent || 'lingxi';
+    const agentColor = getAgentColor(agent);
+    const agentInfo = agentMap[agent] || agentMap.lingxi;
+
+    return `
+      <div class="skill-card" onclick="handleSkillClick('${skill.id}', '${source}')">
+        <div class="skill-header">
+          <div class="skill-icon" style="background:${agentColor}">
+            <i data-lucide="${agentInfo.icon}" style="width:24px;height:24px;color:white;"></i>
+          </div>
+          <div class="skill-info">
+            <div class="skill-name">${skill.name || skill.id}</div>
+            <div class="skill-desc">${skill.desc || skill.description || ''}</div>
+            <div style="display:flex;gap:8px;margin-top:6px;">
+              <span class="skill-agent-tag" style="background:rgba(16,163,127,0.1)"><i data-lucide="user" class="icon-sm"></i> ${skill.agent || '通用'}</span>
+              <span class="skill-source-tag" style="background:${source === 'clawhub' ? 'rgba(16,163,127,0.1)' : 'rgba(100,116,139,0.1)'};border:1px solid #e5e5e5"><i data-lucide="globe" class="icon-sm"></i> ${source === 'clawhub' ? 'ClawHub' : '热门'}</span>
+            </div>
+          </div>
+        </div>
+        <div class="skill-actions">
+          ${isInstalled 
+            ? `<button class="skill-btn installed" onclick="event.stopPropagation();"><i data-lucide="check-circle" class="icon-sm"></i> 已安装</button>`
+            : `<button class="skill-btn install" onclick="event.stopPropagation(); installGlobalSkill('${skill.id}', this, '${source}')"><i data-lucide="download" class="icon-sm"></i> 安装</button>`
+          }
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  if (window.lucide) lucide.createIcons();
+}
+
+// ===== 安装全网技能 =====
+async function installGlobalSkill(skillId, btnElement, source) {
+  const token = localStorage.getItem('lingxi_token');
+  if (!token) { alert('请先登录'); return; }
+
+  const btn = btnElement || event.target;
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.innerHTML = '<i data-lucide="loader" class="icon-sm"></i> 安装中...';
+
+  try {
+    const res = await fetch(`${API_BASE}/api/skills/install-global/${skillId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ source })
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      alert(data.message || `技能 ${skillId} 安装成功！`);
+      btn.textContent = '已安装';
+      btn.className = 'skill-btn installed';
+      installedSkills.add(skillId);
+    } else {
+      const errorData = await res.json();
+      alert(errorData.message || errorData.error || '安装失败');
+    }
+  } catch (error) {
+    console.error('安装失败:', error);
+    alert('安装失败: ' + error.message);
+  } finally {
+    btn.disabled = false;
   }
 }
 
