@@ -313,6 +313,7 @@ router.get('/installed', authenticateUser, async (req, res) => {
 
 /**
  * 通过 SSH 获取用户实例的已安装技能
+ * OpenClaw 技能目录: ~/.openclaw/workspace/skills/
  */
 async function getInstalledSkillsViaSSH(host, port = 22) {
   const SERVER_PASSWORD = process.env.USER_SERVER_PASSWORD || 'Lingxi@2026!';
@@ -322,12 +323,8 @@ async function getInstalledSkillsViaSSH(host, port = 22) {
     const skills = [];
     
     conn.on('ready', () => {
-      // 获取所有技能目录（workspace/skills + workspace-*/skills + ~/.openclaw/skills）
-      const cmd = `
-        ls -1 ~/.openclaw/workspace/skills/ 2>/dev/null
-        ls -1 ~/.openclaw/skills/ 2>/dev/null
-        for dir in ~/.openclaw/workspace-*/skills; do ls -1 "$dir" 2>/dev/null; done
-      `;
+      // 获取主 workspace 的技能目录（每个技能都有 SKILL.md）
+      const cmd = 'ls -1 ~/.openclaw/workspace/skills/ 2>/dev/null';
       
       conn.exec(cmd, (err, stream) => {
         if (err) {
@@ -344,13 +341,11 @@ async function getInstalledSkillsViaSSH(host, port = 22) {
         stream.on('close', () => {
           conn.end();
           
-          // 解析输出并去重
-          const seen = new Set();
+          // 解析输出
           const lines = output.trim().split('\n');
           for (const line of lines) {
             const skillId = line.trim();
-            if (skillId && !skillId.startsWith('ls:') && !skillId.includes('No such file') && !seen.has(skillId)) {
-              seen.add(skillId);
+            if (skillId && !skillId.startsWith('ls:') && !skillId.includes('No such file')) {
               skills.push({
                 id: skillId,
                 name: skillId,
@@ -360,6 +355,7 @@ async function getInstalledSkillsViaSSH(host, port = 22) {
             }
           }
           
+          console.log(`✅ 从 ${host} 获取到 ${skills.length} 个技能`);
           resolve(skills);
         });
       });
