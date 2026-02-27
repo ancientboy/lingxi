@@ -13,7 +13,7 @@ import {
   getPopularSkills,
   installGlobalSkill
 } from '../skills/clawhub-integration.mjs';
-import { getUser } from '../utils/db.js';
+import { getUser, getDB, saveDB } from '../utils/db.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -55,6 +55,11 @@ router.get('/library', authenticateUser, async (req, res) => {
   try {
     const userId = req.user.id;
     
+    // 获取用户已安装的技能
+    const db = await getDB();
+    const userSkills = db.userSkills?.[userId] || [];
+    const installedSet = new Set(userSkills);
+    
     // 读取本地技能库文件
     const libraryPath = path.join(__dirname, '../skills/library.json');
     const data = await fs.readFile(libraryPath, 'utf-8');
@@ -74,13 +79,11 @@ router.get('/library', authenticateUser, async (req, res) => {
       }
     }
     
-    // 检查每个技能的安装状态（传入 userId）
-    const skillsWithStatus = await Promise.all(
-      allSkills.map(async (skill) => ({
-        ...skill,
-        installed: await isSkillInstalled(skill.id, userId)
-      }))
-    );
+    // 添加安装状态
+    const skillsWithStatus = allSkills.map(skill => ({
+      ...skill,
+      installed: installedSet.has(skill.id)
+    }));
     
     res.json({
       source: 'local',
@@ -213,8 +216,20 @@ router.post('/install/:skillId', authenticateUser, async (req, res) => {
     const data = await fs.readFile(libraryPath, 'utf-8');
     const library = JSON.parse(data);
     
+    // 扁平化 library
+    let allSkills = [];
+    if (library.skills) {
+      allSkills = library.skills;
+    } else {
+      for (const agent of Object.keys(library)) {
+        if (Array.isArray(library[agent])) {
+          allSkills = allSkills.concat(library[agent]);
+        }
+      }
+    }
+    
     // 查找技能
-    const skill = library.skills.find(s => s.id === skillId);
+    const skill = allSkills.find(s => s.id === skillId);
     
     if (!skill) {
       return res.status(404).json({
@@ -222,37 +237,38 @@ router.post('/install/:skillId', authenticateUser, async (req, res) => {
       });
     }
     
+    // 获取数据库
+    const db = await getDB();
+    if (!db.userSkills) db.userSkills = {};
+    if (!db.userSkills[userId]) db.userSkills[userId] = [];
+    
     // 检查是否已安装
-    if (await isSkillInstalled(skillId, userId)) {
+    if (db.userSkills[userId].includes(skillId)) {
       return res.json({
         skillId,
-        success: false,
+        success: true,
         alreadyInstalled: true,
         message: '该技能已安装'
       });
     }
     
-    // 从 ClawHub 安装（本地技能实际上是 ClawHub 的子集）
-    const result = await installGlobalSkill(skillId, userId);
+    // 记录安装
+    db.userSkills[userId].push(skillId);
+    await saveDB(db);
     
-    if (result.success || result.alreadyInstalled) {
-      res.json({
-        skillId,
-        ...result,
-        message: result.alreadyInstalled 
-          ? '该技能已安装' 
-          : '技能安装成功'
-      });
-    } else {
-      res.status(400).json({
-        skillId,
-        ...result
-      });
-    }
+    res.json({
+      skillId,
+      success: true,
+      message: '技能安装成功'
+    });
   } catch (error) {
     console.error('安装技能失败:', error);
     res.status(500).json({ 
       error: '安装技能失败',
+      message: error.message 
+    });
+  }
+});
       message: error.message 
     });
   }
@@ -265,33 +281,28 @@ router.get('/installed', authenticateUser, async (req, res) => {
   const userId = req.user.id;
   
   try {
-    // 读取用户已安装的技能目录
-    const userSkillsPath = path.join(process.env.HOME || '/root', '.openclaw', 'users', userId, 'skills');
+    const db = await getDB();
+    const userSkills = db.userSkills?.[userId] || [];
     
-    let installedSkills = [];
+    // 从 library.json 获取技能详情
+    const libraryPath = path.join(__dirname, '../skills/library.json');
+    const data = await fs.readFile(libraryPath, 'utf-8');
+    const library = JSON.parse(data);
     
-    try {
-      const dirs = await fs.readdir(userSkillsPath);
-      
-      // 读取每个技能的 SKILL.md 获取信息
-      for (const skillId of dirs) {
-        try {
-          const skillMdPath = path.join(userSkillsPath, skillId, 'SKILL.md');
-          const stat = await fs.stat(skillMdPath);
-          
-          // 简单返回技能ID和安装时间
-          installedSkills.push({
-            id: skillId,
-            name: skillId, // 可以从 SKILL.md 解析
-            installedAt: stat.mtime
-          });
-        } catch {
-          // 跳过无效技能
+    // 扁平化 library
+    let allSkills = [];
+    if (library.skills) {
+      allSkills = library.skills;
+    } else {
+      for (const agent of Object.keys(library)) {
+        if (Array.isArray(library[agent])) {
+          allSkills = allSkills.concat(library[agent]);
         }
       }
-    } catch {
-      // 目录不存在，返回空数组
     }
+    
+    // 获取已安装技能的详情
+    const installedSkills = allSkills.filter(s => userSkills.includes(s.id));
     
     res.json({
       total: installedSkills.length,
