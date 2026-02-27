@@ -8,6 +8,10 @@ import jwt from 'jsonwebtoken';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const { Client: SSHClient } = require('ssh2');
+
 import { 
   isSkillInstalled,
   getPopularSkills,
@@ -311,7 +315,6 @@ router.get('/installed', authenticateUser, async (req, res) => {
  * 通过 SSH 获取用户实例的已安装技能
  */
 async function getInstalledSkillsViaSSH(host, port = 22) {
-  const { Client: SSHClient } = require('ssh2');
   const SERVER_PASSWORD = process.env.USER_SERVER_PASSWORD || 'Lingxi@2026!';
   
   return new Promise((resolve, reject) => {
