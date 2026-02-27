@@ -4,7 +4,7 @@
 
 import { Router } from 'express';
 import { getDB, saveDB } from '../utils/db.js';
-import { Client } from 'ssh2';
+import { sshExec } from '../utils/ssh.js';
 import { config } from '../config/index.js';
 import logger from '../utils/logger.js';
 import fs from 'fs';
@@ -20,50 +20,6 @@ const SERVER_PASSWORD = config.userServer.password;
 
 /**
  * SSH 执行命令
- */
-function sshExec(host, commands) {
-  return new Promise((resolve, reject) => {
-    const conn = new Client();
-    
-    conn.on('ready', () => {
-      conn.exec(commands, (err, stream) => {
-        if (err) {
-          conn.end();
-          reject(err);
-          return;
-        }
-        
-        let output = '';
-        let errorOutput = '';
-        
-        stream.on('close', (code) => {
-          conn.end();
-          if (code === 0) {
-            resolve(output);
-          } else {
-            reject(new Error(errorOutput || `命令退出码: ${code}`));
-          }
-        });
-        
-        stream.on('data', (data) => output += data.toString());
-        stream.stderr.on('data', (data) => errorOutput += data.toString());
-      });
-    });
-    
-    conn.on('error', reject);
-    
-    conn.connect({
-      host,
-      port: 22,
-      username: 'root',
-      password: SERVER_PASSWORD,
-      readyTimeout: 30000,
-    });
-  });
-}
-
-/**
- * 获取更新包版本信息
  */
 router.get('/version', (req, res) => {
   try {

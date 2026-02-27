@@ -8,7 +8,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs/promises';
 import path from 'path';
-import { Client } from 'ssh2';
+import { sshExec } from '../utils/ssh.js';
 
 const execAsync = promisify(exec);
 const router = express.Router();
@@ -31,50 +31,6 @@ const AGENT_INFO = {
 
 /**
  * SSH 执行远程命令
- */
-function sshExec(host, commands) {
-  return new Promise((resolve, reject) => {
-    const conn = new Client();
-    
-    conn.on('ready', () => {
-      conn.exec(commands, (err, stream) => {
-        if (err) {
-          conn.end();
-          reject(err);
-          return;
-        }
-        
-        let output = '';
-        let errorOutput = '';
-        
-        stream.on('close', (code) => {
-          conn.end();
-          if (code === 0) {
-            resolve(output);
-          } else {
-            reject(new Error(errorOutput || `命令退出码: ${code}`));
-          }
-        });
-        
-        stream.on('data', (data) => output += data.toString());
-        stream.stderr.on('data', (data) => errorOutput += data.toString());
-      });
-    });
-    
-    conn.on('error', reject);
-    
-    conn.connect({
-      host,
-      port: 22,
-      username: 'root',
-      password: SERVER_PASSWORD,
-      readyTimeout: 30000,
-    });
-  });
-}
-
-/**
- * 同步团队配置到远程服务器
  */
 async function syncAgentsToServer(server, agents) {
   const { ip } = server;
