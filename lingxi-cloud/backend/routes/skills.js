@@ -60,9 +60,23 @@ router.get('/library', authenticateUser, async (req, res) => {
     const data = await fs.readFile(libraryPath, 'utf-8');
     const library = JSON.parse(data);
     
+    // 将按 Agent 分类的对象转换为扁平数组
+    let allSkills = [];
+    if (library.skills) {
+      // 旧格式: { skills: [...] }
+      allSkills = library.skills;
+    } else {
+      // 新格式: { coder: [...], ops: [...], ... }
+      for (const agent of Object.keys(library)) {
+        if (Array.isArray(library[agent])) {
+          allSkills = allSkills.concat(library[agent]);
+        }
+      }
+    }
+    
     // 检查每个技能的安装状态（传入 userId）
     const skillsWithStatus = await Promise.all(
-      library.skills.map(async (skill) => ({
+      allSkills.map(async (skill) => ({
         ...skill,
         installed: await isSkillInstalled(skill.id, userId)
       }))
