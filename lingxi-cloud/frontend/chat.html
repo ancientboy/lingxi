@@ -64,6 +64,10 @@
         <i data-lucide="briefcase" class="icon-sm icon-primary"></i>
         <span>企业微信</span>
       </div>
+      <div class="sidebar-tool-item" onclick="showSkillLibrary()">
+        <i data-lucide="layout-grid" class="icon-sm icon-primary"></i>
+        <span>技能库</span>
+      </div>
     </div>
     
     <!-- 底部用户区 -->
@@ -517,6 +521,293 @@
       }
     </style>
 
+    <!-- 技能库样式 -->
+    <style>
+      /* 技能库模态框 */
+      .skill-library-modal {
+        max-width: 900px;
+        width: 90%;
+        max-height: 85vh;
+        background: #ffffff;
+        border-radius: 16px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+      }
+
+      .skill-library-modal .modal-header {
+        border-bottom: 2px solid #e5e5e5;
+        padding-bottom: 20px;
+      }
+
+      .skill-library-modal .modal-header h3 {
+        font-size: 24px;
+        font-weight: 600;
+        color: #202123;
+      }
+
+      .skill-library {
+        display: flex;
+        height: 500px;
+      }
+
+      /* 左侧 Agent 分类列表 */
+      .skill-library-sidebar {
+        width: 200px;
+        background: linear-gradient(180deg, #f7f7f8 0%, #ffffff 100%);
+        border-right: 1px solid #e5e5e5;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .skill-library-section-title {
+        font-size: 12px;
+        font-weight: 600;
+        color: #6e6e80;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid #10a37f;
+      }
+
+      .skill-agent-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .skill-agent-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 16px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 14px;
+        color: #202123;
+      }
+
+      .skill-agent-item:hover {
+        background: rgba(16, 163, 127, 0.1);
+        color: #10a37f;
+      }
+
+      .skill-agent-item.active {
+        background: rgba(16, 163, 127, 0.2);
+        color: #10a37f;
+        font-weight: 600;
+        border-left: 3px solid #10a37f;
+      }
+
+      .skill-agent-item .icon {
+        width: 18px;
+        height: 18px;
+        color: #6e6e80;
+      }
+
+      .skill-agent-item.active .icon,
+      .skill-agent-item:hover .icon {
+        color: #10a37f;
+      }
+
+      /* 右侧技能内容区 */
+      .skill-library-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 24px;
+        overflow-y: auto;
+      }
+
+      /* 搜索框 */
+      .skill-search-box {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 18px;
+        background: #f7f7f8;
+        border: 2px solid #e5e5e5;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        transition: all 0.2s;
+      }
+
+      .skill-search-box:hover,
+      .skill-search-box:focus-within {
+        border-color: #10a37f;
+        box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.1);
+      }
+
+      .skill-search-box .icon {
+        color: #6e6e80;
+      }
+
+      .skill-search-box input {
+        flex: 1;
+        border: none;
+        outline: none;
+        font-size: 14px;
+        color: #202123;
+        background: transparent;
+      }
+
+      .skill-search-box input::placeholder {
+        color: #9ca3af;
+      }
+
+      /* 技能分类标题 */
+      .skill-group-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #10a37f;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .skill-group-title .icon {
+        width: 20px;
+        height: 20px;
+      }
+
+      /* 技能网格 */
+      .skill-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 16px;
+      }
+
+      /* 技能卡片 */
+      .skill-card {
+        background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
+        border: 2px solid #e5e5e5;
+        border-radius: 12px;
+        padding: 20px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        cursor: pointer;
+      }
+
+      .skill-card:hover {
+        border-color: #10a37f;
+        box-shadow: 0 8px 24px rgba(16, 163, 127, 0.15);
+        transform: translateY(-2px);
+      }
+
+      .skill-card .skill-header {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+
+      .skill-card .skill-icon {
+        width: 48px;
+        height: 48px;
+        background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        flex-shrink: 0;
+        box-shadow: 0 4px 12px rgba(16, 163, 127, 0.3);
+      }
+
+      .skill-card .skill-icon svg {
+        width: 24px;
+        height: 24px;
+      }
+
+      .skill-card .skill-info {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .skill-card .skill-name {
+        font-size: 16px;
+        font-weight: 600;
+        color: #202123;
+        margin-bottom: 4px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .skill-card .skill-desc {
+        font-size: 13px;
+        color: #6e6e80;
+        line-height: 1.5;
+      }
+
+      .skill-card .skill-agent-tag {
+        display: inline-block;
+        font-size: 11px;
+        color: #10a37f;
+        background: rgba(16, 163, 127, 0.1);
+        padding: 4px 10px;
+        border-radius: 12px;
+        margin-top: 8px;
+      }
+
+      /* 技能卡片按钮 */
+      .skill-card .skill-actions {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 16px;
+        padding-top: 12px;
+        border-top: 1px solid #f0f0f0;
+      }
+
+      .skill-btn {
+        padding: 8px 20px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        border: none;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      /* 安装按钮（绿色） */
+      .skill-btn.install {
+        background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
+        color: white;
+        box-shadow: 0 4px 12px rgba(16, 163, 127, 0.3);
+      }
+
+      .skill-btn.install:hover {
+        box-shadow: 0 6px 16px rgba(16, 163, 127, 0.4);
+        transform: translateY(-1px);
+      }
+
+      .skill-btn.install:active {
+        transform: translateY(0);
+      }
+
+      /* 已安装按钮（灰色） */
+      .skill-btn.installed {
+        background: #f5f5f5;
+        color: #9ca3af;
+        cursor: default;
+      }
+
+      .skill-btn.installed:hover {
+        box-shadow: none;
+        transform: none;
+      }
+
+      /* 扁平风格按钮 */
+      .skill-btn.flat {
+        background: transparent;
+        box-shadow: none;
+      }
+    </style>
+
     <div class="chat-container">
       <div class="messages" id="messages">
         <div class="welcome" id="welcome">
@@ -539,6 +830,46 @@
       </div>
     </div>
   </main><!-- /.main-content -->
+
+  <!-- 技能库弹窗 -->
+  <div class="modal-overlay" id="skillLibraryModal">
+    <div class="modal skill-library-modal">
+      <div class="modal-header">
+        <h3><i data-lucide="layout-grid" class="icon-sm icon-primary"></i> 技能库</h3>
+        <button class="close-btn" onclick="closeSkillLibrary()">
+          <i data-lucide="x" class="icon-sm"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="skill-library">
+          <!-- 左侧 Agent 分类列表 -->
+          <div class="skill-library-sidebar">
+            <div class="skill-library-section-title">Agent 类型</div>
+            <div class="skill-agent-list" id="skillAgentList">
+              <!-- Agent 分类项将通过 JS 动态生成 -->
+            </div>
+          </div>
+          
+          <!-- 右侧技能网格 -->
+          <div class="skill-library-content">
+            <!-- 搜索框 -->
+            <div class="skill-search-box">
+              <i data-lucide="search" class="icon-sm"></i>
+              <input type="text" id="skillSearchInput" placeholder="搜索技能...");
+            </div>
+            
+            <!-- 技能分类标题 -->
+            <div class="skill-group-title" id="skillGroupTitle"></div>
+            
+            <!-- 技能网格 -->
+            <div class="skill-grid" id="skillGrid">
+              <!-- 技能卡片将通过 JS 动态生成 -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- 主题切换 & 侧边栏逻辑 -->
   <script>
