@@ -2439,65 +2439,6 @@ function handleSkillSearch() {
 /**
  * 安装技能
  */
-async function installSkill(skillId, btnElement) {
-  const token = localStorage.getItem('lingxi_token');
-  const headers = {
-    'Content-Type': 'application/json',
-    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-  };
-  
-  // 如果没有传入按钮元素，从事件中获取
-  const btn = btnElement || event.target.closest('.skill-btn');
-  if (!btn) return;
-  
-  // 防止重复点击
-  if (btn.classList.contains('installing')) return;
-  
-  // 显示安装中状态
-  const originalHtml = btn.innerHTML;
-  btn.classList.add('installing');
-  btn.innerHTML = '<i data-lucide="loader-2" class="icon-sm" style="animation: spin 1s linear infinite;"></i> 安装中...';
-  
-  try {
-    const res = await fetch(`${API_BASE}/api/skills/install/${skillId}`, {
-      method: 'POST',
-      headers
-    });
-    
-    const data = await res.json();
-    
-    if (data.success) {
-      // 更新已安装技能列表
-      installedSkills.add(skillId);
-      
-      // 更新按钮状态
-      btn.classList.remove('install');
-      btn.classList.add('installed');
-      btn.innerHTML = `
-        <i data-lucide="check-circle" class="icon-sm"></i>
-        已安装
-      `;
-      btn.classList.remove('installing');
-      
-      alert(`✅ 技能 "${skillId}" 安装成功！`);
-      console.log('技能安装成功:', skillId);
-    } else {
-      // 恢复按钮状态
-      btn.innerHTML = originalHtml;
-      btn.classList.remove('installing');
-      
-      alert(`❌ 安装失败: ${data.error || '未知错误'}`);
-    }
-  } catch (e) {
-    // 恢复按钮状态
-    btn.innerHTML = originalHtml;
-    btn.classList.remove('installing');
-    
-    console.error('安装技能失败:', e);
-    alert('安装失败: ' + e.message);
-  }
-}
-
 // ===== 切换技能库 Tab =====
 function switchSkillTab(tabId) {
   currentSkillTab = tabId;
