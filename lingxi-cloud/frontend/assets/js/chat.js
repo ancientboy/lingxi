@@ -124,6 +124,21 @@ const AGENT_INFO = {
   }
 };
 
+// Agent 到技能的映射（用于技能库）
+const AGENT_SKILLS_MAP = {
+  lingxi: { name: '灵犀', desc: '智能调度 · 日程管理' },
+  coder: { name: '云溪', desc: '全栈开发 · 编程专家' },
+  ops: { name: '若曦', desc: '增长运营 · 数据专家' },
+  inventor: { name: '紫萱', desc: '内容创意 · 文案总监' },
+  pm: { name: '梓萱', desc: '产品设计 · 需求专家' },
+  noter: { name: '晓琳', desc: '学习顾问 · 知识管理' },
+  media: { name: '音韵', desc: '多媒体创作 · AI绘图' },
+  smart: { name: '智家', desc: '效率工具 · 自动化专家' }
+};
+
+// 临时保存加载的技能数据
+window.agentSkillsData = {};
+
 // 辅助函数：生成 Lucide 图标 HTML
 function agentIcon(agent, size = 'sm') {
   const icon = agent.icon || 'bot';
@@ -2106,6 +2121,360 @@ function sendWelcomeExample(text) {
   const input = document.getElementById('inputField');
   input.value = text;
   sendMessage();
+}
+
+// ==================== 技能库功能 ====================
+
+// 当前选择的 Agent 分类
+let currentSkillAgentId = null;
+// 技能列表数据
+let allSkills = [];
+// 已安装的技能列表
+let installedSkills = new Set();
+
+/**
+ * 显示技能库弹窗
+ */
+function showSkillLibrary() {
+  // 关闭其他弹窗
+  document.getElementById('userDropdown')?.classList.remove('show');
+  document.getElementById('sidebarUserMenu')?.classList.remove('show');
+  document.getElementById('teamModal')?.classList.remove('show');
+  
+  // 加载技能数据
+  loadSkillLibrary();
+  
+  // 显示弹窗
+  document.getElementById('skillLibraryModal').classList.add('show');
+}
+
+/**
+ * 关闭技能库弹窗
+ */
+function closeSkillLibrary() {
+  document.getElementById('skillLibraryModal').classList.remove('show');
+}
+
+/**
+ * 加载技能库数据
+ */
+async function loadSkillLibrary() {
+  try {
+    // 加载所有可用技能
+    const res = await fetch(`${API_BASE}/api/skills/available`);
+    if (res.ok) {
+      const data = await res.json();
+      allSkills = data.skills || [];
+      console.log('📋 已加载技能数量:', allSkills.length);
+    } else {
+      console.error('❌ 加载技能失败:', res.statusText);
+      allSkills = [];
+    }
+    
+    // 加载已安装技能
+    await loadInstalledSkills();
+    
+    // 渲染 Agent 分类列表
+    renderSkillAgentList();
+    
+    // 默认选择第一个 agent
+    const firstAgentId = Object.keys(AGENT_SKILLS_MAP)[0];
+    selectSkillAgent(firstAgentId);
+    
+  } catch (e) {
+    console.error('加载技能库失败:', e);
+    alert('加载技能库失败，请稍后重试');
+  }
+}
+
+/**
+ * 加载已安装的技能
+ */
+async function loadInstalledSkills() {
+  try {
+    const res = await fetch(`${API_BASE}/api/skills/installed`);
+    if (res.ok) {
+      const data = await res.json();
+      installedSkills = new Set((data.skills || []).map(s => s.id));
+      console.log('Installed skills:', installedSkills);
+    }
+  } catch (e) {
+    console.error('加载已安装技能失败:', e);
+  }
+}
+
+/**
+ * 渲染 Agent 分类列表
+ */
+function renderSkillAgentList() {
+  const container = document.getElementById('skillAgentList');
+  if (!container) return;
+  
+  const agents = Object.entries(AGENT_SKILLS_MAP).map(([id, info]) => ({
+    id,
+    name: info.name,
+    desc: info.desc,
+    icon: AGENT_INFO[id]?.icon || 'bot'
+  }));
+  
+  container.innerHTML = agents.map(agent => `
+    <div class="skill-agent-item" onclick="selectSkillAgent('${agent.id}')" data-agent="${agent.id}">
+      <i data-lucide="${agent.icon}" class="icon icon-sm"></i>
+      <span>${agent.name}</span>
+    </div>
+  `).join('');
+  
+  if (window.lucide) lucide.createIcons();
+}
+
+/**
+ * 选择 Agent 分类
+ */
+function selectSkillAgent(agentId) {
+  currentSkillAgentId = agentId;
+  
+  // 更新 Active 状态
+  document.querySelectorAll('.skill-agent-item').forEach(item => {
+    item.classList.remove('active');
+  });
+  const activeItem = document.querySelector(`.skill-agent-item[data-agent="${agentId}"]`);
+  if (activeItem) {
+    activeItem.classList.add('active');
+    activeItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+  
+  // 渲染技能列表
+  renderSkillGrid(agentId);
+}
+
+/**
+ * 渲染技能网格
+ */
+async function renderSkillGrid(agentId) {
+  const container = document.getElementById('skillGrid');
+  const groupTitle = document.getElementById('skillGroupTitle');
+  
+  if (!container) return;
+  
+  // 获取该 Agent 的技能
+  const agentName = AGENT_INFO[agentId]?.name || '未知';
+  
+  // 从后端获取该 Agent 的技能数据
+  let skills = [];
+  if (!window.agentSkillsData[agentId]) {
+    try {
+      const res = await fetch(`${API_BASE}/api/skills/agent/${agentId}`);
+      if (res.ok) {
+        const data = await res.json();
+        window.agentSkillsData[agentId] = data.skills || [];
+      }
+    } catch (e) {
+      console.error('获取 Agent 技能失败:', e);
+    }
+  }
+  
+  skills = window.agentSkillsData[agentId] || [];
+  
+  // 更新分类标题
+  groupTitle.innerHTML = `
+    <i data-lucide="zap" class="icon icon-sm icon-primary"></i>
+    ${agentName} 的技能 (${skills.length})
+  `;
+  
+  if (skills.length === 0) {
+    container.innerHTML = `
+      <div style="grid-column: 1/-1; text-align: center; padding: 40px 20px; color: #6e6e80;">
+        <i data-lucide="package" style="width: 48px; height: 48px; margin-bottom: 16px; color: #d1d5db;"></i>
+        <p>暂无可用技能</p>
+      </div>
+    `;
+    if (window.lucide) lucide.createIcons();
+    return;
+  }
+  
+  container.innerHTML = skills.map(skill => {
+    const installed = installedSkills.has(skill.id);
+    return `
+      <div class="skill-card" onclick="handleSkillClick('${skill.id}')">
+        <div class="skill-header">
+          <div class="skill-icon">
+            <i data-lucide="${skill.icon || 'package'}" style="width: 24px; height: 24px; color: white;"></i>
+          </div>
+          <div class="skill-info">
+            <div class="skill-name">${skill.desc || skill.id}</div>
+            <div class="skill-desc">${skill.description || ''}</div>
+          </div>
+        </div>
+        <div class="skill-agent-tag">来自 ${agentName}</div>
+        <div class="skill-actions">
+          ${installed 
+            ? `<button class="skill-btn installed" onclick="event.stopPropagation();">
+                 <i data-lucide="check-circle" class="icon-sm"></i>
+                 已安装
+               </button>`
+            : `<button class="skill-btn install" onclick="event.stopPropagation(); installSkill('${skill.id}', this)">
+                 <i data-lucide="download" class="icon-sm"></i>
+                 安装
+               </button>`
+          }
+        </div>
+      </div>
+    `;
+  }).join('');
+  
+  if (window.lucide) lucide.createIcons();
+}
+
+/**
+ * 处理技能点击
+ */
+function handleSkillClick(skillId) {
+  // 可以在这里添加更多逻辑
+  console.log('点击技能:', skillId);
+}
+
+/**
+ * 处理技能搜索
+ */
+function handleSkillSearch() {
+  const searchTerm = document.getElementById('skillSearchInput').value.toLowerCase().trim();
+  
+  if (!searchTerm) {
+    // 如果没有搜索词，重新渲染当前 Agent 的技能
+    if (currentSkillAgentId) {
+      renderSkillGrid(currentSkillAgentId);
+    }
+    return;
+  }
+  
+  // 搜索所有技能
+  const allSkillsFlat = [];
+  for (const [agentId, skills] of Object.entries(window.agentSkillsData)) {
+    skills.forEach(skill => {
+      allSkillsFlat.push({ ...skill, agentId });
+    });
+  }
+  
+  // 过滤匹配的技能
+  const filteredSkills = allSkillsFlat.filter(skill => 
+    skill.id.toLowerCase().includes(searchTerm) ||
+    (skill.desc && skill.desc.toLowerCase().includes(searchTerm)) ||
+    (skill.description && skill.description.toLowerCase().includes(searchTerm))
+  );
+  
+  // 更新标题
+  const groupTitle = document.getElementById('skillGroupTitle');
+  if (groupTitle) {
+    groupTitle.innerHTML = `
+      <i data-lucide="search" class="icon icon-sm icon-primary"></i>
+      搜索结果 (${filteredSkills.length})
+    `;
+  }
+  
+  // 渲染搜索结果
+  const container = document.getElementById('skillGrid');
+  if (!container) return;
+  
+  if (filteredSkills.length === 0) {
+    container.innerHTML = `
+      <div style="grid-column: 1/-1; text-align: center; padding: 40px 20px; color: #6e6e80;">
+        <i data-lucide="search-x" style="width: 48px; height: 48px; margin-bottom: 16px; color: #d1d5db;"></i>
+        <p>未找到匹配的技能</p>
+      </div>
+    `;
+    if (window.lucide) lucide.createIcons();
+    return;
+  }
+  
+  container.innerHTML = filteredSkills.map(skill => {
+    const installed = installedSkills.has(skill.id);
+    const agentName = AGENT_INFO[skill.agentId]?.name || skill.agent || '未知';
+    
+    return `
+      <div class="skill-card" onclick="handleSkillClick('${skill.id}')">
+        <div class="skill-header">
+          <div class="skill-icon">
+            <i data-lucide="${skill.icon || 'package'}" style="width: 24px; height: 24px; color: white;"></i>
+          </div>
+          <div class="skill-info">
+            <div class="skill-name">${skill.desc || skill.id}</div>
+            <div class="skill-desc">${skill.description || ''}</div>
+          </div>
+        </div>
+        <div class="skill-agent-tag">来自 ${agentName}</div>
+        <div class="skill-actions">
+          ${installed 
+            ? `<button class="skill-btn installed" onclick="event.stopPropagation();">
+                 <i data-lucide="check-circle" class="icon-sm"></i>
+                 已安装
+               </button>`
+            : `<button class="skill-btn install" onclick="event.stopPropagation(); installSkill('${skill.id}', this)">
+                 <i data-lucide="download" class="icon-sm"></i>
+                 安装
+               </button>`
+          }
+        </div>
+      </div>
+    `;
+  }).join('');
+  
+  if (window.lucide) lucide.createIcons();
+}
+
+/**
+ * 安装技能
+ */
+async function installSkill(skillId, btnElement) {
+  // 如果没有传入按钮元素，从事件中获取
+  const btn = btnElement || event.target.closest('.skill-btn');
+  if (!btn) return;
+  
+  // 防止重复点击
+  if (btn.classList.contains('installing')) return;
+  
+  // 显示安装中状态
+  const originalHtml = btn.innerHTML;
+  btn.classList.add('installing');
+  btn.innerHTML = '<i data-lucide="loader-2" class="icon-sm" style="animation: spin 1s linear infinite;"></i> 安装中...';
+  
+  try {
+    const res = await fetch(`${API_BASE}/api/skills/install/${skillId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+    const data = await res.json();
+    
+    if (data.success) {
+      // 更新已安装技能列表
+      installedSkills.add(skillId);
+      
+      // 更新按钮状态
+      btn.classList.remove('install');
+      btn.classList.add('installed');
+      btn.innerHTML = `
+        <i data-lucide="check-circle" class="icon-sm"></i>
+        已安装
+      `;
+      btn.classList.remove('installing');
+      
+      alert(`✅ 技能 "${skillId}" 安装成功！`);
+      console.log('技能安装成功:', skillId);
+    } else {
+      // 恢复按钮状态
+      btn.innerHTML = originalHtml;
+      btn.classList.remove('installing');
+      
+      alert(`❌ 安装失败: ${data.error || '未知错误'}`);
+    }
+  } catch (e) {
+    // 恢复按钮状态
+    btn.innerHTML = originalHtml;
+    btn.classList.remove('installing');
+    
+    console.error('安装技能失败:', e);
+    alert('安装失败: ' + e.message);
+  }
 }
 
 // 初始化时渲染 agent 下拉
