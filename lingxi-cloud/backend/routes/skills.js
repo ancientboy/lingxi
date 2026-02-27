@@ -275,38 +275,32 @@ router.post('/install/:skillId', authenticateUser, async (req, res) => {
 });
 
 /**
- * 获取用户已安装的技能
+ * 获取用户已安装的技能（通过 SSH 连接用户实例）
  */
 router.get('/installed', authenticateUser, async (req, res) => {
   const userId = req.user.id;
   
   try {
     const db = await getDB();
-    const userSkills = db.userSkills?.[userId] || [];
     
-    // 从 library.json 获取技能详情
-    const libraryPath = path.join(__dirname, '../skills/library.json');
-    const data = await fs.readFile(libraryPath, 'utf-8');
-    const library = JSON.parse(data);
+    // 获取用户的服务器信息
+    const server = db.userServers?.find(s => s.userId === userId && s.status === 'running');
     
-    // 扁平化 library
-    let allSkills = [];
-    if (library.skills) {
-      allSkills = library.skills;
-    } else {
-      for (const agent of Object.keys(library)) {
-        if (Array.isArray(library[agent])) {
-          allSkills = allSkills.concat(library[agent]);
-        }
-      }
+    if (!server || !server.ip) {
+      // 没有服务器或服务器未运行，返回空列表
+      return res.json({
+        total: 0,
+        skills: [],
+        message: '暂无运行中的实例'
+      });
     }
     
-    // 获取已安装技能的详情
-    const installedSkills = allSkills.filter(s => userSkills.includes(s.id));
+    // 通过 SSH 获取技能列表
+    const skills = await getInstalledSkillsViaSSH(server.ip, server.openclawPort || 22);
     
     res.json({
-      total: installedSkills.length,
-      skills: installedSkills
+      total: skills.length,
+      skills: skills
     });
   } catch (error) {
     console.error('获取已安装技能失败:', error);
@@ -316,5 +310,66 @@ router.get('/installed', authenticateUser, async (req, res) => {
     });
   }
 });
+
+/**
+ * 通过 SSH 获取用户实例的已安装技能
+ */
+async function getInstalledSkillsViaSSH(host, port = 22) {
+  const { Client: SSHClient } = require('ssh2');
+  const SERVER_PASSWORD = process.env.USER_SERVER_PASSWORD || 'Lingxi@2026!';
+  
+  return new Promise((resolve, reject) => {
+    const conn = new SSHClient();
+    const skills = [];
+    
+    conn.on('ready', () => {
+      // 获取技能目录列表
+      conn.exec('ls -1 ~/.openclaw/skills/ 2>/dev/null || ls -1 ~/.openclaw/workspace/skills/ 2>/dev/null || echo ""', (err, stream) => {
+        if (err) {
+          conn.end();
+          resolve([]);
+          return;
+        }
+        
+        let output = '';
+        stream.on('data', (data) => {
+          output += data.toString();
+        });
+        
+        stream.on('close', () => {
+          conn.end();
+          
+          // 解析输出
+          const lines = output.trim().split('\n').filter(l => l.trim());
+          for (const line of lines) {
+            const skillId = line.trim();
+            if (skillId && !skillId.startsWith('ls:') && !skillId.includes('No such file')) {
+              skills.push({
+                id: skillId,
+                name: skillId,
+                desc: '已安装的技能'
+              });
+            }
+          }
+          
+          resolve(skills);
+        });
+      });
+    });
+    
+    conn.on('error', (err) => {
+      console.error('SSH 连接失败:', err.message);
+      resolve([]);
+    });
+    
+    conn.connect({
+      host,
+      port: typeof port === 'number' ? port : 22,
+      username: 'root',
+      password: SERVER_PASSWORD,
+      readyTimeout: 10000
+    });
+  });
+}
 
 export default router;

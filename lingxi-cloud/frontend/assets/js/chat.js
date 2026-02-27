@@ -2766,43 +2766,23 @@ async function installGlobalSkill(skillId, btnElement) {
 }
 
 // ===== 安装本地技能 =====
-async function installSkill(skillId, btnElement) {
-  const token = localStorage.getItem('lingxi_token');
-  if (!token) { alert('请先登录'); return; }
-
-  const btn = btnElement || event.target;
-  const originalText = btn.textContent;
-  btn.disabled = true;
-  btn.innerHTML = '<i data-lucide="loader" class="icon-sm"></i> 安装中...';
-
-  try {
-    const res = await fetch(`${API_BASE}/api/skills/install/${skillId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify({})
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      alert(data.message || `技能 ${skillId} 安装成功！`);
-      btn.textContent = '已安装';
-      btn.className = 'skill-btn installed';
-      installedSkills.add(skillId);
-      
-      // 刷新本地技能列表
-      if (currentSkillTab === 'local') {
-        loadLocalSkills();
-      }
-    } else {
-      const errorData = await res.json();
-      alert(errorData.message || errorData.error || '安装失败');
-    }
-  } catch (error) {
-    console.error('安装失败:', error);
-    alert('安装失败: ' + error.message);
-  } finally {
-    btn.disabled = false;
+function installSkill(skillId, btnElement) {
+  // 获取技能名称（从父元素中找）
+  const card = btnElement?.closest('.skill-card');
+  const skillNameEl = card?.querySelector('.skill-name');
+  const skillName = skillNameEl?.textContent || skillId;
+  
+  // 填入输入框（不自动发送，让用户确认）
+  const input = document.getElementById('inputField');
+  if (input) {
+    input.value = `安装技能 ${skillId}`;
+    input.focus();
+    // 将光标移到末尾
+    input.setSelectionRange(input.value.length, input.value.length);
   }
+  
+  // 关闭技能库弹窗
+  closeSkillLibrary();
 }
 
 // 初始化时渲染 agent 下拉
