@@ -531,11 +531,15 @@
         background: #ffffff;
         border-radius: 16px;
         box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
       }
 
       .skill-library-modal .modal-header {
         border-bottom: 2px solid #e5e5e5;
         padding-bottom: 20px;
+        flex-shrink: 0;
       }
 
       .skill-library-modal .modal-header h3 {
@@ -544,9 +548,16 @@
         color: #202123;
       }
 
+      .skill-library-modal .modal-body {
+        flex: 1;
+        overflow: hidden;
+        padding: 0;
+      }
+
       .skill-library {
         display: flex;
-        height: 500px;
+        height: 100%;
+        min-height: 500px;
       }
 
       /* 左侧 Agent 分类列表 */
@@ -611,7 +622,7 @@
         color: #10a37f;
       }
 
-      /* 右侧技能内容区 */
+      <!-- 右侧技能内容区 -->
       .skill-library-content {
         flex: 1;
         display: flex;
@@ -619,7 +630,7 @@
         padding: 24px;
         overflow-y: auto;
       }
-
+      
       /* 搜索框 */
       .skill-search-box {
         display: flex;
@@ -655,28 +666,13 @@
       .skill-search-box input::placeholder {
         color: #9ca3af;
       }
-
-      /* 技能分类标题 */
-      .skill-group-title {
-        font-size: 18px;
-        font-weight: 600;
-        color: #10a37f;
-        margin-bottom: 16px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-
-      .skill-group-title .icon {
-        width: 20px;
-        height: 20px;
-      }
-
+      
       /* 技能网格 */
       .skill-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
         gap: 16px;
+        padding-bottom: 20px;
       }
 
       /* 技能卡片 */
@@ -855,7 +851,7 @@
             <!-- 搜索框 -->
             <div class="skill-search-box">
               <i data-lucide="search" class="icon-sm"></i>
-              <input type="text" id="skillSearchInput" placeholder="搜索技能...");
+              <input type="text" id="skillSearchInput" placeholder="搜索技能..." oninput="handleSkillSearch()">
             </div>
             
             <!-- 技能分类标题 -->

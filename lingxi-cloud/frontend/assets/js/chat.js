@@ -2159,9 +2159,12 @@ function closeSkillLibrary() {
  * 加载技能库数据
  */
 async function loadSkillLibrary() {
+  const token = localStorage.getItem('lingxi_token');
+  const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+  
   try {
     // 加载所有可用技能
-    const res = await fetch(`${API_BASE}/api/skills/available`);
+    const res = await fetch(`${API_BASE}/api/skills/available`, { headers });
     if (res.ok) {
       const data = await res.json();
       allSkills = data.skills || [];
@@ -2191,8 +2194,11 @@ async function loadSkillLibrary() {
  * 加载已安装的技能
  */
 async function loadInstalledSkills() {
+  const token = localStorage.getItem('lingxi_token');
+  const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+  
   try {
-    const res = await fetch(`${API_BASE}/api/skills/installed`);
+    const res = await fetch(`${API_BASE}/api/skills/installed`, { headers });
     if (res.ok) {
       const data = await res.json();
       installedSkills = new Set((data.skills || []).map(s => s.id));
@@ -2253,6 +2259,8 @@ function selectSkillAgent(agentId) {
 async function renderSkillGrid(agentId) {
   const container = document.getElementById('skillGrid');
   const groupTitle = document.getElementById('skillGroupTitle');
+  const token = localStorage.getItem('lingxi_token');
+  const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
   
   if (!container) return;
   
@@ -2263,7 +2271,7 @@ async function renderSkillGrid(agentId) {
   let skills = [];
   if (!window.agentSkillsData[agentId]) {
     try {
-      const res = await fetch(`${API_BASE}/api/skills/agent/${agentId}`);
+      const res = await fetch(`${API_BASE}/api/skills/agent/${agentId}`, { headers });
       if (res.ok) {
         const data = await res.json();
         window.agentSkillsData[agentId] = data.skills || [];
@@ -2425,6 +2433,12 @@ function handleSkillSearch() {
  * 安装技能
  */
 async function installSkill(skillId, btnElement) {
+  const token = localStorage.getItem('lingxi_token');
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+  };
+  
   // 如果没有传入按钮元素，从事件中获取
   const btn = btnElement || event.target.closest('.skill-btn');
   if (!btn) return;
@@ -2440,7 +2454,7 @@ async function installSkill(skillId, btnElement) {
   try {
     const res = await fetch(`${API_BASE}/api/skills/install/${skillId}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
+      headers
     });
     
     const data = await res.json();
