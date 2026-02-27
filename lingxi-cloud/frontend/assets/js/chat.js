@@ -2535,50 +2535,45 @@ async function loadLocalSkills() {
   if (!token) return;
   
   try {
-    // 从本地技能库获取
-    const res = await fetch(`${API_BASE}/api/skills/library`, { 
+    // 获取已安装技能
+    const installedRes = await fetch(`${API_BASE}/api/skills/installed`, { 
       headers: { 'Authorization': `Bearer ${token}` } 
     });
     
-    if (res.ok) {
-      const data = await res.json();
-      localSkillsCache = data.skills || [];
-      
-      // 获取已安装技能
-      const installedRes = await fetch(`${API_BASE}/api/skills/installed`, { 
-        headers: { 'Authorization': `Bearer ${token}` } 
-      });
-      
-      let installedSet = new Set();
-      if (installedRes.ok) {
-        const installedData = await installedRes.json();
-        installedSet = new Set((installedData.skills || []).map(s => s.id));
+    let installedSkills = [];
+    let installedSet = new Set();
+    
+    if (installedRes.ok) {
+      const installedData = await installedRes.json();
+      installedSkills = installedData.skills || [];
+      installedSet = new Set(installedSkills.map(s => s.id));
+    }
+    
+    // 本地技能 = 已安装的技能
+    // 如果没有已安装技能，显示空状态
+    if (installedSkills.length === 0) {
+      const container = document.getElementById('skillGrid');
+      if (container) {
+        container.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px 20px;color:#6e6e80;"><i data-lucide="package" style="width:48px;height:48px;margin-bottom:16px;color:#d1d5db;"></i><p>暂无已安装的技能</p><p style="font-size:12px;margin-top:8px;">从"热门技能"中安装技能吧！</p></div>';
+        if (window.lucide) lucide.createIcons();
       }
       
-      // 渲染技能
-      renderSkills(data.skills || [], installedSet, 'local');
-      
-      // 更新标题
       const titleEl = document.getElementById('skillGroupTitle');
       if (titleEl) {
-        if (data.skills && data.skills.length > 0) {
-          titleEl.innerHTML = '<i data-lucide="package" class="icon-sm icon-primary"></i> 已安装的技能';
-        } else {
-          titleEl.innerHTML = '<i data-lucide="database" class="icon-sm icon-primary"></i> 本地技能';
-        }
+        titleEl.innerHTML = '<i data-lucide="package" class="icon-sm icon-primary"></i> 本地技能 (0)';
       }
-      
-      // 如果没有技能，显示空状态
-      if (!data.skills || data.skills.length === 0) {
-        const emptyState = document.getElementById('localSkillEmptyState');
-        if (emptyState) emptyState.style.display = 'block';
-      } else {
-        const emptyState = document.getElementById('localSkillEmptyState');
-        if (emptyState) emptyState.style.display = 'none';
-      }
-    } else {
-      console.error('❌ 加载本地技能失败:', res.statusText);
+      return;
     }
+    
+    // 渲染已安装的技能
+    renderSkills(installedSkills, installedSet, 'local');
+    
+    // 更新标题
+    const titleEl = document.getElementById('skillGroupTitle');
+    if (titleEl) {
+      titleEl.innerHTML = `<i data-lucide="package" class="icon-sm icon-primary"></i> 本地技能 (${installedSkills.length})`;
+    }
+    
   } catch (error) {
     console.error('加载本地技能失败:', error);
   }
@@ -2589,11 +2584,26 @@ async function loadPopularSkills() {
   const token = localStorage.getItem('lingxi_token');
   if (!token) return;
   try {
-    const res = await fetch(`${API_BASE}/api/skills/clawhub/popular`, { headers: { 'Authorization': `Bearer ${token}` } });
+    // 热门技能从本地技能库获取（library.json 已筛选精品）
+    const res = await fetch(`${API_BASE}/api/skills/library`, { 
+      headers: { 'Authorization': `Bearer ${token}` } 
+    });
     if (res.ok) {
       const data = await res.json();
       popularSkillsCache = data.skills || [];
-      renderPopularSkills(popularSkillsCache, installedSkills);
+      
+      // 获取已安装技能列表
+      const installedRes = await fetch(`${API_BASE}/api/skills/installed`, { 
+        headers: { 'Authorization': `Bearer ${token}` } 
+      });
+      
+      let installedSet = new Set();
+      if (installedRes.ok) {
+        const installedData = await installedRes.json();
+        installedSet = new Set((installedData.skills || []).map(s => s.id));
+      }
+      
+      renderPopularSkills(popularSkillsCache, installedSet);
       document.getElementById('skillGroupTitle').innerHTML = '<i data-lucide="star" class="icon-sm icon-primary"></i> 热门技能';
     }
   } catch (error) {

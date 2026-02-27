@@ -97,6 +97,10 @@ app.use('/api/batch-update', batchUpdateRoutes);
 import genesRoutes from './routes/genes.js';
 app.use('/api/genes', genesRoutes);
 
+// 技能库同步定时任务
+import { startCronJob } from './skills/sync-cron.mjs';
+startCronJob('0 0 * * 0'); // 每周日中午12点同步
+
 // 错误处理
 app.use((err, req, res, next) => {
   console.error('Error:', err);
@@ -105,15 +109,15 @@ app.use((err, req, res, next) => {
   });
 });
 
+// 设置 WebSocket 代理（必须在 app.listen 之前）
+import { setupWebSocketProxy } from './routes/ws-proxy.js';
+setupWebSocketProxy(app);
+
 // 启动服务
 const server = app.listen(PORT, () => {
   console.log(`🚀 灵犀云后端服务已启动: http://localhost:${PORT}`);
   console.log(`📝 健康检查: http://localhost:${PORT}/health`);
 });
-
-// 设置 WebSocket 代理（必须在 app.listen 之后）
-import { setupWebSocketProxy } from './routes/ws-proxy.js';
-setupWebSocketProxy(app);
 
 
 export default app;

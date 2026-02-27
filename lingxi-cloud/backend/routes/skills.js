@@ -264,11 +264,46 @@ router.post('/install/:skillId', authenticateUser, async (req, res) => {
 router.get('/installed', authenticateUser, async (req, res) => {
   const userId = req.user.id;
   
-  // 返回空数组，前端通过 installedSkills Set 管理
-  res.json({
-    total: 0,
-    skills: []
-  });
+  try {
+    // 读取用户已安装的技能目录
+    const userSkillsPath = path.join(process.env.HOME || '/root', '.openclaw', 'users', userId, 'skills');
+    
+    let installedSkills = [];
+    
+    try {
+      const dirs = await fs.readdir(userSkillsPath);
+      
+      // 读取每个技能的 SKILL.md 获取信息
+      for (const skillId of dirs) {
+        try {
+          const skillMdPath = path.join(userSkillsPath, skillId, 'SKILL.md');
+          const stat = await fs.stat(skillMdPath);
+          
+          // 简单返回技能ID和安装时间
+          installedSkills.push({
+            id: skillId,
+            name: skillId, // 可以从 SKILL.md 解析
+            installedAt: stat.mtime
+          });
+        } catch {
+          // 跳过无效技能
+        }
+      }
+    } catch {
+      // 目录不存在，返回空数组
+    }
+    
+    res.json({
+      total: installedSkills.length,
+      skills: installedSkills
+    });
+  } catch (error) {
+    console.error('获取已安装技能失败:', error);
+    res.status(500).json({ 
+      error: '获取已安装技能失败',
+      message: error.message 
+    });
+  }
 });
 
 export default router;

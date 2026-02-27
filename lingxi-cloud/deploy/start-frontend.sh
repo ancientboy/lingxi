@@ -15,11 +15,11 @@ cd "$FRONTEND_DIR"
 
 # 使用 Python 启动 HTTP 服务
 if command -v python3 &> /dev/null; then
-    echo "访问地址: http://120.55.192.144:$PORT"
+    echo "访问地址: http://120.26.137.51:$PORT"
     echo ""
     python3 -m http.server $PORT --bind 0.0.0.0
 elif command -v python &> /dev/null; then
-    echo "访问地址: http://120.55.192.144:$PORT"
+    echo "访问地址: http://120.26.137.51:$PORT"
     echo ""
     python -m SimpleHTTPServer $PORT
 else

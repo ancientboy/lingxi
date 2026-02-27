@@ -1,0 +1,346 @@
+{
+  "coder": [
+    {
+      "id": "self-improving-agent",
+      "name": "Self-Improving Agent",
+      "desc": "Captures learnings, errors, and corrections to enable continuous improvement.",
+      "agent": "coder",
+      "tags": ["self-improvement", "continuous-learning"],
+      "version": "1.0.11",
+      "author": "OpenClaw",
+      "displayOrder": 1
+    },
+    {
+      "id": "gog",
+      "name": "Gog",
+      "desc": "Google Workspace CLI for Gmail, Calendar, Drive, Contacts, Sheets, and Docs.",
+      "agent": "coder",
+      "tags": ["google", "workspace", "productivity"],
+      "version": "1.0.0",
+      "author": "Google",
+      "displayOrder": 2
+    },
+    {
+      "id": "agent-browser",
+      "name": "Agent Browser",
+      "desc": "A fast Rust-based headless browser automation CLI with Node.js fallback.",
+      "agent": "coder",
+      "tags": ["browser", "automation", "web"],
+      "version": "0.2.0",
+      "author": "OpenClaw",
+      "displayOrder": 3
+    },
+    {
+      "id": "tavily-search",
+      "name": "Tavily Web Search",
+      "desc": "AI-optimized web search via Tavily API. Returns concise, relevant results for AI agents.",
+      "agent": "coder",
+      "tags": ["web", "search", "ai"],
+      "version": "1.0.0",
+      "author": "Tavily",
+      "displayOrder": 4
+    },
+    {
+      "id": "github",
+      "name": "Github",
+      "desc": "Interact with GitHub using the gh CLI. Use gh issue, gh pr, gh run, and gh api.",
+      "agent": "coder",
+      "tags": ["github", "git", "devops"],
+      "version": "1.0.0",
+      "author": "GitHub",
+      "displayOrder": 5
+    }
+  ],
+  "ops": [
+    {
+      "id": "proactive-agent",
+      "name": "Proactive Agent",
+      "desc": "Transform AI agents from task-followers into proactive partners that anticipate needs and continuously improve.",
+      "agent": "ops",
+      "tags": ["proactive", "automation", "hal-stack"],
+      "version": "3.1.0",
+      "author": "OpenClaw",
+      "displayOrder": 1
+    },
+    {
+      "id": "weather",
+      "name": "Weather",
+      "desc": "Get current weather and forecasts (no API key required).",
+      "agent": "ops",
+      "tags": ["weather", "forecast", "no-api"],
+      "version": "1.0.0",
+      "author": "OpenClaw",
+      "displayOrder": 2
+    },
+    {
+      "id": "auto-updater",
+      "name": "Auto-Updater Skill",
+      "desc": "Automatically update Clawdbot and all installed skills once daily. Runs via cron.",
+      "agent": "ops",
+      "tags": ["update", "cron", "maintenance"],
+      "version": "1.0.0",
+      "author": "OpenClaw",
+      "displayOrder": 3
+    },
+    {
+      "id": "youtube-watcher",
+      "name": "YouTube Watcher",
+      "desc": "Fetch and read transcripts from YouTube videos.",
+      "agent": "ops",
+      "tags": ["youtube", "video", "transcript"],
+      "version": "1.0.0",
+      "author": "OpenClaw",
+      "displayOrder": 4
+    },
+    {
+      "id": "caldav-calendar",
+      "name": "Caldav Calendar",
+      "desc": "Sync and query CalDAV calendars (iCloud, Google, Fastmail, Nextcloud, etc.).",
+      "agent": "ops",
+      "tags": ["calendar", "caldav", "scheduling"],
+      "version": "1.0.1",
+      "author": "OpenClaw",
+      "displayOrder": 5
+    }
+  ],
+  "inventor": [
+    {
+      "id": "frontend-design",
+      "name": "Frontend Design",
+      "desc": "Create distinctive, production-grade frontend interfaces with high design quality.",
+      "agent": "inventor",
+      "tags": ["frontend", "design", "ui"],
+      "version": "1.0.0",
+      "author": "OpenClaw",
+      "displayOrder": 1
+    },
+    {
+      "id": "nano-banana-pro",
+      "name": "Nano Banana Pro",
+      "desc": "Generate/edit images with Nano Banana Pro (Gemini 3 Pro Image).",
+      "agent": "inventor",
+      "tags": ["image", "gemini", "generation"],
+      "version": "1.0.1",
+      "author": "OpenClaw",
+      "displayOrder": 2
+    },
+    {
+      "id": "desktop-control",
+      "name": "Desktop Control",
+      "desc": "Advanced desktop automation with mouse, keyboard, and screen control.",
+      "agent": "inventor",
+      "tags": ["automation", "desktop", "ui"],
+      "version": "1.0.0",
+      "author": "OpenClaw",
+      "displayOrder": 3
+    },
+    {
+      "id": "openai-whisper",
+      "name": "Openai Whisper",
+      "desc": "Local speech-to-text with the Whisper CLI (no API key).",
+      "agent": "inventor",
+      "tags": ["speech", "whisper", "audio"],
+      "version": "1.0.0",
+      "author": "OpenAI",
+      "displayOrder": 4
+    },
+    {
+      "id": "nano-pdf",
+      "name": "Nano Pdf",
+      "desc": "Edit PDFs with natural-language instructions using the nano-pdf CLI.",
+      "agent": "inventor",
+      "tags": ["pdf", "editing", "nlp"],
+      "version": "1.0.0",
+      "author": "OpenClaw",
+      "displayOrder": 5
+    }
+  ],
+  "pm": [
+    {
+      "id": "trello",
+      "name": "Trello",
+      "desc": "Manage Trello boards, lists, and cards via the Trello REST API.",
+      "agent": "pm",
+      "tags": ["trello", "project-management", "kanban"],
+      "version": "1.0.0",
+      "author": "Trello",
+      "displayOrder": 1
+    },
+    {
+      "id": "notion",
+      "name": "Notion",
+      "desc": "Notion API for creating and managing pages, databases, and blocks.",
+      "agent": "pm",
+      "tags": ["notion", "docs", "database"],
+      "version": "1.0.0",
+      "author": "Notion",
+      "displayOrder": 2
+    },
+    {
+      "id": "stock-analysis",
+      "name": "Stock Analysis",
+      "desc": "Analyze stocks and cryptocurrencies using Yahoo Finance data.",
+      "agent": "pm",
+      "tags": ["stock", "finance", "crypto"],
+      "version": "6.2.0",
+      "author": "OpenClaw",
+      "displayOrder": 3
+    },
+    {
+      "id": "api-gateway",
+      "name": "API Gateway",
+      "desc": "Connect to 100+ APIs with managed OAuth.",
+      "agent": "pm",
+      "tags": ["api", "integration", "oauth"],
+      "version": "1.0.51",
+      "author": "OpenClaw",
+      "displayOrder": 4
+    }
+  ],
+  "noter": [
+    {
+      "id": "obsidian",
+      "name": "Obsidian",
+      "desc": "Work with Obsidian vaults (plain Markdown notes) and automate via obsidian-cli.",
+      "agent": "noter",
+      "tags": ["obsidian", "markdown", "notes"],
+      "version": "1.0.0",
+      "author": "Obsidian",
+      "displayOrder": 1
+    },
+    {
+      "id": "goodnotes-ai",
+      "name": "GoodNotes AI",
+      "desc": "AI-powered note-taking and summarization for GoodNotes documents.",
+      "agent": "noter",
+      "tags": ["notes", "ai", "summarization"],
+      "version": "1.0.0",
+      "author": "OpenClaw",
+      "displayOrder": 2
+    },
+    {
+      "id": "slush-pile",
+      "name": "Slush Pile",
+      "desc": "AI-powered notes organizer and summarizer.",
+      "agent": "noter",
+      "tags": ["notes", "ai", "organization"],
+      "version": "1.0.0",
+      "author": "OpenClaw",
+      "displayOrder": 3
+    },
+    {
+      "id": "notepad-ai",
+      "name": "Notepad AI",
+      "desc": "AI-powered note-taking and writing assistant.",
+      "agent": "noter",
+      "tags": ["notes", "ai", "writing"],
+      "version": "1.0.0",
+      "author": "OpenClaw",
+      "displayOrder": 4
+    },
+    {
+      "id": "logbook",
+      "name": "Logbook",
+      "desc": "AI-powered daily logbook and reflection tool.",
+      "agent": "noter",
+      "tags": ["logbook", "reflection", "ai"],
+      "version": "1.0.0",
+      "author": "OpenClaw",
+      "displayOrder": 5
+    }
+  ],
+  "media": [
+    {
+      "id": "youtube-api-skill",
+      "name": "YouTube",
+      "desc": "YouTube Data API integration with managed OAuth.",
+      "agent": "media",
+      "tags": ["youtube", "video", "api"],
+      "version": "1.0.3",
+      "author": "OpenClaw",
+      "displayOrder": 1
+    },
+    {
+      "id": "video-frames",
+      "name": "Video Frames",
+      "desc": "Extract frames or short clips from videos using ffmpeg.",
+      "agent": "media",
+      "tags": ["video", "ffmpeg", "extraction"],
+      "version": "1.0.0",
+      "author": "OpenClaw",
+      "displayOrder": 2
+    },
+    {
+      "id": "sonoscli",
+      "name": "Sonoscli",
+      "desc": "Control Sonos speakers (discover/status/play/volume/group).",
+      "agent": "media",
+      "tags": ["sonos", "audio", "control"],
+      "version": "1.0.0",
+      "author": "Sonos",
+      "displayOrder": 3
+    },
+    {
+      "id": "video-transcript-downloader",
+      "name": "Video Transcript Downloader",
+      "desc": "Download videos, audio, subtitles, and clean paragraph-style transcripts.",
+      "agent": "media",
+      "tags": ["video", "audio", "transcript"],
+      "version": "1.0.0",
+      "author": "OpenClaw",
+      "displayOrder": 4
+    }
+  ],
+  "smart": [
+    {
+      "id": "free-ride",
+      "name": "Free Ride - Unlimited free AI",
+      "desc": "Manages free AI models from OpenRouter for OpenClaw.",
+      "agent": "smart",
+      "tags": ["ai", "models", "openrouter"],
+      "version": "1.0.4",
+      "author": "OpenClaw",
+      "displayOrder": 1
+    },
+    {
+      "id": "ontology",
+      "name": "Ontology",
+      "desc": "Typed knowledge graph for structured agent memory and composable skills.",
+      "agent": "smart",
+      "tags": ["knowledge-graph", "memory", "structured"],
+      "version": "0.1.2",
+      "author": "OpenClaw",
+      "displayOrder": 2
+    },
+    {
+      "id": "clawdhub",
+      "name": "Clawdhub",
+      "desc": "Use the ClawdHub CLI to search, install, update, and publish agent skills.",
+      "agent": "smart",
+      "tags": ["clawdhub", "skills", "management"],
+      "version": "1.0.0",
+      "author": "OpenClaw",
+      "displayOrder": 3
+    },
+    {
+      "id": "stackoverflow",
+      "name": "Stack Overflow",
+      "desc": "Search and retrieve answers from Stack Overflow.",
+      "agent": "smart",
+      "tags": ["stackoverflow", "qna", "coding"],
+      "version": "1.0.0",
+      "author": "OpenClaw",
+      "displayOrder": 4
+    },
+    {
+      "id": "answeroverflow",
+      "name": "Answer Overflow",
+      "desc": "Search indexed Discord community discussions for coding problems.",
+      "agent": "smart",
+      "tags": ["discord", "qna", "community"],
+      "version": "1.0.2",
+      "author": "OpenClaw",
+      "displayOrder": 5
+    }
+  ]
+}

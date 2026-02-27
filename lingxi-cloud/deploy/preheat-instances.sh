@@ -84,4 +84,4 @@ docker ps --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}" | grep lingxi-use
 
 echo ""
 echo "分配实例 API:"
-echo "curl -X POST http://120.55.192.144:3000/api/instance/assign -H 'Content-Type: application/json' -d '{\"userId\":\"test\"}'"
+echo "curl -X POST http://120.26.137.51:3000/api/instance/assign -H 'Content-Type: application/json' -d '{\"userId\":\"test\"}'"
