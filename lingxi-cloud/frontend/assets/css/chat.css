@@ -484,6 +484,24 @@ html {
 }
 
 .status-dot.connected {
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  padding: 6px;
+  border-radius: 50%;
+  background: transparent;
+  transition: background 0.3s;
+}
+
+.status-indicator:hover {
+  background: rgba(0,0,0,0.05);
+}
+
+.status-indicator .status-dot {
+  width: 10px;
+  height: 10px;
   background: #10a37f;
 }
 

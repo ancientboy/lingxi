@@ -1,0 +1,14 @@
+{
+  "primary": "supermemory",
+  "local": {
+    "enabled": true,
+    "basePath": "~/.openclaw/memory"
+  },
+  "supermemory": {
+    "enabled": true,
+    "apiKey": "${SUPERMEMORY_API_KEY}",
+    "userId": "default"
+  },
+  "syncStrategy": "auto",
+  "cacheEnabled": true
+}

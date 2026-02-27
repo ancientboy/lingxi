@@ -293,8 +293,8 @@ let connectNonce = null;
 // WebSocket 连接
 function connectWebSocket() {
   const statusEl = document.getElementById('connectionStatus');
-  statusEl.className = 'status-dot';
-  statusEl.className = 'status-dot';
+  statusEl.querySelector('.status-dot').className = 'status-dot';
+  statusEl.querySelector('.status-dot').className = 'status-dot';
   
   try {
     // 🔧 修复：通过后端 WebSocket 代理连接，解决 HTTPS 混合内容问题
@@ -325,17 +325,17 @@ function connectWebSocket() {
     
     ws.onerror = (error) => {
       console.error('WebSocket 错误:', error);
-      statusEl.className = 'status-dot';  // 红色
+      statusEl.querySelector('.status-dot').className = 'status-dot';  // 红色
     };
     
     ws.onclose = () => {
       console.log('WebSocket 已断开，5秒后重连...');
-      statusEl.className = 'status-dot';  // 红色
+      statusEl.querySelector('.status-dot').className = 'status-dot';  // 红色
       setTimeout(connectWebSocket, 5000);
     };
   } catch (e) {
     console.error('WebSocket 连接失败:', e);
-    statusEl.className = 'status-dot';  // 红色
+    statusEl.querySelector('.status-dot').className = 'status-dot';  // 红色
   }
 }
 
@@ -377,13 +377,13 @@ function handleWebSocketMessage(data) {
   // 连接挑战 - 设备认证已禁用时不应该收到
   if (data.type === 'event' && data.event === 'connect.challenge') {
     console.log('收到挑战，但设备认证已禁用，这不应该发生');
-    statusEl.className = 'status-dot';  // 红色
+    statusEl.querySelector('.status-dot').className = 'status-dot';  // 红色
     return;
   }
   
   // 连接响应
   if (data.type === 'res' && data.ok && data.payload?.type === 'hello-ok') {
-    statusEl.className = 'status-dot connected';  // 绿色
+    statusEl.querySelector('.status-dot').className = 'status-dot connected';  // 绿色
     console.log('✅ 认证成功');
     // 加载会话列表和历史
     loadSessions();
@@ -407,7 +407,7 @@ function handleWebSocketMessage(data) {
     
     // 如果是认证错误，显示红色状态
     if (errorMsg.includes('auth') || errorMsg.includes('token') || errorMsg.includes('认证')) {
-      statusEl.className = 'status-dot';  // 红色
+      statusEl.querySelector('.status-dot').className = 'status-dot';  // 红色
     }
     
     removeTyping();
