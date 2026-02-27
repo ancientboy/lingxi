@@ -136,8 +136,8 @@ async function quickGeneratePackage(userId, token, sessionId, releasesDir) {
   const configJson = {
     "meta": { "lastTouchedVersion": OPENCLAW_VERSION },
     "env": {
-      "ZHIPU_API_KEY": "77c2b59d03e646a9884f78f8c4787885.XunhoXmFaErSD0dR",
-      "DASHSCOPE_API_KEY": "sk-sp-8a1ddcacc5f94df4a24dd998c895fc4d"
+      "ZHIPU_API_KEY": config.env.ZHIPU_API_KEY,
+      "DASHSCOPE_API_KEY": config.env.DASHSCOPE_API_KEY
     },
     "auth": {
       "profiles": {
@@ -244,12 +244,12 @@ cat > ~/.openclaw/agents/main/auth-profiles.json << 'AUTHEOF'
     "zhipu:default": {
       "type": "api_key",
       "provider": "zhipu",
-      "key": "77c2b59d03e646a9884f78f8c4787885.XunhoXmFaErSD0dR"
+      "key": config.env.ZHIPU_API_KEY
     },
     "alibaba-cloud:default": {
       "type": "api_key",
       "provider": "alibaba-cloud",
-      "key": "sk-sp-8a1ddcacc5f94df4a24dd998c895fc4d"
+      "key": config.env.DASHSCOPE_API_KEY
     }
   },
   "lastGood": {
@@ -816,12 +816,12 @@ cat > ~/.openclaw/agents/main/auth-profiles.json << 'AUTHEOF'
     "zhipu:default": {
       "type": "api_key",
       "provider": "zhipu",
-      "key": "77c2b59d03e646a9884f78f8c4787885.XunhoXmFaErSD0dR"
+      "key": config.env.ZHIPU_API_KEY
     },
     "alibaba-cloud:default": {
       "type": "api_key",
       "provider": "alibaba-cloud",
-      "key": "sk-sp-8a1ddcacc5f94df4a24dd998c895fc4d"
+      "key": config.env.DASHSCOPE_API_KEY
     }
   },
   "lastGood": {

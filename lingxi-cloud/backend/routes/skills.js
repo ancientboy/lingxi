@@ -6,6 +6,7 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import fs from 'fs/promises';
+import { config } from '../config/index.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
@@ -316,7 +317,7 @@ router.get('/installed', authenticateUser, async (req, res) => {
  * OpenClaw 技能目录: ~/.openclaw/workspace/skills/
  */
 async function getInstalledSkillsViaSSH(host, port = 22) {
-  const SERVER_PASSWORD = process.env.USER_SERVER_PASSWORD || 'Lingxi@2026!';
+  const SERVER_PASSWORD = config.userServer.password;
   
   return new Promise((resolve, reject) => {
     const conn = new SSHClient();
