@@ -38,3 +38,16 @@ dist/
 releases/packages/*.tgz
 
 backend/.env
+
+# 备份文件
+*.bak
+*.bak.*
+.env.bak*
+config/*.bak
+
+# 脚本文件
+scripts/create-*.sh
+
+# 临时文件
+frontend/debug.html
+frontend/test-js.html
