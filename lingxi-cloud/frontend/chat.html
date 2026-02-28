@@ -9,6 +9,30 @@
   <!-- Lucide Icons - 使用 cdnjs 备用源 -->
   <script src="assets/libs/lucide.min.js"></script>
   <style>
+    /* 顶部导航链接 */
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .nav-link {
+      font-size: 14px;
+      font-weight: 500;
+      padding: 8px 16px;
+      border-radius: 8px;
+      transition: all 0.2s;
+    }
+    
+    .nav-link:hover {
+      background: #f3f4f6;
+    }
+    
+    .nav-link.active {
+      background: rgba(16, 163, 127, 0.1);
+      color: #10a37f;
+    }
+
       /* 导航栏右侧布局 */
       .nav-right {
         display: flex;
@@ -31,12 +55,12 @@
 <body>
   <!-- 侧边栏 -->
   <aside class="sidebar" id="sidebar">
-    <a href="index.html" class="sidebar-brand">
+    <!-- <a href="index.html" class="sidebar-brand">
       <div class="sidebar-brand-icon">
         <i data-lucide="sparkles" class="icon-lg"></i>
       </div>
       <span class="sidebar-brand-name">Lume</span>
-    </a>
+    </a> -->
     <div class="sidebar-header">
       <button class="sidebar-new-chat" onclick="newChat()">
         <i data-lucide="plus" class="icon-sm"></i>
@@ -48,7 +72,6 @@
     </div>
     
     <div class="sidebar-content">
-      <div class="sidebar-section">
         <div class="sidebar-section-title">今天</div>
         <div class="sidebar-sessions" id="todaySessions"></div>
       </div>
@@ -72,11 +95,11 @@
         <i data-lucide="message-square" class="icon-sm icon-primary"></i>
         <span>飞书配置</span>
       </div>
-      <div class="sidebar-tool-item" onclick="showWecomConfig()">
+      <div class="sidebar-tool-item" style="opacity: 0.5; cursor: not-allowed;">
         <i data-lucide="briefcase" class="icon-sm icon-primary"></i>
         <span>企业微信</span>
       </div>
-      <div class="sidebar-tool-item" onclick="showSkillLibrary()">
+      <div class="sidebar-tool-item" onclick="window.location.href='skills.html'">
         <i data-lucide="layout-grid" class="icon-sm icon-primary"></i>
         <span>技能库</span>
       </div>
@@ -326,6 +349,30 @@
     </div>
 
     <style>
+    /* 顶部导航链接 */
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .nav-link {
+      font-size: 14px;
+      font-weight: 500;
+      padding: 8px 16px;
+      border-radius: 8px;
+      transition: all 0.2s;
+    }
+    
+    .nav-link:hover {
+      background: #f3f4f6;
+    }
+    
+    .nav-link.active {
+      background: rgba(16, 163, 127, 0.1);
+      color: #10a37f;
+    }
+
       /* 导航栏右侧布局 */
       .nav-right {
         display: flex;
@@ -551,6 +598,30 @@
 
     <!-- 技能库样式 -->
     <style>
+    /* 顶部导航链接 */
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .nav-link {
+      font-size: 14px;
+      font-weight: 500;
+      padding: 8px 16px;
+      border-radius: 8px;
+      transition: all 0.2s;
+    }
+    
+    .nav-link:hover {
+      background: #f3f4f6;
+    }
+    
+    .nav-link.active {
+      background: rgba(16, 163, 127, 0.1);
+      color: #10a37f;
+    }
+
       /* 导航栏右侧布局 */
       .nav-right {
         display: flex;

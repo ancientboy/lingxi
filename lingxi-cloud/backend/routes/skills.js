@@ -284,11 +284,10 @@ router.get('/installed', authenticateUser, async (req, res) => {
   try {
     const db = await getDB();
     
-    // 获取用户的服务器信息
+    // 获取用户运行中的服务器
     const server = db.userServers?.find(s => s.userId === userId && s.status === 'running');
     
     if (!server || !server.ip) {
-      // 没有服务器或服务器未运行，返回空列表
       return res.json({
         total: 0,
         skills: [],
@@ -296,9 +295,11 @@ router.get('/installed', authenticateUser, async (req, res) => {
       });
     }
     
-    // 通过 SSH 获取技能列表（SSH 端口固定为 22）
+    // 通过 SSH 从用户服务器的 skills 目录获取已安装技能
+    console.log('📡 从用户服务器获取技能:', server.ip);
     const skills = await getInstalledSkillsViaSSH(server.ip);
     
+    console.log('✅ 获取到已安装技能:', skills.length, '个');
     res.json({
       total: skills.length,
       skills: skills
@@ -318,14 +319,16 @@ router.get('/installed', authenticateUser, async (req, res) => {
  */
 async function getInstalledSkillsViaSSH(host, port = 22) {
   const SERVER_PASSWORD = config.userServer.password;
+  console.log('🔐 SSH 连接:', host, '密码:', SERVER_PASSWORD ? '***' : '空');
   
   return new Promise((resolve, reject) => {
     const conn = new SSHClient();
     const skills = [];
     
     conn.on('ready', () => {
-      // 获取主 workspace 的技能目录（每个技能都有 SKILL.md）
+      console.log('✅ SSH 连接成功:', host);
       const cmd = 'ls -1 ~/.openclaw/workspace/skills/ 2>/dev/null';
+      console.log('📡 执行命令:', cmd);
       
       conn.exec(cmd, (err, stream) => {
         if (err) {
@@ -341,12 +344,12 @@ async function getInstalledSkillsViaSSH(host, port = 22) {
         
         stream.on('close', () => {
           conn.end();
+          console.log('📦 SSH 输出:', output);
           
-          // 解析输出
           const lines = output.trim().split('\n');
           for (const line of lines) {
             const skillId = line.trim();
-            if (skillId && !skillId.startsWith('ls:') && !skillId.includes('No such file')) {
+            if (skillId && !skillId.startsWith('ls:') && !skillId.includes('No such file') && skillId !== '') {
               skills.push({
                 id: skillId,
                 name: skillId,
@@ -356,7 +359,7 @@ async function getInstalledSkillsViaSSH(host, port = 22) {
             }
           }
           
-          console.log(`✅ 从 ${host} 获取到 ${skills.length} 个技能`);
+          console.log(`✅ 从 ${host} 获取到 ${skills.length} 个技能:`, skills.map(s => s.id));
           resolve(skills);
         });
       });
