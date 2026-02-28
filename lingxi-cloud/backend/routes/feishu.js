@@ -236,7 +236,7 @@ async function callOpenClaw(userId, text) {
   logger.debug(`用户隔离: 用户=${userId}, Session=${openclawSession}, 实例=${openclawUrl}`);
   
   try {
-    const response = await fetch(`${openclawUrl}/${openclawSession}/api/chat`, {
+    const response = await fetch(`${openclawUrl}/v1/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -256,7 +256,7 @@ async function callOpenClaw(userId, text) {
     }
     
     const data = await response.json();
-    return data.response || data.message || '灵犀收到了你的消息~';
+    return data.choices?.[0]?.message?.content || data.response || data.message || '灵犀收到了你的消息~';
     
   } catch (error) {
     console.error('调用 OpenClaw 失败:', error.message);
