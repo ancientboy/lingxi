@@ -527,25 +527,14 @@
     }
   </style>
 </head>
-<body>
-  <!-- 顶部导航栏 -->
-  <nav class="navbar">
-    <div class="navbar-left">
-      <a href="index.html" class="logo">Lume</a>
-      <a href="chat.html" class="back-btn" title="返回对话"><i data-lucide="arrow-left" class="icon"></i></a>
-    </div>
-    <button class="theme-toggle" onclick="toggleTheme()" title="切换主题" style="background: #f4f4f4; border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 18px;">
-      <span id="themeIcon">🌙</span>
-    </button>
-  </nav>
+<body data-page="skills">
+  <!-- 导航栏容器 -->
+  <div id="navbar-container"></div>
 
   <!-- 主内容区 -->
   <div class="main-container">
-    <!-- 左侧边栏 -->
-    <aside class="sidebar">
-      <div class="sidebar-title">Agent 分类</div>
-      <div class="agent-list" id="agentList"></div>
-    </aside>
+    <!-- 侧边栏容器 -->
+  <div id="sidebar-container"></div>
 
     <!-- 右侧内容区 -->
     <main class="content">
@@ -787,5 +776,8 @@
 
     init();
   </script>
-</body>
+
+    <!-- 统一组件加载器 -->
+    <script src="components/load-components.js"></script>
+  </body>
 </html>

@@ -1,0 +1,27 @@
+<!-- 统一顶部导航组件 -->
+<nav class="navbar">
+  <div class="nav-left">
+    <button class="sidebar-toggle" onclick="toggleSidebar()" title="切换侧边栏">
+      <i data-lucide="menu" class="icon"></i>
+    </button>
+    <a href="index.html" class="logo">Lume</a>
+  </div>
+  <div class="nav-right">
+    <div id="connectionStatus" title="未连接"><div class="status-dot"></div></div>
+    <div class="agent-switcher" onclick="toggleAgentDropdown()" title="切换 Agent">
+      <i data-lucide="zap" class="icon icon-primary" id="currentAgentIcon"></i>
+      <span class="agent-switcher-arrow">▼</span>
+      <div class="agent-dropdown" id="agentDropdown"></div>
+    </div>
+    <!-- 签到按钮 -->
+    <div class="checkin-btn" id="checkinBtn" onclick="handleCheckin()" title="每日签到">
+      <i data-lucide="calendar" class="icon-sm"></i>
+      <span class="checkin-text" id="checkinText">签到</span>
+      <span class="checkin-points" id="checkinPoints"></span>
+    </div>
+    <!-- 主题切换 -->
+    <button class="theme-toggle-btn" onclick="toggleTheme()" title="切换主题">
+      <i data-lucide="moon" class="icon" id="themeToggleIcon"></i>
+    </button>
+  </div>
+</nav>

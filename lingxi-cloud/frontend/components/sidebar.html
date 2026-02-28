@@ -1,0 +1,70 @@
+<!-- 统一侧边栏组件 -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <button class="sidebar-new-chat" onclick="newChat()">
+      <i data-lucide="plus" class="icon-sm"></i>
+      <span>新对话</span>
+    </button>
+    <button class="sidebar-close" onclick="toggleSidebar()">
+      <i data-lucide="x" class="icon-sm"></i>
+    </button>
+  </div>
+  
+  <div class="sidebar-content">
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">今天</div>
+      <div class="sidebar-sessions" id="todaySessions"></div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">最近 7 天</div>
+      <div class="sidebar-sessions" id="weekSessions"></div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">更早</div>
+      <div class="sidebar-sessions" id="olderSessions"></div>
+    </div>
+  </div>
+  
+  <!-- 功能区 -->
+  <div class="sidebar-tools">
+    <div class="sidebar-tool-item" onclick="showMyTeam()">
+      <i data-lucide="users" class="icon-sm icon-primary"></i>
+      <span>我的团队</span>
+    </div>
+    <div class="sidebar-tool-item" onclick="showFeishuConfig()">
+      <i data-lucide="message-square" class="icon-sm icon-primary"></i>
+      <span>飞书配置</span>
+    </div>
+    <div class="sidebar-tool-item" onclick="showWecomConfig()" style="opacity: 0.5; cursor: not-allowed;">
+      <i data-lucide="briefcase" class="icon-sm icon-primary"></i>
+      <span>企业微信</span>
+    </div>
+    <div class="sidebar-tool-item" onclick="window.location.href='skills.html'">
+      <i data-lucide="layout-grid" class="icon-sm icon-primary"></i>
+      <span>技能库</span>
+    </div>
+  </div>
+  
+  <!-- 底部用户区 -->
+  <div class="sidebar-footer">
+    <div class="sidebar-user-trigger" onclick="toggleUserMenu()">
+      <div class="sidebar-user-avatar" id="sidebarUserAvatar">U</div>
+      <span class="sidebar-user-name" id="sidebarUserName">用户</span>
+      <span class="sidebar-user-arrow">▼</span>
+    </div>
+    <div class="sidebar-user-menu" id="sidebarUserMenu">
+      <div class="sidebar-menu-item" onclick="showPasswordChange()">
+        <i data-lucide="lock" class="icon-sm"></i>
+        <span>修改密码</span>
+      </div>
+      <div class="sidebar-menu-item" onclick="showAbout()">
+        <i data-lucide="info" class="icon-sm"></i>
+        <span>关于</span>
+      </div>
+      <div class="sidebar-menu-item" onclick="logout()">
+        <i data-lucide="log-out" class="icon-sm"></i>
+        <span>退出登录</span>
+      </div>
+    </div>
+  </div>
+</aside>
