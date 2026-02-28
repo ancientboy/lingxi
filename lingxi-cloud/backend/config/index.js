@@ -67,7 +67,7 @@ export const config = {
     securityGroupId: process.env.ALIYUN_SECURITY_GROUP_ID || '',
     
     // 实例配置
-    instanceType: process.env.ALIYUN_INSTANCE_TYPE || 'ecs.g6.large',
+    instanceType: process.env.ALIYUN_INSTANCE_TYPE || 'ecs.t5-c1m2.large',
     systemDiskSize: parseInt(process.env.ALIYUN_DISK_SIZE || '40'),
     bandwidth: parseInt(process.env.ALIYUN_BANDWIDTH || '5'),
   },

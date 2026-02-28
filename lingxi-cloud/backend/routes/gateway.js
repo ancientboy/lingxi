@@ -17,11 +17,11 @@ const SHARED_GATEWAY = {
 
 router.get('/ws-info', (req, res) => {
   const host = req.get('host') || 'localhost:3000';
-  const protocol = req.protocol === 'https' ? 'wss' : 'ws';
-  const wsHost = host.split(':')[0];
+  const protocol = req.headers['x-forwarded-proto'] === 'https' ? 'wss' : 'ws';
+  const wsHost = protocol === 'wss' ? host.split(':')[0] : host;
   
   res.json({
-    wsUrl: `${protocol}://${wsHost}:18789`,
+    wsUrl: `${protocol}://${wsHost}/api/ws`,
     session: SHARED_GATEWAY.session,
   });
 });
@@ -65,8 +65,9 @@ router.get('/connect-info', async (req, res) => {
   // 🔧 修复：使用后端 WebSocket 代理，而不是直接连接用户服务器
   // 前端连接 wss://lumeword.com/api/ws，后端代理到用户服务器
   const host = req.get('host') || 'localhost:3000';
-  const protocol = req.protocol === 'https' ? 'wss' : 'ws';
-  const wsUrl = `${protocol}://${host}/api/ws`;
+  const protocol = (req.headers['x-forwarded-proto'] || req.protocol) === 'https' ? 'wss' : 'ws';
+  const wsHost = protocol === "wss" ? host.split(":")[0] : host;
+  const wsUrl = `${protocol}://${wsHost}/api/ws`;
   
   if (userServer && userServer.status === 'running' && userServer.ip) {
     // 用户有独立服务器且已运行

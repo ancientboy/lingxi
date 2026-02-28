@@ -14,6 +14,7 @@ require('dotenv').config({ path: require('path').join(require('path').dirname(re
 
 import express from 'express';
 import cors from 'cors';
+import expressWs from 'express-ws';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -22,6 +23,9 @@ const __dirname = dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// 🔌 初始化 WebSocket 支持（必须在路由之前）
+expressWs(app);
 
 // 中间件
 app.use(cors());
@@ -114,7 +118,7 @@ import { setupWebSocketProxy } from './routes/ws-proxy.js';
 setupWebSocketProxy(app);
 
 // 启动服务
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 灵犀云后端服务已启动: http://localhost:${PORT}`);
   console.log(`📝 健康检查: http://localhost:${PORT}/health`);
 });

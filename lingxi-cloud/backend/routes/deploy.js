@@ -168,7 +168,7 @@ async function quickGeneratePackage(userId, token, sessionId, releasesDir) {
       }
     },
     "agents": {
-      "defaults": { "model": { "primary": "zhipu/glm-5" }, "workspace": "~/.openclaw/workspace" },
+      "defaults": { "model": { "primary": "alibaba-cloud/qwen3.5-plus" }, "workspace": "~/.openclaw/workspace" },
       "list": [
         { "id": "main", "default": true, "name": "灵犀", "agentDir": "~/.openclaw/agents/main", "subagents": { "allowAgents": ["coder", "ops", "inventor", "pm", "noter", "media", "smart"] } },
         { "id": "coder", "name": "云溪", "agentDir": "~/.openclaw/agents/coder" },

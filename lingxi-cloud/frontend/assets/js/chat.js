@@ -291,14 +291,6 @@ async function init() {
   currentSessionKey = SESSION_KEY;
   console.log('🔑 会话 Key:', currentSessionKey);
   
-// ═══════════════════════════════════════════════════════════════
-// 🔌 WebSocket 模块
-// - connectWebSocket(): 建立 WebSocket 连接
-// - sendConnect(): 发送连接认证
-// - handleWebSocketMessage(): 处理消息
-// - abortChat(): 中断生成
-// ═══════════════════════════════════════════════════════════════
-
   renderTeamTags();
   connectWebSocket();
   
@@ -331,8 +323,16 @@ let connectNonce = null;
 // ═══════════════════════════════════════════════════════════════
 function connectWebSocket() {
   const statusEl = document.getElementById('connectionStatus');
-  statusEl.querySelector('.status-dot').className = 'status-dot';
-  statusEl.querySelector('.status-dot').className = 'status-dot';
+  if (!statusEl) {
+    console.warn('⚠️ connectionStatus 元素未找到，跳过 WebSocket 状态更新');
+    return;
+  }
+  const statusDot = statusEl.querySelector('.status-dot');
+  if (!statusDot) {
+    console.warn('⚠️ status-dot 元素未找到，跳过 WebSocket 状态更新');
+    return;
+  }
+  statusDot.className = 'status-dot';
   
   try {
     // 🔧 修复：通过后端 WebSocket 代理连接，解决 HTTPS 混合内容问题
@@ -352,9 +352,10 @@ function connectWebSocket() {
       }, 750);
     };
     
-    ws.onmessage = (event) => {
+    ws.onmessage = async (event) => {
       try {
-        const data = JSON.parse(event.data);
+        const text = typeof event.data === "string" ? event.data : await event.data.text();
+        const data = JSON.parse(text);
         handleWebSocketMessage(data);
       } catch (e) {
         console.error('解析消息失败:', e);
@@ -363,17 +364,17 @@ function connectWebSocket() {
     
     ws.onerror = (error) => {
       console.error('WebSocket 错误:', error);
-      statusEl.querySelector('.status-dot').className = 'status-dot';  // 红色
+      statusDot.className = 'status-dot';  // 红色
     };
     
     ws.onclose = () => {
       console.log('WebSocket 已断开，5秒后重连...');
-      statusEl.querySelector('.status-dot').className = 'status-dot';  // 红色
+      statusDot.className = 'status-dot';  // 红色
       setTimeout(connectWebSocket, 5000);
     };
   } catch (e) {
     console.error('WebSocket 连接失败:', e);
-    statusEl.querySelector('.status-dot').className = 'status-dot';  // 红色
+    statusDot.className = 'status-dot';  // 红色
   }
 }
 
@@ -398,7 +399,8 @@ function sendConnect() {
   };
   
   // 禁用设备认证后不需要发送 device
-  ws.send(JSON.stringify({
+  console.log('📤 发送 connect 请求:', JSON.stringify({ type: 'req', method: 'connect' }));
+    ws.send(JSON.stringify({
     type: 'req',
     id: `req_${requestId++}`,
     method: 'connect',
@@ -408,20 +410,21 @@ function sendConnect() {
 
 // 处理 WebSocket 消息
 function handleWebSocketMessage(data) {
-  console.log('收到消息:', data);
+  console.log('📥 收到消息:', data.type, data.event || data.payload?.type);
   
   const statusEl = document.getElementById('connectionStatus');
   
   // 连接挑战 - 设备认证已禁用时不应该收到
   if (data.type === 'event' && data.event === 'connect.challenge') {
-    console.log('收到挑战，但设备认证已禁用，这不应该发生');
-    statusEl.querySelector('.status-dot').className = 'status-dot';  // 红色
+    console.log('⚠️ 收到设备认证挑战，但已禁用，继续...');
+    // 设备认证已禁用，忽略挑战，等待 hello-ok
     return;
   }
   
   // 连接响应
   if (data.type === 'res' && data.ok && data.payload?.type === 'hello-ok') {
-    statusEl.querySelector('.status-dot').className = 'status-dot connected';  // 绿色
+    const statusDot = statusEl?.querySelector('.status-dot');
+    if (statusDot) statusDot.className = 'status-dot connected';  // 绿色
     console.log('✅ 认证成功');
     // 加载会话列表和历史
     loadSessions();
@@ -445,7 +448,7 @@ function handleWebSocketMessage(data) {
     
     // 如果是认证错误，显示红色状态
     if (errorMsg.includes('auth') || errorMsg.includes('token') || errorMsg.includes('认证')) {
-      statusEl.querySelector('.status-dot').className = 'status-dot';  // 红色
+      statusDot.className = 'status-dot';  // 红色
     }
     
     removeTyping();
@@ -480,14 +483,6 @@ function handleWebSocketMessage(data) {
         updateStreamingMessage(text, runId);
       }
     }
-// ═══════════════════════════════════════════════════════════════
-// 💬 消息模块
-// - sendMessage(): 发送消息
-// - addMessage(): 添加消息到界面
-// - extractText(): 提取消息文本
-// - updateStreamingMessage(): 更新流式消息
-// ═══════════════════════════════════════════════════════════════
-
     // final - 完成
     else if (payload.state === 'final') {
       const text = extractText(payload.message);
@@ -692,15 +687,6 @@ function sendMessage() {
 function handleSendClick() {
   console.log('🖱️ 发送按钮被点击, isGenerating:', isGenerating);
   if (isGenerating) {
-// ═══════════════════════════════════════════════════════════════
-// 📝 会话模块
-// - loadChatHistory(): 加载聊天历史
-// - loadSessions(): 加载会话列表
-// - createNewSession(): 创建新会话
-// - switchSession(): 切换会话
-// - deleteSession(): 删除会话
-// ═══════════════════════════════════════════════════════════════
-
     abortChat();
   } else {
     sendMessage();
@@ -780,9 +766,10 @@ async function loadChatHistory() {
         reject(new Error('timeout'));
       }, 10000);
       
-      const handler = (event) => {
+      const handler = async (event) => {
         try {
-          const data = JSON.parse(event.data);
+          const text = typeof event.data === "string" ? event.data : await event.data.text();
+        const data = JSON.parse(text);
           console.log('📚 收到 WebSocket 消息, id:', data.id, '期待:', id);
           if (data.id === id) {
             clearTimeout(timeout);
@@ -932,16 +919,18 @@ async function loadSessions() {
     return;
   }
   
-  console.log('📋 加载会话列表...');
+  console.log('📋 开始加载会话列表...');
+
   
   try {
     const res = await new Promise((resolve, reject) => {
       const id = `req_${requestId++}`;
       const timeout = setTimeout(() => reject(new Error('timeout')), 10000);
       
-      const handler = (event) => {
+      const handler = async (event) => {
         try {
-          const data = JSON.parse(event.data);
+          const text = typeof event.data === "string" ? event.data : await event.data.text();
+        const data = JSON.parse(text);
           if (data.id === id) {
             clearTimeout(timeout);
             ws.removeEventListener('message', handler);
@@ -1190,9 +1179,10 @@ async function deleteSession(sessionKey) {
           reject(new Error('timeout'));
         }, 10000);
         
-        const handler = (event) => {
+        const handler = async (event) => {
           try {
-            const data = JSON.parse(event.data);
+            const text = typeof event.data === "string" ? event.data : await event.data.text();
+        const data = JSON.parse(text);
             console.log('📥 收到响应:', data.id, '期待:', id);
             if (data.id === id) {
               clearTimeout(timeout);
@@ -1333,14 +1323,6 @@ function addTyping() {
   const messages = document.getElementById('messages');
   const div = document.createElement('div');
   div.className = 'message assistant';
-// ═══════════════════════════════════════════════════════════════
-// 👥 Agent 模块
-// - showMyTeam(): 显示团队配置
-// - addAgent(): 添加 Agent
-// - removeAgent(): 移除 Agent
-// - switchAgent(): 切换 Agent
-// ═══════════════════════════════════════════════════════════════
-
   div.id = 'typing-indicator';
   
   // 获取当前 Agent 的头像
@@ -1607,6 +1589,7 @@ function showFeishuConfig() {
   }
   
   loadFeishuStatus();
+      closeFeishuModal(); // 关闭弹窗
   document.getElementById('feishuModal').classList.add('show');
 }
 
@@ -1649,22 +1632,27 @@ async function saveFeishuConfig(e) {
   }
   
   try {
-    const res = await fetch(`${API_BASE}/api/remote-config/feishu`, {
+    const res = await fetch(`${API_BASE}/api/feishu/configure`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${localStorage.getItem('lingxi_token')}`
       },
-      body: JSON.stringify({ userId: user.id, appId, appSecret })
+      body: JSON.stringify({ 
+        userId: user.id, 
+        appId, 
+        appSecret,
+        verificationToken: document.getElementById('feishuVerificationToken')?.value.trim() || undefined
+      })
     });
     
     const data = await res.json();
     
     if (data.success) {
-      const webhookInfo = data.webhook ? `\n\n请在飞书开放平台配置事件订阅：\n${data.webhook.eventUrl}` : '';
-      alert('飞书配置成功！' + webhookInfo);
+      alert(`✅ 飞书配置成功！\n\n请在飞书开放平台配置：\n1. 进入应用管理 → 事件订阅\n2. 选择 WebSocket 连接方式\n3. 订阅事件：im.message.receive_v1\n4. 点击"保存"\n\n配置完成后即可在飞书里与机器人对话！`);
+      
       loadFeishuStatus();
-      closeFeishuModal();
+      closeFeishuModal(); // 关闭弹窗
     } else {
       alert('配置失败: ' + (data.error || '未知错误'));
     }
@@ -2145,14 +2133,6 @@ function switchAgent(agentId) {
   
   // 关闭下拉
   document.getElementById('agentDropdown')?.classList.remove('show');
-// ═══════════════════════════════════════════════════════════════
-// 🎯 技能库模块
-// - showSkillLibrary(): 显示技能库
-// - loadInstalledSkills(): 加载已安装技能
-// - renderSkillGrid(): 渲染技能网格
-// - installSkill(): 安装技能
-// ═══════════════════════════════════════════════════════════════
-
   
   // 更新列表
   renderAgentDropdown();

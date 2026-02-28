@@ -219,10 +219,14 @@ router.get('/status/:userId', async (req, res) => {
     
     const server = db.userServers?.find(s => s.userId === userId);
     const config = db.userConfigs?.find(c => c.userId === userId);
+    const feishuConfig = db.feishuConfigs?.find(f => f.userId === userId);
     
     const openclawWebUrl = server?.ip 
       ? `http://${server.ip}:${server.openclawPort}/${server.openclawSession}?token=${server.openclawToken}`
       : null;
+    
+    // 优先使用数据库中的飞书配置（SSH 自动配置的）
+    const feishuWebhookUrl = feishuConfig?.webhookUrl || (server?.ip ? `http://${server.ip}:18789/feishu/events` : null);
     
     res.json({
       server: server ? {
@@ -236,21 +240,21 @@ router.get('/status/:userId', async (req, res) => {
         webUrl: openclawWebUrl,
         embedUrl: openclawWebUrl
       },
-      config: config ? {
+      config: {
         feishu: {
-          configured: !!config.feishuAppId,
-          appId: config.feishuAppId,
-          enabled: config.feishuEnabled === 1,
-          webhookUrl: server?.ip ? `http://${server.ip}:18789/feishu/events/default` : null
+          configured: !!feishuConfig?.appId,
+          appId: feishuConfig?.appId,
+          enabled: feishuConfig?.status === 'active',
+          webhookUrl: feishuWebhookUrl
         },
         wecom: {
-          configured: !!config.wecomCorpId,
-          corpId: config.wecomCorpId,
-          enabled: config.wecomEnabled === 1,
-          callbackUrl: server?.ip ? `http://${server.ip}:18789/wecom/callback/default` : null
+          configured: !!(config?.wecomCorpId),
+          corpId: config?.wecomCorpId,
+          enabled: config?.wecomEnabled === 1,
+          callbackUrl: server?.ip ? `http://${server.ip}:18789/wecom/callback` : null
         },
-        agents: config.agents ? JSON.parse(config.agents) : ['lingxi']
-      } : null
+        agents: config?.agents ? JSON.parse(config.agents) : ['lingxi']
+      }
     });
     
   } catch (error) {

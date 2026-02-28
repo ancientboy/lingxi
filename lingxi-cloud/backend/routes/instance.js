@@ -130,7 +130,7 @@ async function generateInstanceConfig(options = {}) {
   const config = {
     agents: {
       defaults: {
-        model: { primary: 'zhipu/glm-5' },
+        model: { primary: 'alibaba-cloud/qwen3.5-plus' },
         workspace: path.join(OPENCLAW_DIR, 'workspace')
       },
       list: agents.map(id => ({
@@ -305,7 +305,7 @@ async function configureOpenClawAgents(selectedAgents) {
     if (!config.agents.main) {
       config.agents.main = {
         name: '灵犀',
-        model: 'zhipu/glm-5',
+        model: 'alibaba-cloud/qwen3.5-plus',
         persona: agentPersonas.lingxi,
         enabled: true
       };
@@ -320,7 +320,7 @@ async function configureOpenClawAgents(selectedAgents) {
         };
         config.agents[agentId] = {
           name: agentNames[agentId],
-          model: 'zhipu/glm-5',
+          model: 'alibaba-cloud/qwen3.5-plus',
           persona: agentPersonas[agentId],
           enabled: true
         };

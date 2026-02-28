@@ -59,7 +59,7 @@ async function syncAgentsToServer(server, agents) {
   
   // 生成新的 agents 配置 JSON
   const agentsJson = JSON.stringify({
-    defaults: { model: { primary: 'zhipu/glm-5' }, workspace: '~/.openclaw/workspace' },
+    defaults: { model: { primary: 'alibaba-cloud/qwen3.5-plus' }, workspace: '~/.openclaw/workspace' },
     list: agentList
   }, null, 2);
   

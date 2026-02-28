@@ -28,6 +28,7 @@ const SHARED_GATEWAY = {
 async function getUserGatewayConfig(userId) {
   const db = await getDB();
   const user = db.users?.find(u => u.id === userId);
+  console.log("🔍 getUserGatewayConfig userId:", userId, "user:", user?.nickname);
   
   if (!user) {
     return null;
@@ -36,10 +37,11 @@ async function getUserGatewayConfig(userId) {
   // 查找用户的独立服务器
   const userServer = db.userServers?.find(s => s.userId === user.id);
   
+  console.log("🔍 userServer:", userServer?.ip, userServer?.status);
   if (userServer && userServer.status === 'running' && userServer.ip) {
     // 用户有独立服务器
     return {
-      wsUrl: `ws://${userServer.ip}:${userServer.openclawPort}`,
+      wsUrl: `ws://${userServer.ip === "120.55.192.144" ? "localhost" : userServer.ip}:${userServer.openclawPort}`,
       session: userServer.openclawSession,
       token: userServer.openclawToken,
       sessionPrefix: `user_${user.id.substring(0, 8)}`
@@ -106,6 +108,9 @@ export function setupWebSocketProxy(app) {
       const targetUrl = `${gatewayConfig.wsUrl}/${gatewayConfig.session}/ws`;
       const wsHost = gatewayConfig.wsUrl.replace('ws://', '');
       console.log(`🔌 [${userId.substring(0, 8)}] 代理 WebSocket → ${targetUrl}`);
+      console.log(`   Token: ${token.substring(0, 20)}...`);
+      console.log(`   Host: ${req.get('host')}`);
+      console.log(`   Protocol: ${req.headers['x-forwarded-proto'] || req.protocol}`);
       
       // 连接目标 WebSocket（设置 Origin 为用户服务器地址，绕过 CORS 检查）
       targetWs = new WebSocket(targetUrl, {
@@ -119,7 +124,9 @@ export function setupWebSocketProxy(app) {
       });
       
       // 双向转发消息
-      targetWs.on('message', (data) => {
+      targetWs.on("message", (data) => {
+        console.log(`📥 [${userId.substring(0, 8)}] Gateway 消息:`, data.toString().substring(0, 100));
+        console.log(`   客户端状态: ${ws.readyState}, OPEN=${WebSocket.OPEN}`);
         try {
           if (ws.readyState === WebSocket.OPEN) {
             ws.send(data);
@@ -143,7 +150,8 @@ export function setupWebSocketProxy(app) {
       targetWs.on('close', (code, reason) => {
         console.log(`🔌 [${userId.substring(0, 8)}] 目标 Gateway 已断开: ${code}`);
         if (ws.readyState === WebSocket.OPEN) {
-          ws.close(code, reason);
+          const validCode = (code >= 1000 && code < 5000) ? code : 1000;
+          ws.close(validCode, reason || "")
         }
       });
       

@@ -76,7 +76,23 @@
   "agents": {
     "defaults": {
       "model": {
-        "primary": "zhipu/glm-5"
+        "primary": "zhipu/glm-5",
+        "fallbacks": [
+          "alibaba-cloud/qwen3-coder-next",
+          "alibaba-cloud/qwen3.5-plus"
+        ]
+      },
+      "models": {
+        "zhipu/glm-5": {},
+        "zhipu/glm-4.7": {},
+        "zhipu/glm-4": {},
+        "zhipu/glm-4-air": {},
+        "alibaba-cloud/qwen3-max-2026-01-23": {},
+        "alibaba-cloud/qwen3.5-plus": {},
+        "alibaba-cloud/qwen3-coder-next": {},
+        "alibaba-cloud/qwen3-coder-plus": {},
+        "alibaba-cloud/glm-5": {},
+        "alibaba-cloud/kimi-k2.5": {}
       },
       "workspace": "~/.openclaw/workspace",
       "heartbeat": {
@@ -90,6 +106,7 @@
         "default": true,
         "name": "灵犀",
         "agentDir": "~/.openclaw/agents/main",
+        "model": "alibaba-cloud/qwen3.5-plus",
         "subagents": {
           "allowAgents": [
             "coder",
@@ -105,37 +122,44 @@
       {
         "id": "coder",
         "name": "云溪",
-        "agentDir": "~/.openclaw/agents/coder"
+        "agentDir": "~/.openclaw/agents/coder",
+        "model": "alibaba-cloud/qwen3-coder-next"
       },
       {
         "id": "ops",
         "name": "若曦",
-        "agentDir": "~/.openclaw/agents/ops"
+        "agentDir": "~/.openclaw/agents/ops",
+        "model": "alibaba-cloud/qwen3.5-plus"
       },
       {
         "id": "inventor",
         "name": "紫萱",
-        "agentDir": "~/.openclaw/agents/inventor"
+        "agentDir": "~/.openclaw/agents/inventor",
+        "model": "alibaba-cloud/glm-5"
       },
       {
         "id": "pm",
         "name": "梓萱",
-        "agentDir": "~/.openclaw/agents/pm"
+        "agentDir": "~/.openclaw/agents/pm",
+        "model": "alibaba-cloud/qwen3.5-plus"
       },
       {
         "id": "noter",
         "name": "晓琳",
-        "agentDir": "~/.openclaw/agents/noter"
+        "agentDir": "~/.openclaw/agents/noter",
+        "model": "alibaba-cloud/kimi-k2.5"
       },
       {
         "id": "media",
         "name": "音韵",
-        "agentDir": "~/.openclaw/agents/media"
+        "agentDir": "~/.openclaw/agents/media",
+        "model": "alibaba-cloud/glm-5"
       },
       {
         "id": "smart",
         "name": "智家",
-        "agentDir": "~/.openclaw/agents/smart"
+        "agentDir": "~/.openclaw/agents/smart",
+        "model": "alibaba-cloud/qwen3-coder-plus"
       }
     ]
   },
