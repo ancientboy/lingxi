@@ -27,7 +27,7 @@ const router = Router();
 
 // 从统一配置获取
 const SERVER_PASSWORD = config.userServer.password;
-const AI_PROXY_URL = process.env.AI_PROXY_URL || 'http://120.55.192.144:3000';
+const AI_PROXY_URL = process.env.AI_PROXY_URLS || 'http://120.55.192.144:3000';
 const OPENCLAW_PORT = config.userServer.openclawPort;
 const OPENCLAW_VERSION = '2026.2.25';
 
