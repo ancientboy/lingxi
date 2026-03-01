@@ -136,8 +136,8 @@ async function quickGeneratePackage(userId, token, sessionId, releasesDir) {
   const configJson = {
     "meta": { "lastTouchedVersion": OPENCLAW_VERSION },
     "env": {
-      "ZHIPU_API_KEY": "77c2b59d03e646a9884f78f8c4787885.XunhoXmFaErSD0dR",
-      "DASHSCOPE_API_KEY": "sk-sp-8a1ddcacc5f94df4a24dd998c895fc4d"
+      "ZHIPU_API_KEY": config.env.ZHIPU_API_KEY,
+      "DASHSCOPE_API_KEY": config.env.DASHSCOPE_API_KEY
     },
     "auth": {
       "profiles": {
@@ -168,7 +168,7 @@ async function quickGeneratePackage(userId, token, sessionId, releasesDir) {
       }
     },
     "agents": {
-      "defaults": { "model": { "primary": "zhipu/glm-5" }, "workspace": "~/.openclaw/workspace" },
+      "defaults": { "model": { "primary": "alibaba-cloud/qwen3.5-plus" }, "workspace": "~/.openclaw/workspace" },
       "list": [
         { "id": "main", "default": true, "name": "灵犀", "agentDir": "~/.openclaw/agents/main", "subagents": { "allowAgents": ["coder", "ops", "inventor", "pm", "noter", "media", "smart"] } },
         { "id": "coder", "name": "云溪", "agentDir": "~/.openclaw/agents/coder" },
@@ -244,12 +244,12 @@ cat > ~/.openclaw/agents/main/auth-profiles.json << 'AUTHEOF'
     "zhipu:default": {
       "type": "api_key",
       "provider": "zhipu",
-      "key": "77c2b59d03e646a9884f78f8c4787885.XunhoXmFaErSD0dR"
+      "key": config.env.ZHIPU_API_KEY
     },
     "alibaba-cloud:default": {
       "type": "api_key",
       "provider": "alibaba-cloud",
-      "key": "sk-sp-8a1ddcacc5f94df4a24dd998c895fc4d"
+      "key": config.env.DASHSCOPE_API_KEY
     }
   },
   "lastGood": {
@@ -654,6 +654,15 @@ async function waitForSSH(host, port, password, timeout = 120000) {
  * 优先使用离线包，回退到淘宝镜像
  */
 async function uploadAndDeploy(host, packagePath, packageName, useCustomImage = false) {
+  // 根据是否使用自定义镜像选择安装步骤
+  const installSteps = useCustomImage ? "echo \"⚡ 使用自定义镜像，跳过安装...\"" : `
+if ! command -v node &> /dev/null; then
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+    apt-get install -y nodejs
+fi
+npm install -g openclaw@${OPENCLAW_VERSION}
+`;
+
   const packageFile = `${packageName}.tar.gz`;
   const projectRoot = path.resolve(__dirname, '..', '..');
   const openclawPackagePath = path.join(projectRoot, 'releases', 'packages', 'openclaw-2026.2.17.tgz');
@@ -816,12 +825,12 @@ cat > ~/.openclaw/agents/main/auth-profiles.json << 'AUTHEOF'
     "zhipu:default": {
       "type": "api_key",
       "provider": "zhipu",
-      "key": "77c2b59d03e646a9884f78f8c4787885.XunhoXmFaErSD0dR"
+      "key": config.env.ZHIPU_API_KEY
     },
     "alibaba-cloud:default": {
       "type": "api_key",
       "provider": "alibaba-cloud",
-      "key": "sk-sp-8a1ddcacc5f94df4a24dd998c895fc4d"
+      "key": config.env.DASHSCOPE_API_KEY
     }
   },
   "lastGood": {
@@ -1024,7 +1033,9 @@ async function manualDeployAsync(serverId, taskId, openclawToken, openclawSessio
     await updateTask(taskId, 50, '正在上传部署包...');
     
     // 使用自定义密码上传部署
-    await uploadAndDeployCustom(host, port, password, packagePath, packageName);
+    // 检查是否使用自定义镜像
+    const useCustomImage = !!process.env.ALIYUN_CUSTOM_IMAGE_ID;
+    await uploadAndDeployCustom(host, port, password, packagePath, packageName, useCustomImage);
     
     await updateTask(taskId, 95, '验证服务状态...');
     await sleep(5000);
@@ -1055,7 +1066,7 @@ async function manualDeployAsync(serverId, taskId, openclawToken, openclawSessio
   }
 }
 
-async function uploadAndDeployCustom(host, port, password, packagePath, packageName) {
+async function uploadAndDeployCustom(host, port, password, packagePath, packageName, useCustomImage = false) {
   const packageFile = `${packageName}.tar.gz`;
   
   return new Promise((resolve, reject) => {
@@ -1073,29 +1084,33 @@ async function uploadAndDeployCustom(host, port, password, packagePath, packageN
         const writeStream = sftp.createWriteStream(remotePath);
         
         writeStream.on('close', () => {
-          const deployCommands = `
-cd /root
-tar -xzf ${packageFile}
-
+          // 根据是否使用自定义镜像选择安装步骤
+          const installSteps = useCustomImage ? `
+echo "⚡ 使用自定义镜像，跳过安装..."
+echo "Node: $(node --version)"
+` : `
 if ! command -v node &> /dev/null; then
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
     apt-get install -y nodejs
 fi
-
-pkill -f openclaw 2>/dev/null || true
-sleep 2
-
 npm install -g openclaw@${OPENCLAW_VERSION}
-
+`;
+          
+          const deployCommands = `
+set -e
+cd /root
+tar -xzf ${packageFile}
+${installSteps}
 cd ${packageName}
 cp -r .openclaw ~/.openclaw
-
 cd ~/.openclaw
+pkill -f openclaw 2>/dev/null || true
+sleep 2
 nohup openclaw gateway > /var/log/openclaw.log 2>&1 &
 sleep 5
-
 ss -tlnp | grep 18789
 `;
+
           
           conn.exec(deployCommands, (err, stream) => {
             if (err) {

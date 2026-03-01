@@ -1,28 +1,7 @@
-/**
- * 灵犀云 - 聊天界面主脚本
- * 
- * 总计: 2718 行，90 个函数
- * 
- * 模块索引:
- * ─────────────────────────────────────────
- * 📦 全局变量和配置         第 1-150 行
- * 🔌 WebSocket 模块         第 294-695 行
- * 💬 消息模块               第 483-1294 行
- * 📝 会话模块               第 695-1210 行
- * 👥 Agent 模块             第 1336-1509 行
- * ⚙️ 配置模块               第 1519-1760 行
- * 🎯 技能库模块             第 2148-2698 行
- * 🚀 引导模块               第 1803-1988 行
- * 🎨 UI 工具模块            第 143-1768 行
- * 📍 初始化入口             第 155-294 行
- * ─────────────────────────────────────────
- */
-
 // 配置变量（从后端动态获取）
 const API_BASE = window.location.origin;
 let GATEWAY_WS = null;
-let GATEWAY_TOKEN = null;  // JWT token，用于 WebSocket 代理认证
-let OPENCLAW_TOKEN = null;  // OpenClaw token，用于 connect 消息
+let GATEWAY_TOKEN = null;
 let GATEWAY_SESSION = null;
 let SESSION_PREFIX = null;
 
@@ -144,24 +123,7 @@ const AGENT_INFO = {
   }
 };
 
-// Agent 到技能的映射（用于技能库）
-const AGENT_SKILLS_MAP = {
-  lingxi: { name: '灵犀', desc: '智能调度 · 日程管理' },
-  coder: { name: '云溪', desc: '全栈开发 · 编程专家' },
-  ops: { name: '若曦', desc: '增长运营 · 数据专家' },
-  inventor: { name: '紫萱', desc: '内容创意 · 文案总监' },
-  pm: { name: '梓萱', desc: '产品设计 · 需求专家' },
-  noter: { name: '晓琳', desc: '学习顾问 · 知识管理' },
-  media: { name: '音韵', desc: '多媒体创作 · AI绘图' },
-  smart: { name: '智家', desc: '效率工具 · 自动化专家' }
-};
-
-// 临时保存加载的技能数据
-window.agentSkillsData = {};
-
 // 辅助函数：生成 Lucide 图标 HTML
-
-// ═══════════════════════════════════════════════════════════════
 function agentIcon(agent, size = 'sm') {
   const icon = agent.icon || 'bot';
   return `<i data-lucide="${icon}" class="icon icon-${size} icon-primary"></i>`;
@@ -174,10 +136,6 @@ let currentRunId = null;
 let isGenerating = false;
 
 // 初始化
-
-// ═══════════════════════════════════════════════════════════════
-// 📍 初始化入口
-// ═══════════════════════════════════════════════════════════════
 async function init() {
   console.log('🚀 初始化聊天页面...');
   
@@ -273,8 +231,7 @@ async function init() {
     
     const gatewayInfo = await res.json();
     GATEWAY_WS = gatewayInfo.wsUrl;
-    GATEWAY_TOKEN = gatewayInfo.token;  // JWT token，用于代理
-    OPENCLAW_TOKEN = gatewayInfo.gatewayToken;  // OpenClaw token，用于 connect
+    GATEWAY_TOKEN = gatewayInfo.token;
     GATEWAY_SESSION = gatewayInfo.session;
     SESSION_PREFIX = gatewayInfo.sessionPrefix;
     
@@ -317,34 +274,30 @@ let requestId = 1;
 let connectNonce = null;
 
 // WebSocket 连接
-
-// ═══════════════════════════════════════════════════════════════
-// 🔌 WebSocket 模块
-// ═══════════════════════════════════════════════════════════════
 function connectWebSocket() {
-  const statusEl = document.getElementById('connectionStatus');
-  if (!statusEl) {
-    console.warn('⚠️ connectionStatus 元素未找到，跳过 WebSocket 状态更新');
-    return;
-  }
-  const statusDot = statusEl.querySelector('.status-dot');
-  if (!statusDot) {
-    console.warn('⚠️ status-dot 元素未找到，跳过 WebSocket 状态更新');
-    return;
-  }
-  statusDot.className = 'status-dot';
+  const statusEl = document.getElementById("connectionStatus");
+  statusEl.className = "status-dot";
+  statusEl.className = "status-dot";
   
   try {
-    // 🔧 修复：通过后端 WebSocket 代理连接，解决 HTTPS 混合内容问题
-    // 代理地址格式：wss://lumeword.com/api/ws?token=xxx
-    const wsUrl = `${GATEWAY_WS}?token=${encodeURIComponent(GATEWAY_TOKEN)}`;
-    console.log('🔌 连接 WebSocket 代理:', wsUrl.replace(/token=[^&]+/, 'token=***'));
+    // 检测是否是 HTTPS 页面
+    const isHttps = window.location.protocol === "https:";
+    let wsUrl;
+    
+    if (isHttps) {
+      // HTTPS 页面使用 WebSocket 代理
+      wsUrl = "wss://" + window.location.host + "/api/ws?token=" + localStorage.getItem("lingxi_token");
+      console.log("🔒 HTTPS 模式，使用 WebSocket 代理");
+    } else {
+      // HTTP 页面直连
+      wsUrl = GATEWAY_WS + "/" + GATEWAY_SESSION + "/ws";
+      console.log("🔓 HTTP 模式，直连 Gateway");
+    }
     
     ws = new WebSocket(wsUrl);
     
     ws.onopen = () => {
-      console.log('WebSocket 已连接，等待 750ms 后发送 connect...');
-      
+      console.log("WebSocket 已连接，等待 750ms 后发送 connect...");
       
       // OpenClaw 要求等待 750ms 后再发送 connect
       setTimeout(() => {
@@ -352,31 +305,31 @@ function connectWebSocket() {
       }, 750);
     };
     
-    ws.onmessage = async (event) => {
+    ws.onmessage = (event) => {
       try {
-        const text = typeof event.data === "string" ? event.data : await event.data.text();
-        const data = JSON.parse(text);
+        const data = JSON.parse(event.data);
         handleWebSocketMessage(data);
       } catch (e) {
-        console.error('解析消息失败:', e);
+        console.error("解析消息失败:", e);
       }
     };
     
     ws.onerror = (error) => {
-      console.error('WebSocket 错误:', error);
-      statusDot.className = 'status-dot';  // 红色
+      console.error("WebSocket 错误:", error);
+      statusEl.className = "status-dot";  // 红色
     };
     
     ws.onclose = () => {
-      console.log('WebSocket 已断开，5秒后重连...');
-      statusDot.className = 'status-dot';  // 红色
+      console.log("WebSocket 已断开，5秒后重连...");
+      statusEl.className = "status-dot";  // 红色
       setTimeout(connectWebSocket, 5000);
     };
   } catch (e) {
-    console.error('WebSocket 连接失败:', e);
-    statusDot.className = 'status-dot';  // 红色
+    console.error("WebSocket 连接失败:", e);
+    statusEl.className = "status-dot";  // 红色
   }
 }
+
 
 // 发送 connect 请求
 function sendConnect() {
@@ -393,14 +346,13 @@ function sendConnect() {
     },
     role: 'operator',
     scopes: ['operator.admin', 'operator.read', 'operator.write'],
-    auth: { token: OPENCLAW_TOKEN },  // 使用 OpenClaw token
+    auth: { token: GATEWAY_TOKEN },
     locale: 'zh-CN',
     userAgent: navigator.userAgent
   };
   
   // 禁用设备认证后不需要发送 device
-  console.log('📤 发送 connect 请求:', JSON.stringify({ type: 'req', method: 'connect' }));
-    ws.send(JSON.stringify({
+  ws.send(JSON.stringify({
     type: 'req',
     id: `req_${requestId++}`,
     method: 'connect',
@@ -410,21 +362,20 @@ function sendConnect() {
 
 // 处理 WebSocket 消息
 function handleWebSocketMessage(data) {
-  console.log('📥 收到消息:', data.type, data.event || data.payload?.type);
+  console.log('收到消息:', data);
   
   const statusEl = document.getElementById('connectionStatus');
   
   // 连接挑战 - 设备认证已禁用时不应该收到
   if (data.type === 'event' && data.event === 'connect.challenge') {
-    console.log('⚠️ 收到设备认证挑战，但已禁用，继续...');
-    // 设备认证已禁用，忽略挑战，等待 hello-ok
+    console.log('收到挑战，但设备认证已禁用，这不应该发生');
+    statusEl.className = 'status-dot';  // 红色
     return;
   }
   
   // 连接响应
   if (data.type === 'res' && data.ok && data.payload?.type === 'hello-ok') {
-    const statusDot = statusEl?.querySelector('.status-dot');
-    if (statusDot) statusDot.className = 'status-dot connected';  // 绿色
+    statusEl.className = 'status-dot connected';  // 绿色
     console.log('✅ 认证成功');
     // 加载会话列表和历史
     loadSessions();
@@ -448,7 +399,7 @@ function handleWebSocketMessage(data) {
     
     // 如果是认证错误，显示红色状态
     if (errorMsg.includes('auth') || errorMsg.includes('token') || errorMsg.includes('认证')) {
-      statusDot.className = 'status-dot';  // 红色
+      statusEl.className = 'status-dot';  // 红色
     }
     
     removeTyping();
@@ -623,10 +574,6 @@ function renderTeamTags() {
 }
 
 // 发送消息
-
-// ═══════════════════════════════════════════════════════════════
-// 💬 消息模块
-// ═══════════════════════════════════════════════════════════════
 function sendMessage() {
   console.log('🔔 sendMessage 被调用, currentSessionKey:', currentSessionKey);
   
@@ -737,10 +684,6 @@ function abortChat() {
 }
 
 // 加载聊天历史
-
-// ═══════════════════════════════════════════════════════════════
-// 📝 会话模块
-// ═══════════════════════════════════════════════════════════════
 async function loadChatHistory() {
   console.log('📚 loadChatHistory 开始, currentSessionKey:', currentSessionKey);
   
@@ -766,10 +709,9 @@ async function loadChatHistory() {
         reject(new Error('timeout'));
       }, 10000);
       
-      const handler = async (event) => {
+      const handler = (event) => {
         try {
-          const text = typeof event.data === "string" ? event.data : await event.data.text();
-        const data = JSON.parse(text);
+          const data = JSON.parse(event.data);
           console.log('📚 收到 WebSocket 消息, id:', data.id, '期待:', id);
           if (data.id === id) {
             clearTimeout(timeout);
@@ -919,18 +861,16 @@ async function loadSessions() {
     return;
   }
   
-  console.log('📋 开始加载会话列表...');
-
+  console.log('📋 加载会话列表...');
   
   try {
     const res = await new Promise((resolve, reject) => {
       const id = `req_${requestId++}`;
       const timeout = setTimeout(() => reject(new Error('timeout')), 10000);
       
-      const handler = async (event) => {
+      const handler = (event) => {
         try {
-          const text = typeof event.data === "string" ? event.data : await event.data.text();
-        const data = JSON.parse(text);
+          const data = JSON.parse(event.data);
           if (data.id === id) {
             clearTimeout(timeout);
             ws.removeEventListener('message', handler);
@@ -1179,10 +1119,9 @@ async function deleteSession(sessionKey) {
           reject(new Error('timeout'));
         }, 10000);
         
-        const handler = async (event) => {
+        const handler = (event) => {
           try {
-            const text = typeof event.data === "string" ? event.data : await event.data.text();
-        const data = JSON.parse(text);
+            const data = JSON.parse(event.data);
             console.log('📥 收到响应:', data.id, '期待:', id);
             if (data.id === id) {
               clearTimeout(timeout);
@@ -1386,10 +1325,6 @@ function logout() {
 // ===== 团队管理 =====
 
 // 显示我的团队
-
-// ═══════════════════════════════════════════════════════════════
-// 👥 Agent 模块
-// ═══════════════════════════════════════════════════════════════
 function showMyTeam() {
   const dropdown = document.getElementById('userDropdown');
   if (dropdown) dropdown.classList.remove('show');
@@ -1573,10 +1508,6 @@ function closeSessionModal() {
 
 // ===== 飞书配置 =====
 
-
-// ═══════════════════════════════════════════════════════════════
-// ⚙️ 配置模块
-// ═══════════════════════════════════════════════════════════════
 function showFeishuConfig() {
   const dropdown = document.getElementById('userDropdown');
   if (dropdown) dropdown.classList.remove('show');
@@ -1589,7 +1520,6 @@ function showFeishuConfig() {
   }
   
   loadFeishuStatus();
-      closeFeishuModal(); // 关闭弹窗
   document.getElementById('feishuModal').classList.add('show');
 }
 
@@ -1632,27 +1562,22 @@ async function saveFeishuConfig(e) {
   }
   
   try {
-    const res = await fetch(`${API_BASE}/api/feishu/configure`, {
+    const res = await fetch(`${API_BASE}/api/remote-config/feishu`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${localStorage.getItem('lingxi_token')}`
       },
-      body: JSON.stringify({ 
-        userId: user.id, 
-        appId, 
-        appSecret,
-        verificationToken: document.getElementById('feishuVerificationToken')?.value.trim() || undefined
-      })
+      body: JSON.stringify({ userId: user.id, appId, appSecret })
     });
     
     const data = await res.json();
     
     if (data.success) {
-      alert(`✅ 飞书配置成功！\n\n请在飞书开放平台配置：\n1. 进入应用管理 → 事件订阅\n2. 选择 WebSocket 连接方式\n3. 订阅事件：im.message.receive_v1\n4. 点击"保存"\n\n配置完成后即可在飞书里与机器人对话！`);
-      
+      const webhookInfo = data.webhook ? `\n\n请在飞书开放平台配置事件订阅：\n${data.webhook.eventUrl}` : '';
+      alert('飞书配置成功！' + webhookInfo);
       loadFeishuStatus();
-      closeFeishuModal(); // 关闭弹窗
+      closeFeishuModal();
     } else {
       alert('配置失败: ' + (data.error || '未知错误'));
     }
@@ -1867,10 +1792,6 @@ let selectedJobType = null;
 let recommendationData = null;
 
 // 检查并启动引导
-
-// ═══════════════════════════════════════════════════════════════
-// 🚀 引导模块
-// ═══════════════════════════════════════════════════════════════
 async function checkOnboarding() {
   try {
     const res = await fetch(`${API_BASE}/api/auth/me`, {
@@ -2139,8 +2060,7 @@ function switchAgent(agentId) {
   
   // 🎯 每个 agent 有独立的会话，直接对话
   const targetAgentId = agent.agentId || agentId;
-  // 修复：使用正确的会话格式，包含 SESSION_PREFIX
-  currentSessionKey = `${SESSION_PREFIX}:agent:${targetAgentId}`;
+  currentSessionKey = `agent:${targetAgentId}:main`;
   
   console.log('🔄 切换到 agent:', agentId, 'agentId:', targetAgentId, '会话:', currentSessionKey);
   
@@ -2194,581 +2114,6 @@ function sendWelcomeExample(text) {
   input.value = text;
   sendMessage();
 }
-
-// ==================== 技能库功能 ====================
-
-// 当前选择的 Agent 分类
-let currentSkillAgentId = null;
-// 技能列表数据
-let allSkills = [];
-// 已安装的技能列表
-let installedSkills = new Set();
-
-// 当前 Tab (local/popular)
-let currentSkillTab = 'local';
-
-// ClawHub 技能缓存
-let clawHubSkillsCache = [];
-let popularSkillsCache = [];
-
-// 本地技能缓存
-let localSkillsCache = [];
-
-/**
- * 显示技能库弹窗
- */
-
-// ═══════════════════════════════════════════════════════════════
-// 🎯 技能库模块
-// ═══════════════════════════════════════════════════════════════
-function showSkillLibrary() {
-  // 关闭其他弹窗
-  document.getElementById('userDropdown')?.classList.remove('show');
-  document.getElementById('sidebarUserMenu')?.classList.remove('show');
-  document.getElementById('teamModal')?.classList.remove('show');
-  
-  // 加载技能数据
-  loadSkillLibrary();
-  
-  // 显示弹窗
-  document.getElementById('skillLibraryModal').classList.add('show');
-}
-
-/**
- * 关闭技能库弹窗
- */
-function closeSkillLibrary() {
-  document.getElementById('skillLibraryModal').classList.remove('show');
-}
-
-/**
- * 加载技能库数据
- */
-async function loadSkillLibrary() {
-  const token = localStorage.getItem('lingxi_token');
-  const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-  
-  try {
-    // 加载本地技能库（已安装技能会单独加载）
-    const res = await fetch(`${API_BASE}/api/skills/library`, { headers });
-    if (res.ok) {
-      const data = await res.json();
-      localSkillsCache = data.skills || [];
-      console.log('📋 已加载本地技能数量:', localSkillsCache.length);
-    } else {
-      console.error('❌ 加载本地技能失败:', res.statusText);
-      localSkillsCache = [];
-    }
-    
-    // 加载热门技能
-    await loadPopularSkills();
-    
-    // 加载已安装技能
-    await loadInstalledSkills();
-    
-    // 渲染 Agent 分类列表
-    renderSkillAgentList();
-    
-    // 默认加载本地技能
-    loadLocalSkills();
-    
-  } catch (e) {
-    console.error('加载技能库失败:', e);
-    alert('加载技能库失败，请稍后重试');
-  }
-}
-
-/**
- * 加载已安装的技能
- */
-async function loadInstalledSkills() {
-  const token = localStorage.getItem('lingxi_token');
-  const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-  
-  try {
-    const res = await fetch(`${API_BASE}/api/skills/installed`, { headers });
-    if (res.ok) {
-      const data = await res.json();
-      installedSkills = new Set((data.skills || []).map(s => s.id));
-      console.log('Installed skills:', installedSkills);
-    }
-  } catch (e) {
-    console.error('加载已安装技能失败:', e);
-  }
-}
-
-/**
- * 渲染 Agent 分类列表
- */
-function renderSkillAgentList() {
-  const container = document.getElementById('skillAgentList');
-  if (!container) return;
-  
-  const agents = Object.entries(AGENT_SKILLS_MAP).map(([id, info]) => ({
-    id,
-    name: info.name,
-    desc: info.desc,
-    icon: AGENT_INFO[id]?.icon || 'bot'
-  }));
-  
-  container.innerHTML = agents.map(agent => `
-    <div class="skill-agent-item" onclick="selectSkillAgent('${agent.id}')" data-agent="${agent.id}">
-      <i data-lucide="${agent.icon}" class="icon icon-sm"></i>
-      <span>${agent.name}</span>
-    </div>
-  `).join('');
-  
-  if (window.lucide) lucide.createIcons();
-}
-
-/**
- * 选择 Agent 分类
- */
-function selectSkillAgent(agentId) {
-  currentSkillAgentId = agentId;
-  
-  // 更新 Active 状态
-  document.querySelectorAll('.skill-agent-item').forEach(item => {
-    item.classList.remove('active');
-  });
-  const activeItem = document.querySelector(`.skill-agent-item[data-agent="${agentId}"]`);
-  if (activeItem) {
-    activeItem.classList.add('active');
-    activeItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }
-  
-  // 渲染技能列表
-  renderSkillGrid(agentId);
-}
-
-/**
- * 渲染技能网格
- */
-async function renderSkillGrid(agentId) {
-  const container = document.getElementById('skillGrid');
-  const groupTitle = document.getElementById('skillGroupTitle');
-  const token = localStorage.getItem('lingxi_token');
-  const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-  
-  if (!container) return;
-  
-  // 获取该 Agent 的技能
-  const agentName = AGENT_INFO[agentId]?.name || '未知';
-  
-  // 从后端获取该 Agent 的技能数据
-  let skills = [];
-  if (!window.agentSkillsData[agentId]) {
-    try {
-      const res = await fetch(`${API_BASE}/api/skills/agent/${agentId}`, { headers });
-      if (res.ok) {
-        const data = await res.json();
-        window.agentSkillsData[agentId] = data.skills || [];
-      }
-    } catch (e) {
-      console.error('获取 Agent 技能失败:', e);
-    }
-  }
-  
-  skills = window.agentSkillsData[agentId] || [];
-  
-  // 更新分类标题
-  groupTitle.innerHTML = `
-    <i data-lucide="zap" class="icon icon-sm icon-primary"></i>
-    ${agentName} 的技能 (${skills.length})
-  `;
-  
-  if (skills.length === 0) {
-    container.innerHTML = `
-      <div style="grid-column: 1/-1; text-align: center; padding: 40px 20px; color: #6e6e80;">
-        <i data-lucide="package" style="width: 48px; height: 48px; margin-bottom: 16px; color: #d1d5db;"></i>
-        <p>暂无可用技能</p>
-      </div>
-    `;
-    if (window.lucide) lucide.createIcons();
-    return;
-  }
-  
-  container.innerHTML = skills.map(skill => {
-    const installed = installedSkills.has(skill.id);
-    return `
-      <div class="skill-card" onclick="handleSkillClick('${skill.id}')">
-        <div class="skill-header">
-          <div class="skill-icon">
-            <i data-lucide="${skill.icon || 'package'}" style="width: 24px; height: 24px; color: white;"></i>
-          </div>
-          <div class="skill-info">
-            <div class="skill-name">${skill.desc || skill.id}</div>
-            <div class="skill-desc">${skill.description || ''}</div>
-          </div>
-        </div>
-        <div class="skill-agent-tag">来自 ${agentName}</div>
-        <div class="skill-actions">
-          ${installed 
-            ? `<span class="skill-badge installed" onclick="event.stopPropagation();">
-                 <i data-lucide="check-circle" class="icon-sm"></i>
-                 已安装
-               </span>`
-            : `<button class="skill-btn install" onclick="event.stopPropagation(); installSkill('${skill.id}', this)">
-                 <i data-lucide="download" class="icon-sm"></i>
-                 安装
-               </button>`
-          }
-        </div>
-      </div>
-    `;
-  }).join('');
-  
-  if (window.lucide) lucide.createIcons();
-}
-
-/**
- * 处理技能点击
- */
-function handleSkillClick(skillId) {
-  // 可以在这里添加更多逻辑
-  console.log('点击技能:', skillId);
-}
-
-/**
- * 处理技能搜索
- */
-function handleSkillSearch() {
-  const searchTerm = document.getElementById('skillSearchInput').value.toLowerCase().trim();
-  
-  if (!searchTerm) {
-    // 如果没有搜索词，重新渲染热门技能
-    renderPopularSkills(popularSkillsCache, installedSkills);
-    return;
-  }
-  
-  // 搜索热门技能缓存
-  const filteredSkills = popularSkillsCache.filter(skill => 
-    skill.id.toLowerCase().includes(searchTerm) ||
-    (skill.name && skill.name.toLowerCase().includes(searchTerm)) ||
-    (skill.desc && skill.desc.toLowerCase().includes(searchTerm)) ||
-    (skill.description && skill.description.toLowerCase().includes(searchTerm))
-  );
-  
-  // 更新标题
-  const groupTitle = document.getElementById('skillGroupTitle');
-  if (groupTitle) {
-    groupTitle.innerHTML = `
-      <i data-lucide="search" class="icon icon-sm icon-primary"></i>
-      搜索结果 (${filteredSkills.length})
-    `;
-  }
-  
-  // 渲染搜索结果
-  const container = document.getElementById('skillGrid');
-  if (!container) return;
-  
-  if (filteredSkills.length === 0) {
-    container.innerHTML = `
-      <div style="grid-column: 1/-1; text-align: center; padding: 40px 20px; color: #6e6e80;">
-        <i data-lucide="search-x" style="width: 48px; height: 48px; margin-bottom: 16px; color: #d1d5db;"></i>
-        <p>未找到匹配的技能</p>
-      </div>
-    `;
-    if (window.lucide) lucide.createIcons();
-    return;
-  }
-  
-  container.innerHTML = filteredSkills.map(skill => {
-    const installed = installedSkills.has(skill.id);
-    const agent = skill.agent || 'lingxi';
-    const agentInfo = AGENT_INFO[agent] || { name: agent, icon: 'bot' };
-    
-    return `
-      <div class="skill-card" onclick="handleSkillClick('${skill.id}')">
-        <div class="skill-header">
-          <div class="skill-icon" style="background:${agentInfo.icon === 'bot' ? '#10a37f' : '#10a37f'}">
-            <i data-lucide="${agentInfo.icon || 'package'}" style="width:24px;height:24px;color:white;"></i>
-          </div>
-          <div class="skill-info">
-            <div class="skill-name">${skill.name || skill.id}</div>
-            <div class="skill-desc">${skill.desc || skill.description || ''}</div>
-            <div style="display:flex;gap:8px;margin-top:6px;">
-              <span class="skill-agent-tag"><i data-lucide="user" class="icon-sm"></i> ${skill.agent || '通用'}</span>
-              <span class="skill-source-tag skill-source-hot"><i data-lucide="star" class="icon-sm"></i> 热门</span>
-            </div>
-          </div>
-        </div>
-        <div class="skill-actions">
-          ${installed 
-            ? `<span class="skill-badge installed" onclick="event.stopPropagation();">
-                 <i data-lucide="check-circle" class="icon-sm"></i>
-                 已安装
-               </span>`
-            : `<button class="skill-btn install" onclick="event.stopPropagation(); installSkill('${skill.id}', this)">
-                 <i data-lucide="download" class="icon-sm"></i>
-                 安装
-               </button>`
-          }
-        </div>
-      </div>
-    `;
-  }).join('');
-  
-  if (window.lucide) lucide.createIcons();
-}
-
-/**
- * 安装技能
- */
-// ===== 切换技能库 Tab =====
-function switchSkillTab(tabId) {
-  currentSkillTab = tabId;
-  
-  // 更新 Tab active 状态
-  document.querySelectorAll('.skill-tab-item').forEach(item => {
-    item.classList.remove('active');
-    
-    // 修复 onclick 属性中的 tabId
-    const onclick = item.getAttribute('onclick');
-    if (onclick) {
-      const match = onclick.match(/switchSkillTab\('([^']+)'\)/);
-      if (match && match[1] === tabId) {
-        item.classList.add('active');
-      }
-    }
-  });
-  
-  // 根据 Tab 加载数据
-  loadCurrentTabData();
-}
-
-// ===== 加载当前 Tab 的数据 =====
-async function loadCurrentTabData() {
-  if (currentSkillTab === 'local') {
-    loadLocalSkills();
-  } else if (currentSkillTab === 'popular') {
-    loadPopularSkills();
-  }
-}
-
-// ===== 加载本地技能 =====
-async function loadLocalSkills() {
-  const token = localStorage.getItem('lingxi_token');
-  if (!token) return;
-  
-  try {
-    // 获取已安装技能
-    const installedRes = await fetch(`${API_BASE}/api/skills/installed`, { 
-      headers: { 'Authorization': `Bearer ${token}` } 
-    });
-    
-    let installedSkills = [];
-    let installedSet = new Set();
-    
-    if (installedRes.ok) {
-      const installedData = await installedRes.json();
-      installedSkills = installedData.skills || [];
-      installedSet = new Set(installedSkills.map(s => s.id));
-    }
-    
-    // 本地技能 = 已安装的技能
-    // 如果没有已安装技能，显示空状态
-    if (installedSkills.length === 0) {
-      const container = document.getElementById('skillGrid');
-      if (container) {
-        container.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px 20px;color:#6e6e80;"><i data-lucide="package" style="width:48px;height:48px;margin-bottom:16px;color:#d1d5db;"></i><p>暂无已安装的技能</p><p style="font-size:12px;margin-top:8px;">从"热门技能"中安装技能吧！</p></div>';
-        if (window.lucide) lucide.createIcons();
-      }
-      
-      const titleEl = document.getElementById('skillGroupTitle');
-      if (titleEl) {
-        titleEl.innerHTML = '<i data-lucide="package" class="icon-sm icon-primary"></i> 本地技能 (0)';
-      }
-      return;
-    }
-    
-    // 渲染已安装的技能
-    renderSkills(installedSkills, installedSet, 'local');
-    
-    // 更新标题
-    const titleEl = document.getElementById('skillGroupTitle');
-    if (titleEl) {
-      titleEl.innerHTML = `<i data-lucide="package" class="icon-sm icon-primary"></i> 本地技能 (${installedSkills.length})`;
-    }
-    
-  } catch (error) {
-    console.error('加载本地技能失败:', error);
-  }
-}
-
-// ===== 加载热门技能 =====
-async function loadPopularSkills() {
-  const token = localStorage.getItem('lingxi_token');
-  if (!token) return;
-  try {
-    // 热门技能从本地技能库获取（library.json 已筛选精品）
-    const res = await fetch(`${API_BASE}/api/skills/library`, { 
-      headers: { 'Authorization': `Bearer ${token}` } 
-    });
-    if (res.ok) {
-      const data = await res.json();
-      popularSkillsCache = data.skills || [];
-      
-      // 获取已安装技能列表
-      const installedRes = await fetch(`${API_BASE}/api/skills/installed`, { 
-        headers: { 'Authorization': `Bearer ${token}` } 
-      });
-      
-      let installedSet = new Set();
-      if (installedRes.ok) {
-        const installedData = await installedRes.json();
-        installedSet = new Set((installedData.skills || []).map(s => s.id));
-      }
-      
-      renderPopularSkills(popularSkillsCache, installedSet);
-      document.getElementById('skillGroupTitle').innerHTML = '<i data-lucide="star" class="icon-sm icon-primary"></i> 热门技能';
-    }
-  } catch (error) {
-    console.error('加载热门技能失败:', error);
-  }
-}
-
-// ===== 渲染本地技能 =====
-function renderSkills(skills, installedSet, source = 'local') {
-  const container = document.getElementById('skillGrid');
-  if (!container) return;
-
-  if (skills.length === 0) {
-    container.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px 20px;color:#6e6e80;"><i data-lucide="package" style="width:48px;height:48px;margin-bottom:16px;color:#d1d5db;"></i><p>暂无技能</p></div>';
-    if (window.lucide) lucide.createIcons();
-    return;
-  }
-
-  const agentMap = {
-    coder: { name: '云溪', icon: 'code', color: '#10a37f' },
-    ops: { name: '若曦', icon: 'bar-chart-2', color: '#f59e0b' },
-    inventor: { name: '紫萱', icon: 'lightbulb', color: '#8b5cf6' },
-    pm: { name: '梓萱', icon: 'target', color: '#06b6d4' },
-    noter: { name: '晓琳', icon: 'file-text', color: '#ef4444' },
-    media: { name: '音韵', icon: 'palette', color: '#ec4899' },
-    smart: { name: '智家', icon: 'home', color: '#3b82f6' },
-    lingxi: { name: '灵犀', icon: 'zap', color: '#6366f1' }
-  };
-
-  const getAgentColor = (agent) => agentMap[agent]?.color || '#10a37f';
-
-  container.innerHTML = skills.map(skill => {
-    const isInstalled = installedSet.has(skill.id);
-    const agent = skill.agent || 'lingxi';
-    const agentColor = getAgentColor(agent);
-    const agentInfo = agentMap[agent] || agentMap.lingxi;
-
-    return `
-      <div class="skill-card" onclick="handleSkillClick('${skill.id}')">
-        <div class="skill-header">
-          <div class="skill-icon" style="background:${agentColor}">
-            <i data-lucide="${agentInfo.icon}" style="width:24px;height:24px;color:white;"></i>
-          </div>
-          <div class="skill-info">
-            <div class="skill-name">${skill.name || skill.id}</div>
-            <div class="skill-desc">${skill.desc || skill.description || ''}</div>
-            <div style="display:flex;gap:8px;margin-top:6px;">
-              <span class="skill-agent-tag"><i data-lucide="user" class="icon-sm"></i> ${skill.agent || '通用'}</span>
-              ${source === 'local' 
-                ? `<span class="skill-source-tag" style="background:rgba(16,163,127,0.1);color:#10a37f;"><i data-lucide="database" class="icon-sm"></i> 本地</span>`
-                : `<span class="skill-source-tag skill-source-hot"><i data-lucide="star" class="icon-sm"></i> 热门</span>`
-              }
-            </div>
-          </div>
-        </div>
-        <div class="skill-actions">
-          ${isInstalled 
-            ? `<span class="skill-badge installed" onclick="event.stopPropagation();"><i data-lucide="check-circle" class="icon-sm"></i> 已安装</span>`
-            : `<button class="skill-btn install" onclick="event.stopPropagation(); installSkill('${skill.id}', this)"><i data-lucide="download" class="icon-sm"></i> 安装</button>`
-          }
-        </div>
-      </div>
-    `;
-  }).join('');
-
-  if (window.lucide) lucide.createIcons();
-}
-
-// ===== 渲染热门技能 =====
-function renderPopularSkills(skills, installedSet) {
-  const container = document.getElementById('skillGrid');
-  if (!container) return;
-
-  if (skills.length === 0) {
-    container.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px 20px;color:#6e6e80;"><i data-lucide="package" style="width:48px;height:48px;margin-bottom:16px;color:#d1d5db;"></i><p>暂无技能</p></div>';
-    if (window.lucide) lucide.createIcons();
-    return;
-  }
-
-  const agentMap = {
-    coder: { name: '云溪', icon: 'code', color: '#10a37f' },
-    ops: { name: '若曦', icon: 'bar-chart-2', color: '#f59e0b' },
-    inventor: { name: '紫萱', icon: 'lightbulb', color: '#8b5cf6' },
-    pm: { name: '梓萱', icon: 'target', color: '#06b6d4' },
-    noter: { name: '晓琳', icon: 'file-text', color: '#ef4444' },
-    media: { name: '音韵', icon: 'palette', color: '#ec4899' },
-    smart: { name: '智家', icon: 'home', color: '#3b82f6' },
-    lingxi: { name: '灵犀', icon: 'zap', color: '#6366f1' }
-  };
-
-  const getAgentColor = (agent) => agentMap[agent]?.color || '#10a37f';
-
-  container.innerHTML = skills.map(skill => {
-    const isInstalled = installedSet.has(skill.id);
-    const agent = skill.agent || 'lingxi';
-    const agentColor = getAgentColor(agent);
-    const agentInfo = agentMap[agent] || agentMap.lingxi;
-
-    return `
-      <div class="skill-card" onclick="handleSkillClick('${skill.id}')">
-        <div class="skill-header">
-          <div class="skill-icon" style="background:${agentColor}">
-            <i data-lucide="${agentInfo.icon}" style="width:24px;height:24px;color:white;"></i>
-          </div>
-          <div class="skill-info">
-            <div class="skill-name">${skill.name || skill.id}</div>
-            <div class="skill-desc">${skill.desc || skill.description || ''}</div>
-            <div style="display:flex;gap:8px;margin-top:6px;">
-              <span class="skill-agent-tag"><i data-lucide="user" class="icon-sm"></i> ${skill.agent || '通用'}</span>
-              <span class="skill-source-tag skill-source-hot"><i data-lucide="star" class="icon-sm"></i> 热门</span>
-            </div>
-          </div>
-        </div>
-        <div class="skill-actions">
-          ${isInstalled 
-            ? `<span class="skill-badge installed" onclick="event.stopPropagation();"><i data-lucide="check-circle" class="icon-sm"></i> 已安装</span>`
-            : `<button class="skill-btn install" onclick="event.stopPropagation(); installSkill('${skill.id}', this)"><i data-lucide="download" class="icon-sm"></i> 安装</button>`
-          }
-        </div>
-      </div>
-    `;
-  }).join('');
-
-  if (window.lucide) lucide.createIcons();
-}
-
-// ===== 安装本地技能 =====
-function installSkill(skillId, btnElement) {
-  // 获取技能名称（从父元素中找）
-  const card = btnElement?.closest('.skill-card');
-  const skillNameEl = card?.querySelector('.skill-name');
-  const skillName = skillNameEl?.textContent || skillId;
-  
-  // 填入输入框（不自动发送，让用户确认）
-  const input = document.getElementById('inputField');
-  if (input) {
-    input.value = `安装技能 ${skillId}`;
-    input.focus();
-    // 将光标移到末尾
-    input.setSelectionRange(input.value.length, input.value.length);
-  }
-  
-  // 关闭技能库弹窗
-  closeSkillLibrary();
-}
-
-// 暴露到全局作用域（供 onclick 调用）
-window.installSkill = installSkill;
 
 // 初始化时渲染 agent 下拉
 function initAgentDropdown() {

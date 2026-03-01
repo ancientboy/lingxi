@@ -1,11 +1,10 @@
 import { Router } from 'express';
-import { getInviteCode, createUser, getUserByInviteCode, updateLastLogin, verifyPassword, getUserByUserInviteCode } from '../utils/db.js';
 import jwt from 'jsonwebtoken';
+import { config } from '../config/index.js';
+import { getInviteCode, createUser, getUserByInviteCode, updateLastLogin, verifyPassword, getUserByUserInviteCode } from '../utils/db.js';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'lingxi-cloud-secret-key-2026';
-
-// 判断邀请码类型
+const JWT_SECRET = config.security.jwtSecret;
 async function getInviteCodeInfo(code) {
   // 先检查是否是系统邀请码
   const systemCode = await getInviteCode(code);

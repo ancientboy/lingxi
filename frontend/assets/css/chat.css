@@ -26,11 +26,11 @@ html {
 
 /* ===== 侧边栏 ===== */
 .sidebar {
+  top: 56px;
+  height: calc(100vh - 56px);
   position: fixed;
-  top: 0;
   left: 0;
   width: 260px;
-  height: 100vh;
   background: #ffffff;
   border-right: 1px solid #e5e5e5;
   display: flex;
@@ -79,7 +79,7 @@ html {
 .sidebar-brand-name {
   font-size: 20px;
   font-weight: 700;
-  color: #202123;
+  color: #10a37f;
   letter-spacing: 0.5px;
 }
 
@@ -364,7 +364,6 @@ html {
 .sidebar-overlay {
   display: none;
   position: fixed;
-  top: 0;
   left: 0;
   right: 0;
   bottom: 0;
@@ -382,10 +381,8 @@ html {
 /* 侧边栏拖拽调整器 */
 .sidebar-resizer {
   position: fixed;
-  top: 0;
   left: 260px;
   width: 5px;
-  height: 100vh;
   background: transparent;
   cursor: col-resize;
   z-index: 1002;
@@ -441,7 +438,6 @@ html {
   justify-content: space-between;
   align-items: center;
   position: fixed;
-  top: 0;
   left: 0;
   right: 0;
   z-index: 100;
@@ -468,9 +464,9 @@ html {
 }
 
 .logo {
+  color: #10a37f;
   font-size: 1.1rem;
   font-weight: 600;
-  color: #202123;
   text-decoration: none;
 }
 
@@ -484,6 +480,25 @@ html {
 }
 
 .status-dot.connected {
+  background: #10a37f;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  padding: 6px;
+  border-radius: 50%;
+  background: transparent;
+  transition: background 0.3s;
+}
+
+.status-indicator:hover {
+  background: rgba(0,0,0,0.05);
+}
+
+.status-indicator .status-dot {
+  width: 10px;
+  height: 10px;
   background: #10a37f;
 }
 
@@ -1071,7 +1086,6 @@ html {
 /* ===== 弹窗 ===== */
 .modal-overlay {
   position: fixed;
-  top: 0;
   left: 0;
   width: 100%;
   height: 100%;

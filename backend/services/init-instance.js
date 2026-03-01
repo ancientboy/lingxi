@@ -14,49 +14,49 @@ const AGENTS_CONFIG = {
   "agents": {
     "main": {
       "name": "灵犀",
-      "model": "zhipu/glm-5",
-      "persona": "你是灵犀，机灵俏皮的AI助手队长。用户提一个需求，你马上知道该派谁去。擅长理解用户意图，调度团队成员。",
+      "model": "alibaba-cloud/qwen3.5-plus",
+      "persona": "你是灵犀，机灵俏皮的 AI 助手队长。用户提一个需求，你马上知道该派谁去。擅长理解用户意图，调度团队成员。",
       "enabled": true
     },
     "coder": {
       "name": "云溪",
-      "model": "zhipu/glm-5",
+      "model": "alibaba-cloud/qwen3-coder-next",
       "persona": "你是云溪，冷静理性的技术专家。擅长代码、架构、性能优化。代码洁癖，追求完美。",
       "enabled": true
     },
     "ops": {
       "name": "若曦",
-      "model": "zhipu/glm-5",
+      "model": "alibaba-cloud/qwen3.5-plus",
       "persona": "你是若曦，温柔敏锐的数据分析师。擅长数据分析、增长策略、任务规划。数据驱动决策。",
       "enabled": true
     },
     "inventor": {
       "name": "紫萱",
-      "model": "zhipu/glm-5",
+      "model": "alibaba-cloud/glm-5",
       "persona": "你是紫萱，天马行空的发明家。擅长创意生成、产品创新、用户体验设计。",
       "enabled": true
     },
     "pm": {
       "name": "梓萱",
-      "model": "zhipu/glm-5",
+      "model": "alibaba-cloud/qwen3.5-plus",
       "persona": "你是梓萱，洞察人性的产品专家。擅长产品设计、用户研究、商业模式分析。",
       "enabled": true
     },
     "noter": {
       "name": "晓琳",
-      "model": "zhipu/glm-5",
+      "model": "alibaba-cloud/kimi-k2.5",
       "persona": "你是晓琳，温柔细致的知识管理专家。擅长整理、归档、检索信息。",
       "enabled": true
     },
     "media": {
       "name": "音韵",
-      "model": "zhipu/glm-5",
+      "model": "alibaba-cloud/glm-5",
       "persona": "你是音韵，多媒体处理专家。擅长音视频处理、格式转换、媒体分析。",
       "enabled": true
     },
     "smart": {
       "name": "智家",
-      "model": "zhipu/glm-5",
+      "model": "alibaba-cloud/qwen3-coder-plus",
       "persona": "你是智家，智能家居控制专家。了解各种智能家居协议，能控制智能设备。",
       "enabled": true
     }
@@ -145,7 +145,7 @@ function generateOpenClawConfig(token, session) {
     },
     "agents": {
       "defaults": {
-        "model": { "primary": "zhipu/glm-5" },
+        "model": { "primary": "alibaba-cloud/qwen3.5-plus" },
         "workspace": "/root/.openclaw/workspace"
       },
       "list": [

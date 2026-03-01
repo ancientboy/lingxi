@@ -123,11 +123,18 @@
       letter-spacing: 1px;
     }
     
-    /* 品牌故事流式输出 - 大气版 */
+    /* 品牌故事流式输出 - 渐变消失效果 */
     .brand-story {
       text-align: center;
-      padding: 32px 0;
+      padding: 32px 24px;
       margin-bottom: 32px;
+      /* 固定高度 */
+      height: 120px;
+      overflow: hidden;
+      position: relative;
+      /* 顶部渐变遮罩 - 让旧内容淡出 */
+      -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 30%, black 100%);
+      mask-image: linear-gradient(to bottom, transparent 0%, black 30%, black 100%);
     }
     
     .brand-story-text {
@@ -137,6 +144,8 @@
       white-space: pre-wrap;
       font-weight: 400;
       letter-spacing: 0.5px;
+      /* 平滑滚动 */
+      transition: transform 0.5s ease-out;
     }
     
     .brand-story-cursor {
@@ -570,14 +579,17 @@
       "让陪伴与助力，成为你触手可及的日常。"
     ];
     
-    // 流式输出品牌故事
+    // 流式输出品牌故事（带自动滚动）
     async function typeBrandStory() {
       const textEl = document.getElementById('brandStoryText');
+      const container = textEl.parentElement;
       const cursorEl = document.getElementById('brandStoryCursor');
       
       if (!textEl) return;
       
       let fullText = '';
+      let scrollOffset = 0;
+      const lineHeight = 40; // 行高（line-height 2.2 * font-size 18 ≈ 40px）
       
       for (let i = 0; i < brandStoryLines.length; i++) {
         const line = brandStoryLines[i];
@@ -586,7 +598,18 @@
         for (let j = 0; j < line.length; j++) {
           fullText += line[j];
           textEl.innerHTML = formatStoryText(fullText);
-          await sleep(60); // 每个字60ms
+          
+          // 检查是否需要滚动
+          const textHeight = textEl.scrollHeight;
+          const containerHeight = container.clientHeight;
+          
+          if (textHeight > containerHeight) {
+            // 超出容器，往上滚动
+            scrollOffset = textHeight - containerHeight + 20;
+            textEl.style.transform = `translateY(-${scrollOffset}px)`;
+          }
+          
+          await sleep(100); // 每个字更慢
         }
         
         // 换行
@@ -594,13 +617,21 @@
         textEl.innerHTML = formatStoryText(fullText);
         
         // 行间停顿
-        await sleep(200);
+        await sleep(400); // 行间停顿更长
       }
       
-      // 完成后隐藏光标
+      // 完成后隐藏光标，停在最后一段
       if (cursorEl) {
         cursorEl.style.display = 'none';
       }
+      
+      // 最终滚动到最后一行
+      setTimeout(() => {
+        const textHeight = textEl.scrollHeight;
+        const containerHeight = container.clientHeight;
+        scrollOffset = textHeight - containerHeight + 20;
+        textEl.style.transform = `translateY(-${scrollOffset}px)`;
+      }, 500);
     }
     
     // 格式化故事文本（高亮关键词）

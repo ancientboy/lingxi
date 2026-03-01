@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug</title>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <h1>Debug Page</h1>
+    <div id="status">Loading...</div>
+    <button onclick="testClick()">Test Button</button>
+    <div id="result"></div>
+    
+    <script src="assets/js/chat.js"></script>
+    <script>
+        document.getElementById('status').innerHTML = '<p style="color:green">✅ chat.js loaded</p>';
+        
+        function testClick() {
+            document.getElementById('result').innerHTML += '<p>Button clicked!</p>';
+            console.log('Button clicked');
+        }
+        
+        // Test if init is defined
+        if (typeof init === 'function') {
+            document.getElementById('status').innerHTML += '<p>✅ init() is defined</p>';
+        } else {
+            document.getElementById('status').innerHTML += '<p style="color:red">❌ init() is NOT defined</p>';
+        }
+        
+        // Test if sendMessage is defined
+        if (typeof sendMessage === 'function') {
+            document.getElementById('status').innerHTML += '<p>✅ sendMessage() is defined</p>';
+        } else {
+            document.getElementById('status').innerHTML += '<p style="color:red">❌ sendMessage() is NOT defined</p>';
+        }
+        
+        // Test if handleSendClick is defined
+        if (typeof handleSendClick === 'function') {
+            document.getElementById('status').innerHTML += '<p>✅ handleSendClick() is defined</p>';
+        } else {
+            document.getElementById('status').innerHTML += '<p style="color:red">❌ handleSendClick() is NOT defined</p>';
+        }
+    </script>
+</body>
+</html>

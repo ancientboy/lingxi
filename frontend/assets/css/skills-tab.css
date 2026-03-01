@@ -1,0 +1,462 @@
+/* 技能库标签页样式 */
+
+.skills-view {
+  display: none;
+  flex-direction: column;
+  height: calc(100vh - 60px);
+  overflow: hidden;
+  background: var(--bg-primary, #fff);
+  padding-top: 60px; /* 为固定 navbar 留空间 */
+}
+
+.skills-view.active { display: flex; }
+.chat-container.hidden { display: none; }
+
+.skills-categories {
+  display: flex;
+  gap: 8px;
+  padding: 16px 20px;
+  background: var(--bg-secondary, #f7f7f8);
+  border-bottom: 1px solid var(--border, #e5e5e5);
+  flex-wrap: wrap;
+}
+
+.category-chip {
+  padding: 8px 16px;
+  background: var(--bg-primary, #fff);
+  border: 1px solid var(--border, #e5e5e5);
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.category-chip:hover {
+  border-color: var(--primary, #10a37f);
+  background: rgba(16, 163, 127, 0.05);
+}
+
+.category-chip.active {
+  background: var(--primary, #10a37f);
+  color: #fff;
+  border-color: var(--primary, #10a37f);
+}
+
+.category-icon { font-size: 16px; }
+.category-count { font-size: 11px; opacity: 0.8; }
+
+.skills-toolbar {
+  display: flex;
+  gap: 12px;
+  padding: 16px 20px;
+  background: var(--bg-primary, #fff);
+  border-bottom: 1px solid var(--border, #e5e5e5);
+  align-items: center;
+}
+
+.skills-search {
+  flex: 1;
+  max-width: 400px;
+  padding: 10px 14px;
+  background: var(--bg-secondary, #f7f7f8);
+  border: 1px solid var(--border, #e5e5e5);
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--text-primary, #202123);
+}
+
+.skills-search:focus {
+  outline: none;
+  border-color: var(--primary, #10a37f);
+}
+
+.skills-filters { display: flex; gap: 6px; }
+
+.filter-chip {
+  padding: 8px 14px;
+  background: var(--bg-secondary, #f7f7f8);
+  border: 1px solid var(--border, #e5e5e5);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--text-secondary, #6b7280);
+}
+
+.filter-chip:hover {
+  border-color: var(--primary, #10a37f);
+  color: var(--primary, #10a37f);
+}
+
+.filter-chip.active {
+  background: var(--primary, #10a37f);
+  color: #fff;
+  border-color: var(--primary, #10a37f);
+}
+
+.skills-grid-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.skills-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.skill-card {
+  background: var(--bg-primary, #fff);
+  border: 1px solid var(--border, #e5e5e5);
+  border-radius: 12px;
+  padding: 16px;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.skill-card:hover {
+  border-color: var(--primary, #10a37f);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.skill-header {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.skill-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.skill-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.skill-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary, #202123);
+  margin-bottom: 4px;
+}
+
+.skill-desc {
+  font-size: 12px;
+  color: var(--text-secondary, #6b7280);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.skill-detail {
+  display: none;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border, #e5e5e5);
+  font-size: 13px;
+  color: var(--text-secondary, #6b7280);
+  line-height: 1.6;
+}
+
+.skill-card.expanded .skill-detail {
+  display: block;
+}
+
+.skill-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border, #e5e5e5);
+}
+
+.skill-meta {
+  font-size: 12px;
+  color: var(--text-secondary, #6b7280);
+}
+
+.skill-install-btn {
+  padding: 6px 14px;
+  background: var(--primary, #10a37f);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.skill-install-btn:hover {
+  background: var(--primary-dark, #0d8a6a);
+}
+
+.skills-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-secondary, #6b7280);
+}
+
+.skills-empty-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.skills-loading {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-secondary, #6b7280);
+}
+
+@media (max-width: 768px) {
+  .skills-categories {
+    padding: 12px;
+  }
+  
+  .category-chip {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+  
+  .skills-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 12px;
+  }
+  
+  .skills-search {
+    max-width: 100%;
+  }
+  
+  .skills-filters {
+    justify-content: center;
+  }
+  
+  .skills-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 官方技能徽章 */
+.builtin-badge {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+/* 已安装标记 */
+.skill-card.installed {
+  border-color: #10b981;
+  background: rgba(16, 163, 127, 0.02);
+}
+
+.skill-card.installed::before {
+  content: '✓';
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  color: #10b981;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+/* 分类标签样式 */
+.category-chip {
+  position: relative;
+}
+
+.category-icon {
+  font-size: 16px;
+}
+
+.category-count {
+  font-size: 11px;
+  opacity: 0.7;
+  margin-left: 2px;
+}
+
+/* 技能卡片详情 */
+.skill-detail {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary, #6b7280);
+}
+
+.skill-card.expanded .skill-detail {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border, #e5e5e5);
+}
+
+/* 技能元信息 */
+.skill-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 空状态 */
+.skills-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-secondary, #6b7280);
+}
+
+.skills-empty-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+/* 官方可用按钮样式 */
+.skill-install-btn.builtin-available {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  cursor: default;
+}
+
+.skill-install-btn.builtin-available:hover {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+/* 已安装按钮样式 */
+.skill-install-btn.installed {
+  background: #10b981;
+  cursor: default;
+}
+
+/* 技能卡片状态标记 */
+.skill-name::after {
+  margin-left: 6px;
+}
+
+/* 官方技能状态文字 */
+.builtin-status {
+  color: #10b981;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* 已安装状态文字 */
+.installed-status {
+  color: #10b981;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* 技能详情区块 */
+.skill-section {
+  margin-bottom: 16px;
+}
+
+.skill-section:last-child {
+  margin-bottom: 0;
+}
+
+.skill-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #202123);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.skill-section-content {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary, #6b7280);
+}
+
+/* 功能特性列表 */
+.skill-features-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.feature-item {
+  background: rgba(16, 163, 127, 0.1);
+  color: #10a37f;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* 使用示例 */
+.skill-example {
+  background: var(--bg-secondary, #f7f7f8);
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-secondary, #6b7280);
+  border-left: 3px solid var(--primary, #10a37f);
+  font-style: italic;
+}
+
+/* 安装命令框 */
+.skill-cmd-box {
+  background: #1f2937;
+  color: #10b981;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.skill-cmd-box:hover {
+  background: #374151;
+}
+
+.skill-cmd-box code {
+  flex: 1;
+}
+
+.copy-hint {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-left: 12px;
+}
+
+/* 官方技能状态文字 */
+.builtin-status {
+  color: #10b981;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* 已安装状态文字 */
+.installed-status {
+  color: #10b981;
+  font-size: 13px;
+  font-weight: 600;
+}

@@ -1,6 +1,6 @@
 /**
  * 灵犀云统一配置
- * 所有环境变量和默认值集中管理
+ * 所有环境变量集中管理，无硬编码
  */
 
 // 🚨 必须在最开始加载 .env（ES Module 方式）
@@ -11,6 +11,15 @@ const require = createRequire(import.meta.url);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 require('dotenv').config({ path: join(__dirname, '..', '.env') });
 
+// 必需的环境变量检查
+const required = ['USER_SERVER_PASSWORD', 'ZHIPU_API_KEY', 'DASHSCOPE_API_KEY'];
+const missing = required.filter(key => !process.env[key]);
+if (missing.length > 0) {
+  console.error('❌ 缺少必需的环境变量:', missing.join(', '));
+  console.error('请创建 .env 文件并配置这些变量');
+  process.exit(1);
+}
+
 export const config = {
   // 服务配置
   server: {
@@ -20,19 +29,19 @@ export const config = {
   
   // 安全配置
   security: {
-    jwtSecret: process.env.JWT_SECRET || 'lingxi-cloud-secret-key-2026',
+    jwtSecret: process.env.JWT_SECRET || crypto.randomUUID(),
     adminKey: process.env.ADMIN_KEY || 'lingxi-admin-2026',
   },
   
   // API Keys（用于用户服务器配置）
   env: {
-    ZHIPU_API_KEY: process.env.ZHIPU_API_KEY || '77c2b59d03e646a9884f78f8c4787885.XunhoXmFaErSD0dR',
-    DASHSCOPE_API_KEY: process.env.DASHSCOPE_API_KEY || 'sk-sp-8a1ddcacc5f94df4a24dd998c895fc4d',
+    ZHIPU_API_KEY: process.env.ZHIPU_API_KEY,
+    DASHSCOPE_API_KEY: process.env.DASHSCOPE_API_KEY,
   },
   
   // 用户服务器配置
   userServer: {
-    password: process.env.USER_SERVER_PASSWORD || 'Lingxi@2026!',
+    password: process.env.USER_SERVER_PASSWORD,
     openclawPort: parseInt(process.env.OPENCLAW_PORT || '18789'),
   },
   
@@ -58,7 +67,7 @@ export const config = {
     securityGroupId: process.env.ALIYUN_SECURITY_GROUP_ID || '',
     
     // 实例配置
-    instanceType: process.env.ALIYUN_INSTANCE_TYPE || 'ecs.g6.large',
+    instanceType: process.env.ALIYUN_INSTANCE_TYPE || 'ecs.t5-c1m2.large',
     systemDiskSize: parseInt(process.env.ALIYUN_DISK_SIZE || '40'),
     bandwidth: parseInt(process.env.ALIYUN_BANDWIDTH || '5'),
   },
