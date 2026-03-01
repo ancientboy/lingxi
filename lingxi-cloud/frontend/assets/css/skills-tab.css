@@ -365,3 +365,98 @@
   font-size: 13px;
   font-weight: 600;
 }
+
+/* 技能详情区块 */
+.skill-section {
+  margin-bottom: 16px;
+}
+
+.skill-section:last-child {
+  margin-bottom: 0;
+}
+
+.skill-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #202123);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.skill-section-content {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary, #6b7280);
+}
+
+/* 功能特性列表 */
+.skill-features-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.feature-item {
+  background: rgba(16, 163, 127, 0.1);
+  color: #10a37f;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* 使用示例 */
+.skill-example {
+  background: var(--bg-secondary, #f7f7f8);
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-secondary, #6b7280);
+  border-left: 3px solid var(--primary, #10a37f);
+  font-style: italic;
+}
+
+/* 安装命令框 */
+.skill-cmd-box {
+  background: #1f2937;
+  color: #10b981;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.skill-cmd-box:hover {
+  background: #374151;
+}
+
+.skill-cmd-box code {
+  flex: 1;
+}
+
+.copy-hint {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-left: 12px;
+}
+
+/* 官方技能状态文字 */
+.builtin-status {
+  color: #10b981;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* 已安装状态文字 */
+.installed-status {
+  color: #10b981;
+  font-size: 13px;
+  font-weight: 600;
+}

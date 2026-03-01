@@ -171,14 +171,41 @@ function renderSkills() {
     // 按钮文字和样式
     let btnHtml = '';
     if (isBuiltin) {
-      // 官方技能：不显示按钮，只显示绿色文字
       btnHtml = '<span class="builtin-status">已安装 ✓</span>';
     } else if (installed) {
-      // 已安装的用户技能
       btnHtml = '<span class="installed-status">已安装 ✓</span>';
     } else {
-      // 未安装的技能
       btnHtml = '<button class="skill-install-btn" onclick="event.stopPropagation(); copySkillCmd(\'' + cmd + '\')">复制命令</button>';
+    }
+    
+    // 详细内容
+    let detailHtml = '';
+    
+    // 完整描述
+    if (s.fullDesc && s.fullDesc !== s.shortDesc) {
+      detailHtml += '<div class="skill-section"><div class="skill-section-title">📋 详细说明</div><div class="skill-section-content">' + s.fullDesc + '</div></div>';
+    }
+    
+    // 功能特性
+    if (s.features && s.features.length > 0) {
+      detailHtml += '<div class="skill-section"><div class="skill-section-title">✨ 功能特性</div><div class="skill-features-list">' + 
+        s.features.map(f => '<span class="feature-item">' + f + '</span>').join('') + 
+      '</div></div>';
+    }
+    
+    // 使用示例
+    if (s.example) {
+      detailHtml += '<div class="skill-section"><div class="skill-section-title">💡 使用示例</div><div class="skill-example">"' + s.example + '"</div></div>';
+    }
+    
+    // 安装命令
+    if (!isBuiltin) {
+      detailHtml += '<div class="skill-section"><div class="skill-section-title">🔧 安装命令</div><div class="skill-cmd-box" onclick="copySkillCmd(\'' + cmd + '\')"><code>' + cmd + '</code><span class="copy-hint">点击复制</span></div></div>';
+    }
+    
+    // 如果没有任何详细内容，显示简短描述
+    if (!detailHtml) {
+      detailHtml = '<div class="skill-section"><div class="skill-section-content">' + (s.shortDesc || '暂无详细说明') + '</div></div>';
     }
     
     return '<div class="skill-card' + (installed ? ' installed' : '') + '" data-skill="' + s.id + '">' +
@@ -189,7 +216,7 @@ function renderSkills() {
           '<div class="skill-desc">' + (s.shortDesc || '') + '</div>' +
         '</div>' +
       '</div>' +
-      '<div class="skill-detail">' + (s.fullDesc || s.shortDesc || '') + '</div>' +
+      '<div class="skill-detail">' + detailHtml + '</div>' +
       '<div class="skill-footer">' +
         '<div class="skill-meta">' + 
           (isBuiltin ? '<span class="builtin-badge">⭐ 官方</span> ' : '') +
@@ -241,7 +268,7 @@ function bindSkillsEvents() {
   if (grid) {
     grid.addEventListener('click', e => {
       const card = e.target.closest('.skill-card');
-      if (card && !e.target.closest('.skill-install-btn')) {
+      if (card && !e.target.closest('.skill-install-btn') && !e.target.closest('.skill-cmd-box')) {
         card.classList.toggle('expanded');
       }
     });
