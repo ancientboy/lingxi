@@ -2139,7 +2139,8 @@ function switchAgent(agentId) {
   
   // 🎯 每个 agent 有独立的会话，直接对话
   const targetAgentId = agent.agentId || agentId;
-  currentSessionKey = `agent:${targetAgentId}:main`;
+  // 修复：使用正确的会话格式，包含 SESSION_PREFIX
+  currentSessionKey = `${SESSION_PREFIX}:agent:${targetAgentId}`;
   
   console.log('🔄 切换到 agent:', agentId, 'agentId:', targetAgentId, '会话:', currentSessionKey);
   

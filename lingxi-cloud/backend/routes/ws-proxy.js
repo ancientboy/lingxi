@@ -115,7 +115,8 @@ export function setupWebSocketProxy(app) {
       // 连接目标 WebSocket（设置 Origin 为用户服务器地址，绕过 CORS 检查）
       targetWs = new WebSocket(targetUrl, {
         headers: {
-          'Origin': `http://${wsHost}`
+          'Origin': `http://${wsHost}`,
+          'Authorization': `Bearer ${gatewayConfig.token}`,
         }
       });
       
@@ -151,14 +152,14 @@ export function setupWebSocketProxy(app) {
         console.log(`🔌 [${userId.substring(0, 8)}] 目标 Gateway 已断开: ${code}`);
         if (ws.readyState === WebSocket.OPEN) {
           const validCode = (code >= 1000 && code < 5000) ? code : 1000;
-          ws.close(validCode, reason || "")
+          ws.close(validCode, (reason && typeof reason === 'string') ? reason : "")
         }
       });
       
       ws.on('close', (code, reason) => {
         console.log(`🔌 [${userId.substring(0, 8)}] 客户端已断开: ${code}`);
         if (targetWs && targetWs.readyState === WebSocket.OPEN) {
-          if (code && code >= 1000 && code <= 1015) { targetWs.close(code, reason); } else { targetWs.close(1000, reason); }
+          if (code && code >= 1000 && code <= 1015) { targetWs.close(code, (reason && typeof reason === 'string') ? reason : ''); } else { targetWs.close(1000, (reason && typeof reason === 'string') ? reason : ''); }
         }
       });
       
