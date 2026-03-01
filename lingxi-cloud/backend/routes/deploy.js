@@ -27,6 +27,7 @@ const router = Router();
 
 // 从统一配置获取
 const SERVER_PASSWORD = config.userServer.password;
+const AI_PROXY_URL = process.env.AI_PROXY_URL || 'http://120.55.192.144:3000';
 const OPENCLAW_PORT = config.userServer.openclawPort;
 const OPENCLAW_VERSION = '2026.2.25';
 
@@ -149,7 +150,7 @@ async function quickGeneratePackage(userId, token, sessionId, releasesDir) {
       "mode": "merge",
       "providers": {
         "alibaba-cloud": {
-          "baseUrl": "http://120.55.192.144:3000/api/ai/aliyun",
+          "baseUrl": AI_PROXY_URL + '/api/ai/aliyun',
           "api": "openai-completions",
           "models": [
             { "id": "qwen3.5-plus", "name": "通义千问3.5-Plus", "contextWindow": 262144, "maxTokens": 65536 },
@@ -158,7 +159,7 @@ async function quickGeneratePackage(userId, token, sessionId, releasesDir) {
           ]
         },
         "zhipu": {
-          "baseUrl": "http://120.55.192.144:3000/api/ai/zhipu",
+          "baseUrl": AI_PROXY_URL + '/api/ai/zhipu',
           "api": "openai-completions",
           "authHeader": true,
           "models": [
