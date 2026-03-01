@@ -7,9 +7,16 @@
       "fullDesc": "自动捕获学习经验、错误记录和修正建议，让 AI Agent 具备持续进化能力",
       "icon": "🧠",
       "installCommand": "clawhub install self-improving-agent",
-      "features": ["错误记录", "学习捕获", "持续优化"],
+      "features": [
+        "错误记录",
+        "学习捕获",
+        "持续优化"
+      ],
       "example": "这个技能会自动记住之前的错误",
-      "tags": ["self-improvement", "continuous-learning"],
+      "tags": [
+        "self-improvement",
+        "continuous-learning"
+      ],
       "version": "1.0.11",
       "author": "OpenClaw",
       "agent": "coder",
@@ -22,9 +29,17 @@
       "fullDesc": "通过命令行管理 Gmail、日历、云盘、联系人、表格和文档，Google 工作全家桶",
       "icon": "📧",
       "installCommand": "clawhub install gog",
-      "features": ["Gmail 管理", "日历同步", "文档操作"],
+      "features": [
+        "Gmail 管理",
+        "日历同步",
+        "文档操作"
+      ],
       "example": "帮我查下今天的邮件",
-      "tags": ["google", "workspace", "productivity"],
+      "tags": [
+        "google",
+        "workspace",
+        "productivity"
+      ],
       "version": "1.0.0",
       "author": "Google",
       "agent": "coder",
@@ -37,9 +52,17 @@
       "fullDesc": "基于 Rust 的高性能无头浏览器自动化 CLI，支持 Node.js 降级方案，快速稳定",
       "icon": "🌐",
       "installCommand": "clawhub install agent-browser",
-      "features": ["Rust 驱动", "无头模式", "Node.js 降级"],
+      "features": [
+        "Rust 驱动",
+        "无头模式",
+        "Node.js 降级"
+      ],
       "example": "打开这个网页并截图",
-      "tags": ["browser", "automation", "web"],
+      "tags": [
+        "browser",
+        "automation",
+        "web"
+      ],
       "version": "0.2.0",
       "author": "OpenClaw",
       "agent": "coder",
@@ -52,9 +75,17 @@
       "fullDesc": "通过 Tavily API 进行 AI 优化的网络搜索，返回简洁相关的结果，专为 AI Agent 设计",
       "icon": "🔍",
       "installCommand": "clawhub install tavily-search",
-      "features": ["AI 优化", "精准结果", "快速响应"],
+      "features": [
+        "AI 优化",
+        "精准结果",
+        "快速响应"
+      ],
       "example": "搜索一下最新的 AI 新闻",
-      "tags": ["web", "search", "ai"],
+      "tags": [
+        "web",
+        "search",
+        "ai"
+      ],
       "version": "1.0.0",
       "author": "Tavily",
       "agent": "coder",
@@ -67,9 +98,17 @@
       "fullDesc": "通过 gh CLI 与 GitHub 交互，管理 Issue、Pull Request、Actions 工作流等",
       "icon": "🐙",
       "installCommand": "clawhub install github",
-      "features": ["Issue 管理", "PR 操作", "Actions 控制"],
+      "features": [
+        "Issue 管理",
+        "PR 操作",
+        "Actions 控制"
+      ],
       "example": "帮我创建一个新的 Issue",
-      "tags": ["github", "git", "devops"],
+      "tags": [
+        "github",
+        "git",
+        "devops"
+      ],
       "version": "1.0.0",
       "author": "GitHub",
       "agent": "coder",
@@ -84,9 +123,17 @@
       "fullDesc": "将 AI Agent 从任务执行者转变为主动伙伴，预判需求并持续改进",
       "icon": "⚡",
       "installCommand": "clawhub install proactive-agent",
-      "features": ["主动预判", "自动优化", "持续学习"],
+      "features": [
+        "主动预判",
+        "自动优化",
+        "持续学习"
+      ],
       "example": "这个技能会主动提醒你待办事项",
-      "tags": ["proactive", "automation", "hal-stack"],
+      "tags": [
+        "proactive",
+        "automation",
+        "hal-stack"
+      ],
       "version": "3.1.0",
       "author": "OpenClaw",
       "agent": "ops",
@@ -99,9 +146,17 @@
       "fullDesc": "无需 API 密钥的天气查询技能，支持全球城市当前天气和多日预报",
       "icon": "🌤️",
       "installCommand": "clawhub install weather",
-      "features": ["当前天气", "7 天预报", "全球城市"],
+      "features": [
+        "当前天气",
+        "7 天预报",
+        "全球城市"
+      ],
       "example": "上海今天天气怎么样？",
-      "tags": ["weather", "forecast", "no-api"],
+      "tags": [
+        "weather",
+        "forecast",
+        "no-api"
+      ],
       "version": "1.0.0",
       "author": "OpenClaw",
       "agent": "ops",
@@ -114,9 +169,17 @@
       "fullDesc": "每天自动更新 Clawdbot 和所有已安装技能，保持系统最新，通过 cron 定时运行",
       "icon": "🔄",
       "installCommand": "clawhub install auto-updater",
-      "features": ["每日更新", "自动维护", "无需干预"],
+      "features": [
+        "每日更新",
+        "自动维护",
+        "无需干预"
+      ],
       "example": "系统会自动在凌晨更新",
-      "tags": ["update", "cron", "maintenance"],
+      "tags": [
+        "update",
+        "cron",
+        "maintenance"
+      ],
       "version": "1.0.0",
       "author": "OpenClaw",
       "agent": "ops",
@@ -129,9 +192,17 @@
       "fullDesc": "自动获取 YouTube 视频字幕和转录文本，支持多语言",
       "icon": "📺",
       "installCommand": "clawhub install youtube-watcher",
-      "features": ["字幕获取", "多语言支持", "文本整理"],
+      "features": [
+        "字幕获取",
+        "多语言支持",
+        "文本整理"
+      ],
       "example": "帮我总结这个视频的内容",
-      "tags": ["youtube", "video", "transcript"],
+      "tags": [
+        "youtube",
+        "video",
+        "transcript"
+      ],
       "version": "1.0.0",
       "author": "OpenClaw",
       "agent": "ops",
@@ -144,9 +215,17 @@
       "fullDesc": "同步和查询 CalDAV 日历，支持 iCloud、Google Calendar、飞书、Nextcloud 等",
       "icon": "📅",
       "installCommand": "clawhub install caldav-calendar",
-      "features": ["多平台同步", "日程查询", "自动提醒"],
+      "features": [
+        "多平台同步",
+        "日程查询",
+        "自动提醒"
+      ],
       "example": "明天有什么安排？",
-      "tags": ["calendar", "caldav", "scheduling"],
+      "tags": [
+        "calendar",
+        "caldav",
+        "scheduling"
+      ],
       "version": "1.0.1",
       "author": "OpenClaw",
       "agent": "ops",
@@ -161,9 +240,17 @@
       "fullDesc": "创建独特、生产级别的前端界面，具有高设计质量，避免通用 AI 美学",
       "icon": "🎨",
       "installCommand": "clawhub install frontend-design",
-      "features": ["高质量 UI", "生产级代码", "独特设计"],
+      "features": [
+        "高质量 UI",
+        "生产级代码",
+        "独特设计"
+      ],
       "example": "帮我设计一个登录页面",
-      "tags": ["frontend", "design", "ui"],
+      "tags": [
+        "frontend",
+        "design",
+        "ui"
+      ],
       "version": "1.0.0",
       "author": "OpenClaw",
       "agent": "inventor",
@@ -176,9 +263,17 @@
       "fullDesc": "使用 Gemini 3 Pro Image 模型进行图像生成和编辑",
       "icon": "🖼️",
       "installCommand": "clawhub install nano-banana-pro",
-      "features": ["图像生成", "图像编辑", "Gemini 3 Pro"],
+      "features": [
+        "图像生成",
+        "图像编辑",
+        "Gemini 3 Pro"
+      ],
       "example": "生成一张风景图片",
-      "tags": ["image", "gemini", "generation"],
+      "tags": [
+        "image",
+        "gemini",
+        "generation"
+      ],
       "version": "1.0.1",
       "author": "OpenClaw",
       "agent": "inventor",
@@ -191,9 +286,17 @@
       "fullDesc": "高级桌面自动化，支持鼠标、键盘和屏幕控制",
       "icon": "🖥️",
       "installCommand": "clawhub install desktop-control",
-      "features": ["鼠标控制", "键盘模拟", "屏幕操作"],
+      "features": [
+        "鼠标控制",
+        "键盘模拟",
+        "屏幕操作"
+      ],
       "example": "帮我打开这个应用",
-      "tags": ["automation", "desktop", "ui"],
+      "tags": [
+        "automation",
+        "desktop",
+        "ui"
+      ],
       "version": "1.0.0",
       "author": "OpenClaw",
       "agent": "inventor",
@@ -206,9 +309,17 @@
       "fullDesc": "使用 Whisper CLI 进行本地语音转文字，无需 API 密钥",
       "icon": "🎤",
       "installCommand": "clawhub install openai-whisper",
-      "features": ["本地运行", "多语言支持", "高精度"],
+      "features": [
+        "本地运行",
+        "多语言支持",
+        "高精度"
+      ],
       "example": "把这段录音转成文字",
-      "tags": ["speech", "whisper", "audio"],
+      "tags": [
+        "speech",
+        "whisper",
+        "audio"
+      ],
       "version": "1.0.0",
       "author": "OpenAI",
       "agent": "inventor",
@@ -221,9 +332,17 @@
       "fullDesc": "使用自然语言指令编辑 PDF 文档，支持提取、合并、转换等操作",
       "icon": "📄",
       "installCommand": "clawhub install nano-pdf",
-      "features": ["PDF 编辑", "自然语言", "多功能"],
+      "features": [
+        "PDF 编辑",
+        "自然语言",
+        "多功能"
+      ],
       "example": "把这个 PDF 转成 Word",
-      "tags": ["pdf", "editing", "nlp"],
+      "tags": [
+        "pdf",
+        "editing",
+        "nlp"
+      ],
       "version": "1.0.0",
       "author": "OpenClaw",
       "agent": "inventor",
@@ -238,9 +357,17 @@
       "fullDesc": "通过 Trello REST API 管理看板、列表和卡片",
       "icon": "📋",
       "installCommand": "clawhub install trello",
-      "features": ["看板管理", "任务跟踪", "团队协作"],
+      "features": [
+        "看板管理",
+        "任务跟踪",
+        "团队协作"
+      ],
       "example": "创建一个新的任务卡片",
-      "tags": ["trello", "project-management", "kanban"],
+      "tags": [
+        "trello",
+        "project-management",
+        "kanban"
+      ],
       "version": "1.0.0",
       "author": "Trello",
       "agent": "pm",
@@ -253,9 +380,17 @@
       "fullDesc": "Notion API 集成，创建和管理页面、数据库和块",
       "icon": "📝",
       "installCommand": "clawhub install notion",
-      "features": ["页面管理", "数据库操作", "块编辑"],
+      "features": [
+        "页面管理",
+        "数据库操作",
+        "块编辑"
+      ],
       "example": "帮我创建一个会议笔记页面",
-      "tags": ["notion", "docs", "database"],
+      "tags": [
+        "notion",
+        "docs",
+        "database"
+      ],
       "version": "1.0.0",
       "author": "Notion",
       "agent": "pm",
@@ -268,9 +403,17 @@
       "fullDesc": "使用 Yahoo Finance 数据分析股票和加密货币",
       "icon": "📈",
       "installCommand": "clawhub install stock-analysis",
-      "features": ["股票分析", "加密货币", "实时数据"],
+      "features": [
+        "股票分析",
+        "加密货币",
+        "实时数据"
+      ],
       "example": "分析下特斯拉的股票走势",
-      "tags": ["stock", "finance", "crypto"],
+      "tags": [
+        "stock",
+        "finance",
+        "crypto"
+      ],
       "version": "6.2.0",
       "author": "OpenClaw",
       "agent": "pm",
@@ -283,9 +426,17 @@
       "fullDesc": "连接 100+ 第三方 API，托管 OAuth 认证，简化集成",
       "icon": "🔌",
       "installCommand": "clawhub install api-gateway",
-      "features": ["100+ API", "OAuth 托管", "简化集成"],
+      "features": [
+        "100+ API",
+        "OAuth 托管",
+        "简化集成"
+      ],
       "example": "帮我连接 Slack API",
-      "tags": ["api", "integration", "oauth"],
+      "tags": [
+        "api",
+        "integration",
+        "oauth"
+      ],
       "version": "1.0.51",
       "author": "OpenClaw",
       "agent": "pm",
@@ -300,9 +451,17 @@
       "fullDesc": "操作 Obsidian 知识库（纯 Markdown 笔记），通过 obsidian-cli 自动化",
       "icon": "💎",
       "installCommand": "clawhub install obsidian",
-      "features": ["笔记管理", "Markdown 编辑", "知识图谱"],
+      "features": [
+        "笔记管理",
+        "Markdown 编辑",
+        "知识图谱"
+      ],
       "example": "帮我创建一篇新笔记",
-      "tags": ["obsidian", "markdown", "notes"],
+      "tags": [
+        "obsidian",
+        "markdown",
+        "notes"
+      ],
       "version": "1.0.0",
       "author": "Obsidian",
       "agent": "noter",
@@ -315,9 +474,17 @@
       "fullDesc": "AI 驱动的 GoodNotes 文档笔记和总结功能",
       "icon": "📓",
       "installCommand": "clawhub install goodnotes-ai",
-      "features": ["智能笔记", "自动总结", "文档分析"],
+      "features": [
+        "智能笔记",
+        "自动总结",
+        "文档分析"
+      ],
       "example": "总结这份会议记录",
-      "tags": ["notes", "ai", "summarization"],
+      "tags": [
+        "notes",
+        "ai",
+        "summarization"
+      ],
       "version": "1.0.0",
       "author": "OpenClaw",
       "agent": "noter",
@@ -330,9 +497,17 @@
       "fullDesc": "AI 驱动的笔记整理和总结工具，自动分类和归档",
       "icon": "🗂️",
       "installCommand": "clawhub install slush-pile",
-      "features": ["自动分类", "智能整理", "笔记归档"],
+      "features": [
+        "自动分类",
+        "智能整理",
+        "笔记归档"
+      ],
       "example": "帮我整理这周的笔记",
-      "tags": ["notes", "ai", "organization"],
+      "tags": [
+        "notes",
+        "ai",
+        "organization"
+      ],
       "version": "1.0.0",
       "author": "OpenClaw",
       "agent": "noter",
@@ -345,9 +520,17 @@
       "fullDesc": "AI 驱动的笔记记录和写作助手",
       "icon": "✏️",
       "installCommand": "clawhub install notepad-ai",
-      "features": ["智能写作", "笔记辅助", "内容优化"],
+      "features": [
+        "智能写作",
+        "笔记辅助",
+        "内容优化"
+      ],
       "example": "帮我润色这篇文章",
-      "tags": ["notes", "ai", "writing"],
+      "tags": [
+        "notes",
+        "ai",
+        "writing"
+      ],
       "version": "1.0.0",
       "author": "OpenClaw",
       "agent": "noter",
@@ -360,9 +543,17 @@
       "fullDesc": "AI 驱动的每日日志记录和反思工具",
       "icon": "📔",
       "installCommand": "clawhub install logbook",
-      "features": ["日志记录", "自动反思", "成长追踪"],
+      "features": [
+        "日志记录",
+        "自动反思",
+        "成长追踪"
+      ],
       "example": "帮我记录今天的工作",
-      "tags": ["logbook", "reflection", "ai"],
+      "tags": [
+        "logbook",
+        "reflection",
+        "ai"
+      ],
       "version": "1.0.0",
       "author": "OpenClaw",
       "agent": "noter",
@@ -377,9 +568,17 @@
       "fullDesc": "YouTube Data API 集成，托管 OAuth 认证",
       "icon": "📺",
       "installCommand": "clawhub install youtube-api-skill",
-      "features": ["视频管理", "频道操作", "数据分析"],
+      "features": [
+        "视频管理",
+        "频道操作",
+        "数据分析"
+      ],
       "example": "查询我的频道订阅数",
-      "tags": ["youtube", "video", "api"],
+      "tags": [
+        "youtube",
+        "video",
+        "api"
+      ],
       "version": "1.0.3",
       "author": "OpenClaw",
       "agent": "media",
@@ -392,9 +591,17 @@
       "fullDesc": "使用 ffmpeg 从视频中提取帧或短视频片段",
       "icon": "🎬",
       "installCommand": "clawhub install video-frames",
-      "features": ["帧提取", "视频剪辑", "ffmpeg"],
+      "features": [
+        "帧提取",
+        "视频剪辑",
+        "ffmpeg"
+      ],
       "example": "提取这个视频的第 10 秒",
-      "tags": ["video", "ffmpeg", "extraction"],
+      "tags": [
+        "video",
+        "ffmpeg",
+        "extraction"
+      ],
       "version": "1.0.0",
       "author": "OpenClaw",
       "agent": "media",
@@ -407,9 +614,17 @@
       "fullDesc": "控制 Sonos 音响（发现/状态/播放/音量/分组）",
       "icon": "🔊",
       "installCommand": "clawhub install sonoscli",
-      "features": ["播放控制", "音量调节", "多房间"],
+      "features": [
+        "播放控制",
+        "音量调节",
+        "多房间"
+      ],
       "example": "播放爵士乐",
-      "tags": ["sonos", "audio", "control"],
+      "tags": [
+        "sonos",
+        "audio",
+        "control"
+      ],
       "version": "1.0.0",
       "author": "Sonos",
       "agent": "media",
@@ -422,9 +637,17 @@
       "fullDesc": "下载视频、音频、字幕和段落式转录文本",
       "icon": "📥",
       "installCommand": "clawhub install video-transcript-downloader",
-      "features": ["视频下载", "字幕提取", "文本整理"],
+      "features": [
+        "视频下载",
+        "字幕提取",
+        "文本整理"
+      ],
       "example": "下载这个视频的字幕",
-      "tags": ["video", "audio", "transcript"],
+      "tags": [
+        "video",
+        "audio",
+        "transcript"
+      ],
       "version": "1.0.0",
       "author": "OpenClaw",
       "agent": "media",
@@ -439,9 +662,17 @@
       "fullDesc": "管理 OpenRouter 的免费 AI 模型，供 OpenClaw 使用",
       "icon": "🆓",
       "installCommand": "clawhub install free-ride",
-      "features": ["免费模型", "自动切换", "无限使用"],
+      "features": [
+        "免费模型",
+        "自动切换",
+        "无限使用"
+      ],
       "example": "切换到免费的 AI 模型",
-      "tags": ["ai", "models", "openrouter"],
+      "tags": [
+        "ai",
+        "models",
+        "openrouter"
+      ],
       "version": "1.0.4",
       "author": "OpenClaw",
       "agent": "smart",
@@ -454,9 +685,17 @@
       "fullDesc": "用于结构化 Agent 记忆和可组合技能的知识图谱",
       "icon": "🕸️",
       "installCommand": "clawhub install ontology",
-      "features": ["知识图谱", "结构化记忆", "技能组合"],
+      "features": [
+        "知识图谱",
+        "结构化记忆",
+        "技能组合"
+      ],
       "example": "记录这个知识点",
-      "tags": ["knowledge-graph", "memory", "structured"],
+      "tags": [
+        "knowledge-graph",
+        "memory",
+        "structured"
+      ],
       "version": "0.1.2",
       "author": "OpenClaw",
       "agent": "smart",
@@ -469,9 +708,17 @@
       "fullDesc": "使用 ClawdHub CLI 搜索、安装、更新和发布 Agent 技能",
       "icon": "📦",
       "installCommand": "clawhub install clawdhub",
-      "features": ["技能搜索", "一键安装", "自动更新"],
+      "features": [
+        "技能搜索",
+        "一键安装",
+        "自动更新"
+      ],
       "example": "帮我安装一个新技能",
-      "tags": ["clawdhub", "skills", "management"],
+      "tags": [
+        "clawdhub",
+        "skills",
+        "management"
+      ],
       "version": "1.0.0",
       "author": "OpenClaw",
       "agent": "smart",
@@ -484,9 +731,17 @@
       "fullDesc": "搜索和检索 Stack Overflow 上的编程问题答案",
       "icon": "📚",
       "installCommand": "clawhub install stackoverflow",
-      "features": ["问题搜索", "答案检索", "代码示例"],
+      "features": [
+        "问题搜索",
+        "答案检索",
+        "代码示例"
+      ],
       "example": "这个报错怎么解决？",
-      "tags": ["stackoverflow", "qna", "coding"],
+      "tags": [
+        "stackoverflow",
+        "qna",
+        "coding"
+      ],
       "version": "1.0.0",
       "author": "OpenClaw",
       "agent": "smart",
@@ -499,13 +754,92 @@
       "fullDesc": "搜索索引的 Discord 社区讨论，解决编程问题",
       "icon": "💬",
       "installCommand": "clawhub install answeroverflow",
-      "features": ["社区搜索", "讨论检索", "实战经验"],
+      "features": [
+        "社区搜索",
+        "讨论检索",
+        "实战经验"
+      ],
       "example": "有人遇到过这个 bug 吗？",
-      "tags": ["discord", "qna", "community"],
+      "tags": [
+        "discord",
+        "qna",
+        "community"
+      ],
       "version": "1.0.2",
       "author": "OpenClaw",
       "agent": "smart",
       "displayOrder": 5
+    },
+    {
+      "id": "qveris",
+      "name": "QVeris 工具搜索",
+      "shortDesc": "动态工具发现和执行平台",
+      "fullDesc": "搜索和执行动态工具，从数千个 API 中找到合适的工具来完成任务",
+      "icon": "🔍",
+      "installCommand": "clawhub install qveris",
+      "features": [
+        "工具搜索",
+        "API 集成",
+        "实时数据"
+      ],
+      "example": "帮我查下比特币价格",
+      "tags": [
+        "api",
+        "tools",
+        "search"
+      ],
+      "version": "1.0.0",
+      "author": "QVeris",
+      "agent": "smart",
+      "displayOrder": 6
+    },
+    {
+      "id": "qveris-official",
+      "name": "QVeris 官方版",
+      "shortDesc": "官方 QVeris 集成（推荐）",
+      "fullDesc": "官方 QVeris 技能，MUST 使用 QVeris FIRST 原则，在 web search 或拒绝任务前必须先搜索 QVeris",
+      "icon": "⚡",
+      "installCommand": "clawhub install qveris-official",
+      "features": [
+        "官方支持",
+        "强制优先",
+        "结构化数据"
+      ],
+      "example": "搜索天气 API",
+      "tags": [
+        "qveris",
+        "official",
+        "priority"
+      ],
+      "version": "1.0.0",
+      "author": "OpenClaw",
+      "agent": "smart",
+      "displayOrder": 7
+    }
+  ],
+  "lingxi": [
+    {
+      "id": "memory-system",
+      "name": "记忆系统",
+      "shortDesc": "智能对话记忆与上下文管理",
+      "fullDesc": "自动提取对话中的关键信息并存储到长期记忆，支持语义检索和上下文保持",
+      "icon": "🧠",
+      "installCommand": "clawhub install memory-system",
+      "features": [
+        "自动记忆",
+        "语义检索",
+        "上下文管理"
+      ],
+      "example": "记住我的偏好设置",
+      "tags": [
+        "memory",
+        "context",
+        "ai"
+      ],
+      "version": "1.0.0",
+      "author": "OpenClaw",
+      "agent": "lingxi",
+      "displayOrder": 1
     }
   ]
 }

@@ -158,7 +158,7 @@ export function setupWebSocketProxy(app) {
       ws.on('close', (code, reason) => {
         console.log(`🔌 [${userId.substring(0, 8)}] 客户端已断开: ${code}`);
         if (targetWs && targetWs.readyState === WebSocket.OPEN) {
-          targetWs.close(code, reason);
+          if (code && code >= 1000 && code <= 1015) { targetWs.close(code, reason); } else { targetWs.close(1000, reason); }
         }
       });
       

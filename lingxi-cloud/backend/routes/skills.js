@@ -381,3 +381,80 @@ async function getInstalledSkillsViaSSH(host, port = 22) {
 }
 
 export default router;
+
+/**
+ * 获取 OpenClaw 内置技能列表（带中文翻译）
+ */
+router.get('/builtin', async (req, res) => {
+  try {
+    const BUILTIN_SKILLS_PATH = '/usr/lib/node_modules/openclaw/skills';
+    const I18N_PATH = path.join(__dirname, '../skills/i18n.json');
+    
+    // 加载翻译映射
+    let i18n = { skillNames: {}, skillDescriptions: {} };
+    try {
+      const i18nContent = await fs.readFile(I18N_PATH, 'utf-8');
+      i18n = JSON.parse(i18nContent);
+    } catch (e) {
+      console.warn('加载翻译映射失败，使用英文');
+    }
+    
+    const skillsDir = await fs.readdir(BUILTIN_SKILLS_PATH);
+    const skills = [];
+    
+    for (const dir of skillsDir) {
+      const skillPath = path.join(BUILTIN_SKILLS_PATH, dir, 'SKILL.md');
+      try {
+        const stat = await fs.stat(skillPath);
+        if (stat.isFile()) {
+          const content = await fs.readFile(skillPath, 'utf-8');
+          const skill = {
+            id: dir,
+            name: i18n.skillNames[dir] || dir,
+            shortDesc: i18n.skillDescriptions[dir] || '',
+            icon: '📦',
+            installCommand: 'clawhub install ' + dir,
+            agent: 'smart',
+            version: '1.0.0',
+            author: 'OpenClaw',
+            builtin: true
+          };
+          
+          // 解析 frontmatter
+          const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
+          if (frontmatterMatch) {
+            const frontmatter = frontmatterMatch[1];
+            
+            const nameMatch = frontmatter.match(/^name:\s*(.+)$/m);
+            if (nameMatch && !i18n.skillNames[dir]) {
+              skill.name = nameMatch[1].trim();
+            }
+            
+            const descMatch = frontmatter.match(/^description:\s*(.+)$/m);
+            if (descMatch && !i18n.skillDescriptions[dir]) {
+              skill.shortDesc = descMatch[1].trim();
+            }
+            
+            const iconMatch = frontmatter.match(/^icon:\s*(.+)$/m);
+            if (iconMatch) skill.icon = iconMatch[1].trim();
+          }
+          
+          skills.push(skill);
+        }
+      } catch (e) {
+        // 跳过
+      }
+    }
+    
+    skills.sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
+    
+    res.json({
+      source: 'openclaw-builtin',
+      total: skills.length,
+      skills: skills
+    });
+  } catch (error) {
+    console.error('获取内置技能失败:', error);
+    res.status(500).json({ error: '获取内置技能失败', message: error.message });
+  }
+});

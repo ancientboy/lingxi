@@ -6,6 +6,7 @@
   <title>灵犀云 - AI 团队</title>
   <link rel="stylesheet" href="assets/css/chat.css">
   <link rel="stylesheet" href="assets/css/dark.css" id="darkTheme" disabled>
+  <link rel="stylesheet" href="assets/css/skills-tab.css?v=1772358437">
   <!-- Lucide Icons - 使用 cdnjs 备用源 -->
   <script src="assets/libs/lucide.min.js"></script>
   <style>
@@ -837,47 +838,29 @@
         </div>
       </div>
     </div>
-  </main><!-- /.main-content -->
 
-  <!-- 技能库弹窗 -->
-  <div class="modal-overlay" id="skillLibraryModal">
-    <div class="modal skill-library-modal">
-      <div class="modal-header">
-        <h3><i data-lucide="layout-grid" class="icon-sm icon-primary"></i> 技能库</h3>
-        <button class="close-btn" onclick="closeSkillLibrary()">
-          <i data-lucide="x" class="icon-sm"></i>
-        </button>
+    <!-- 技能库视图 -->
+    <div class="skills-view" id="skillsView">
+      <div class="skills-categories" id="skillsCategories">
+        <div style="padding: 8px; color: var(--text-secondary);">加载中...</div>
       </div>
-      <div class="modal-body">
-        <div class="skill-library">
-          <!-- 左侧 Agent 分类列表 -->
-          <div class="skill-library-sidebar">
-            <div class="skill-library-section-title">Agent 类型</div>
-            <div class="skill-agent-list" id="skillAgentList">
-              <!-- Agent 分类项将通过 JS 动态生成 -->
-            </div>
-          </div>
-          
-          <!-- 右侧技能网格 -->
-          <div class="skill-library-content">
-            <!-- 搜索框 -->
-            <div class="skill-search-box">
-              <i data-lucide="search" class="icon-sm"></i>
-              <input type="text" id="skillSearchInput" placeholder="搜索技能..." oninput="handleSkillSearch()">
-            </div>
-            
-            <!-- 技能分类标题 -->
-            <div class="skill-group-title" id="skillGroupTitle"></div>
-            
-            <!-- 技能网格 -->
-            <div class="skill-grid" id="skillGrid">
-              <!-- 技能卡片将通过 JS 动态生成 -->
-            </div>
-          </div>
+      <div class="skills-toolbar">
+        <input type="text" class="skills-search" id="skillsSearch" placeholder="搜索技能...">
+        <div class="skills-filters">
+          <button class="filter-chip active" data-filter="all">全部</button>
+          <button class="filter-chip" data-filter="installed">已安装</button>
+          <button class="filter-chip" data-filter="new">最新</button>
+        </div>
+      </div>
+      <div class="skills-grid-container">
+        <div class="skills-grid" id="skillsGrid">
+          <div class="skills-loading">加载中...</div>
         </div>
       </div>
     </div>
-  </div>
+  </main><!-- /.main-content -->
+
+  <!-- 技能库弹窗 -->
 
   <!-- 主题切换 & 侧边栏逻辑 -->
   <script>
@@ -1114,6 +1097,8 @@
     // 切换到指定会话
     function switchToSession(sessionKey) {
       console.log('🔄 switchToSession 被调用, sessionKey:', sessionKey);
+      // 切换回对话视图
+      switchView('chat');
       
       // 移动端关闭侧边栏
       if (window.innerWidth <= 768) {
@@ -1169,6 +1154,9 @@
     
     function newChat() {
       // 调用 chat.js 中的创建新会话函数
+      // 切换回对话视图
+      switchView('chat');
+
       if (typeof createNewSession === 'function') {
         createNewSession();
       }
@@ -1238,6 +1226,13 @@
     // 页面加载时初始化
     initTheme();
     initSidebar();
+    
+    // 自动切换视图（从 skills.html 跳转）
+    const autoView = sessionStorage.getItem('autoSwitchView');
+    if (autoView) {
+      sessionStorage.removeItem('autoSwitchView');
+      setTimeout(() => switchView(autoView), 100);
+    }
     
     // 初始化 Lucide 图标
     if (window.lucide) {
@@ -1324,6 +1319,6 @@
 
     <!-- 统一组件加载器 -->
     <script src="components/load-components.js"></script>
-    <script src="assets/libs/lucide.min.js"></script>
+  <script src="assets/js/skills-tab.js?v=1772359972"></script>
   </body>
 </html>

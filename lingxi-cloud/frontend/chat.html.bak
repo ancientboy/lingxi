@@ -9,6 +9,42 @@
   <!-- Lucide Icons - 使用 cdnjs 备用源 -->
   <script src="assets/libs/lucide.min.js"></script>
   <style>
+    /* 顶部导航链接 */
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .nav-link {
+      font-size: 14px;
+      font-weight: 500;
+      padding: 8px 16px;
+      border-radius: 8px;
+      transition: all 0.2s;
+    }
+    
+    .nav-link:hover {
+      background: #f3f4f6;
+    }
+    
+    .nav-link.active {
+      background: rgba(16, 163, 127, 0.1);
+      color: #10a37f;
+    }
+
+      /* 导航栏右侧布局 */
+      .nav-right {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+      
+      #connectionStatus {
+        display: flex;
+        align-items: center;
+      }
+
     /* 图标统一样式 */
     .icon { width: 20px; height: 20px; color: currentColor; }
     .icon-sm { width: 16px; height: 16px; }
@@ -16,85 +52,9 @@
     .icon-primary { color: #10a37f; }
   </style>
 </head>
-<body>
-  <!-- 侧边栏 -->
-  <aside class="sidebar" id="sidebar">
-    <a href="index.html" class="sidebar-brand">
-      <div class="sidebar-brand-icon">
-        <i data-lucide="sparkles" class="icon-lg"></i>
-      </div>
-      <span class="sidebar-brand-name">Lume</span>
-    </a>
-    <div class="sidebar-header">
-      <button class="sidebar-new-chat" onclick="newChat()">
-        <i data-lucide="plus" class="icon-sm"></i>
-        <span>新对话</span>
-      </button>
-      <button class="sidebar-close" onclick="toggleSidebar()">
-        <i data-lucide="x" class="icon-sm"></i>
-      </button>
-    </div>
-    
-    <div class="sidebar-content">
-      <div class="sidebar-section">
-        <div class="sidebar-section-title">今天</div>
-        <div class="sidebar-sessions" id="todaySessions"></div>
-      </div>
-      <div class="sidebar-section">
-        <div class="sidebar-section-title">最近7天</div>
-        <div class="sidebar-sessions" id="weekSessions"></div>
-      </div>
-      <div class="sidebar-section">
-        <div class="sidebar-section-title">更早</div>
-        <div class="sidebar-sessions" id="olderSessions"></div>
-      </div>
-    </div>
-    
-    <!-- 功能区（中间） -->
-    <div class="sidebar-tools">
-      <div class="sidebar-tool-item" onclick="showMyTeam()">
-        <i data-lucide="users" class="icon-sm icon-primary"></i>
-        <span>我的团队</span>
-      </div>
-      <div class="sidebar-tool-item" onclick="showFeishuConfig()">
-        <i data-lucide="message-square" class="icon-sm icon-primary"></i>
-        <span>飞书配置</span>
-      </div>
-      <div class="sidebar-tool-item" onclick="showWecomConfig()">
-        <i data-lucide="briefcase" class="icon-sm icon-primary"></i>
-        <span>企业微信</span>
-      </div>
-      <div class="sidebar-tool-item" onclick="showSkillLibrary()">
-        <i data-lucide="layout-grid" class="icon-sm icon-primary"></i>
-        <span>技能库</span>
-      </div>
-    </div>
-    
-    <!-- 底部用户区 -->
-    <div class="sidebar-footer">
-      <div class="sidebar-user-trigger" onclick="toggleUserMenu()">
-        <div class="sidebar-user-avatar" id="sidebarUserAvatar">U</div>
-        <span class="sidebar-user-name" id="sidebarUserName">用户</span>
-        <span class="sidebar-user-arrow">▼</span>
-      </div>
-      <!-- 用户下拉菜单 -->
-      <div class="sidebar-user-menu" id="sidebarUserMenu">
-        <div class="sidebar-menu-item" onclick="showPasswordChange()">
-          <i data-lucide="lock" class="icon-sm"></i>
-          <span>修改密码</span>
-        </div>
-        <div class="sidebar-menu-item" onclick="showAbout()">
-          <i data-lucide="info" class="icon-sm"></i>
-          <span>关于</span>
-        </div>
-        <div class="sidebar-divider"></div>
-        <div class="sidebar-menu-item danger" onclick="logout()">
-          <i data-lucide="log-out" class="icon-sm"></i>
-          <span>退出登录</span>
-        </div>
-      </div>
-    </div>
-  </aside>
+<body data-page="chat">
+  <!-- 侧边栏容器 -->
+  <div id="sidebar-container"></div>
 
   <!-- 侧边栏遮罩（移动端） -->
   <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
@@ -104,32 +64,8 @@
 
   <!-- 主内容区 -->
   <main class="main-content" id="mainContent">
-    <nav class="navbar">
-      <div class="nav-left">
-        <button class="sidebar-toggle" onclick="toggleSidebar()" title="切换侧边栏">
-          <i data-lucide="menu" class="icon"></i>
-        </button>
-        <a href="index.html" class="logo">Lume</a>
-        <div class="status-dot" id="connectionStatus" title="已连接"></div>
-      </div>
-      <div class="nav-right">
-        <div class="agent-switcher" onclick="toggleAgentDropdown()" title="切换 Agent">
-          <i data-lucide="zap" class="icon icon-primary" id="currentAgentIcon"></i>
-          <span class="agent-switcher-arrow">▼</span>
-          <div class="agent-dropdown" id="agentDropdown"></div>
-        </div>
-        <!-- 签到按钮 -->
-        <div class="checkin-btn" id="checkinBtn" onclick="handleCheckin()" title="每日签到">
-          <i data-lucide="calendar" class="icon-sm"></i>
-          <span class="checkin-text" id="checkinText">签到</span>
-          <span class="checkin-points" id="checkinPoints"></span>
-        </div>
-        <!-- 主题切换 -->
-        <button class="theme-toggle-btn" onclick="toggleTheme()" title="切换主题">
-          <i data-lucide="moon" class="icon" id="themeToggleIcon"></i>
-        </button>
-      </div>
-    </nav>
+    <!-- 导航栏容器 -->
+    <div id="navbar-container"></div>
 
     <!-- 团队管理弹窗 -->
     <div class="modal-overlay" id="teamModal">
@@ -169,6 +105,10 @@
             <div class="form-group">
               <label>App Secret</label>
               <input type="password" id="feishuAppSecret" placeholder="应用密钥" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label>验证令牌（可选）</label>
+              <input type="text" id="feishuVerificationToken" placeholder="从飞书开放平台事件订阅页获取" autocomplete="off">
             </div>
             <button type="submit" class="submit-btn">保存配置</button>
           </form>
@@ -310,6 +250,42 @@
     </div>
 
     <style>
+    /* 顶部导航链接 */
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .nav-link {
+      font-size: 14px;
+      font-weight: 500;
+      padding: 8px 16px;
+      border-radius: 8px;
+      transition: all 0.2s;
+    }
+    
+    .nav-link:hover {
+      background: #f3f4f6;
+    }
+    
+    .nav-link.active {
+      background: rgba(16, 163, 127, 0.1);
+      color: #10a37f;
+    }
+
+      /* 导航栏右侧布局 */
+      .nav-right {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+      
+      #connectionStatus {
+        display: flex;
+        align-items: center;
+      }
+
       /* 引导弹窗样式 */
       .onboarding-modal {
         background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%);
@@ -523,6 +499,42 @@
 
     <!-- 技能库样式 -->
     <style>
+    /* 顶部导航链接 */
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .nav-link {
+      font-size: 14px;
+      font-weight: 500;
+      padding: 8px 16px;
+      border-radius: 8px;
+      transition: all 0.2s;
+    }
+    
+    .nav-link:hover {
+      background: #f3f4f6;
+    }
+    
+    .nav-link.active {
+      background: rgba(16, 163, 127, 0.1);
+      color: #10a37f;
+    }
+
+      /* 导航栏右侧布局 */
+      .nav-right {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+      
+      #connectionStatus {
+        display: flex;
+        align-items: center;
+      }
+
       /* 技能库模态框 */
       .skill-library-modal {
         max-width: 900px;
@@ -1308,6 +1320,10 @@
     checkCheckinStatus();
   </script>
   
-  <script src="assets/js/chat.js"></script>
-</body>
+  <script src="assets/js/chat.js?v=1772251672"></script>
+
+    <!-- 统一组件加载器 -->
+    <script src="components/load-components.js"></script>
+    <script src="assets/libs/lucide.min.js"></script>
+  </body>
 </html>
