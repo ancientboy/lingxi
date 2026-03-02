@@ -2816,7 +2816,7 @@ function closeUsageStatsModal() {
 async function loadUsageStats() {
   try {
     const token = localStorage.getItem('lingxi_token');
-    const response = await fetch('http://120.55.192.144:3000/api/user/usage', {
+    const response = await fetch('/api/user/usage', {
       headers: {
         'Authorization': `Bearer ${token}`
       }
