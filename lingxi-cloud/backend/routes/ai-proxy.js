@@ -199,65 +199,16 @@ function recordUsage(userId, provider, usage) {
   stats.byProvider[provider].tokens += tokens.total;
   
   // 扣除积分
-  deductCredits(userId, provider, tokens.total).then(result => {
-    if (!result.success) {
-      console.log("[积分] 扣除失败:", result.error);
+// 积分扣除已合并到 updateDbWithCredits
     }
   });
   // 异步更新 db.json
-  updateDbUsage(userId, provider, tokens).catch(err => {
+  updateDbWithCredits(userId, provider, tokens).catch(err => {
     console.error("[AI-Proxy] 更新用户使用量失败:", err.message);
   });
 }
 
 // 更新 db.json 中的用户使用量
-async function updateDbUsage(userId, provider, tokens) {
-    console.log("[AI-Proxy] updateDbUsage 调用:", { userId, provider, tokens });
-  try {
-    const { getDB, saveDB } = await import("../utils/db.js");
-    const db = await getDB();
-    
-    let user = db.users.find(u => u.id === userId || u.nickname === userId);
-    
-    if (!user && userId.startsWith("ip:")) {
-      const ip = userId.replace("ip:", "");
-      const nickname = IP_USER_MAP[ip];
-      if (nickname) {
-        user = db.users.find(u => u.nickname === nickname);
-      }
-    }
-    
-    if (!user) return;
-    
-    const today = new Date().toISOString().split("T")[0];
-    
-    if (!user.usage) {
-      user.usage = { totalTokens: 0, totalRequests: 0, byModel: {}, byDate: {} };
-    }
-    
-    user.usage.totalTokens += tokens.total;
-    user.usage.totalRequests += 1;
-    
-    if (!user.usage.byModel[provider]) {
-      user.usage.byModel[provider] = { tokens: 0, requests: 0 };
-    }
-    user.usage.byModel[provider].tokens += tokens.total;
-    user.usage.byModel[provider].requests += 1;
-    
-    if (!user.usage.byDate[today]) {
-      user.usage.byDate[today] = { tokens: 0, requests: 0 };
-    }
-    user.usage.byDate[today].tokens += tokens.total;
-    user.usage.byDate[today].requests += 1;
-    
-    user.usage.lastUpdated = new Date().toISOString();
-    
-    await saveDB(db);
-  } catch (err) {
-    console.error("[AI-Proxy] 更新 db.json 失败:", err);
-  }
-}
-
 // ============ 代理请求（转发到后端轻代理） ============
 
 async function proxyRequest(provider, req, res) {
@@ -449,151 +400,6 @@ function calculateCredits(provider, tokens) {
 }
 
 // 检查并扣除积分
-async function deductCredits(userId, provider, tokens) {
-  try {
-    const { getDB, saveDB, spendPoints, addPoints } = await import("../utils/db.js");
-    const db = await getDB();
-    
-    // 查找用户
-    let user = db.users.find(u => u.id === userId || u.nickname === userId);
-    
-    // IP 映射查找
-    if (!user && userId.startsWith("ip:")) {
-      const ip = userId.replace("ip:", "");
-      const nickname = IP_USER_MAP[ip];
-      if (nickname) {
-        user = db.users.find(u => u.nickname === nickname);
-      }
-    }
-    
-    if (!user) {
-      console.log(`[积分] 未找到用户: ${userId}`);
-      return { success: false, error: "用户不存在" };
-    }
-    
-    // 初始化 credits 结构
-    if (!user.credits) {
-      user.credits = {
-        balance: user.points || 0,  // 从现有 points 迁移
-        freeDaily: FREE_DAILY_CREDITS,
-        freeDailyUsed: 0,
-        lastDailyReset: new Date().toISOString().split('T')[0]
-      };
-    }
-    
-    // 检查是否需要重置每日额度
-    const today = new Date().toISOString().split('T')[0];
-    if (user.credits.lastDailyReset !== today) {
-      user.credits.freeDailyUsed = 0;
-      user.credits.lastDailyReset = today;
-    }
-    
-    // 计算需要扣除的积分
-    const creditsNeeded = calculateCredits(provider, tokens);
-    
-    // 检查免费额度
-    const freeRemaining = user.credits.freeDaily - user.credits.freeDailyUsed;
-    
-    if (freeRemaining >= creditsNeeded) {
-      // 从免费额度扣除
-      user.credits.freeDailyUsed += creditsNeeded;
-      await saveDB(db);
-      console.log(`[积分] ${user.nickname} 使用免费额度 ${creditsNeeded} 积分 (剩余 ${freeRemaining - creditsNeeded})`);
-      return { success: true, deducted: creditsNeeded, source: 'free', remaining: freeRemaining - creditsNeeded };
-    }
-    
-    // 免费额度不足，使用余额
-    const fromFree = freeRemaining;
-    const fromBalance = creditsNeeded - fromFree;
-    
-    if (user.credits.balance < fromBalance) {
-      // 余额也不足
-      const totalRemaining = freeRemaining + user.credits.balance;
-      console.log(`[积分] ${user.nickname} 积分不足: 需要 ${creditsNeeded}, 可用 ${totalRemaining}`);
-      return { 
-        success: false, 
-        error: "积分不足",
-        needed: creditsNeeded,
-        available: totalRemaining,
-        freeRemaining,
-        balanceRemaining: user.credits.balance
-      };
-    }
-    
-    // 扣除积分
-    user.credits.freeDailyUsed = user.credits.freeDaily;  // 免费额度用完
-    user.credits.balance -= fromBalance;
-    
-    // 同步到 points 字段
-    user.points = user.credits.balance;
-    
-    await saveDB(db);
-    console.log(`[积分] ${user.nickname} 扣除 ${creditsNeeded} 积分 (免费 ${fromFree} + 余额 ${fromBalance})`);
-    
-    return { 
-      success: true, 
-      deducted: creditsNeeded, 
-      source: 'mixed',
-      fromFree,
-      fromBalance,
-      remaining: user.credits.balance
-    };
-    
-  } catch (err) {
-    console.error("[积分] 扣除失败:", err);
-    return { success: false, error: err.message };
-  }
-}
-
-// 获取用户积分信息
-async function getUserCredits(userId) {
-  try {
-    const db = await getDB();
-    
-    let user = db.users.find(u => u.id === userId || u.nickname === userId);
-    
-    if (!user && userId.startsWith("ip:")) {
-      const ip = userId.replace("ip:", "");
-      const nickname = IP_USER_MAP[ip];
-      if (nickname) {
-        user = db.users.find(u => u.nickname === nickname);
-      }
-    }
-    
-    if (!user) return null;
-    
-    // 初始化 credits
-    if (!user.credits) {
-      user.credits = {
-        balance: user.points || 0,
-        freeDaily: FREE_DAILY_CREDITS,
-        freeDailyUsed: 0,
-        lastDailyReset: new Date().toISOString().split('T')[0]
-      };
-    }
-    
-    // 检查每日重置
-    const today = new Date().toISOString().split('T')[0];
-    if (user.credits.lastDailyReset !== today) {
-      user.credits.freeDailyUsed = 0;
-      user.credits.lastDailyReset = today;
-    }
-    
-    return {
-      balance: user.credits.balance,
-      freeDaily: user.credits.freeDaily,
-      freeDailyUsed: user.credits.freeDailyUsed,
-      freeRemaining: user.credits.freeDaily - user.credits.freeDailyUsed,
-      total: user.credits.balance + (user.credits.freeDaily - user.credits.freeDailyUsed)
-    };
-    
-  } catch (err) {
-    console.error("[积分] 获取失败:", err);
-    return null;
-  }
-}
-
-// 一次性更新使用量和积分（避免并发写入）
 async function updateDbWithCredits(userId, provider, tokens) {
   try {
     const { getDB, saveDB } = await import("../utils/db.js");
