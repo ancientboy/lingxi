@@ -2873,29 +2873,6 @@ function formatTokens(num) {
 }
 
 function renderUsageStats(data) {
-  // 显示配额进度
-  if (data.quota) {
-    const quotaCard = document.getElementById('quotaCard');
-    if (quotaCard) {
-      document.getElementById('quotaPercent').textContent = data.quota.percent + '%';
-      document.getElementById('quotaUsed').textContent = formatTokens(data.quota.used);
-      document.getElementById('quotaTotal').textContent = formatTokens(data.quota.total);
-      document.getElementById('quotaBar').style.width = data.quota.percent + '%';
-      
-      // 根据使用量变色
-      const percent = parseFloat(data.quota.percent);
-      const bar = document.getElementById('quotaBar');
-      if (percent > 80) {
-        bar.style.background = 'linear-gradient(90deg, #ef4444, #f87171)';
-      } else if (percent > 50) {
-        bar.style.background = 'linear-gradient(90deg, #f59e0b, #fbbf24)';
-      } else {
-        bar.style.background = 'linear-gradient(90deg, #10b981, #34d399)';
-      }
-    }
-  }
-  // 格式化数字
-  
   // 更新积分显示
   if (data.credits) {
     const total = data.credits.balance + data.credits.freeRemaining;
