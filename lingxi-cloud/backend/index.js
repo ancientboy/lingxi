@@ -105,6 +105,9 @@ app.use('/api/batch-update', batchUpdateRoutes);
 import genesRoutes from './routes/genes.js';
 app.use('/api/genes', genesRoutes);
 
+import userRoutes from './routes/user.js';
+app.use('/api/user', userRoutes);
+
 // 技能库同步定时任务
 import { startCronJob } from './skills/sync-cron.mjs';
 startCronJob('0 0 * * 0'); // 每周日中午12点同步
@@ -130,21 +133,3 @@ const server = app.listen(PORT, "0.0.0.0", () => {
 
 export default app;
 
-// 使用量统计代理（转发到国内主服务器）
-app.get('/api/user/usage', async (req, res) => {
-  try {
-    const authHeader = req.headers.authorization;
-    
-    const response = await fetch('http://120.55.192.144:3000/api/user/usage', {
-      headers: {
-        'Authorization': authHeader || ''
-      }
-    });
-    
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error('代理使用量请求失败:', error.message);
-    res.status(500).json({ success: false, error: '获取使用量失败' });
-  }
-});
