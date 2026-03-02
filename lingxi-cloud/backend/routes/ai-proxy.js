@@ -198,13 +198,9 @@ function recordUsage(userId, provider, usage) {
   stats.byProvider[provider].requests++;
   stats.byProvider[provider].tokens += tokens.total;
   
-  // 扣除积分
-// 积分扣除已合并到 updateDbWithCredits
-    }
-  });
-  // 异步更新 db.json
+  // 一次性更新使用量和积分
   updateDbWithCredits(userId, provider, tokens).catch(err => {
-    console.error("[AI-Proxy] 更新用户使用量失败:", err.message);
+    console.error("[AI-Proxy] 更新失败:", err.message);
   });
 }
 
