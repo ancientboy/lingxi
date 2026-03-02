@@ -304,18 +304,40 @@ async function proxyRequest(provider, req, res) {
       res.setHeader('Content-Type', 'text/event-stream');
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
-      recordUsage(userId, provider, null);
       
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
+      let lastUsage = null;
       
       try {
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-          res.write(decoder.decode(value, { stream: true }));
+          
+          const chunk = decoder.decode(value, { stream: true });
+          res.write(chunk);
+          
+          // 解析 SSE 数据，提取 usage
+          const lines = chunk.split('\n');
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                if (data.usage) {
+                  lastUsage = data.usage;
+                }
+              } catch {}
+            }
+          }
         }
         res.end();
+        
+        // 记录使用量（使用解析出的 usage）
+        if (lastUsage) {
+          recordUsage(userId, provider, lastUsage);
+        } else {
+          recordUsage(userId, provider, null);
+        }
       } catch { res.end(); }
       return;
     }
@@ -433,7 +455,7 @@ async function deductCredits(userId, provider, tokens) {
     const db = await getDB();
     
     // 查找用户
-    let user = db.users.find(u => u.id === userId);
+    let user = db.users.find(u => u.id === userId || u.nickname === userId);
     
     // IP 映射查找
     if (!user && userId.startsWith("ip:")) {
@@ -528,7 +550,7 @@ async function getUserCredits(userId) {
   try {
     const db = await getDB();
     
-    let user = db.users.find(u => u.id === userId);
+    let user = db.users.find(u => u.id === userId || u.nickname === userId);
     
     if (!user && userId.startsWith("ip:")) {
       const ip = userId.replace("ip:", "");
