@@ -208,7 +208,7 @@ function recordUsage(userId, provider, usage) {
 async function updateDbUsage(userId, provider, tokens) {
   try {
     const { getDB, saveDB } = await import("../utils/db.js");
-    const db = getDB();
+    const db = await getDB();
     
     let user = db.users.find(u => u.id === userId);
     
@@ -246,7 +246,7 @@ async function updateDbUsage(userId, provider, tokens) {
     
     user.usage.lastUpdated = new Date().toISOString();
     
-    saveDB(db);
+    await saveDB(db);
   } catch (err) {
     console.error("[AI-Proxy] 更新 db.json 失败:", err);
   }
