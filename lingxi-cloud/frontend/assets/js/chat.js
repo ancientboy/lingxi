@@ -2804,18 +2804,23 @@ function initAgentDropdown() {
 async function refreshSidebarCredits() {
   try {
     const token = localStorage.getItem('lingxi_token');
+    console.log('🔄 刷新积分, token:', token ? token.substring(0, 20) + '...' : 'null');
+    
     const response = await fetch('/api/user/credits', {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     const result = await response.json();
+    console.log('📊 积分API返回:', result);
+    
     if (result.success && result.data) {
       const creditsEl = document.getElementById('sidebarUserCredits');
       if (creditsEl) {
         creditsEl.textContent = `💎 ${result.data.total}`;
+        console.log('✅ 侧边栏积分已更新:', result.data.total);
       }
     }
   } catch (e) {
-    console.log('刷新积分失败:', e);
+    console.error('❌ 刷新积分失败:', e);
   }
 }
 

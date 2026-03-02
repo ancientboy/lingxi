@@ -473,13 +473,19 @@ async function updateDbWithCredits(userId, provider, tokens) {
         const fromFree = freeRemaining;
         const fromBalance = creditsNeeded - fromFree;
         
-        if (user.credits.balance >= fromBalance) {
-          user.credits.freeDailyUsed = user.credits.freeDaily;
-          user.credits.balance -= fromBalance;
-          user.points = user.credits.balance;  // 同步
-          console.log(`[积分] ${user.nickname} 扣除 ${creditsNeeded} 积分 (免费 ${fromFree} + 余额 ${fromBalance})`);
-        } else {
-          console.log(`[积分] ${user.nickname} 积分不足: 需要 ${creditsNeeded}, 可用 ${freeRemaining + user.credits.balance}`);
+        // 先用完免费额度
+        user.credits.freeDailyUsed = user.credits.freeDaily;
+        
+        // 再扣除余额（即使不够也扣到0）
+        const actualFromBalance = Math.min(fromBalance, user.credits.balance);
+        user.credits.balance -= actualFromBalance;
+        user.points = user.credits.balance;  // 同步
+        
+        const actualDeducted = fromFree + actualFromBalance;
+        console.log(`[积分] ${user.nickname} 扣除 ${actualDeducted}/${creditsNeeded} 积分 (免费 ${fromFree} + 余额 ${actualFromBalance})`);
+        
+        if (actualFromBalance < fromBalance) {
+          console.log(`[积分] ${user.nickname} 积分不足，已扣完所有可用积分`);
         }
       }
     }
