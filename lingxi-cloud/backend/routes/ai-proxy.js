@@ -206,11 +206,12 @@ function recordUsage(userId, provider, usage) {
 
 // 更新 db.json 中的用户使用量
 async function updateDbUsage(userId, provider, tokens) {
+    console.log("[AI-Proxy] updateDbUsage 调用:", { userId, provider, tokens });
   try {
     const { getDB, saveDB } = await import("../utils/db.js");
     const db = await getDB();
     
-    let user = db.users.find(u => u.id === userId);
+    let user = db.users.find(u => u.id === userId || u.nickname === userId);
     
     if (!user && userId.startsWith("ip:")) {
       const ip = userId.replace("ip:", "");
