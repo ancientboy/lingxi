@@ -2876,7 +2876,10 @@ function renderUsageStats(data) {
   // 更新积分显示
   if (data.credits) {
     const total = data.credits.balance + data.credits.freeRemaining;
-    const maxCredits = 5000; // 假设最大显示 5000 积分
+    // 动态最大值：购买积分 + 每日免费额度
+    const maxCredits = data.credits.balance > 0 
+      ? data.credits.balance + data.credits.freeDaily 
+      : data.credits.freeDaily;
     const percent = Math.min((total / maxCredits) * 100, 100);
     
     // 更新百分比和总积分
