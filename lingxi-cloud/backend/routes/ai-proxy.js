@@ -592,3 +592,101 @@ async function getUserCredits(userId) {
     return null;
   }
 }
+
+// 一次性更新使用量和积分（避免并发写入）
+async function updateDbWithCredits(userId, provider, tokens) {
+  try {
+    const { getDB, saveDB } = await import("../utils/db.js");
+    const db = await getDB();
+    
+    // 查找用户
+    let user = db.users.find(u => u.id === userId || u.nickname === userId);
+    
+    // IP 映射查找
+    if (!user && userId.startsWith("ip:")) {
+      const ip = userId.replace("ip:", "");
+      const nickname = IP_USER_MAP[ip];
+      if (nickname) {
+        user = db.users.find(u => u.nickname === nickname);
+      }
+    }
+    
+    if (!user) {
+      console.log(`[更新] 未找到用户: ${userId}`);
+      return;
+    }
+    
+    const today = new Date().toISOString().split("T")[0];
+    
+    // 1. 更新使用量
+    if (!user.usage) {
+      user.usage = { totalTokens: 0, totalRequests: 0, byModel: {}, byDate: {} };
+    }
+    
+    user.usage.totalTokens += tokens.total;
+    user.usage.totalRequests += 1;
+    
+    if (!user.usage.byModel[provider]) {
+      user.usage.byModel[provider] = { tokens: 0, requests: 0 };
+    }
+    user.usage.byModel[provider].tokens += tokens.total;
+    user.usage.byModel[provider].requests += 1;
+    
+    if (!user.usage.byDate[today]) {
+      user.usage.byDate[today] = { tokens: 0, requests: 0 };
+    }
+    user.usage.byDate[today].tokens += tokens.total;
+    user.usage.byDate[today].requests += 1;
+    
+    user.usage.lastUpdated = new Date().toISOString();
+    
+    // 2. 扣除积分
+    if (tokens.total > 0) {
+      // 初始化 credits
+      if (!user.credits) {
+        user.credits = {
+          balance: user.points || 0,
+          freeDaily: FREE_DAILY_CREDITS,
+          freeDailyUsed: 0,
+          lastDailyReset: today
+        };
+      }
+      
+      // 检查每日重置
+      if (user.credits.lastDailyReset !== today) {
+        user.credits.freeDailyUsed = 0;
+        user.credits.lastDailyReset = today;
+      }
+      
+      // 计算积分
+      const creditsNeeded = calculateCredits(provider, tokens.total);
+      const freeRemaining = user.credits.freeDaily - user.credits.freeDailyUsed;
+      
+      if (freeRemaining >= creditsNeeded) {
+        // 从免费额度扣除
+        user.credits.freeDailyUsed += creditsNeeded;
+        console.log(`[积分] ${user.nickname} 使用免费额度 ${creditsNeeded} 积分`);
+      } else {
+        // 免费额度不足，使用余额
+        const fromFree = freeRemaining;
+        const fromBalance = creditsNeeded - fromFree;
+        
+        if (user.credits.balance >= fromBalance) {
+          user.credits.freeDailyUsed = user.credits.freeDaily;
+          user.credits.balance -= fromBalance;
+          user.points = user.credits.balance;  // 同步
+          console.log(`[积分] ${user.nickname} 扣除 ${creditsNeeded} 积分 (免费 ${fromFree} + 余额 ${fromBalance})`);
+        } else {
+          console.log(`[积分] ${user.nickname} 积分不足: 需要 ${creditsNeeded}, 可用 ${freeRemaining + user.credits.balance}`);
+        }
+      }
+    }
+    
+    // 3. 一次性保存
+    await saveDB(db);
+    console.log(`[更新] ${user.nickname} 使用量已更新: +${tokens.total} tokens`);
+    
+  } catch (err) {
+    console.error("[更新] 失败:", err);
+  }
+}
