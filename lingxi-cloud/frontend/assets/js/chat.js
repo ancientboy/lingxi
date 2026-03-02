@@ -2803,7 +2803,7 @@ function initAgentDropdown() {
 // 刷新侧边栏积分显示
 async function refreshSidebarCredits() {
   try {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('lingxi_token');
     const response = await fetch('/api/user/credits', {
       headers: { 'Authorization': `Bearer ${token}` }
     });
