@@ -180,17 +180,76 @@ function recordUsage(userId, provider, usage) {
   stats.requests++;
   stats.lastRequest = new Date().toISOString();
   
+  const tokens = {
+    input: usage?.prompt_tokens || 0,
+    output: usage?.completion_tokens || 0,
+    total: usage?.total_tokens || 0
+  };
+  
   if (usage) {
-    stats.totalTokens += usage.total_tokens || 0;
-    stats.promptTokens += usage.prompt_tokens || 0;
-    stats.completionTokens += usage.completion_tokens || 0;
+    stats.totalTokens += tokens.total;
+    stats.promptTokens += tokens.input;
+    stats.completionTokens += tokens.output;
   }
   
   if (!stats.byProvider[provider]) {
     stats.byProvider[provider] = { requests: 0, tokens: 0 };
   }
   stats.byProvider[provider].requests++;
-  stats.byProvider[provider].tokens += usage?.total_tokens || 0;
+  stats.byProvider[provider].tokens += tokens.total;
+  
+  // 异步更新 db.json
+  updateDbUsage(userId, provider, tokens).catch(err => {
+    console.error("[AI-Proxy] 更新用户使用量失败:", err.message);
+  });
+}
+
+// 更新 db.json 中的用户使用量
+async function updateDbUsage(userId, provider, tokens) {
+  try {
+    const { getDB, saveDB } = await import("../utils/db.js");
+    const db = getDB();
+    
+    let user = db.users.find(u => u.id === userId);
+    
+    if (!user && userId.startsWith("ip:")) {
+      const ip = userId.replace("ip:", "");
+      const ipMappings = loadIpMappings();
+      const nickname = ipMappings[ip];
+      if (nickname) {
+        user = db.users.find(u => u.nickname === nickname);
+      }
+    }
+    
+    if (!user) return;
+    
+    const today = new Date().toISOString().split("T")[0];
+    
+    if (!user.usage) {
+      user.usage = { totalTokens: 0, totalRequests: 0, byModel: {}, byDate: {} };
+    }
+    
+    user.usage.totalTokens += tokens.total;
+    user.usage.totalRequests += 1;
+    
+    if (!user.usage.byModel[provider]) {
+      user.usage.byModel[provider] = { tokens: 0, requests: 0 };
+    }
+    user.usage.byModel[provider].tokens += tokens.total;
+    user.usage.byModel[provider].requests += 1;
+    
+    if (!user.usage.byDate[today]) {
+      user.usage.byDate[today] = { tokens: 0, requests: 0 };
+    }
+    user.usage.byDate[today].tokens += tokens.total;
+    user.usage.byDate[today].requests += 1;
+    
+    user.usage.lastUpdated = new Date().toISOString();
+    
+    saveDB(db);
+  } catch (err) {
+    console.error("[AI-Proxy] 更新 db.json 失败:", err);
+  }
 }
 
 // ============ 代理请求（转发到后端轻代理） ============

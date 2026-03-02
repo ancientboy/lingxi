@@ -103,7 +103,9 @@ app.use('/api/batch-update', batchUpdateRoutes);
 
 // 基因系统
 import genesRoutes from './routes/genes.js';
+import userRoutes from './routes/user.js';
 app.use('/api/genes', genesRoutes);
+app.use('/api/user', userRoutes);
 
 // 技能库同步定时任务
 import { startCronJob } from './skills/sync-cron.mjs';

@@ -2792,3 +2792,142 @@ function initAgentDropdown() {
   console.log('🎯 userAgentList:', userAgentList, 'ALL_AGENTS:', Object.keys(ALL_AGENTS));
   renderAgentDropdown();
 }
+
+// ==================== 使用量统计 ====================
+
+// 显示使用量统计弹窗
+async function showUsageStats() {
+  // 关闭用户菜单
+  document.getElementById('sidebarUserMenu').classList.remove('show');
+  
+  // 显示弹窗
+  document.getElementById('usageStatsModal').classList.add('show');
+  
+  // 加载数据
+  await loadUsageStats();
+}
+
+// 关闭使用量统计弹窗
+function closeUsageStatsModal() {
+  document.getElementById('usageStatsModal').classList.remove('show');
+}
+
+// 加载使用量数据
+async function loadUsageStats() {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch('/api/user/usage', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      renderUsageStats(result.data);
+    } else {
+      console.error('获取使用量失败:', result.error);
+      showUsageError();
+    }
+  } catch (error) {
+    console.error('获取使用量失败:', error);
+    showUsageError();
+  }
+}
+
+// 渲染使用量统计
+function renderUsageStats(data) {
+  // 格式化数字
+  const formatTokens = (num) => {
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+    return num.toString();
+  };
+  
+  // 更新卡片
+  document.getElementById('todayTokens').textContent = formatTokens(data.today.tokens);
+  document.getElementById('todayRequests').textContent = data.today.requests + ' 次';
+  
+  document.getElementById('weekTokens').textContent = formatTokens(data.week.tokens);
+  document.getElementById('weekRequests').textContent = data.week.requests + ' 次';
+  
+  document.getElementById('monthTokens').textContent = formatTokens(data.month.tokens);
+  document.getElementById('monthRequests').textContent = data.month.requests + ' 次';
+  
+  document.getElementById('totalTokens').textContent = formatTokens(data.totalTokens);
+  document.getElementById('totalRequests').textContent = data.totalRequests + ' 次';
+  
+  // 渲染模型统计
+  renderModelStats(data.byModel, data.totalTokens);
+  
+  // 渲染趋势图
+  renderUsageChart(data.recentUsage);
+}
+
+// 渲染模型统计
+function renderModelStats(byModel, totalTokens) {
+  const container = document.getElementById('modelStats');
+  
+  if (!byModel || Object.keys(byModel).length === 0) {
+    container.innerHTML = '<div class="usage-loading">暂无数据</div>';
+    return;
+  }
+  
+  const models = Object.entries(byModel).sort((a, b) => b[1].tokens - a[1].tokens);
+  
+  container.innerHTML = models.map(([model, stats]) => {
+    const percentage = totalTokens > 0 ? (stats.tokens / totalTokens * 100).toFixed(0) : 0;
+    const modelClass = model.replace(/[._]/g, '-').toLowerCase();
+    
+    return `
+      <div class="usage-model-item">
+        <span class="usage-model-name">${model}</span>
+        <div class="usage-model-bar">
+          <div class="usage-model-fill ${modelClass}" style="width: ${percentage}%"></div>
+        </div>
+        <span class="usage-model-stats">${(stats.tokens / 1000).toFixed(0)}K (${percentage}%)</span>
+      </div>
+    `;
+  }).join('');
+}
+
+// 渲染趋势图
+function renderUsageChart(recentUsage) {
+  const container = document.getElementById('usageChart');
+  
+  if (!recentUsage || recentUsage.length === 0) {
+    container.innerHTML = '<div class="usage-loading">暂无数据</div>';
+    return;
+  }
+  
+  // 找最大值用于计算比例
+  const maxTokens = Math.max(...recentUsage.map(d => d.tokens), 1);
+  
+  // 生成柱状图
+  container.innerHTML = recentUsage.map(day => {
+    const height = (day.tokens / maxTokens * 100);
+    const date = new Date(day.date);
+    const label = `${date.getMonth() + 1}/${date.getDate()}`;
+    
+    return `
+      <div class="usage-chart-bar" style="height: ${Math.max(height, 4)}%" title="${day.tokens} tokens">
+        <span class="usage-chart-label">${label}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+// 显示错误
+function showUsageError() {
+  document.getElementById('modelStats').innerHTML = '<div class="usage-loading">加载失败</div>';
+  document.getElementById('usageChart').innerHTML = '<div class="usage-loading">加载失败</div>';
+}
+
+// 点击弹窗外部关闭
+document.addEventListener('click', (e) => {
+  if (e.target.id === 'usageStatsModal') {
+    closeUsageStatsModal();
+  }
+});
+

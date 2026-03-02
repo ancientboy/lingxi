@@ -189,6 +189,54 @@
         </div>
       </div>
     </div>
+    
+    <!-- 使用量统计弹窗 -->
+    <div class="modal-overlay" id="usageStatsModal">
+      <div class="modal usage-stats-modal">
+        <div class="modal-header">
+          <h3>📊 使用量统计</h3>
+          <button class="close-btn" onclick="closeUsageStatsModal()">
+            <i data-lucide="x" class="icon-sm"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="usage-stats-cards">
+            <div class="usage-card">
+              <div class="usage-card-label">今日</div>
+              <div class="usage-card-value" id="todayTokens">-</div>
+              <div class="usage-card-sub" id="todayRequests">0 次</div>
+            </div>
+            <div class="usage-card">
+              <div class="usage-card-label">本周</div>
+              <div class="usage-card-value" id="weekTokens">-</div>
+              <div class="usage-card-sub" id="weekRequests">0 次</div>
+            </div>
+            <div class="usage-card">
+              <div class="usage-card-label">本月</div>
+              <div class="usage-card-value" id="monthTokens">-</div>
+              <div class="usage-card-sub" id="monthRequests">0 次</div>
+            </div>
+            <div class="usage-card">
+              <div class="usage-card-label">总计</div>
+              <div class="usage-card-value" id="totalTokens">-</div>
+              <div class="usage-card-sub" id="totalRequests">0 次</div>
+            </div>
+          </div>
+          <div class="usage-section">
+            <h4>按模型统计</h4>
+            <div class="usage-model-list" id="modelStats">
+              <div class="usage-loading">加载中...</div>
+            </div>
+          </div>
+          <div class="usage-section">
+            <h4>最近 7 天</h4>
+            <div class="usage-chart" id="usageChart">
+              <div class="usage-loading">加载中...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- 新用户引导弹窗 -->
     <div class="modal-overlay" id="onboardingModal" style="display:none;">

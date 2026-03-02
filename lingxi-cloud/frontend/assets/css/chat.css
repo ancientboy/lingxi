@@ -1759,3 +1759,147 @@ html {
   border-radius: 12px;
   flex-shrink: 0;
 }
+
+/* 使用量统计弹窗样式 */
+.usage-stats-modal {
+  max-width: 600px;
+}
+
+.usage-stats-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.usage-card {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+}
+
+.usage-card-label {
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 8px;
+}
+
+.usage-card-value {
+  font-size: 20px;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+
+.usage-card-sub {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.usage-section {
+  margin-bottom: 20px;
+}
+
+.usage-section h4 {
+  font-size: 14px;
+  font-weight: 500;
+  color: #334155;
+  margin-bottom: 12px;
+}
+
+.usage-model-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.usage-model-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.usage-model-name {
+  width: 100px;
+  font-size: 13px;
+  color: #475569;
+}
+
+.usage-model-bar {
+  flex: 1;
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.usage-model-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.usage-model-fill.qwen-plus { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+.usage-model-fill.qwen-max { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
+.usage-model-fill.glm-4 { background: linear-gradient(90deg, #10b981, #34d399); }
+
+.usage-model-stats {
+  width: 120px;
+  text-align: right;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.usage-chart {
+  height: 120px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 8px;
+}
+
+.usage-chart-bar {
+  flex: 1;
+  background: linear-gradient(180deg, #3b82f6 0%, #93c5fd 100%);
+  border-radius: 4px 4px 0 0;
+  min-height: 4px;
+  position: relative;
+  transition: height 0.3s ease;
+}
+
+.usage-chart-bar:hover {
+  background: linear-gradient(180deg, #2563eb 0%, #60a5fa 100%);
+}
+
+.usage-chart-label {
+  position: absolute;
+  bottom: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+.usage-loading {
+  text-align: center;
+  padding: 20px;
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+/* 用户菜单分隔线 */
+.sidebar-menu-divider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 8px 12px;
+}
+
+/* 响应式 */
+@media (max-width: 640px) {
+  .usage-stats-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
