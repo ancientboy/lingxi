@@ -30,7 +30,7 @@ const router = Router();
 // 高可用方案：在用户服务器上配置 Nginx 负载均衡，主备自动切换
 // 主：120.55.192.144:3000  备：120.26.137.51:3001
 const SERVER_PASSWORD = config.userServer.password;
-const AI_PROXY_URL = process.env.AI_PROXY_URLS || 'http://120.55.192.144:3000';
+const AI_PROXY_URL = process.env.AI_PROXY_URLS || 'http://120.55.192.144:13000';
 const OPENCLAW_PORT = config.userServer.openclawPort;
 const OPENCLAW_VERSION = '2026.2.25';
 
