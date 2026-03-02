@@ -2879,7 +2879,9 @@ function renderUsageStats(data) {
     const maxCredits = 5000; // 假设最大显示 5000 积分
     const percent = Math.min((total / maxCredits) * 100, 100);
     
-    document.getElementById('totalCreditsDisplay').textContent = total.toLocaleString() + ' 积分';
+    // 更新百分比和总积分
+    document.getElementById('creditsPercent').textContent = Math.round(percent) + '%';
+    document.getElementById('totalCreditsDisplay').textContent = total.toLocaleString();
     document.getElementById('balanceCredits').textContent = data.credits.balance.toLocaleString();
     document.getElementById('freeCredits').textContent = `${data.credits.freeRemaining} / ${data.credits.freeDaily}`;
     
@@ -2887,13 +2889,7 @@ function renderUsageStats(data) {
     const bar = document.getElementById('quotaBar');
     if (bar) {
       bar.style.width = percent + '%';
-      if (percent > 80) {
-        bar.style.background = 'linear-gradient(90deg, #10b981, #34d399)';
-      } else if (percent > 50) {
-        bar.style.background = 'linear-gradient(90deg, #10b981, #34d399)';
-      } else {
-        bar.style.background = 'linear-gradient(90deg, #10b981, #34d399)';
-      }
+      bar.style.background = 'linear-gradient(90deg, #10b981, #34d399)';
     }
     
     // 计算预计可用 tokens（假设使用阿里云或智谱，0.3 积分/1K tokens）

@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>灵犀云 - AI 团队</title>
-  <link rel="stylesheet" href="assets/css/chat.css?v=1772456135">
+  <link rel="stylesheet" href="assets/css/chat.css?v=1772456206">
   <link rel="stylesheet" href="assets/css/dark.css" id="darkTheme" disabled>
-  <link rel="stylesheet" href="assets/css/skills-tab.css?v=1772456135">
+  <link rel="stylesheet" href="assets/css/skills-tab.css?v=1772456206">
   <!-- Lucide Icons - 使用 cdnjs 备用源 -->
   <script src="assets/libs/lucide.min.js"></script>
   <style>
@@ -52,49 +52,6 @@
     .icon-lg { width: 24px; height: 24px; }
     .icon-primary { color: #10a37f; }
   
-/* 使用量区块 */
-.usage-section {
-  margin-bottom: 20px;
-}
-
-.usage-section-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #6b7280;
-  margin-bottom: 12px;
-}
-
-/* 预计可用卡片 */
-.usage-estimate-card {
-  background: #f0fdf4;
-  border: 1px solid #86efac;
-  border-radius: 8px;
-  padding: 16px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.usage-estimate-icon {
-  font-size: 24px;
-}
-
-.usage-estimate-content {
-  flex: 1;
-}
-
-.usage-estimate-label {
-  font-size: 12px;
-  color: #6b7280;
-  margin-bottom: 4px;
-}
-
-.usage-estimate-value {
-  font-size: 16px;
-  font-weight: 600;
-  color: #10b981;
-}
-
 </style>
 </head>
 <body data-page="chat">
@@ -248,17 +205,23 @@
           <div class="usage-quota-card" id="quotaCard">
             <div class="usage-quota-header">
               <span class="usage-quota-label">💎 积分余额</span>
-              <span class="usage-quota-percent" id="totalCreditsDisplay">0 积分</span>
+              <span class="usage-quota-percent" id="creditsPercent">0%</span>
             </div>
             <div class="usage-quota-bar">
               <div class="usage-quota-fill" id="quotaBar" style="width: 0%"></div>
             </div>
             <div class="usage-quota-stats">
               <div class="usage-quota-row">
+                <span>总积分: <strong id="totalCreditsDisplay">0</strong></span>
+              </div>
+              <div class="usage-quota-row">
                 <span>充值积分: <strong id="balanceCredits">0</strong></span>
               </div>
               <div class="usage-quota-row">
                 <span>今日免费: <strong id="freeCredits">100 / 100</strong></span>
+              </div>
+              <div class="usage-quota-row">
+                <span>预计可用: <strong id="estimatedTokens">约 0 tokens</strong></span>
               </div>
             </div>
           </div>
@@ -290,14 +253,7 @@
             </div>
           </div>
 
-          <!-- 预计可用 -->
-          <div class="usage-estimate-card">
-            <div class="usage-estimate-icon">💡</div>
-            <div class="usage-estimate-content">
-              <div class="usage-estimate-label">预计可用（当前模型）</div>
-              <div class="usage-estimate-value" id="estimatedTokens">约 0 tokens</div>
-            </div>
-          </div>
+
 
 
         </div>
@@ -611,49 +567,6 @@
         transform: scale(1.05);
       }
     
-/* 使用量区块 */
-.usage-section {
-  margin-bottom: 20px;
-}
-
-.usage-section-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #6b7280;
-  margin-bottom: 12px;
-}
-
-/* 预计可用卡片 */
-.usage-estimate-card {
-  background: #f0fdf4;
-  border: 1px solid #86efac;
-  border-radius: 8px;
-  padding: 16px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.usage-estimate-icon {
-  font-size: 24px;
-}
-
-.usage-estimate-content {
-  flex: 1;
-}
-
-.usage-estimate-label {
-  font-size: 12px;
-  color: #6b7280;
-  margin-bottom: 4px;
-}
-
-.usage-estimate-value {
-  font-size: 16px;
-  font-weight: 600;
-  color: #10b981;
-}
-
 </style>
 
     <!-- 技能库样式 -->
@@ -974,49 +887,6 @@
         box-shadow: none;
       }
     
-/* 使用量区块 */
-.usage-section {
-  margin-bottom: 20px;
-}
-
-.usage-section-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #6b7280;
-  margin-bottom: 12px;
-}
-
-/* 预计可用卡片 */
-.usage-estimate-card {
-  background: #f0fdf4;
-  border: 1px solid #86efac;
-  border-radius: 8px;
-  padding: 16px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.usage-estimate-icon {
-  font-size: 24px;
-}
-
-.usage-estimate-content {
-  flex: 1;
-}
-
-.usage-estimate-label {
-  font-size: 12px;
-  color: #6b7280;
-  margin-bottom: 4px;
-}
-
-.usage-estimate-value {
-  font-size: 16px;
-  font-weight: 600;
-  color: #10b981;
-}
-
 </style>
 
     <div class="chat-container">
@@ -1538,10 +1408,10 @@
     checkCheckinStatus();
   </script>
   
-  <script src="assets/js/chat.js?v=1772456135"></script>
+  <script src="assets/js/chat.js?v=1772456206"></script>
 
     <!-- 统一组件加载器 -->
     <script src="components/load-components.js"></script>
-  <script src="assets/js/skills-tab.js?v=1772456135"></script>
+  <script src="assets/js/skills-tab.js?v=1772456206"></script>
   </body>
 </html>
