@@ -2837,6 +2837,13 @@ async function loadUsageStats() {
 }
 
 // 渲染使用量统计
+// 格式化 token 数量
+function formatTokens(num) {
+  if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+  if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+  return num.toString();
+}
+
 function renderUsageStats(data) {
   // 显示配额进度
   if (data.quota) {
@@ -2860,11 +2867,6 @@ function renderUsageStats(data) {
     }
   }
   // 格式化数字
-  const formatTokens = (num) => {
-    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
-    return num.toString();
-  };
   
   // 更新卡片
   document.getElementById('todayTokens').textContent = formatTokens(data.today.tokens);
