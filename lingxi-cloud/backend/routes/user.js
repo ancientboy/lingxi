@@ -36,7 +36,7 @@ router.get('/usage', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
     
-    const db = getDB();
+    const db = await getDB();
     const user = db.users.find(u => u.id === userId);
     
     if (!user) {
@@ -112,7 +112,7 @@ router.post('/usage/update', async (req, res) => {
       return res.status(400).json({ success: false, error: '参数错误' });
     }
     
-    const db = getDB();
+    const db = await getDB();
     const userIndex = db.users.findIndex(u => u.id === userId);
     
     if (userIndex === -1) {
@@ -137,14 +137,14 @@ router.post('/usage/update', async (req, res) => {
     user.usage.totalTokens += totalTokens;
     user.usage.totalRequests += 1;
     
-    // 更新模型统计
+    // 按模型
     if (!user.usage.byModel[model]) {
       user.usage.byModel[model] = { tokens: 0, requests: 0 };
     }
     user.usage.byModel[model].tokens += totalTokens;
     user.usage.byModel[model].requests += 1;
     
-    // 更新日期统计
+    // 按日期
     if (!user.usage.byDate[today]) {
       user.usage.byDate[today] = { tokens: 0, requests: 0 };
     }
@@ -156,7 +156,7 @@ router.post('/usage/update', async (req, res) => {
     
     // 保存
     db.users[userIndex] = user;
-    saveDB(db);
+    await saveDB(db);
     
     res.json({
       success: true,
