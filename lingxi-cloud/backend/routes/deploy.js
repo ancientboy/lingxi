@@ -26,6 +26,9 @@ const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 const router = Router();
 
 // 从统一配置获取
+// AI 代理配置（默认使用国内主服务器）
+// 高可用方案：在用户服务器上配置 Nginx 负载均衡，主备自动切换
+// 主：120.55.192.144:3000  备：120.26.137.51:3001
 const SERVER_PASSWORD = config.userServer.password;
 const AI_PROXY_URL = process.env.AI_PROXY_URLS || 'http://120.55.192.144:3000';
 const OPENCLAW_PORT = config.userServer.openclawPort;
