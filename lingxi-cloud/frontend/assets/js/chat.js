@@ -2898,10 +2898,24 @@ function renderUsageStats(data) {
   
   // 更新积分显示
   if (data.credits) {
-    document.getElementById('creditsBalance').textContent = data.credits.balance;
-    document.getElementById('creditsFree').textContent = data.credits.freeRemaining;
+    const total = data.credits.balance + data.credits.freeRemaining;
+    document.getElementById('totalCredits').textContent = total.toLocaleString();
+    document.getElementById('balanceCredits').textContent = data.credits.balance.toLocaleString();
+    document.getElementById('freeCredits').textContent = `${data.credits.freeRemaining} / ${data.credits.freeDaily}`;
+    
+    // 计算预计可用 tokens（假设使用阿里云或智谱，0.3 积分/1K tokens）
+    const estimatedTokens = Math.floor(total / 0.3 * 1000);
+    const estimatedK = Math.floor(estimatedTokens / 1000);
+    const estimatedM = Math.floor(estimatedK / 1000);
+    
+    if (estimatedM > 0) {
+      document.getElementById('estimatedTokens').textContent = `约 ${estimatedM}万 tokens`;
+    } else {
+      document.getElementById('estimatedTokens').textContent = `约 ${estimatedK}K tokens`;
+    }
   }
-  // 更新卡片
+  
+  // 更新 Token 使用量卡片
   document.getElementById('todayTokens').textContent = formatTokens(data.today.tokens);
   document.getElementById('todayRequests').textContent = data.today.requests + ' 次';
   
