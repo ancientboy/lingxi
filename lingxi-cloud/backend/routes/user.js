@@ -3,22 +3,38 @@
  */
 
 import { Router } from 'express';
+import jwt from 'jsonwebtoken';
 import { getDB, saveDB } from '../utils/db.js';
 
 const router = Router();
+const JWT_SECRET = process.env.JWT_SECRET || 'lingxi-cloud-secret-key-2026';
+
+// Token 验证中间件
+function authMiddleware(req, res, next) {
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ success: false, error: '未登录' });
+  }
+  
+  const token = authHeader.substring(7);
+  
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = { id: decoded.userId };
+    next();
+  } catch (err) {
+    return res.status(401).json({ success: false, error: 'Token 无效' });
+  }
+}
 
 /**
  * 获取用户使用量统计
  * GET /api/user/usage
  */
-router.get('/usage', async (req, res) => {
+router.get('/usage', authMiddleware, async (req, res) => {
   try {
-    // 从中间件获取用户信息
-    const userId = req.user?.id;
-    
-    if (!userId) {
-      return res.status(401).json({ success: false, error: '未登录' });
-    }
+    const userId = req.user.id;
     
     const db = getDB();
     const user = db.users.find(u => u.id === userId);
@@ -63,7 +79,7 @@ router.get('/usage', async (req, res) => {
     
     // 排序最近使用记录
     recentUsage.sort((a, b) => a.date.localeCompare(b.date));
-    recentUsage = recentUsage.slice(-7); // 只返回最近7天
+    recentUsage = recentUsage.slice(-7);
     
     res.json({
       success: true,
