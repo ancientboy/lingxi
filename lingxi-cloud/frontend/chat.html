@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>灵犀云 - AI 团队</title>
-  <link rel="stylesheet" href="assets/css/chat.css">
+  <link rel="stylesheet" href="assets/css/chat.css?v=1772442804">
   <link rel="stylesheet" href="assets/css/dark.css" id="darkTheme" disabled>
   <link rel="stylesheet" href="assets/css/skills-tab.css?v=1772358437">
   <!-- Lucide Icons - 使用 cdnjs 备用源 -->
@@ -200,6 +200,19 @@
           </button>
         </div>
         <div class="modal-body">
+        <div class="usage-quota-card" id="quotaCard">
+          <div class="usage-quota-header">
+            <span class="usage-quota-label">📦 配额使用</span>
+            <span class="usage-quota-percent" id="quotaPercent">0%</span>
+          </div>
+          <div class="usage-quota-bar">
+            <div class="usage-quota-fill" id="quotaBar" style="width: 0%"></div>
+          </div>
+          <div class="usage-quota-stats">
+            已使用 <span id="quotaUsed">0</span> / <span id="quotaTotal">1M</span> tokens
+          </div>
+        </div>
+
           <div class="usage-stats-cards">
             <div class="usage-card">
               <div class="usage-card-label">今日</div>
@@ -1363,7 +1376,7 @@
     checkCheckinStatus();
   </script>
   
-  <script src="assets/js/chat.js?v=1772438405"></script>
+  <script src="assets/js/chat.js?v=1772442804"></script>
 
     <!-- 统一组件加载器 -->
     <script src="components/load-components.js"></script>

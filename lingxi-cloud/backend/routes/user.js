@@ -9,6 +9,14 @@ import { getDB, saveDB } from '../utils/db.js';
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'lingxi-cloud-secret-key-2026';
 
+// 用户配额配置
+const USER_QUOTA = {
+  free: 1000000,      // 免费用户: 100万 tokens
+  basic: 5000000,     // 基础版: 500万 tokens
+  pro: 20000000,      // 专业版: 2000万 tokens
+  enterprise: 100000000  // 企业版: 1亿 tokens
+};
+
 // Token 验证中间件
 function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -51,6 +59,10 @@ router.get('/usage', authMiddleware, async (req, res) => {
       byDate: {}
     };
     
+    // 获取用户配额（根据会员等级）
+    const memberLevel = user.memberLevel || 'free';
+    const quota = USER_QUOTA[memberLevel] || USER_QUOTA.free;
+    
     // 计算时间段统计
     const today = new Date().toISOString().split('T')[0];
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -81,6 +93,9 @@ router.get('/usage', authMiddleware, async (req, res) => {
     recentUsage.sort((a, b) => a.date.localeCompare(b.date));
     recentUsage = recentUsage.slice(-7);
     
+    // 计算使用百分比
+    const usagePercent = quota > 0 ? Math.min((usage.totalTokens / quota * 100), 100) : 0;
+    
     res.json({
       success: true,
       data: {
@@ -90,7 +105,15 @@ router.get('/usage', authMiddleware, async (req, res) => {
         week: weekStats,
         month: monthStats,
         byModel: usage.byModel || {},
-        recentUsage
+        recentUsage,
+        // 新增配额信息
+        quota: {
+          total: quota,
+          used: usage.totalTokens || 0,
+          remaining: Math.max(quota - (usage.totalTokens || 0), 0),
+          percent: usagePercent.toFixed(1),
+          memberLevel
+        }
       }
     });
     
