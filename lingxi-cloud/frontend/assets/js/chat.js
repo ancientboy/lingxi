@@ -2819,7 +2819,7 @@ async function refreshSidebarCredits() {
   }
 }
 
-function showUsageStats() {
+async function showUsageStats() {
   // 关闭用户菜单
   document.getElementById('sidebarUserMenu').classList.remove('show');
   
