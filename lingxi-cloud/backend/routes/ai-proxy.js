@@ -214,8 +214,7 @@ async function updateDbUsage(userId, provider, tokens) {
     
     if (!user && userId.startsWith("ip:")) {
       const ip = userId.replace("ip:", "");
-      const ipMappings = loadIpMappings();
-      const nickname = ipMappings[ip];
+      const nickname = IP_USER_MAP[ip];
       if (nickname) {
         user = db.users.find(u => u.nickname === nickname);
       }
