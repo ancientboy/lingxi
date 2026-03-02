@@ -2799,7 +2799,7 @@ function initAgentDropdown() {
 // ==================== 使用量统计 ====================
 
 // 显示使用量统计弹窗
-async 
+
 // 刷新侧边栏积分显示
 async function refreshSidebarCredits() {
   try {
