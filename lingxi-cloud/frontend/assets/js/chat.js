@@ -2882,69 +2882,16 @@ function renderUsageStats(data) {
   document.getElementById('totalRequests').textContent = data.totalRequests + ' 次';
   
   // 渲染模型统计
-  renderModelStats(data.byModel, data.totalTokens);
   
   // 渲染趋势图
-  renderUsageChart(data.recentUsage);
 }
 
 // 渲染模型统计
-function renderModelStats(byModel, totalTokens) {
-  const container = document.getElementById('modelStats');
-  
-  if (!byModel || Object.keys(byModel).length === 0) {
-    container.innerHTML = '<div class="usage-loading">暂无数据</div>';
-    return;
-  }
-  
-  const models = Object.entries(byModel).sort((a, b) => b[1].tokens - a[1].tokens);
-  
-  container.innerHTML = models.map(([model, stats]) => {
-    const percentage = totalTokens > 0 ? (stats.tokens / totalTokens * 100).toFixed(0) : 0;
-    const modelClass = model.replace(/[._]/g, '-').toLowerCase();
-    
-    return `
-      <div class="usage-model-item">
-        <span class="usage-model-name">${model}</span>
-        <div class="usage-model-bar">
-          <div class="usage-model-fill ${modelClass}" style="width: ${percentage}%"></div>
-        </div>
-        <span class="usage-model-stats">${formatTokens(stats.tokens)} (${percentage}%)</span>
-      </div>
-    `;
-  }).join('');
-}
 
 // 渲染趋势图
-function renderUsageChart(recentUsage) {
-  const container = document.getElementById('usageChart');
-  
-  if (!recentUsage || recentUsage.length === 0) {
-    container.innerHTML = '<div class="usage-loading">暂无数据</div>';
-    return;
-  }
-  
-  // 找最大值用于计算比例
-  const maxTokens = Math.max(...recentUsage.map(d => d.tokens), 1);
-  
-  // 生成柱状图
-  container.innerHTML = recentUsage.map(day => {
-    const height = (day.tokens / maxTokens * 100);
-    const date = new Date(day.date);
-    const label = `${date.getMonth() + 1}/${date.getDate()}`;
-    
-    return `
-      <div class="usage-chart-bar" style="height: ${Math.max(height, 4)}%" title="${day.tokens} tokens">
-        <span class="usage-chart-label">${label}</span>
-      </div>
-    `;
-  }).join('');
-}
 
 // 显示错误
 function showUsageError() {
-  document.getElementById('modelStats').innerHTML = '<div class="usage-loading">加载失败</div>';
-  document.getElementById('usageChart').innerHTML = '<div class="usage-loading">加载失败</div>';
 }
 
 // 点击弹窗外部关闭
