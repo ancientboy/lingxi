@@ -7,7 +7,7 @@ const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'lingxi-cloud-secret-key-2026';
 
 // MVP 模式：默认关闭
-const MVP_MODE = process.env.MVP_MODE === 'true';
+const MVP_MODE = process.env.MVP_MODE === 'true' || true; // 临时强制启用 MVP 模式
 
 const SHARED_GATEWAY = {
   url: process.env.OPENCLAW_URL || 'http://localhost:18789',

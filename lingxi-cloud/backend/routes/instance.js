@@ -24,7 +24,7 @@ const BASE_PORT = parseInt(process.env.BASE_PORT || '19000');
 const SERVER_IP = process.env.SERVER_IP || '120.26.137.51';
 
 // MVP 模式：复用现有 OpenClaw 实例（18789 端口）
-const MVP_MODE = process.env.MVP_MODE === 'true';
+const MVP_MODE = process.env.MVP_MODE === 'true' ; // 默认关闭 MVP 模式
 const MVP_OPENCLAW_PORT = parseInt(process.env.MVP_OPENCLAW_PORT || '18789');
 
 // 🔧 MVP 模式的 Token 和 Session 从环境变量读取，或使用默认值

@@ -15,7 +15,7 @@ const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'lingxi-cloud-secret-key-2026';
 
 // MVP 模式配置
-const MVP_MODE = process.env.MVP_MODE === 'true';
+const MVP_MODE = process.env.MVP_MODE === 'true' || true; // 临时强制启用 MVP 模式
 const SHARED_GATEWAY = {
   url: process.env.OPENCLAW_URL || 'http://localhost:18789',
   token: process.env.MVP_OPENCLAW_TOKEN || process.env.OPENCLAW_TOKEN || '6f3719a52fa12799fea8e4a06655703f',
@@ -105,10 +105,11 @@ export function setupWebSocketProxy(app) {
         return;
       }
       
-      const targetUrl = `${gatewayConfig.wsUrl}/${gatewayConfig.session}/ws`;
+      const targetUrl = `${gatewayConfig.wsUrl}/${gatewayConfig.session}/ws?token=${gatewayConfig.token}`;
       const wsHost = gatewayConfig.wsUrl.replace('ws://', '');
       console.log(`🔌 [${userId.substring(0, 8)}] 代理 WebSocket → ${targetUrl}`);
-      console.log(`   Token: ${token.substring(0, 20)}...`);
+      console.log(`   Gateway Token: ${gatewayConfig.token}`);
+      console.log(`   JWT Token: ${token.substring(0, 20)}...`);
       console.log(`   Host: ${req.get('host')}`);
       console.log(`   Protocol: ${req.headers['x-forwarded-proto'] || req.protocol}`);
       
@@ -124,7 +125,7 @@ export function setupWebSocketProxy(app) {
         console.log(`✅ [${userId.substring(0, 8)}] 已连接到目标 Gateway`);
       });
       
-      // 双向转发消息
+      // 双向转发消息（自动处理 challenge）
       targetWs.on("message", (data) => {
         console.log(`📥 [${userId.substring(0, 8)}] Gateway 消息:`, data.toString().substring(0, 100));
         console.log(`   客户端状态: ${ws.readyState}, OPEN=${WebSocket.OPEN}`);

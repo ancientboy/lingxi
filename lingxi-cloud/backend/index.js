@@ -83,6 +83,10 @@ app.use('/api/admin', adminRoutes);
 
 // Gateway 代理（安全获取连接信息）
 import gatewayRoutes from './routes/gateway.js';
+
+// AI 代理
+import aiProxyRoutes from './routes/ai-proxy.js';
+app.use('/api/ai', aiProxyRoutes);
 app.use('/api/gateway', gatewayRoutes);
 
 import serversRoutes from './routes/servers.js';
