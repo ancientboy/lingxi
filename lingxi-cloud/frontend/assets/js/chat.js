@@ -2815,7 +2815,7 @@ function closeUsageStatsModal() {
 // 加载使用量数据
 async function loadUsageStats() {
   try {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('lingxi_token');
     const response = await fetch('/api/user/usage', {
       headers: {
         'Authorization': `Bearer ${token}`
