@@ -198,6 +198,12 @@ function recordUsage(userId, provider, usage) {
   stats.byProvider[provider].requests++;
   stats.byProvider[provider].tokens += tokens.total;
   
+  // 扣除积分
+  deductCredits(userId, provider, tokens.total).then(result => {
+    if (!result.success) {
+      console.log("[积分] 扣除失败:", result.error);
+    }
+  });
   // 异步更新 db.json
   updateDbUsage(userId, provider, tokens).catch(err => {
     console.error("[AI-Proxy] 更新用户使用量失败:", err.message);
@@ -402,3 +408,165 @@ router.post('/v1/chat/completions', (req, res) => {
 });
 
 export default router;
+
+// ============ 积分消耗规则 ============
+
+// 按 provider 分类的积分消耗率（积分/1K tokens）
+const CREDIT_RATES = {
+  aliyun: 1,      // 1 积分/1K tokens
+  zhipu: 1.5      // 1.5 积分/1K tokens
+};
+
+// 免费用户每日额度
+const FREE_DAILY_CREDITS = 100;
+
+// 计算积分消耗
+function calculateCredits(provider, tokens) {
+  const rate = CREDIT_RATES[provider] || 1;
+  return Math.ceil((tokens / 1000) * rate);
+}
+
+// 检查并扣除积分
+async function deductCredits(userId, provider, tokens) {
+  try {
+    const { getDB, saveDB, spendPoints, addPoints } = await import("../utils/db.js");
+    const db = await getDB();
+    
+    // 查找用户
+    let user = db.users.find(u => u.id === userId);
+    
+    // IP 映射查找
+    if (!user && userId.startsWith("ip:")) {
+      const ip = userId.replace("ip:", "");
+      const nickname = IP_USER_MAP[ip];
+      if (nickname) {
+        user = db.users.find(u => u.nickname === nickname);
+      }
+    }
+    
+    if (!user) {
+      console.log(`[积分] 未找到用户: ${userId}`);
+      return { success: false, error: "用户不存在" };
+    }
+    
+    // 初始化 credits 结构
+    if (!user.credits) {
+      user.credits = {
+        balance: user.points || 0,  // 从现有 points 迁移
+        freeDaily: FREE_DAILY_CREDITS,
+        freeDailyUsed: 0,
+        lastDailyReset: new Date().toISOString().split('T')[0]
+      };
+    }
+    
+    // 检查是否需要重置每日额度
+    const today = new Date().toISOString().split('T')[0];
+    if (user.credits.lastDailyReset !== today) {
+      user.credits.freeDailyUsed = 0;
+      user.credits.lastDailyReset = today;
+    }
+    
+    // 计算需要扣除的积分
+    const creditsNeeded = calculateCredits(provider, tokens);
+    
+    // 检查免费额度
+    const freeRemaining = user.credits.freeDaily - user.credits.freeDailyUsed;
+    
+    if (freeRemaining >= creditsNeeded) {
+      // 从免费额度扣除
+      user.credits.freeDailyUsed += creditsNeeded;
+      await saveDB(db);
+      console.log(`[积分] ${user.nickname} 使用免费额度 ${creditsNeeded} 积分 (剩余 ${freeRemaining - creditsNeeded})`);
+      return { success: true, deducted: creditsNeeded, source: 'free', remaining: freeRemaining - creditsNeeded };
+    }
+    
+    // 免费额度不足，使用余额
+    const fromFree = freeRemaining;
+    const fromBalance = creditsNeeded - fromFree;
+    
+    if (user.credits.balance < fromBalance) {
+      // 余额也不足
+      const totalRemaining = freeRemaining + user.credits.balance;
+      console.log(`[积分] ${user.nickname} 积分不足: 需要 ${creditsNeeded}, 可用 ${totalRemaining}`);
+      return { 
+        success: false, 
+        error: "积分不足",
+        needed: creditsNeeded,
+        available: totalRemaining,
+        freeRemaining,
+        balanceRemaining: user.credits.balance
+      };
+    }
+    
+    // 扣除积分
+    user.credits.freeDailyUsed = user.credits.freeDaily;  // 免费额度用完
+    user.credits.balance -= fromBalance;
+    
+    // 同步到 points 字段
+    user.points = user.credits.balance;
+    
+    await saveDB(db);
+    console.log(`[积分] ${user.nickname} 扣除 ${creditsNeeded} 积分 (免费 ${fromFree} + 余额 ${fromBalance})`);
+    
+    return { 
+      success: true, 
+      deducted: creditsNeeded, 
+      source: 'mixed',
+      fromFree,
+      fromBalance,
+      remaining: user.credits.balance
+    };
+    
+  } catch (err) {
+    console.error("[积分] 扣除失败:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+// 获取用户积分信息
+async function getUserCredits(userId) {
+  try {
+    const db = await getDB();
+    
+    let user = db.users.find(u => u.id === userId);
+    
+    if (!user && userId.startsWith("ip:")) {
+      const ip = userId.replace("ip:", "");
+      const nickname = IP_USER_MAP[ip];
+      if (nickname) {
+        user = db.users.find(u => u.nickname === nickname);
+      }
+    }
+    
+    if (!user) return null;
+    
+    // 初始化 credits
+    if (!user.credits) {
+      user.credits = {
+        balance: user.points || 0,
+        freeDaily: FREE_DAILY_CREDITS,
+        freeDailyUsed: 0,
+        lastDailyReset: new Date().toISOString().split('T')[0]
+      };
+    }
+    
+    // 检查每日重置
+    const today = new Date().toISOString().split('T')[0];
+    if (user.credits.lastDailyReset !== today) {
+      user.credits.freeDailyUsed = 0;
+      user.credits.lastDailyReset = today;
+    }
+    
+    return {
+      balance: user.credits.balance,
+      freeDaily: user.credits.freeDaily,
+      freeDailyUsed: user.credits.freeDailyUsed,
+      freeRemaining: user.credits.freeDaily - user.credits.freeDailyUsed,
+      total: user.credits.balance + (user.credits.freeDaily - user.credits.freeDailyUsed)
+    };
+    
+  } catch (err) {
+    console.error("[积分] 获取失败:", err);
+    return null;
+  }
+}

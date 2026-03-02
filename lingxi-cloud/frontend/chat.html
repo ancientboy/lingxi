@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>灵犀云 - AI 团队</title>
-  <link rel="stylesheet" href="assets/css/chat.css?v=1772443239">
+  <link rel="stylesheet" href="assets/css/chat.css?v=1772444726">
   <link rel="stylesheet" href="assets/css/dark.css" id="darkTheme" disabled>
   <link rel="stylesheet" href="assets/css/skills-tab.css?v=1772358437">
   <!-- Lucide Icons - 使用 cdnjs 备用源 -->
@@ -209,7 +209,12 @@
             <div class="usage-quota-fill" id="quotaBar" style="width: 0%"></div>
           </div>
           <div class="usage-quota-stats">
-            已使用 <span id="quotaUsed">0</span> / <span id="quotaTotal">1M</span> tokens
+            <div class="usage-quota-row">
+              <span>已使用 <span id="quotaUsed">0</span> / <span id="quotaTotal">1M</span> tokens</span>
+            </div>
+            <div class="usage-quota-row" id="creditsRow">
+              <span>💎 积分: <span id="creditsBalance">0</span> (今日剩余 <span id="creditsFree">100</span>)</span>
+            </div>
           </div>
         </div>
 
@@ -1195,11 +1200,27 @@
       return div.innerHTML;
     }
     
-    function loadUserInfo() {
+    async function loadUserInfo() {
       const user = JSON.parse(localStorage.getItem('lingxi_user') || '{}');
       if (user.nickname) {
         document.getElementById('sidebarUserName').textContent = user.nickname;
         document.getElementById('sidebarUserAvatar').textContent = user.nickname.charAt(0).toUpperCase();
+        
+        // 加载积分信息
+        try {
+          const token = localStorage.getItem('lingxi_token');
+          const response = await fetch('/api/user/credits', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const result = await response.json();
+          if (result.success) {
+            const credits = result.data;
+            const totalCredits = credits.balance + credits.freeRemaining;
+            document.getElementById('sidebarUserCredits').textContent = `💎 ${totalCredits}`;
+          }
+        } catch (e) {
+          console.log('加载积分失败:', e);
+        }
       }
     }
     
@@ -1366,7 +1387,7 @@
     checkCheckinStatus();
   </script>
   
-  <script src="assets/js/chat.js?v=1772443549"></script>
+  <script src="assets/js/chat.js?v=1772444726"></script>
 
     <!-- 统一组件加载器 -->
     <script src="components/load-components.js"></script>

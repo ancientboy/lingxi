@@ -1956,3 +1956,27 @@ html {
 .usage-quota-stats span {
   font-weight: 600;
 }
+
+/* 积分显示行 */
+.usage-quota-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+}
+
+.usage-quota-row:not(:last-child) {
+  border-bottom: 1px solid #d1fae5;
+  margin-bottom: 4px;
+  padding-bottom: 8px;
+}
+
+.usage-quota-row span {
+  font-size: 12px;
+  color: #166534;
+}
+
+.usage-quota-row span span {
+  font-weight: 600;
+  color: #15803d;
+}

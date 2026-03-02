@@ -9,13 +9,16 @@ import { getDB, saveDB } from '../utils/db.js';
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'lingxi-cloud-secret-key-2026';
 
-// 用户配额配置
+// 用户配额配置（按会员等级）
 const USER_QUOTA = {
   free: 1000000,      // 免费用户: 100万 tokens
   basic: 5000000,     // 基础版: 500万 tokens
   pro: 20000000,      // 专业版: 2000万 tokens
   enterprise: 100000000  // 企业版: 1亿 tokens
 };
+
+// 免费用户每日积分额度
+const FREE_DAILY_CREDITS = 100;
 
 // Token 验证中间件
 function authMiddleware(req, res, next) {
@@ -96,6 +99,23 @@ router.get('/usage', authMiddleware, async (req, res) => {
     // 计算使用百分比
     const usagePercent = quota > 0 ? Math.min((usage.totalTokens / quota * 100), 100) : 0;
     
+    // 获取积分信息
+    let credits = user.credits || {
+      balance: user.points || 0,
+      freeDaily: FREE_DAILY_CREDITS,
+      freeDailyUsed: 0,
+      lastDailyReset: today
+    };
+    
+    // 检查每日重置
+    if (credits.lastDailyReset !== today) {
+      credits.freeDailyUsed = 0;
+      credits.lastDailyReset = today;
+    }
+    
+    const freeRemaining = credits.freeDaily - credits.freeDailyUsed;
+    const totalCredits = credits.balance + freeRemaining;
+    
     res.json({
       success: true,
       data: {
@@ -106,13 +126,21 @@ router.get('/usage', authMiddleware, async (req, res) => {
         month: monthStats,
         byModel: usage.byModel || {},
         recentUsage,
-        // 新增配额信息
+        // 配额信息
         quota: {
           total: quota,
           used: usage.totalTokens || 0,
           remaining: Math.max(quota - (usage.totalTokens || 0), 0),
           percent: usagePercent.toFixed(1),
           memberLevel
+        },
+        // 积分信息
+        credits: {
+          balance: credits.balance,
+          freeDaily: credits.freeDaily,
+          freeDailyUsed: credits.freeDailyUsed,
+          freeRemaining,
+          total: totalCredits
         }
       }
     });
@@ -124,73 +152,46 @@ router.get('/usage', authMiddleware, async (req, res) => {
 });
 
 /**
- * 更新用户使用量（内部调用）
- * POST /api/user/usage/update
+ * 获取用户积分信息
+ * GET /api/user/credits
  */
-router.post('/usage/update', async (req, res) => {
+router.get('/credits', authMiddleware, async (req, res) => {
   try {
-    const { userId, model, inputTokens, outputTokens } = req.body;
-    
-    if (!userId || !model) {
-      return res.status(400).json({ success: false, error: '参数错误' });
-    }
-    
+    const userId = req.user.id;
     const db = await getDB();
-    const userIndex = db.users.findIndex(u => u.id === userId);
+    const user = db.users.find(u => u.id === userId);
     
-    if (userIndex === -1) {
+    if (!user) {
       return res.status(404).json({ success: false, error: '用户不存在' });
     }
     
-    const user = db.users[userIndex];
-    const totalTokens = (inputTokens || 0) + (outputTokens || 0);
     const today = new Date().toISOString().split('T')[0];
+    let credits = user.credits || {
+      balance: user.points || 0,
+      freeDaily: FREE_DAILY_CREDITS,
+      freeDailyUsed: 0,
+      lastDailyReset: today
+    };
     
-    // 初始化 usage 对象
-    if (!user.usage) {
-      user.usage = {
-        totalTokens: 0,
-        totalRequests: 0,
-        byModel: {},
-        byDate: {}
-      };
+    // 检查每日重置
+    if (credits.lastDailyReset !== today) {
+      credits.freeDailyUsed = 0;
+      credits.lastDailyReset = today;
     }
-    
-    // 更新总计
-    user.usage.totalTokens += totalTokens;
-    user.usage.totalRequests += 1;
-    
-    // 按模型
-    if (!user.usage.byModel[model]) {
-      user.usage.byModel[model] = { tokens: 0, requests: 0 };
-    }
-    user.usage.byModel[model].tokens += totalTokens;
-    user.usage.byModel[model].requests += 1;
-    
-    // 按日期
-    if (!user.usage.byDate[today]) {
-      user.usage.byDate[today] = { tokens: 0, requests: 0 };
-    }
-    user.usage.byDate[today].tokens += totalTokens;
-    user.usage.byDate[today].requests += 1;
-    
-    // 更新时间戳
-    user.usage.lastUpdated = new Date().toISOString();
-    
-    // 保存
-    db.users[userIndex] = user;
-    await saveDB(db);
     
     res.json({
       success: true,
       data: {
-        tokensAdded: totalTokens,
-        totalTokens: user.usage.totalTokens
+        balance: credits.balance,
+        freeDaily: credits.freeDaily,
+        freeDailyUsed: credits.freeDailyUsed,
+        freeRemaining: credits.freeDaily - credits.freeDailyUsed,
+        total: credits.balance + (credits.freeDaily - credits.freeDailyUsed)
       }
     });
     
   } catch (error) {
-    console.error('更新使用量失败:', error);
+    console.error('获取积分失败:', error);
     res.status(500).json({ success: false, error: '服务器错误' });
   }
 });

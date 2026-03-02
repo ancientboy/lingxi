@@ -2868,6 +2868,11 @@ function renderUsageStats(data) {
   }
   // 格式化数字
   
+  // 更新积分显示
+  if (data.credits) {
+    document.getElementById('creditsBalance').textContent = data.credits.balance;
+    document.getElementById('creditsFree').textContent = data.credits.freeRemaining;
+  }
   // 更新卡片
   document.getElementById('todayTokens').textContent = formatTokens(data.today.tokens);
   document.getElementById('todayRequests').textContent = data.today.requests + ' 次';
