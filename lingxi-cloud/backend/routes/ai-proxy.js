@@ -383,13 +383,20 @@ export default router;
 // 按 provider 分类的积分消耗率（积分/1K tokens）
 const CREDIT_RATES = {
   // 国产模型（1积分 ≈ ¥0.01）
-  aliyun: 0.8,      // ¥0.008/1K tokens
-  zhipu: 10,        // ¥0.10/1K tokens (GLM-4)
+  // 基础模型（性价比高）
+  aliyun: 0.3,           // 通义千问-Turbo: ¥0.002/1K → 0.2积分，加缓冲 0.3
+  'aliyun-plus': 0.5,    // 通义千问-Plus: ¥0.004/1K → 0.4积分，加缓冲 0.5
+  
+  // 智谱模型
+  'zhipu-turbo': 0.2,    // GLM-3-Turbo: ¥0.001/1K → 0.1积分，加缓冲 0.2
+  'zhipu-flash': 0.2,    // GLM-4-Flash: ¥0.001/1K → 0.1积分，加缓冲 0.2
+  'zhipu-4': 10,         // GLM-4: ¥0.1/1K → 10积分
+  zhipu: 0.3,            // 默认智谱（GLM-5等中等模型）: 0.3积分
   
   // 国际模型（未来支持）
-  'openai-gpt35': 0.4,    // ¥0.004/1K tokens
-  'openai-gpt4': 25,      // ¥0.25/1K tokens
-  anthropic: 20,          // ¥0.20/1K tokens
+  'openai-gpt35': 0.4,   // GPT-3.5: ¥0.004/1K → 0.4积分
+  'openai-gpt4': 25,     // GPT-4: ¥0.25/1K → 25积分
+  anthropic: 20,         // Claude: ¥0.20/1K → 20积分
 };
 
 // 免费用户每日额度
