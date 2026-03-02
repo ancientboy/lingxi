@@ -382,8 +382,14 @@ export default router;
 
 // 按 provider 分类的积分消耗率（积分/1K tokens）
 const CREDIT_RATES = {
-  aliyun: 1,      // 1 积分/1K tokens
-  zhipu: 1.5      // 1.5 积分/1K tokens
+  // 国产模型（1积分 ≈ ¥0.01）
+  aliyun: 0.8,      // ¥0.008/1K tokens
+  zhipu: 10,        // ¥0.10/1K tokens (GLM-4)
+  
+  // 国际模型（未来支持）
+  'openai-gpt35': 0.4,    // ¥0.004/1K tokens
+  'openai-gpt4': 25,      // ¥0.25/1K tokens
+  anthropic: 20,          // ¥0.20/1K tokens
 };
 
 // 免费用户每日额度
