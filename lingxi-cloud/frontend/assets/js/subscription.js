@@ -1,19 +1,17 @@
 /**
  * 订阅管理模块
- * 依赖: chat.js (API_BASE 已定义)
+ * 依赖: chat.js (API_BASE), stripe-payment.js
  */
 
 // 显示订阅弹窗
 window.showSubscription = function() {
   console.log('📊 打开订阅弹窗');
   
-  // 关闭用户菜单
   const dropdown = document.getElementById('userDropdown');
   if (dropdown) dropdown.classList.remove('show');
   const userMenu = document.getElementById('sidebarUserMenu');
   if (userMenu) userMenu.classList.remove('show');
   
-  // 显示弹窗
   const modal = document.getElementById('subscriptionModal');
   if (modal) {
     modal.classList.add('show');
@@ -70,7 +68,6 @@ function renderSubscriptionModal(data) {
   const freeDailyUsed = credits.freeDailyUsed || 0;
   
   if (sub && sub.plan !== 'free') {
-    // 付费用户
     const usedPercent = monthlyQuota > 0 ? Math.round((balance / monthlyQuota) * 100) : 100;
     currentEl.innerHTML = `
       <div class="sub-current-title">
@@ -88,7 +85,6 @@ function renderSubscriptionModal(data) {
     `;
     currentEl.className = 'sub-current';
   } else if (sub && sub.trialUsed) {
-    // 试用用户
     const status = data.trialStatus;
     if (status === 'active') {
       const dailyRemaining = freeDaily - freeDailyUsed;
@@ -117,7 +113,6 @@ function renderSubscriptionModal(data) {
     }
     currentEl.className = 'sub-current free';
   } else {
-    // 未订阅用户
     currentEl.innerHTML = `
       <div class="sub-current-title">
         <i data-lucide="user" class="icon-sm"></i>
@@ -168,7 +163,7 @@ function renderSubscriptionModal(data) {
         <div class="sub-plan-features">
           ${features.map(f => `<div class="sub-plan-feature"><i data-lucide="check" class="icon-xs"></i>${f}</div>`).join('')}
         </div>
-        <button class="sub-plan-btn ${btnClass}" onclick="handleSubscribe('${id}')" ${btnDisabled ? 'disabled' : ''}>${btnText}</button>
+        <button class="sub-plan-btn ${btnClass}" data-plan-id="${id}" data-plan-name="${plan.name}" data-price="${plan.price}" ${btnDisabled ? 'disabled' : ''}>${btnText}</button>
       </div>
     `;
   }).join('');
@@ -178,7 +173,7 @@ function renderSubscriptionModal(data) {
   packsEl.innerHTML = packs.map(pack => {
     const bonusText = pack.bonus > 0 ? `+${Math.round(pack.bonus * 100)}%` : '';
     return `
-      <div class="sub-pack-card" onclick="handleBuyPack('${pack.id}')">
+      <div class="sub-pack-card" data-pack-id="${pack.id}" data-pack-name="${pack.name}" data-price="${pack.price}">
         <div class="sub-pack-name">${pack.name}</div>
         <div class="sub-pack-price">¥${pack.price}</div>
         <div class="sub-pack-credits">${pack.credits.toLocaleString()} 积分</div>
@@ -187,13 +182,57 @@ function renderSubscriptionModal(data) {
     `;
   }).join('');
   
+  // 绑定事件
+  bindPaymentEvents();
+  
   // 重新渲染 Lucide 图标
   if (window.lucide) {
     lucide.createIcons();
   }
 }
 
-// 处理订阅/试用
+// 绑定支付事件
+function bindPaymentEvents() {
+  // 套餐按钮
+  document.querySelectorAll('.sub-plan-btn:not([disabled])').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const planId = this.dataset.planId;
+      const planName = this.dataset.planName;
+      const price = parseInt(this.dataset.price);
+      
+      if (planId === 'free') {
+        // 免费试用，直接调用
+        handleSubscribe(planId);
+      } else if (price > 0) {
+        // 付费套餐，发起支付
+        if (typeof initiateSubscriptionPayment === 'function') {
+          initiateSubscriptionPayment(planId, planName, price);
+        } else {
+          // Stripe 未加载，使用模拟支付
+          handleSubscribe(planId);
+        }
+      }
+    });
+  });
+  
+  // 积分包
+  document.querySelectorAll('.sub-pack-card').forEach(card => {
+    card.addEventListener('click', function() {
+      const packId = this.dataset.packId;
+      const packName = this.dataset.packName;
+      const price = parseInt(this.dataset.price);
+      
+      if (typeof initiateCreditPayment === 'function') {
+        initiateCreditPayment(packId, packName, price);
+      } else {
+        // Stripe 未加载，使用模拟支付
+        handleBuyPack(packId);
+      }
+    });
+  });
+}
+
+// 处理订阅/试用（模拟支付，直接成功）
 window.handleSubscribe = async function(planId) {
   const token = localStorage.getItem('lingxi_token');
   if (!token) return;
@@ -229,7 +268,6 @@ window.handleSubscribe = async function(planId) {
     if (result.success) {
       alert('✅ ' + (result.data?.message || '操作成功'));
       loadSubscriptionData();
-      // 刷新侧边栏积分显示
       if (typeof refreshSidebarCredits === 'function') {
         refreshSidebarCredits();
       }
@@ -245,7 +283,7 @@ window.handleSubscribe = async function(planId) {
   }
 };
 
-// 购买积分包
+// 购买积分包（模拟支付）
 window.handleBuyPack = async function(packId) {
   const token = localStorage.getItem('lingxi_token');
   if (!token) return;
@@ -265,7 +303,6 @@ window.handleBuyPack = async function(packId) {
     if (result.success) {
       alert('✅ ' + (result.data?.message || '充值成功'));
       loadSubscriptionData();
-      // 刷新侧边栏积分显示
       if (typeof refreshSidebarCredits === 'function') {
         refreshSidebarCredits();
       }

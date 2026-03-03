@@ -109,7 +109,9 @@ import userRoutes from './routes/user.js';
 
 // 订阅管理
 import subscriptionRoutes from './routes/subscription.js';
+import stripeRoutes from './routes/stripe.js';
 app.use('/api/subscription', subscriptionRoutes);
+app.use('/api/stripe', stripeRoutes);
 app.use('/api/user', userRoutes);
 
 // 技能库同步定时任务
