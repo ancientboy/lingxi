@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>我的订阅 - 灵犀云</title>
+  <link rel="stylesheet" href="assets/css/chat.css?v=1772456206">
+  <link rel="stylesheet" href="assets/css/dark.css" id="darkTheme" disabled>
+  <style>
+    .subscription-page { max-width: 900px; margin: 0 auto; padding: 24px; }
+    .subscription-header { text-align: center; margin-bottom: 40px; }
+    .subscription-header h1 { font-size: 32px; margin-bottom: 8px; color: #10a37f; }
+    .subscription-header p { color: rgba(255, 255, 255, 0.6); font-size: 14px; }
+    .current-subscription { background: rgba(16, 163, 127, 0.1); border-radius: 16px; padding: 24px; margin-bottom: 32px; border: 1px solid rgba(16, 163, 127, 0.2); }
+    .current-subscription h2 { font-size: 20px; margin-bottom: 16px; color: #10a37f; display: flex; align-items: center; gap: 8px; }
+    .subscription-status { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .status-badge { padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 500; }
+    .status-active { background: rgba(74, 222, 128, 0.2); color: #4ade80; }
+    .status-expired { background: rgba(248, 113, 113, 0.2); color: #f87171; }
+    .status-pending { background: rgba(251, 191, 36, 0.2); color: #fbbf24; }
+    .subscription-info { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+    .info-item { background: rgba(255, 255, 255, 0.05); padding: 16px; border-radius: 12px; }
+    .info-label { font-size: 12px; color: rgba(255, 255, 255, 0.6); margin-bottom: 4px; }
+    .info-value { font-size: 16px; color: #fff; font-weight: 500; }
+    .plan-details { margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.1); }
+    .plan-details ul { list-style: none; padding: 0; margin: 0; }
+    .plan-details li { padding: 8px 0; color: rgba(255, 255, 255, 0.8); display: flex; align-items: center; gap: 8px; }
+    .plan-details li::before { content: '✓'; color: #10a37f; font-weight: bold; }
+    .upgrade-section { margin-bottom: 40px; }
+    .upgrade-section h2 { font-size: 20px; margin-bottom: 20px; color: #fff; }
+    .plans-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; }
+    .plan-card { background: rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 24px; border: 1px solid rgba(255, 255, 255, 0.1); transition: all 0.3s; }
+    .plan-card:hover { border-color: rgba(16, 163, 127, 0.5); transform: translateY(-4px); }
+    .plan-card.recommended { border-color: rgba(16, 163, 127, 0.8); background: rgba(16, 163, 127, 0.05); }
+    .plan-card.recommended::after { content: '推荐'; position: absolute; top: -12px; right: 24px; background: #10a37f; color: #fff; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 500; }
+    .plan-name { font-size: 18px; font-weight: 600; color: #fff; margin-bottom: 8px; }
+    .plan-price { font-size: 32px; font-weight: 700; color: #10a37f; margin-bottom: 16px; }
+    .plan-price span { font-size: 14px; color: rgba(255, 255, 255, 0.6); }
+    .plan-features { margin: 20px 0; }
+    .feature-item { display: flex; align-items: center; gap: 8px; padding: 8px 0; color: rgba(255, 255, 255, 0.8); }
+    .feature-item::before { content: '✓'; color: #10a37f; font-weight: bold; }
+    .subscribe-btn { width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.3s; background: linear-gradient(135deg, #10a37f, #059669); color: #fff; }
+    .subscribe-btn:hover { transform: scale(1.02); }
+    .subscribe-btn.disabled { background: rgba(255, 255, 255, 0.1); cursor: not-allowed; }
+    .credit-packs { background: rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 24px; }
+    .credit-packs h2 { font-size: 20px; margin-bottom: 20px; color: #fff; }
+    .packs-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+    .pack-card { background: rgba(0, 0, 0, 0.2); border-radius: 12px; padding: 16px; text-align: center; transition: all 0.3s; }
+    .pack-card:hover { background: rgba(0, 0, 0, 0.3); }
+    .pack-card:hover .pack-price { color: #10a37f; }
+    .pack-price { font-size: 24px; color: #fff; font-weight: 700; }
+    .pack-credits { font-size: 14px; color: rgba(255, 255, 255, 0.7); margin: 8px 0; }
+    .pack-bonus { font-size: 12px; color: #4ade80; margin: 4px 0; }
+    .buy-btn { width: 100%; padding: 8px; border: 1px solid #10a37f; border-radius: 6px; background: transparent; color: #10a37f; cursor: pointer; transition: all 0.3s; }
+    .buy-btn:hover { background: #10a37f; color: #fff; }
+    .trial-card { background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(234, 179, 8, 0.1)); border: 1px solid rgba(251, 191, 36, 0.3); border-radius: 16px; padding: 24px; margin-bottom: 32px; }
+    .trial-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .trial-icon { width: 48px; height: 48px; background: #fbbf24; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+    .trial-title { font-size: 18px; font-weight: 600; color: #fff; }
+    .trial-desc { color: rgba(255, 255, 255, 0.7); margin-bottom: 16px; }
+    .trial-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px; }
+    .trial-item { background: rgba(0, 0, 0, 0.2); padding: 16px; border-radius: 12px; text-align: center; }
+    .trial-item .number { font-size: 28px; font-weight: 700; color: #fbbf24; }
+    .trial-item .label { font-size: 12px; color: rgba(255, 255, 255, 0.6); }
+    .start-trial-btn { width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #000; }
+    .start-trial-btn:hover { transform: scale(1.02); }
+    .start-trial-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .info-banner { background: rgba(16, 163, 127, 0.1); border-left: 4px solid #10a37f; padding: 16px; margin-bottom: 24px; border-radius: 0 8px 8px 0; }
+    .info-banner h3 { font-size: 16px; color: #10a37f; margin: 0 0 8px 0; }
+    .info-banner p { font-size: 13px; color: rgba(255, 255, 255, 0.7); margin: 0; }
+    @media (max-width: 768px) { .subscription-page { padding: 16px; } .trial-list { grid-template-columns: 1fr; } }
+    .hidden { display: none; }
+  </style>
+</head>
+<body data-page="subscription">
+  <div id="sidebar-container"></div>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+  <main class="main-content" id="mainContent">
+    <div id="navbar-container"></div>
+    <div class="subscription-page">
+      <div class="subscription-header">
+        <h1>💎 我的订阅</h1>
+        <p>管理您的订阅计划和积分</p>
+      </div>
+      <div id="currentSubscriptionContainer"></div>
+      <div id="trialCard" class="trial-card hidden">
+        <div class="trial-header">
+          <div class="trial-icon">免费</div>
+          <div class="trial-title">开始免费试用</div>
+        </div>
+        <div class="trial-desc">新用户专享，3天免费体验，每天 100 积分！</div>
+        <div class="trial-list">
+          <div class="trial-item"><div class="number">3</div><div class="label">天试用期</div></div>
+          <div class="trial-item"><div class="number">100</div><div class="label">积分/天</div></div>
+          <div class="trial-item"><div class="number">免费</div><div class="label">0 元</div></div>
+        </div>
+        <button id="startTrialBtn" class="start-trial-btn" onclick="startTrial()">立即开始试用</button>
+      </div>
+      <div class="upgrade-section">
+        <h2>升级套餐</h2>
+        <div class="plans-grid" id="plansGrid"></div>
+      </div>
+      <div class="credit-packs">
+        <h2>积分充值</h2>
+        <div class="packs-grid" id="packsGrid"></div>
+        <p style="margin-top: 16px; color: rgba(255, 255, 255, 0.5); font-size: 12px;">💡 积分永不过期，订阅用户可叠加使用</p>
+      </div>
+      <div class="info-banner">
+        <h3>ℹ️ 订阅说明</h3>
+        <p>• 订阅套餐按月计费，到期后自动降级为免费版<br>• 充值的积分永久有效，可随时用于对话<br>• 付费用户可享受独享服务器和更多高级功能</p>
+      </div>
+    </div>
+  </main>
+  <script type="module">
+    import { loadSidebar } from '/frontend/components/load-components.js';
+    const API_BASE = window.location.origin;
+    let user = JSON.parse(localStorage.getItem('lingxi_user') || '{}');
+    async function init() {
+      console.log('🚀 订阅页面初始化...');
+      const token = localStorage.getItem('lingxi_token');
+      if (!token) { window.location.href = 'index.html'; return; }
+      await loadComponents();
+      await loadSubscriptionData();
+    }
+    async function loadComponents() {
+      const sidebarContainer = document.getElementById('sidebar-container');
+      if (sidebarContainer) {
+        try {
+          const response = await fetch('/frontend/components/load-components.js');
+          if (response.ok) {
+            const script = document.createElement('script');
+            script.src = '/frontend/components/load-components.js?_=' + Date.now();
+            script.type = 'module';
+            document.head.appendChild(script);
+          }
+        } catch (e) { console.log('加载侧边栏组件失败:', e); }
+      }
+      document.title = '我的订阅 - 灵犀云';
+    }
+    async function loadSubscriptionData() {
+      const token = localStorage.getItem('lingxi_token');
+      try {
+        const response = await fetch('/api/subscription/current', { headers: { 'Authorization': `Bearer ${token}` } });
+        const result = await response.json();
+        if (result.success) { renderSubscription(result.data); }
+        else { console.error('获取订阅数据失败:', result.error); showErrorMessage(result.error); }
+      } catch (error) { console.error('获取订阅数据失败:', error); showErrorMessage('网络错误，请稍后重试'); }
+    }
+    function renderSubscription(data) {
+      const currentSubscriptionContainer = document.getElementById('currentSubscriptionContainer');
+      const trialCard = document.getElementById('trialCard');
+      const plansGrid = document.getElementById('plansGrid');
+      const packsGrid = document.getElementById('packsGrid');
+      
+      if (data.subscription) {
+        const subscription = data.subscription;
+        const subscriptionStatus = data.trialStatus;
+        const remainingDays = data.remainingDays;
+        let statusBadge = '', statusClass = '';
+        if (subscriptionStatus === 'active') { statusBadge = '试用中'; statusClass = 'status-active'; }
+        else if (subscriptionStatus === 'expired') { statusBadge = '已过期'; statusClass = 'status-expired'; }
+        else if (subscriptionStatus === 'pending') { statusBadge = '待开始'; statusClass = 'status-pending'; }
+        let planName = subscription.planName || '免费体验';
+        let planLevel = subscription.plan || 'free';
+        let priceDisplay = '';
+        if (planLevel === 'free') { priceDisplay = '免费试用'; }
+        else { const planData = data.plans[planLevel]; priceDisplay = planData ? '¥' + planData.price + '/月' : '未知套餐'; }
+        let creditsDisplay = '';
+        if (planLevel === 'free') { creditsDisplay = '每日 100 积分（已用：' + (data.credits?.freeDailyUsed || 0) + '）'; }
+        else { creditsDisplay = (planData?.credits || 0) + ' 积分/月'; }
+        let serverInfo = '';
+        if (data.server) { serverInfo = '<div class="info-item"><div class="info-label">服务器</div><div class="info-value">' + (data.server.type === 'dedicated' ? '独享服务器' : '共享服务器') + ' (' + data.server.ip + ')</div></div>'; }
+        let featuresList = '';
+        if (planData?.features) {
+          const features = planData.features;
+          if (features.models === 'all') { featuresList += '<li>全部模型可用</li>'; }
+          else { featuresList += '<li>基础模型可用</li>'; }
+          if (features.historyDays > 0) { featuresList += '<li>历史记录 ' + features.historyDays + ' 天</li>'; }
+          if (features.channels > 0) { featuresList += '<li>' + features.channels + ' 个飞书通道</li>'; }
+        }
+        currentSubscriptionContainer.innerHTML = '<div class="current-subscription"><h2><i data-lucide="credit-card" class="icon-sm icon-primary"></i>当前套餐</h2><div class="subscription-status"><div><div class="plan-name">' + planName + '</div><div class="plan-price">' + priceDisplay + '</div></div><div class="status-badge ' + statusClass + '">' + statusBadge + '</div></div><div class="info-item" style="margin-bottom: 16px;"><div class="info-label">套餐详情</div><div class="info-value">' + creditsDisplay + '</div></div><div class="subscription-info"><div class="info-item"><div class="info-label">有效期</div><div class="info-value">' + subscription.startDate + ' ~ ' + subscription.endDate + (remainingDays > 0 ? ' (' + remainingDays + ' 天后到期)' : '') + '</div></div>' + serverInfo + '</div>' + (featuresList ? '<div class="plan-details"><h3>套餐包含</h3><ul>' + featuresList + '</ul></div>' : '') + '</div>';
+        if (subscriptionStatus === 'expired' || subscriptionStatus === 'not-started') { trialCard.classList.remove('hidden'); }
+        else { trialCard.classList.add('hidden'); }
+      } else {
+        currentSubscriptionContainer.innerHTML = '<div class="current-subscription"><h2><i data-lucide="credit-card" class="icon-sm icon-primary"></i>当前套餐</h2><div class="subscription-status"><div><div class="plan-name">免费体验版</div><div class="plan-price">0 元/月</div></div><div class="status-badge status-pending">未订阅</div></div><div class="info-item"><div class="info-label">积分余额</div><div class="info-value">0</div></div><p style="color: rgba(255,255,255,0.6); margin-top: 16px;">欢迎使用灵犀云！请开通订阅以享受更多功能。</p></div>';
+        trialCard.classList.remove('hidden');
+      }
+      renderPlansGrid(data.plans, data.subscription);
+      renderPacksGrid(data.creditPacks);
+      if (window.lucide) lucide.createIcons();
+    }
+    function renderPlansGrid(plans, currentSubscription) {
+      const plansGrid = document.getElementById('plansGrid');
+      plansGrid.innerHTML = Object.entries(plans).map(([planId, plan]) => {
+        const isCurrent = currentSubscription && currentSubscription.plan === planId;
+        const isRecommended = planId === 'lite';
+        return '<div class="plan-card ' + (isRecommended ? 'recommended' : '') + '"><div class="plan-name">' + plan.name + '</div><div class="plan-price">¥' + plan.price + '<span>/月</span></div><div class="plan-features"><div class="feature-item">积分: ' + (plan.credits || 0) + '</div><div class="feature-item">服务器: ' + (plan.serverType === 'dedicated' ? '独享' : '共享') + '</div><div class="feature-item">模型: ' + (plan.features?.models === 'all' ? '全部' : '基础') + '</div></div><button class="subscribe-btn ' + (isCurrent ? 'disabled' : '') + '" onclick="subscribeToPlan(\'' + planId + '\')" ' + (isCurrent ? 'disabled' : '') + '>' + (isCurrent ? '当前套餐' : '订阅') + '</button></div>';
+      }).join('');
+    }
+    function renderPacksGrid(packs) {
+      const packsGrid = document.getElementById('packsGrid');
+      packsGrid.innerHTML = packs.map(pack => {
+        const bonusPercent = pack.bonus * 100;
+        const bonusText = bonusPercent > 0 ? '赠送 ' + bonusPercent.toFixed(0) + '%' : '';
+        return '<div class="pack-card"><div class="pack-name">' + pack.name + '</div><div class="pack-price">¥' + pack.price + '</div><div class="pack-credits">' + pack.credits.toLocaleString() + ' 积分</div>' + (bonusText ? '<div class="pack-bonus">+' + bonusText + '</div>' : '') + '<button class="buy-btn" onclick="buyCreditPack(\'' + pack.id + '\')">立即购买</button></div>';
+      }).join('');
+    }
+    async function startTrial() {
+      const token = localStorage.getItem('lingxi_token');
+      const btn = document.getElementById('startTrialBtn');
+      btn.disabled = true;
+      btn.textContent = '开通中...';
+      try {
+        const response = await fetch('/api/subscription/trial', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' } });
+        const result = await response.json();
+        if (result.success) { alert('🎉 试用已开启！\n\n您已获得 3 天免费试用期，每天 100 积分！'); await loadSubscriptionData(); }
+        else { alert('❌ ' + result.error); btn.disabled = false; btn.textContent = '立即开始试用'; }
+      } catch (error) { alert('网络错误: ' + error.message); btn.disabled = false; btn.textContent = '立即开始试用'; }
+    }
+    async function subscribeToPlan(planId) {
+      const token = localStorage.getItem('lingxi_token');
+      try {
+        const response = await fetch('/api/subscription/subscribe', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ planId }) });
+        const result = await response.json();
+        if (result.success) { alert('💰 ' + result.message); await loadSubscriptionData(); }
+        else { alert('❌ ' + result.error); }
+      } catch (error) { alert('网络错误: ' + error.message); }
+    }
+    async function buyCreditPack(packId) {
+      const token = localStorage.getItem('lingxi_token');
+      try {
+        const response = await fetch('/api/subscription/credit-pack', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ packId }) });
+        const result = await response.json();
+        if (result.success) { alert('💰 ' + result.message); await loadSubscriptionData(); }
+        else { alert('❌ ' + result.error); }
+      } catch (error) { alert('网络错误: ' + error.message); }
+    }
+    function showErrorMessage(message) {
+      document.getElementById('currentSubscriptionContainer').innerHTML = '<div style="text-align: center; padding: 40px;"><i data-lucide="alert-circle" style="width: 48px; height: 48px; color: #f87171; margin-bottom: 16px;"></i><p style="color: #f87171;">' + message + '</p></div>';
+    }
+    document.addEventListener('DOMContentLoaded', init);
+    window.showSubscription = function() { const dropdown = document.getElementById('userDropdown'); if (dropdown) dropdown.classList.remove('show'); const userMenu = document.getElementById('sidebarUserMenu'); if (userMenu) userMenu.classList.remove('show'); window.location.href = 'subscription.html'; };
+  </script>
+</body>
+</html>

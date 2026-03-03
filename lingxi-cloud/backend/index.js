@@ -106,6 +106,10 @@ import genesRoutes from './routes/genes.js';
 app.use('/api/genes', genesRoutes);
 
 import userRoutes from './routes/user.js';
+
+// 订阅管理
+import subscriptionRoutes from './routes/subscription.js';
+app.use('/api/subscription', subscriptionRoutes);
 app.use('/api/user', userRoutes);
 
 // 技能库同步定时任务
