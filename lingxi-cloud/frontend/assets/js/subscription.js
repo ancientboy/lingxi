@@ -73,11 +73,14 @@ function renderSubscriptionModal(data) {
     // 付费用户
     const usedPercent = monthlyQuota > 0 ? Math.round((balance / monthlyQuota) * 100) : 100;
     currentEl.innerHTML = `
-      <div class="sub-current-title">💎 ${sub.planName || sub.plan}</div>
+      <div class="sub-current-title">
+        <i data-lucide="crown" class="icon-sm"></i>
+        ${sub.planName || sub.plan}
+      </div>
       <div class="sub-current-info">
-        <span>💎 积分余额: ${balance.toLocaleString()} / ${monthlyQuota.toLocaleString()}</span>
-        <span>📅 ${sub.startDate} ~ ${sub.endDate}</span>
-        <span>⏰ ${data.remainingDays || 0} 天后到期</span>
+        <span><i data-lucide="coins" class="icon-xs"></i> 积分余额: ${balance.toLocaleString()} / ${monthlyQuota.toLocaleString()}</span>
+        <span><i data-lucide="calendar" class="icon-xs"></i> ${sub.startDate} ~ ${sub.endDate}</span>
+        <span><i data-lucide="clock" class="icon-xs"></i> ${data.remainingDays || 0} 天后到期</span>
       </div>
       <div class="sub-progress-bar">
         <div class="sub-progress-fill" style="width: ${usedPercent}%"></div>
@@ -90,18 +93,24 @@ function renderSubscriptionModal(data) {
     if (status === 'active') {
       const dailyRemaining = freeDaily - freeDailyUsed;
       currentEl.innerHTML = `
-        <div class="sub-current-title">🎁 免费试用中</div>
+        <div class="sub-current-title">
+          <i data-lucide="gift" class="icon-sm"></i>
+          免费试用中
+        </div>
         <div class="sub-current-info">
-          <span>💎 积分余额: ${balance.toLocaleString()}</span>
-          <span>📅 今日剩余: ${dailyRemaining} / ${freeDaily}</span>
-          <span>⏰ ${data.remainingDays || 0} 天后到期</span>
+          <span><i data-lucide="coins" class="icon-xs"></i> 积分余额: ${balance.toLocaleString()}</span>
+          <span><i data-lucide="zap" class="icon-xs"></i> 今日剩余: ${dailyRemaining} / ${freeDaily}</span>
+          <span><i data-lucide="clock" class="icon-xs"></i> ${data.remainingDays || 0} 天后到期</span>
         </div>
       `;
     } else {
       currentEl.innerHTML = `
-        <div class="sub-current-title">⚠️ 试用已过期</div>
+        <div class="sub-current-title">
+          <i data-lucide="alert-circle" class="icon-sm"></i>
+          试用已过期
+        </div>
         <div class="sub-current-info">
-          <span>💎 积分余额: ${balance.toLocaleString()}</span>
+          <span><i data-lucide="coins" class="icon-xs"></i> 积分余额: ${balance.toLocaleString()}</span>
           <span>升级套餐继续使用</span>
         </div>
       `;
@@ -110,9 +119,12 @@ function renderSubscriptionModal(data) {
   } else {
     // 未订阅用户
     currentEl.innerHTML = `
-      <div class="sub-current-title">🆓 免费用户</div>
+      <div class="sub-current-title">
+        <i data-lucide="user" class="icon-sm"></i>
+        免费用户
+      </div>
       <div class="sub-current-info">
-        <span>💎 积分余额: ${balance.toLocaleString()}</span>
+        <span><i data-lucide="coins" class="icon-xs"></i> 积分余额: ${balance.toLocaleString()}</span>
         <span>开启 3 天免费试用</span>
       </div>
     `;
@@ -154,7 +166,7 @@ function renderSubscriptionModal(data) {
         <div class="sub-plan-name">${plan.name}</div>
         <div class="sub-plan-price">¥${plan.price}<span>/月</span></div>
         <div class="sub-plan-features">
-          ${features.map(f => `<div class="sub-plan-feature"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>${f}</div>`).join('')}
+          ${features.map(f => `<div class="sub-plan-feature"><i data-lucide="check" class="icon-xs"></i>${f}</div>`).join('')}
         </div>
         <button class="sub-plan-btn ${btnClass}" onclick="handleSubscribe('${id}')" ${btnDisabled ? 'disabled' : ''}>${btnText}</button>
       </div>
@@ -170,10 +182,15 @@ function renderSubscriptionModal(data) {
         <div class="sub-pack-name">${pack.name}</div>
         <div class="sub-pack-price">¥${pack.price}</div>
         <div class="sub-pack-credits">${pack.credits.toLocaleString()} 积分</div>
-        ${bonusText ? `<div class="sub-pack-bonus">${bonusText}</div>` : ''}
+        ${bonusText ? `<div class="sub-pack-bonus"><i data-lucide="trending-up" class="icon-xs"></i>${bonusText}</div>` : ''}
       </div>
     `;
   }).join('');
+  
+  // 重新渲染 Lucide 图标
+  if (window.lucide) {
+    lucide.createIcons();
+  }
 }
 
 // 处理订阅/试用
