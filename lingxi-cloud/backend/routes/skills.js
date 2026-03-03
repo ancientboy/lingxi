@@ -60,10 +60,8 @@ router.get('/library', authenticateUser, async (req, res) => {
   try {
     const userId = req.user.id;
     
-    // 获取用户已安装的技能
-    const db = await getDB();
-    const userSkills = db.userSkills?.[userId] || [];
-    const installedSet = new Set(userSkills);
+    // 获取用户已安装的技能（从用户服务器）
+    const installedSet = await getInstalledSkillsSet(userId);
     
     // 读取本地技能库文件
     const libraryPath = path.join(__dirname, '../skills/library.json');
@@ -83,6 +81,89 @@ router.get('/library', authenticateUser, async (req, res) => {
         }
       }
     }
+    
+    // 添加安装状态
+    const skillsWithStatus = allSkills.map(skill => ({
+      ...skill,
+      installed: installedSet.has(skill.id)
+    }));
+    
+    res.json({
+      source: 'local',
+      timestamp: new Date().toISOString(),
+      skills: skillsWithStatus
+    });
+  } catch (error) {
+    console.error('获取本地技能库失败:', error);
+    res.status(500).json({ 
+      error: '获取本地技能库失败',
+      message: error.message 
+    });
+  }
+});
+
+/**
+ * 获取指定 Agent 的技能列表
+ */
+router.get('/agent/:agentId', authenticateUser, async (req, res) => {
+  const { agentId } = req.params;
+  const userId = req.user.id;
+  
+  try {
+    // 获取用户已安装的技能
+    const installedSet = await getInstalledSkillsSet(userId);
+    
+    // 读取本地技能库文件
+    const libraryPath = path.join(__dirname, '../skills/library.json');
+    const data = await fs.readFile(libraryPath, 'utf-8');
+    const library = JSON.parse(data);
+    
+    // 获取指定 agent 的技能
+    const agentSkills = library[agentId] || [];
+    
+    // 添加安装状态
+    const skillsWithStatus = agentSkills.map(skill => ({
+      ...skill,
+      installed: installedSet.has(skill.id)
+    }));
+    
+    res.json({
+      agentId,
+      total: skillsWithStatus.length,
+      installed: skillsWithStatus.filter(s => s.installed).length,
+      skills: skillsWithStatus
+    });
+  } catch (error) {
+    console.error('获取 Agent 技能失败:', error);
+    res.status(500).json({ 
+      error: '获取 Agent 技能失败',
+      message: error.message 
+    });
+  }
+});
+
+/**
+ * 获取用户已安装的技能 ID 集合
+ */
+async function getInstalledSkillsSet(userId) {
+  const db = await getDB();
+  
+  // 获取用户运行中的服务器
+  const server = db.userServers?.find(s => s.userId === userId && s.status === 'running');
+  
+  if (!server || !server.ip) {
+    return new Set();
+  }
+  
+  // 通过 SSH 获取已安装技能
+  try {
+    const skills = await getInstalledSkillsViaSSH(server.ip);
+    return new Set(skills.map(s => s.id));
+  } catch (e) {
+    console.error('获取已安装技能失败:', e);
+    return new Set();
+  }
+}
     
     // 添加安装状态
     const skillsWithStatus = allSkills.map(skill => ({
