@@ -1,10 +1,12 @@
 /**
  * 订阅管理模块
+ * 依赖: chat.js (API_BASE 已定义)
  */
-const API_BASE = window.location.origin;
 
 // 显示订阅弹窗
-function showSubscription() {
+window.showSubscription = function() {
+  console.log('📊 打开订阅弹窗');
+  
   // 关闭用户菜单
   const dropdown = document.getElementById('userDropdown');
   if (dropdown) dropdown.classList.remove('show');
@@ -12,14 +14,20 @@ function showSubscription() {
   if (userMenu) userMenu.classList.remove('show');
   
   // 显示弹窗
-  document.getElementById('subscriptionModal').classList.add('show');
-  loadSubscriptionData();
-}
+  const modal = document.getElementById('subscriptionModal');
+  if (modal) {
+    modal.classList.add('show');
+    loadSubscriptionData();
+  } else {
+    console.error('找不到 subscriptionModal 元素');
+  }
+};
 
 // 关闭订阅弹窗
-function closeSubscriptionModal() {
-  document.getElementById('subscriptionModal').classList.remove('show');
-}
+window.closeSubscriptionModal = function() {
+  const modal = document.getElementById('subscriptionModal');
+  if (modal) modal.classList.remove('show');
+};
 
 // 加载订阅数据
 async function loadSubscriptionData() {
@@ -47,6 +55,11 @@ function renderSubscriptionModal(data) {
   const currentEl = document.getElementById('subCurrentStatus');
   const plansEl = document.getElementById('subPlansGrid');
   const packsEl = document.getElementById('subPacksGrid');
+  
+  if (!currentEl || !plansEl || !packsEl) {
+    console.error('订阅弹窗元素不存在');
+    return;
+  }
   
   // 渲染当前状态
   const sub = data.subscription;
@@ -146,7 +159,7 @@ function renderSubscriptionModal(data) {
 }
 
 // 处理订阅/试用
-async function handleSubscribe(planId) {
+window.handleSubscribe = async function(planId) {
   const token = localStorage.getItem('lingxi_token');
   if (!token) return;
   
@@ -191,10 +204,10 @@ async function handleSubscribe(planId) {
     btn.disabled = false;
     btn.textContent = originalText;
   }
-}
+};
 
 // 购买积分包
-async function handleBuyPack(packId) {
+window.handleBuyPack = async function(packId) {
   const token = localStorage.getItem('lingxi_token');
   if (!token) return;
   
@@ -219,12 +232,12 @@ async function handleBuyPack(packId) {
   } catch (e) {
     alert('网络错误: ' + e.message);
   }
-}
+};
 
 // 点击弹窗外部关闭
 document.addEventListener('click', (e) => {
   if (e.target.id === 'subscriptionModal') {
-    closeSubscriptionModal();
+    window.closeSubscriptionModal();
   }
 });
 
