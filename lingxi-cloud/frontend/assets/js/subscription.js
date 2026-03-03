@@ -1,0 +1,231 @@
+/**
+ * 订阅管理模块
+ */
+const API_BASE = window.location.origin;
+
+// 显示订阅弹窗
+function showSubscription() {
+  // 关闭用户菜单
+  const dropdown = document.getElementById('userDropdown');
+  if (dropdown) dropdown.classList.remove('show');
+  const userMenu = document.getElementById('sidebarUserMenu');
+  if (userMenu) userMenu.classList.remove('show');
+  
+  // 显示弹窗
+  document.getElementById('subscriptionModal').classList.add('show');
+  loadSubscriptionData();
+}
+
+// 关闭订阅弹窗
+function closeSubscriptionModal() {
+  document.getElementById('subscriptionModal').classList.remove('show');
+}
+
+// 加载订阅数据
+async function loadSubscriptionData() {
+  const token = localStorage.getItem('lingxi_token');
+  if (!token) return;
+  
+  try {
+    const res = await fetch(`${API_BASE}/api/subscription/current`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const result = await res.json();
+    
+    if (result.success) {
+      renderSubscriptionModal(result.data);
+    } else {
+      console.error('获取订阅数据失败:', result.error);
+    }
+  } catch (e) {
+    console.error('加载订阅数据失败:', e);
+  }
+}
+
+// 渲染订阅弹窗
+function renderSubscriptionModal(data) {
+  const currentEl = document.getElementById('subCurrentStatus');
+  const plansEl = document.getElementById('subPlansGrid');
+  const packsEl = document.getElementById('subPacksGrid');
+  
+  // 渲染当前状态
+  const sub = data.subscription;
+  if (sub && sub.plan !== 'free') {
+    currentEl.innerHTML = `
+      <div class="sub-current-title">💎 ${sub.planName || sub.plan}</div>
+      <div class="sub-current-info">
+        <span>📅 ${sub.startDate} ~ ${sub.endDate}</span>
+        <span>💎 ${data.remainingDays || 0} 天后到期</span>
+      </div>
+    `;
+    currentEl.className = 'sub-current';
+  } else if (sub && sub.trialUsed) {
+    const status = data.trialStatus;
+    if (status === 'active') {
+      currentEl.innerHTML = `
+        <div class="sub-current-title">🎁 免费试用中</div>
+        <div class="sub-current-info">
+          <span>💎 每日 100 积分</span>
+          <span>📅 ${data.remainingDays || 0} 天后到期</span>
+        </div>
+      `;
+    } else {
+      currentEl.innerHTML = `
+        <div class="sub-current-title">⚠️ 试用已过期</div>
+        <div class="sub-current-info">
+          <span>升级套餐继续使用</span>
+        </div>
+      `;
+    }
+    currentEl.className = 'sub-current free';
+  } else {
+    currentEl.innerHTML = `
+      <div class="sub-current-title">🆓 免费用户</div>
+      <div class="sub-current-info">
+        <span>开启 3 天免费试用</span>
+      </div>
+    `;
+    currentEl.className = 'sub-current free';
+  }
+  
+  // 渲染套餐卡片
+  const plans = data.plans || {};
+  const currentPlan = sub?.plan || 'none';
+  
+  plansEl.innerHTML = Object.entries(plans).map(([id, plan]) => {
+    const isCurrent = currentPlan === id;
+    const isRecommended = id === 'lite';
+    const features = [];
+    
+    if (plan.credits) features.push(`${plan.credits.toLocaleString()} 积分/月`);
+    else if (plan.dailyCredits) features.push(`每日 ${plan.dailyCredits} 积分`);
+    if (plan.serverType === 'dedicated') features.push('独享服务器');
+    else features.push('共享服务器');
+    if (plan.features?.models === 'all') features.push('全部模型可用');
+    if (plan.features?.historyDays) features.push(`历史记录 ${plan.features.historyDays} 天`);
+    if (plan.features?.channels) features.push(`${plan.features.channels} 个飞书通道`);
+    
+    let btnText = '订阅';
+    let btnClass = '';
+    let btnDisabled = false;
+    
+    if (id === 'free') {
+      btnText = sub?.trialUsed ? '已试用' : '开始试用';
+      btnClass = 'trial';
+      btnDisabled = sub?.trialUsed;
+    } else if (isCurrent) {
+      btnText = '当前套餐';
+      btnDisabled = true;
+    }
+    
+    return `
+      <div class="sub-plan-card ${isCurrent ? 'current' : ''} ${isRecommended && !isCurrent ? 'recommended' : ''}">
+        <div class="sub-plan-name">${plan.name}</div>
+        <div class="sub-plan-price">¥${plan.price}<span>/月</span></div>
+        <div class="sub-plan-features">
+          ${features.map(f => `<div class="sub-plan-feature"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>${f}</div>`).join('')}
+        </div>
+        <button class="sub-plan-btn ${btnClass}" onclick="handleSubscribe('${id}')" ${btnDisabled ? 'disabled' : ''}>${btnText}</button>
+      </div>
+    `;
+  }).join('');
+  
+  // 渲染积分包
+  const packs = data.creditPacks || [];
+  packsEl.innerHTML = packs.map(pack => {
+    const bonusText = pack.bonus > 0 ? `+${Math.round(pack.bonus * 100)}%` : '';
+    return `
+      <div class="sub-pack-card" onclick="handleBuyPack('${pack.id}')">
+        <div class="sub-pack-name">${pack.name}</div>
+        <div class="sub-pack-price">¥${pack.price}</div>
+        <div class="sub-pack-credits">${pack.credits.toLocaleString()} 积分</div>
+        ${bonusText ? `<div class="sub-pack-bonus">${bonusText}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+// 处理订阅/试用
+async function handleSubscribe(planId) {
+  const token = localStorage.getItem('lingxi_token');
+  if (!token) return;
+  
+  const btn = event.target;
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '处理中...';
+  
+  try {
+    let res;
+    if (planId === 'free') {
+      res = await fetch(`${API_BASE}/api/subscription/trial`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+    } else {
+      res = await fetch(`${API_BASE}/api/subscription/subscribe`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ planId })
+      });
+    }
+    
+    const result = await res.json();
+    
+    if (result.success) {
+      alert('✅ ' + (result.data?.message || '操作成功'));
+      loadSubscriptionData();
+    } else {
+      alert('❌ ' + result.error);
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
+  } catch (e) {
+    alert('网络错误: ' + e.message);
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+// 购买积分包
+async function handleBuyPack(packId) {
+  const token = localStorage.getItem('lingxi_token');
+  if (!token) return;
+  
+  try {
+    const res = await fetch(`${API_BASE}/api/subscription/credit-pack`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ packId })
+    });
+    
+    const result = await res.json();
+    
+    if (result.success) {
+      alert('✅ ' + (result.data?.message || '充值成功'));
+      loadSubscriptionData();
+    } else {
+      alert('❌ ' + result.error);
+    }
+  } catch (e) {
+    alert('网络错误: ' + e.message);
+  }
+}
+
+// 点击弹窗外部关闭
+document.addEventListener('click', (e) => {
+  if (e.target.id === 'subscriptionModal') {
+    closeSubscriptionModal();
+  }
+});
+
+console.log('✅ 订阅模块已加载');

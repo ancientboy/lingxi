@@ -4,8 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>灵犀云 - AI 团队</title>
-  <link rel="stylesheet" href="assets/css/chat.css?v=1772456206">
+  <link rel="stylesheet" href="assets/css/chat.css?v=1772520180">
   <link rel="stylesheet" href="assets/css/dark.css" id="darkTheme" disabled>
+  <link rel="stylesheet" href="assets/css/subscription.css">
   <link rel="stylesheet" href="assets/css/skills-tab.css?v=1772456206">
   <!-- Lucide Icons - 使用 cdnjs 备用源 -->
   <script src="assets/libs/lucide.min.js"></script>
@@ -68,6 +69,27 @@
   <main class="main-content" id="mainContent">
     <!-- 导航栏容器 -->
     <div id="navbar-container"></div>
+
+    <!-- 订阅弹窗 -->
+    <div class="modal-overlay" id="subscriptionModal">
+      <div class="modal subscription-modal">
+        <div class="modal-header">
+          <h3><i data-lucide="credit-card" class="icon-sm icon-primary"></i> 升级套餐</h3>
+          <button class="close-btn" onclick="closeSubscriptionModal()">
+            <i data-lucide="x" class="icon-sm"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="sub-current" id="subCurrentStatus"></div>
+          <div class="sub-plans" id="subPlansGrid"></div>
+          <div class="sub-packs-section">
+            <h4>积分充值</h4>
+            <div class="sub-packs" id="subPacksGrid"></div>
+            <p class="sub-packs-note">💡 积分永不过期，可叠加使用</p>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- 团队管理弹窗 -->
     <div class="modal-overlay" id="teamModal">
@@ -1408,10 +1430,11 @@
     checkCheckinStatus();
   </script>
   
-  <script src="assets/js/chat.js?v=1772456206"></script>
+  <script src="assets/js/chat.js?v=1772520180"></script>
 
     <!-- 统一组件加载器 -->
     <script src="components/load-components.js"></script>
   <script src="assets/js/skills-tab.js?v=1772456206"></script>
-  </body>
+    <script src="assets/js/subscription.js?v=1772520164"></script>
+</body>
 </html>
