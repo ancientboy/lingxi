@@ -137,24 +137,38 @@ async function quickGeneratePackage(userId, token, sessionId, releasesDir) {
     }
   }
   
-  // 复制所有技能到用户的 skills 目录
+  // 读取 Agent 核心技能配置
+  const coreSkillsPath = path.join(__dirname, '../skills/agent-core-skills.json');
+  let agentCoreSkills = {};
+  try {
+    agentCoreSkills = JSON.parse(fs.readFileSync(coreSkillsPath, 'utf-8'));
+  } catch (e) {
+    console.warn('无法读取 agent-core-skills.json:', e.message);
+  }
+  
+  // 收集所有 Agent 需要的技能（去重）
+  const allRequiredSkills = new Set();
+  for (const agentSkills of Object.values(agentCoreSkills)) {
+    agentSkills.forEach(s => allRequiredSkills.add(s));
+  }
+  
+  // 复制 Agent 核心技能到用户的 skills 目录
   const localSkillsDir = path.join(process.env.HOME || '/root', '.openclaw', 'workspace', 'skills');
   const packageSkillsDir = path.join(packageDir, '.openclaw', 'workspace', 'skills');
   
-  if (fs.existsSync(localSkillsDir)) {
-    const allSkills = fs.readdirSync(localSkillsDir).filter(f => {
-      const skillPath = path.join(localSkillsDir, f);
-      return fs.statSync(skillPath).isDirectory() && fs.existsSync(path.join(skillPath, 'SKILL.md'));
-    });
+  let copiedCount = 0;
+  for (const skillId of allRequiredSkills) {
+    const srcSkillPath = path.join(localSkillsDir, skillId);
+    const destSkillPath = path.join(packageSkillsDir, skillId);
     
-    console.log(`📦 同步 ${allSkills.length} 个技能...`);
-    for (const skillId of allSkills) {
-      const srcSkillPath = path.join(localSkillsDir, skillId);
-      const destSkillPath = path.join(packageSkillsDir, skillId);
+    if (fs.existsSync(srcSkillPath) && fs.existsSync(path.join(srcSkillPath, 'SKILL.md'))) {
       fs.cpSync(srcSkillPath, destSkillPath, { recursive: true });
+      copiedCount++;
+    } else {
+      console.warn(`  ⚠️ 技能不存在: ${skillId}`);
     }
-    console.log(`  ✅ 已复制 ${allSkills.length} 个技能`);
   }
+  console.log(`📦 已复制 ${copiedCount}/${allRequiredSkills.size} 个核心技能`);
   
   // 生成配置文件
   const configJson = {

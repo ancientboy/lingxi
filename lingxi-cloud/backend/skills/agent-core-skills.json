@@ -1,0 +1,52 @@
+{
+  "coder": [
+    "code-reviewer",
+    "frontend-code-review",
+    "fullstack-developer",
+    "fix"
+  ],
+  "ops": [
+    "crypto-gold-monitor",
+    "crypto-market-data",
+    "healthcheck",
+    "weather"
+  ],
+  "inventor": [
+    "frontend-design",
+    "video-generation",
+    "qwen-image",
+    "evolution"
+  ],
+  "pm": [
+    "task-planner",
+    "tasks",
+    "skill-analyzer",
+    "gembox-skill"
+  ],
+  "noter": [
+    "memory-system",
+    "supermemory",
+    "searxng",
+    "memos",
+    "feishu-smart-doc-writer"
+  ],
+  "media": [
+    "video-frames",
+    "video-generation",
+    "frontend-design",
+    "qwen-image"
+  ],
+  "smart": [
+    "agent-switcher",
+    "smart-spawn",
+    "qveris",
+    "qveris-official",
+    "skill-creator",
+    "tempmail",
+    "find-skills"
+  ],
+  "lingxi": [
+    "memory-system",
+    "agent-switcher"
+  ]
+}
