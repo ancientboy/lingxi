@@ -65,25 +65,35 @@ function renderSubscriptionModal(data) {
   const sub = data.subscription;
   const credits = data.credits || {};
   const balance = credits.balance || 0;
+  const monthlyQuota = credits.monthlyQuota || 0;
+  const freeDaily = credits.freeDaily || 0;
+  const freeDailyUsed = credits.freeDailyUsed || 0;
   
   if (sub && sub.plan !== 'free') {
+    // 付费用户
+    const usedPercent = monthlyQuota > 0 ? Math.round((balance / monthlyQuota) * 100) : 100;
     currentEl.innerHTML = `
       <div class="sub-current-title">💎 ${sub.planName || sub.plan}</div>
       <div class="sub-current-info">
-        <span>💎 积分余额: ${balance.toLocaleString()}</span>
+        <span>💎 积分余额: ${balance.toLocaleString()} / ${monthlyQuota.toLocaleString()}</span>
         <span>📅 ${sub.startDate} ~ ${sub.endDate}</span>
         <span>⏰ ${data.remainingDays || 0} 天后到期</span>
+      </div>
+      <div class="sub-progress-bar">
+        <div class="sub-progress-fill" style="width: ${usedPercent}%"></div>
       </div>
     `;
     currentEl.className = 'sub-current';
   } else if (sub && sub.trialUsed) {
+    // 试用用户
     const status = data.trialStatus;
     if (status === 'active') {
+      const dailyRemaining = freeDaily - freeDailyUsed;
       currentEl.innerHTML = `
         <div class="sub-current-title">🎁 免费试用中</div>
         <div class="sub-current-info">
           <span>💎 积分余额: ${balance.toLocaleString()}</span>
-          <span>📅 每日 100 积分</span>
+          <span>📅 今日剩余: ${dailyRemaining} / ${freeDaily}</span>
           <span>⏰ ${data.remainingDays || 0} 天后到期</span>
         </div>
       `;
@@ -98,6 +108,7 @@ function renderSubscriptionModal(data) {
     }
     currentEl.className = 'sub-current free';
   } else {
+    // 未订阅用户
     currentEl.innerHTML = `
       <div class="sub-current-title">🆓 免费用户</div>
       <div class="sub-current-info">
@@ -134,8 +145,8 @@ function renderSubscriptionModal(data) {
       btnClass = 'trial';
       btnDisabled = sub?.trialUsed;
     } else if (isCurrent) {
-      btnText = '当前套餐';
-      btnDisabled = true;
+      btnText = '续费';
+      btnClass = 'current';
     }
     
     return `

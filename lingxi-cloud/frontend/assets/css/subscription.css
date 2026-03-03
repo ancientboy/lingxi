@@ -320,3 +320,29 @@
 .dark .sub-pack-price {
   color: #fff;
 }
+
+/* 进度条 */
+.sub-progress-bar {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+  margin-top: 12px;
+  overflow: hidden;
+}
+
+.sub-progress-fill {
+  height: 100%;
+  background: #4ade80;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+/* 当前套餐按钮样式 */
+.sub-plan-btn.current {
+  background: #6366f1;
+}
+
+.sub-plan-btn.current:hover {
+  background: #4f46e5;
+}
