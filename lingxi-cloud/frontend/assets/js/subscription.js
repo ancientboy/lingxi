@@ -1,12 +1,10 @@
 /**
- * 订阅管理模块
- * 依赖: chat.js (API_BASE), stripe-payment.js
+ * 订阅管理模块 - 模拟支付模式
+ * 点击订阅直接成功（用于测试）
  */
 
 // 显示订阅弹窗
 window.showSubscription = function() {
-  console.log('📊 打开订阅弹窗');
-  
   const dropdown = document.getElementById('userDropdown');
   if (dropdown) dropdown.classList.remove('show');
   const userMenu = document.getElementById('sidebarUserMenu');
@@ -16,8 +14,6 @@ window.showSubscription = function() {
   if (modal) {
     modal.classList.add('show');
     loadSubscriptionData();
-  } else {
-    console.error('找不到 subscriptionModal 元素');
   }
 };
 
@@ -40,8 +36,6 @@ async function loadSubscriptionData() {
     
     if (result.success) {
       renderSubscriptionModal(result.data);
-    } else {
-      console.error('获取订阅数据失败:', result.error);
     }
   } catch (e) {
     console.error('加载订阅数据失败:', e);
@@ -54,12 +48,8 @@ function renderSubscriptionModal(data) {
   const plansEl = document.getElementById('subPlansGrid');
   const packsEl = document.getElementById('subPacksGrid');
   
-  if (!currentEl || !plansEl || !packsEl) {
-    console.error('订阅弹窗元素不存在');
-    return;
-  }
+  if (!currentEl || !plansEl || !packsEl) return;
   
-  // 渲染当前状态
   const sub = data.subscription;
   const credits = data.credits || {};
   const balance = credits.balance || 0;
@@ -67,6 +57,7 @@ function renderSubscriptionModal(data) {
   const freeDaily = credits.freeDaily || 0;
   const freeDailyUsed = credits.freeDailyUsed || 0;
   
+  // 渲染当前状态
   if (sub && sub.plan !== 'free') {
     const usedPercent = monthlyQuota > 0 ? Math.round((balance / monthlyQuota) * 100) : 100;
     currentEl.innerHTML = `
@@ -137,11 +128,9 @@ function renderSubscriptionModal(data) {
     
     if (plan.credits) features.push(`${plan.credits.toLocaleString()} 积分/月`);
     else if (plan.dailyCredits) features.push(`每日 ${plan.dailyCredits} 积分`);
-    if (plan.serverType === 'dedicated') features.push('独享服务器');
-    else features.push('共享服务器');
+    features.push(plan.serverType === 'dedicated' ? '独享服务器' : '共享服务器');
     if (plan.features?.models === 'all') features.push('全部模型可用');
     if (plan.features?.historyDays) features.push(`历史记录 ${plan.features.historyDays} 天`);
-    if (plan.features?.channels) features.push(`${plan.features.channels} 个飞书通道`);
     
     let btnText = '订阅';
     let btnClass = '';
@@ -163,7 +152,7 @@ function renderSubscriptionModal(data) {
         <div class="sub-plan-features">
           ${features.map(f => `<div class="sub-plan-feature"><i data-lucide="check" class="icon-xs"></i>${f}</div>`).join('')}
         </div>
-        <button class="sub-plan-btn ${btnClass}" data-plan-id="${id}" data-plan-name="${plan.name}" data-price="${plan.price}" ${btnDisabled ? 'disabled' : ''}>${btnText}</button>
+        <button class="sub-plan-btn ${btnClass}" onclick="handleSubscribe('${id}')" ${btnDisabled ? 'disabled' : ''}>${btnText}</button>
       </div>
     `;
   }).join('');
@@ -173,7 +162,7 @@ function renderSubscriptionModal(data) {
   packsEl.innerHTML = packs.map(pack => {
     const bonusText = pack.bonus > 0 ? `+${Math.round(pack.bonus * 100)}%` : '';
     return `
-      <div class="sub-pack-card" data-pack-id="${pack.id}" data-pack-name="${pack.name}" data-price="${pack.price}">
+      <div class="sub-pack-card" onclick="handleBuyPack('${pack.id}')">
         <div class="sub-pack-name">${pack.name}</div>
         <div class="sub-pack-price">¥${pack.price}</div>
         <div class="sub-pack-credits">${pack.credits.toLocaleString()} 积分</div>
@@ -182,57 +171,18 @@ function renderSubscriptionModal(data) {
     `;
   }).join('');
   
-  // 绑定事件
-  bindPaymentEvents();
-  
-  // 重新渲染 Lucide 图标
-  if (window.lucide) {
-    lucide.createIcons();
+  // 模拟支付提示
+  const note = document.createElement('div');
+  note.className = 'sub-test-note';
+  note.innerHTML = '<i data-lucide="info" class="icon-xs"></i> 当前为测试模式，点击订阅直接成功';
+  if (!document.querySelector('.sub-test-note')) {
+    packsEl.parentElement.appendChild(note);
   }
-}
-
-// 绑定支付事件
-function bindPaymentEvents() {
-  // 套餐按钮
-  document.querySelectorAll('.sub-plan-btn:not([disabled])').forEach(btn => {
-    btn.addEventListener('click', function() {
-      const planId = this.dataset.planId;
-      const planName = this.dataset.planName;
-      const price = parseInt(this.dataset.price);
-      
-      if (planId === 'free') {
-        // 免费试用，直接调用
-        handleSubscribe(planId);
-      } else if (price > 0) {
-        // 付费套餐，发起支付
-        if (typeof initiateSubscriptionPayment === 'function') {
-          initiateSubscriptionPayment(planId, planName, price);
-        } else {
-          // Stripe 未加载，使用模拟支付
-          handleSubscribe(planId);
-        }
-      }
-    });
-  });
   
-  // 积分包
-  document.querySelectorAll('.sub-pack-card').forEach(card => {
-    card.addEventListener('click', function() {
-      const packId = this.dataset.packId;
-      const packName = this.dataset.packName;
-      const price = parseInt(this.dataset.price);
-      
-      if (typeof initiateCreditPayment === 'function') {
-        initiateCreditPayment(packId, packName, price);
-      } else {
-        // Stripe 未加载，使用模拟支付
-        handleBuyPack(packId);
-      }
-    });
-  });
+  if (window.lucide) lucide.createIcons();
 }
 
-// 处理订阅/试用（模拟支付，直接成功）
+// 处理订阅（模拟支付）
 window.handleSubscribe = async function(planId) {
   const token = localStorage.getItem('lingxi_token');
   if (!token) return;
@@ -321,4 +271,4 @@ document.addEventListener('click', (e) => {
   }
 });
 
-console.log('✅ 订阅模块已加载');
+console.log('✅ 订阅模块已加载（模拟支付模式）');
