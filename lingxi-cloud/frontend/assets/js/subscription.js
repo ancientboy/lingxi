@@ -63,12 +63,16 @@ function renderSubscriptionModal(data) {
   
   // 渲染当前状态
   const sub = data.subscription;
+  const credits = data.credits || {};
+  const balance = credits.balance || 0;
+  
   if (sub && sub.plan !== 'free') {
     currentEl.innerHTML = `
       <div class="sub-current-title">💎 ${sub.planName || sub.plan}</div>
       <div class="sub-current-info">
+        <span>💎 积分余额: ${balance.toLocaleString()}</span>
         <span>📅 ${sub.startDate} ~ ${sub.endDate}</span>
-        <span>💎 ${data.remainingDays || 0} 天后到期</span>
+        <span>⏰ ${data.remainingDays || 0} 天后到期</span>
       </div>
     `;
     currentEl.className = 'sub-current';
@@ -78,14 +82,16 @@ function renderSubscriptionModal(data) {
       currentEl.innerHTML = `
         <div class="sub-current-title">🎁 免费试用中</div>
         <div class="sub-current-info">
-          <span>💎 每日 100 积分</span>
-          <span>📅 ${data.remainingDays || 0} 天后到期</span>
+          <span>💎 积分余额: ${balance.toLocaleString()}</span>
+          <span>📅 每日 100 积分</span>
+          <span>⏰ ${data.remainingDays || 0} 天后到期</span>
         </div>
       `;
     } else {
       currentEl.innerHTML = `
         <div class="sub-current-title">⚠️ 试用已过期</div>
         <div class="sub-current-info">
+          <span>💎 积分余额: ${balance.toLocaleString()}</span>
           <span>升级套餐继续使用</span>
         </div>
       `;
@@ -95,6 +101,7 @@ function renderSubscriptionModal(data) {
     currentEl.innerHTML = `
       <div class="sub-current-title">🆓 免费用户</div>
       <div class="sub-current-info">
+        <span>💎 积分余额: ${balance.toLocaleString()}</span>
         <span>开启 3 天免费试用</span>
       </div>
     `;
@@ -194,6 +201,10 @@ window.handleSubscribe = async function(planId) {
     if (result.success) {
       alert('✅ ' + (result.data?.message || '操作成功'));
       loadSubscriptionData();
+      // 刷新侧边栏积分显示
+      if (typeof refreshSidebarCredits === 'function') {
+        refreshSidebarCredits();
+      }
     } else {
       alert('❌ ' + result.error);
       btn.disabled = false;
@@ -226,6 +237,10 @@ window.handleBuyPack = async function(packId) {
     if (result.success) {
       alert('✅ ' + (result.data?.message || '充值成功'));
       loadSubscriptionData();
+      // 刷新侧边栏积分显示
+      if (typeof refreshSidebarCredits === 'function') {
+        refreshSidebarCredits();
+      }
     } else {
       alert('❌ ' + result.error);
     }
