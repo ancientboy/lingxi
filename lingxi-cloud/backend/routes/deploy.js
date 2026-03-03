@@ -127,6 +127,7 @@ async function quickGeneratePackage(userId, token, sessionId, releasesDir) {
     fs.mkdirSync(path.join(packageDir, '.openclaw', 'agents', agent), { recursive: true });
   }
   fs.mkdirSync(path.join(packageDir, '.openclaw', 'workspace'), { recursive: true });
+  fs.mkdirSync(path.join(packageDir, '.openclaw', 'workspace', 'skills'), { recursive: true });
   
   // 复制所有 agent 的 SOUL.md
   for (const agent of agents) {
