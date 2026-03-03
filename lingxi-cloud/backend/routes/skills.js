@@ -164,26 +164,6 @@ async function getInstalledSkillsSet(userId) {
     return new Set();
   }
 }
-    
-    // 添加安装状态
-    const skillsWithStatus = allSkills.map(skill => ({
-      ...skill,
-      installed: installedSet.has(skill.id)
-    }));
-    
-    res.json({
-      source: 'local',
-      timestamp: new Date().toISOString(),
-      skills: skillsWithStatus
-    });
-  } catch (error) {
-    console.error('获取本地技能库失败:', error);
-    res.status(500).json({ 
-      error: '获取本地技能库失败',
-      message: error.message 
-    });
-  }
-});
 
 /**
  * 从 ClawHub 获取热门技能
