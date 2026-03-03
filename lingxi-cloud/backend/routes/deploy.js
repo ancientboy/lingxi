@@ -137,6 +137,22 @@ async function quickGeneratePackage(userId, token, sessionId, releasesDir) {
     }
   }
   
+  // 复制核心技能到用户的 skills 目录
+  const coreSkills = ['healthcheck', 'weather', 'searxng', 'crypto-gold-monitor', 'frontend-design'];
+  const localSkillsDir = path.join(process.env.HOME || '/root', '.openclaw', 'workspace', 'skills');
+  const packageSkillsDir = path.join(packageDir, '.openclaw', 'workspace', 'skills');
+  
+  for (const skillId of coreSkills) {
+    const srcSkillPath = path.join(localSkillsDir, skillId);
+    const destSkillPath = path.join(packageSkillsDir, skillId);
+    
+    if (fs.existsSync(srcSkillPath)) {
+      // 递归复制技能目录
+      fs.cpSync(srcSkillPath, destSkillPath, { recursive: true });
+      console.log(`  ✅ 复制技能: ${skillId}`);
+    }
+  }
+  
   // 生成配置文件
   const configJson = {
     "meta": { "lastTouchedVersion": OPENCLAW_VERSION },
