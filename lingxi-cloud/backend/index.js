@@ -30,6 +30,7 @@ expressWs(app);
 // 中间件
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true }));
 
 // 托管前端静态文件（禁用 HTML 缓存）
 app.use(express.static(join(__dirname, '../frontend'), {
@@ -110,8 +111,10 @@ import userRoutes from './routes/user.js';
 // 订阅管理
 import subscriptionRoutes from './routes/subscription.js';
 import stripeRoutes from './routes/stripe.js';
+import alipayRoutes from './routes/alipay.js';
 app.use('/api/subscription', subscriptionRoutes);
 app.use('/api/stripe', stripeRoutes);
+app.use('/api/alipay', alipayRoutes);
 app.use('/api/user', userRoutes);
 
 // 技能库同步定时任务

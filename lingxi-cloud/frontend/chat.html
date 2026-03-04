@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>灵犀云 - AI 团队</title>
   <script src="https://js.stripe.com/v3/"></script>
-  <link rel="stylesheet" href="assets/css/chat.css?v=1772520456">
+  <link rel="stylesheet" href="assets/css/chat.css?v=1772600190">
   <link rel="stylesheet" href="assets/css/dark.css" id="darkTheme" disabled>
   <link rel="stylesheet" href="assets/css/subscription.css">
   <link rel="stylesheet" href="assets/css/stripe-payment.css">
@@ -926,7 +926,24 @@
       </div>
 
       <div class="input-area">
+        <!-- 图片预览区域 -->
+        <div class="image-preview-container" id="imagePreviewContainer">
+          <div class="image-preview-wrapper">
+            <img class="image-preview" id="imagePreview" src="" alt="预览图片">
+            <button class="image-preview-remove" onclick="removeSelectedImage()" title="移除图片">
+              <i data-lucide="x" class="icon-sm"></i>
+            </button>
+          </div>
+        </div>
+        
         <div class="input-wrapper">
+          <button class="voice-btn" id="voiceBtn" onclick="toggleVoiceInput()" title="语音输入">
+            <i data-lucide="mic" class="icon-sm"></i>
+          </button>
+          <button class="image-btn" id="imageBtn" onclick="document.getElementById('imageInput').click()" title="上传图片">
+            <i data-lucide="image" class="icon-sm"></i>
+          </button>
+          <input type="file" id="imageInput" class="image-input" accept="image/*" onchange="handleImageSelect(event)">
           <textarea class="input-field" id="inputField" placeholder="输入消息..." rows="1"></textarea>
           <button class="send-btn" id="sendBtn" onclick="handleSendClick()">
             <i data-lucide="send" class="icon-sm"></i>
@@ -1432,7 +1449,7 @@
     checkCheckinStatus();
   </script>
   
-  <script src="assets/js/chat.js?v=1772520456"></script>
+  <script src="assets/js/chat.js?v=1772600838"></script>
 
     <!-- 统一组件加载器 -->
     <script src="components/load-components.js"></script>

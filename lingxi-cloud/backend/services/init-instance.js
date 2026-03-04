@@ -32,7 +32,7 @@ const AGENTS_CONFIG = {
     },
     "inventor": {
       "name": "紫萱",
-      "model": "alibaba-cloud/glm-5",
+      "model": "zhipu/glm-5",
       "persona": "你是紫萱，天马行空的发明家。擅长创意生成、产品创新、用户体验设计。",
       "enabled": true
     },
@@ -50,7 +50,7 @@ const AGENTS_CONFIG = {
     },
     "media": {
       "name": "音韵",
-      "model": "alibaba-cloud/glm-5",
+      "model": "zhipu/glm-5",
       "persona": "你是音韵，多媒体处理专家。擅长音视频处理、格式转换、媒体分析。",
       "enabled": true
     },
@@ -126,10 +126,10 @@ function generateOpenClawConfig(token, session) {
           "baseUrl": "https://coding.dashscope.aliyuncs.com/v1",
           "api": "openai-completions",
           "models": [
-            { "id": "qwen3.5-plus", "name": "通义千问3.5-Plus", "contextWindow": 262144, "maxTokens": 65536 },
-            { "id": "qwen3-max-2026-01-23", "name": "通义千问3-Max", "contextWindow": 262144, "maxTokens": 65536 },
-            { "id": "qwen3-coder-plus", "name": "通义千问3-Coder", "contextWindow": 262144, "maxTokens": 65536 },
-            { "id": "glm-5", "name": "GLM-5 (智谱)", "contextWindow": 200000, "maxTokens": 8192 }
+            { "id": "qwen3.5-plus", "name": "通义千问3.5-Plus", "input": ["text", "image"], "contextWindow": 262144, "maxTokens": 65536 },
+            { "id": "kimi-k2.5", "name": "Kimi K2.5", "input": ["text", "image"], "contextWindow": 262144, "maxTokens": 65536 },
+            { "id": "qwen3-max-2026-01-23", "name": "通义千问3-Max", "input": ["text", "image"], "contextWindow": 262144, "maxTokens": 65536 },
+            { "id": "qwen3-coder-plus", "name": "通义千问3-Coder", "input": ["text", "image"], "contextWindow": 262144, "maxTokens": 65536 }
           ]
         },
         "zhipu": {
@@ -137,8 +137,8 @@ function generateOpenClawConfig(token, session) {
           "api": "openai-completions",
           "authHeader": true,
           "models": [
-            { "id": "glm-5", "name": "GLM-5", "contextWindow": 200000, "maxTokens": 8192 },
-            { "id": "glm-4-air", "name": "GLM-4-Air", "contextWindow": 128000, "maxTokens": 4096 }
+            { "id": "glm-5", "name": "GLM-5", "input": ["text", "image"], "contextWindow": 200000, "maxTokens": 8192 },
+            { "id": "glm-4-air", "name": "GLM-4-Air", "input": ["text", "image"], "contextWindow": 128000, "maxTokens": 4096 }
           ]
         }
       }

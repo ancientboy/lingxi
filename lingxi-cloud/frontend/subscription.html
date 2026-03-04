@@ -85,16 +85,16 @@
       <div id="currentSubscriptionContainer"></div>
       <div id="trialCard" class="trial-card hidden">
         <div class="trial-header">
-          <div class="trial-icon">免费</div>
-          <div class="trial-title">开始免费试用</div>
+          <div class="trial-icon">🎁</div>
+          <div class="trial-title">领取免费积分</div>
         </div>
-        <div class="trial-desc">新用户专享，3天免费体验，每天 100 积分！</div>
+        <div class="trial-desc">新用户专享，赠送 100 积分体验！</div>
         <div class="trial-list">
-          <div class="trial-item"><div class="number">3</div><div class="label">天试用期</div></div>
-          <div class="trial-item"><div class="number">100</div><div class="label">积分/天</div></div>
-          <div class="trial-item"><div class="number">免费</div><div class="label">0 元</div></div>
+          <div class="trial-item"><div class="number">100</div><div class="label">赠送积分</div></div>
+          <div class="trial-item"><div class="number">∞</div><div class="label">无时间限制</div></div>
+          <div class="trial-item"><div class="number">0</div><div class="label">元</div></div>
         </div>
-        <button id="startTrialBtn" class="start-trial-btn" onclick="startTrial()">立即开始试用</button>
+        <button id="startTrialBtn" class="start-trial-btn" onclick="startTrial()">立即领取积分</button>
       </div>
       <div class="upgrade-section">
         <h2>升级套餐</h2>
@@ -213,9 +213,9 @@
       try {
         const response = await fetch('/api/subscription/trial', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' } });
         const result = await response.json();
-        if (result.success) { alert('🎉 试用已开启！\n\n您已获得 3 天免费试用期，每天 100 积分！'); await loadSubscriptionData(); }
-        else { alert('❌ ' + result.error); btn.disabled = false; btn.textContent = '立即开始试用'; }
-      } catch (error) { alert('网络错误: ' + error.message); btn.disabled = false; btn.textContent = '立即开始试用'; }
+        if (result.success) { alert('🎉 积分已到账！\n\n您已获得 100 积分，开始体验吧！'); await loadSubscriptionData(); }
+        else { alert('❌ ' + result.error); btn.disabled = false; btn.textContent = '立即领取积分'; }
+      } catch (error) { alert('网络错误: ' + error.message); btn.disabled = false; btn.textContent = '立即领取积分'; }
     }
     async function subscribeToPlan(planId) {
       const token = localStorage.getItem('lingxi_token');

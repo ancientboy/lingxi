@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">灵犀云</string>
+    <string name="loading">加载中...</string>
+    <string name="no_internet">网络连接不可用</string>
+    <string name="permission_required">需要权限</string>
+    <string name="voice_input">语音输入</string>
+    <string name="file_selection">选择文件</string>
+</resources>

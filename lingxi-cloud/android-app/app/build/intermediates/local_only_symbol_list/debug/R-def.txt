@@ -1,0 +1,25 @@
+R_DEF: Internal format may change without notice
+local
+color colorAccent
+color colorBackground
+color colorPrimary
+color colorPrimaryDark
+color colorProgress
+color colorText
+drawable ic_launcher_background
+drawable ic_launcher_foreground
+id progressBar
+id webView
+layout activity_main
+mipmap ic_launcher
+string app_name
+string file_selection
+string loading
+string no_internet
+string permission_required
+string voice_input
+style AppTheme
+style AppTheme.NoActionBar
+style ProgressBarStyle
+xml backup_rules
+xml data_extraction_rules

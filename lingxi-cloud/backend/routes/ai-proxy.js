@@ -212,6 +212,36 @@ async function proxyRequest(provider, req, res) {
   const startTime = Date.now();
   const isStream = req.body?.stream === true;
   
+  // ========== 积分预检查 ==========
+  const { getDB } = await import("../utils/db.js");
+  const db = await getDB();
+  const user = db.users.find(u => u.id === userId || u.nickname === userId);
+  
+  if (!user) {
+    return res.status(401).json({ 
+      error: '用户不存在',
+      code: 'USER_NOT_FOUND'
+    });
+  }
+  
+  // 计算可用积分
+  const credits = user.credits || { balance: user.points || 0 };
+  const balance = credits.balance || 0;
+  const freeRemaining = Math.max(0, (credits.freeDaily || 100) - (credits.freeDailyUsed || 0));
+  const totalCredits = balance + freeRemaining;
+  
+  // 积分为0时才拦截
+  if (totalCredits <= 0) {
+    console.log(`[积分检查] ${user.nickname} 积分不足: ${totalCredits}`);
+    return res.status(402).json({
+      error: '积分不足，请订阅或充值以继续',
+      code: 'INSUFFICIENT_CREDITS'
+    });
+  }
+  
+  console.log(`[积分检查] ${user.nickname} 可用积分: ${totalCredits} (余额:${balance}, 免费:${freeRemaining})`);
+  // ========== 积分预检查结束 =========
+
   // 获取可用的后端代理
   const backendProxy = getAvailableProxy();
   

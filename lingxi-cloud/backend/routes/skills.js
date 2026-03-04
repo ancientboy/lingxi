@@ -63,6 +63,22 @@ router.get('/library', authenticateUser, async (req, res) => {
     // 获取用户已安装的技能（从用户服务器）
     const installedSet = await getInstalledSkillsSet(userId);
     
+    // 读取核心技能列表（预装技能）
+    const coreSkillsPath = path.join(__dirname, '../skills/agent-core-skills.json');
+    let coreSkillIds = new Set();
+    try {
+      const coreData = await fs.readFile(coreSkillsPath, 'utf-8');
+      const coreSkills = JSON.parse(coreData);
+      // 把所有 agent 的 core 技能合并到一个 Set
+      for (const agent of Object.keys(coreSkills)) {
+        if (Array.isArray(coreSkills[agent])) {
+          coreSkills[agent].forEach(id => coreSkillIds.add(id));
+        }
+      }
+    } catch (e) {
+      console.warn('读取核心技能列表失败:', e.message);
+    }
+    
     // 读取本地技能库文件
     const libraryPath = path.join(__dirname, '../skills/library.json');
     const data = await fs.readFile(libraryPath, 'utf-8');
@@ -82,10 +98,11 @@ router.get('/library', authenticateUser, async (req, res) => {
       }
     }
     
-    // 添加安装状态
+    // 添加安装状态（已安装 或 核心技能 = 已安装）
     const skillsWithStatus = allSkills.map(skill => ({
       ...skill,
-      installed: installedSet.has(skill.id)
+      installed: installedSet.has(skill.id) || coreSkillIds.has(skill.id),
+      core: coreSkillIds.has(skill.id)
     }));
     
     res.json({

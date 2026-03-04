@@ -443,8 +443,31 @@ function handleWebSocketMessage(data) {
   
   // 错误响应
   if (data.type === 'res' && !data.ok) {
-    const errorMsg = data.error?.message || JSON.stringify(data.error) || '未知错误';
-    console.error('❌ 请求失败:', errorMsg, data);
+    // 检查是否是积分不足错误
+    if (data.error?.code === 'INSUFFICIENT_CREDITS') {
+      console.log('💎 积分不足，弹出订阅窗口');
+      removeTyping();
+      isGenerating = false;
+      currentRunId = null;
+      updateSendButton();
+      
+      // 弹出订阅窗口
+      if (typeof showSubscription === 'function') {
+        showSubscription();
+      } else {
+        addMessage('assistant', '💎 积分不足，请订阅或充值以继续', '灵犀');
+      }
+      return;
+    }
+    
+    // 其他错误
+    const errorMsg = data.error?.message || data.error?.error || '请求失败';
+    console.error('❌ 请求失败:', errorMsg);
+    removeTyping();
+    isGenerating = false;
+    currentRunId = null;
+    updateSendButton();
+    addMessage('assistant', `❌ ${errorMsg}`, '灵犀');
     
     // 如果是认证错误，显示红色状态
     if (errorMsg.includes('auth') || errorMsg.includes('token') || errorMsg.includes('认证')) {
@@ -630,6 +653,108 @@ function renderTeamTags() {
 // ═══════════════════════════════════════════════════════════════
 // 💬 消息模块
 // ═══════════════════════════════════════════════════════════════
+
+// ===== 图片上传功能 =====
+let selectedImage = null;  // 当前选中的图片 { dataUrl, file }
+
+// 处理图片选择
+function handleImageSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  // 检查文件类型
+  if (!file.type.startsWith('image/')) {
+    alert('请选择图片文件');
+    return;
+  }
+  
+  // 检查文件大小（最大 10MB）
+  if (file.size > 10 * 1024 * 1024) {
+    alert('图片大小不能超过 10MB');
+    return;
+  }
+  
+  // 读取图片为 base64
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    selectedImage = {
+      dataUrl: e.target.result,
+      file: file
+    };
+    
+    // 显示预览
+    const previewContainer = document.getElementById('imagePreviewContainer');
+    const previewImg = document.getElementById('imagePreview');
+    const imageBtn = document.getElementById('imageBtn');
+    
+    previewImg.src = e.target.result;
+    previewContainer.classList.add('show');
+    imageBtn.classList.add('has-image');
+    
+    // 重新初始化图标
+    if (window.lucide) lucide.createIcons();
+  };
+  reader.readAsDataURL(file);
+  
+  // 清空 input，允许重复选择同一文件
+  event.target.value = '';
+}
+
+// 移除选中的图片
+function removeSelectedImage() {
+  selectedImage = null;
+  
+  const previewContainer = document.getElementById('imagePreviewContainer');
+  const previewImg = document.getElementById('imagePreview');
+  const imageBtn = document.getElementById('imageBtn');
+  
+  previewContainer.classList.remove('show');
+  previewImg.src = '';
+  imageBtn.classList.remove('has-image');
+}
+
+// 构建带图片的消息内容
+function buildMessageParams(text, image) {
+  console.log('🔧 buildMessageParams 被调用');
+  console.log('  - text 类型:', typeof text, '值:', JSON.stringify(text));
+  console.log('  - image:', image ? '有图片' : '无图片');
+  
+  // 强制转换为字符串
+  const messageText = (text !== undefined && text !== null) ? String(text) : '';
+  
+  const params = {
+    sessionKey: currentSessionKey,
+    message: messageText,  // message 必须是字符串
+    idempotencyKey: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    deliver: false
+  };
+  
+  console.log('🔧 构建的 params:');
+  console.log('  - sessionKey:', params.sessionKey);
+  console.log('  - message 类型:', typeof params.message, '值:', JSON.stringify(params.message));
+  console.log('  - deliver:', params.deliver);
+  
+  // 如果有图片，添加到 attachments
+  if (image && image.dataUrl) {
+    // 提取 base64 数据（去掉 data:image/xxx;base64, 前缀）
+    const matches = image.dataUrl.match(/^data:(image\/[^;]+);base64,(.+)$/);
+    if (matches) {
+      const mimeType = matches[1];
+      const base64Data = matches[2];
+      
+      params.attachments = [{
+        type: 'image',
+        mimeType: mimeType,
+        fileName: image.file?.name || 'image.png',
+        content: base64Data
+      }];
+      console.log('  - attachments:', params.attachments.length, '个图片');
+    }
+  }
+  
+  return params;
+}
+
 function sendMessage() {
   console.log('🔔 sendMessage 被调用, currentSessionKey:', currentSessionKey);
   
@@ -640,11 +765,13 @@ function sendMessage() {
   }
   
   const input = document.getElementById('inputField');
-  const text = input.value.trim();
+  const text = (input && input.value) ? String(input.value).trim() : '';
   console.log('📝 输入文本:', text ? `"${text}"` : '(空)');
+  console.log('📝 text 类型:', typeof text);
   
-  if (!text) {
-    console.log('⚠️ 文本为空，跳过发送');
+  // 允许发送图片或文本，至少要有一种
+  if (!text && !selectedImage) {
+    console.log('⚠️ 文本和图片都为空，跳过发送');
     return;
   }
   
@@ -654,9 +781,14 @@ function sendMessage() {
     welcome.classList.add('hidden');
   }
   
-  addMessage('user', text, user?.nickname || '我');
+  // 显示用户消息（包含图片预览）
+  addMessage('user', selectedImage ? { text, image: selectedImage.dataUrl } : text, user?.nickname || '我');
+  
+  // 清空输入和图片
   input.value = '';
   input.style.height = 'auto';
+  const currentImage = selectedImage;  // 保存当前图片引用
+  removeSelectedImage();
   
   // 通过 WebSocket 发送
   console.log('🔌 WebSocket 状态:', ws ? ws.readyState : 'null', '(OPEN=1)');
@@ -666,23 +798,30 @@ function sendMessage() {
     addTyping();
     
     const reqId = `req_${requestId++}`;
+    const params = buildMessageParams(text, currentImage);
     const req = {
       type: 'req',
       id: reqId,
       method: 'chat.send',
-      params: {
-        sessionKey: currentSessionKey,
-        message: text,
-        idempotencyKey: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        deliver: false
-      }
+      params: params
     };
-    console.log('📤 发送请求:', reqId, 'sessionKey:', currentSessionKey);
+    
+    // 打印完整请求（用于调试）
+    console.log('📤 发送完整请求:');
+    console.log(JSON.stringify(req, null, 2));
+    console.log('📤 请求参数:');
+    console.log('  - sessionKey:', params.sessionKey);
+    console.log('  - message:', params.message);
+    console.log('  - attachments:', params.attachments ? params.attachments.length + '个' : '无');
+    if (params.attachments && params.attachments.length > 0) {
+      console.log('  - 附件详情:', JSON.stringify(params.attachments[0], null, 2));
+    }
+    
     ws.send(JSON.stringify(req));
   } else {
     // WebSocket 未连接，使用 HTTP 代理
     console.log('📡 WebSocket 未连接，使用 HTTP 代理');
-    sendViaHTTP(text);
+    sendViaHTTP(buildMessageParams(text, currentImage).message);
   }
 }
 
@@ -1307,9 +1446,24 @@ function addMessage(role, content, name) {
     ? '<div class="avatar user-avatar"><i data-lucide="user" class="icon-sm"></i></div>'
     : `<div class="avatar">${agentIcon(currentAgent, 'sm')}</div>`;
   
+  // 处理消息内容（支持图片）
+  let bubbleContent = '';
+  if (typeof content === 'object' && content.image) {
+    // 带图片的消息
+    bubbleContent = `
+      <div class="message-image">
+        <img src="${content.image}" alt="上传的图片" style="max-width: 100%; border-radius: 8px; margin-bottom: 8px;">
+      </div>
+      ${content.text ? `<div>${escapeHtml(content.text)}</div>` : ''}
+    `;
+  } else {
+    // 纯文本消息
+    bubbleContent = escapeHtml(content);
+  }
+  
   div.innerHTML = `
     ${avatarHtml}
-    <div class="bubble">${escapeHtml(content)}</div>
+    <div class="bubble">${bubbleContent}</div>
   `;
   
   messages.appendChild(div);
@@ -2940,3 +3094,211 @@ document.addEventListener('click', (e) => {
   }
 });
 
+
+// ===== 语音输入功能 =====
+
+let recognition = null;
+let isRecording = false;
+
+// 初始化语音识别
+function initVoiceRecognition() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (!SpeechRecognition) {
+    console.log('[语音] 浏览器不支持语音识别');
+    const voiceBtn = document.getElementById('voiceBtn');
+    if (voiceBtn) {
+      voiceBtn.style.display = 'none';
+    }
+    return;
+  }
+
+  recognition = new SpeechRecognition();
+  recognition.continuous = true;      // 持续识别
+  recognition.interimResults = true;  // 实时显示结果
+  recognition.lang = 'zh-CN';         // 中文识别
+  recognition.maxAlternatives = 1;    // 只返回最佳结果
+
+  // 实时结果
+  recognition.onresult = (event) => {
+    console.log('[语音] 收到识别结果，resultIndex:', event.resultIndex, 'results数量:', event.results.length);
+    
+    let finalTranscript = '';
+    let interimTranscript = '';
+
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const transcript = event.results[i][0].transcript;
+      console.log('[语音] 结果', i, '- isFinal:', event.results[i].isFinal, '内容:', transcript);
+      
+      if (event.results[i].isFinal) {
+        finalTranscript += transcript;
+      } else {
+        interimTranscript += transcript;
+      }
+    }
+
+    const inputField = document.getElementById('inputField');
+    if (inputField) {
+      // 如果有最终结果，追加到输入框
+      if (finalTranscript) {
+        console.log('[语音] 最终结果:', finalTranscript);
+        inputField.value += finalTranscript;
+        // 触发输入事件，让输入框自动调整高度
+        inputField.dispatchEvent(new Event('input'));
+      }
+      // 如果有临时结果，直接显示在输入框中
+      if (interimTranscript) {
+        console.log('[语音] 临时结果:', interimTranscript);
+        // 在光标位置显示临时结果
+        const currentValue = inputField.value;
+        inputField.value = currentValue + interimTranscript;
+      }
+    } else {
+      console.error('[语音] 找不到输入框元素');
+    }
+  };
+
+  // 错误处理
+  recognition.onerror = (event) => {
+    console.error('[语音] 识别错误:', event.error);
+    if (event.error === 'not-allowed') {
+      alert('请允许浏览器访问麦克风');
+    } else if (event.error === 'no-speech') {
+      console.log('[语音] 未检测到语音');
+    }
+    stopRecording();
+  };
+
+  // 识别结束
+  recognition.onend = () => {
+    console.log('[语音] 识别结束，isRecording:', isRecording);
+    
+    // 不自动重启，让用户手动控制
+    // 如果需要持续录音，用户应该保持点击状态
+    
+    // 重置状态
+    if (!isRecording) {
+      const voiceBtn = document.getElementById('voiceBtn');
+      const inputField = document.getElementById('inputField');
+      
+      if (voiceBtn) {
+        voiceBtn.classList.remove('recording');
+        voiceBtn.innerHTML = '<i data-lucide="mic" class="icon-sm"></i>';
+        if (window.lucide) lucide.createIcons();
+      }
+      
+      if (inputField) {
+        inputField.placeholder = '输入消息...';
+      }
+    }
+  };
+
+  // 开始识别
+  recognition.onstart = () => {
+    console.log('[语音] 识别服务已启动');
+  };
+
+  // 音频开始
+  recognition.onaudiostart = () => {
+    console.log('[语音] 检测到音频输入');
+  };
+
+  // 音频结束
+  recognition.onaudioend = () => {
+    console.log('[语音] 音频输入结束');
+  };
+}
+
+// 切换录音状态
+function toggleVoiceInput() {
+  if (!recognition) {
+    alert('您的浏览器不支持语音识别，请使用 Chrome、Edge 或 Safari 浏览器');
+    return;
+  }
+
+  if (isRecording) {
+    stopRecording();
+  } else {
+    startRecording();
+  }
+}
+
+// 开始录音
+function startRecording() {
+  if (!recognition) return;
+
+  try {
+    isRecording = true;
+    
+    // 检查是否已经在运行
+    if (recognition.running) {
+      console.log('[语音] 语音识别已在运行');
+      return;
+    }
+    
+    recognition.start();
+
+    const voiceBtn = document.getElementById('voiceBtn');
+    const inputField = document.getElementById('inputField');
+
+    if (voiceBtn) {
+      voiceBtn.classList.add('recording');
+      voiceBtn.innerHTML = '<i data-lucide="mic-off" class="icon-sm"></i>';
+      if (window.lucide) lucide.createIcons();
+    }
+
+    if (inputField) {
+      inputField.placeholder = '正在录音，请说话...';
+    }
+
+    console.log('[语音] 开始录音');
+  } catch (e) {
+    console.error('[语音] 启动失败:', e.message);
+    isRecording = false;
+    // 重置按钮状态
+    const voiceBtn = document.getElementById('voiceBtn');
+    if (voiceBtn) {
+      voiceBtn.classList.remove('recording');
+      voiceBtn.innerHTML = '<i data-lucide="mic" class="icon-sm"></i>';
+      if (window.lucide) lucide.createIcons();
+    }
+  }
+}
+
+// 停止录音
+function stopRecording() {
+  if (!recognition) return;
+
+  isRecording = false;
+  
+  try {
+    recognition.stop();
+  } catch (e) {
+    console.error('[语音] 停止失败:', e.message);
+  }
+
+  const voiceBtn = document.getElementById('voiceBtn');
+  const inputField = document.getElementById('inputField');
+
+  if (voiceBtn) {
+    voiceBtn.classList.remove('recording');
+    voiceBtn.innerHTML = '<i data-lucide="mic" class="icon-sm"></i>';
+    if (window.lucide) lucide.createIcons();
+  }
+
+  if (inputField) {
+    inputField.placeholder = '输入消息...';
+    // 清除临时文本
+    inputField.removeAttribute('data-interim');
+  }
+
+  console.log('[语音] 停止录音');
+}
+
+// 页面加载时初始化语音识别
+document.addEventListener('DOMContentLoaded', () => {
+  initVoiceRecognition();
+});
+
+// 导出函数
+window.toggleVoiceInput = toggleVoiceInput;

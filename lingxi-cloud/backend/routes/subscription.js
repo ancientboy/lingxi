@@ -127,7 +127,7 @@ router.get('/current', authMiddleware, async (req, res) => {
 });
 
 /**
- * 开始免费试用
+ * 领取免费积分
  * POST /api/subscription/trial
  */
 router.post('/trial', authMiddleware, async (req, res) => {
@@ -140,36 +140,27 @@ router.post('/trial', authMiddleware, async (req, res) => {
       return res.status(404).json({ success: false, error: '用户不存在' });
     }
     
-    // 检查是否已使用过试用
+    // 检查是否已使用过免费积分
     if (user.subscription && user.subscription.trialUsed) {
       return res.status(400).json({ 
         success: false, 
-        error: '您已经使用过免费试用，无法再次开通' 
+        error: '您已经领取过免费积分' 
       });
     }
     
-    const today = new Date().toISOString().split('T')[0];
-    const endDate = new Date();
-    endDate.setDate(endDate.getDate() + 3); // 3天试用期
-    
-    // 更新用户订阅状态
+    // 标记已使用
     user.subscription = {
       plan: 'free',
       planName: 'Free',
-      startDate: today,
-      endDate: endDate.toISOString().split('T')[0],
-      trialUsed: true,
-      autoRenew: false
+      status: 'active',
+      startDate: new Date().toISOString().split('T')[0],
+      trialUsed: true
     };
     
-    // 初始化积分系统（试用没有 balance，只有每日免费额度）
-    if (!user.credits) user.credits = {};
-    user.credits.balance = user.credits.balance || 0; // 保留已有余额
-    user.credits.monthlyQuota = 0;
-    user.credits.trialStart = today;
-    user.credits.lastDailyReset = today;
-    user.credits.freeDaily = 100;
-    user.credits.freeDailyUsed = 0;
+    // 初始化积分系统（赠送 100 积分）
+    if (!user.credits) user.credits = { balance: 0 };
+    user.credits.balance += 100;  // 直接加 100 积分
+    user.points = user.credits.balance;
     
     // 设置为共享服务器
     user.server = {
@@ -181,7 +172,7 @@ router.post('/trial', authMiddleware, async (req, res) => {
     
     await saveDB(db);
     
-    console.log(`[订阅] ${user.nickname} 开始免费试用 3 天`);
+    console.log(`[订阅] ${user.nickname} 领取免费积分 100`);
     
     res.json({
       success: true,
@@ -189,11 +180,11 @@ router.post('/trial', authMiddleware, async (req, res) => {
         subscription: user.subscription,
         server: user.server,
         credits: user.credits,
-        message: '试用已开启！享受 3 天免费体验，每日 100 积分'
+        message: '已赠送 100 积分，开始体验吧！'
       }
     });
   } catch (error) {
-    console.error('开启试用失败:', error);
+    console.error('领取免费积分失败:', error);
     res.status(500).json({ success: false, error: '服务器错误' });
   }
 });

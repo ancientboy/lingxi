@@ -140,6 +140,20 @@ export function setupWebSocketProxy(app) {
       
       ws.on('message', (data) => {
         try {
+          // 记录客户端发来的消息
+          const msgStr = data.toString();
+          const msgPreview = msgStr.substring(0, 500);
+          console.log(`📤 [${userId?.substring(0, 8)}] 客户端消息:`, msgPreview);
+          
+          // 检查是否是 chat.send 且有 attachments
+          try {
+            const msg = JSON.parse(msgStr);
+            if (msg.method === 'chat.send' && msg.params?.attachments) {
+              console.log(`📎 [${userId?.substring(0, 8)}] 发送附件:`, msg.params.attachments.length, '个');
+              console.log(`   附件类型:`, msg.params.attachments.map(a => a.type).join(', '));
+            }
+          } catch (e) {}
+          
           if (targetWs && targetWs.readyState === WebSocket.OPEN) {
             targetWs.send(data);
           }
