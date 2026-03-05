@@ -45,7 +45,7 @@ android {
         applicationId "com.lingxi.lingxicloud"
         // You can update the following values to match your application needs.
         // For more information, see: https://docs.flutter.dev/deployment/android#reviewing-the-gradle-build-configuration.
-        minSdkVersion flutter.minSdkVersion
+        minSdkVersion 23
         targetSdkVersion flutter.targetSdkVersion
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
@@ -53,8 +53,9 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+            // 启用代码混淆，减小 APK 大小
+            minifyEnabled true
+            shrinkResources true
             signingConfig signingConfigs.debug
         }
     }

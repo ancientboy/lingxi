@@ -4,6 +4,7 @@ class Message {
   final String role;
   final DateTime createdAt;
   final String? agentId;
+  final String? imageUrl;
   final Map<String, dynamic>? metadata;
 
   Message({
@@ -12,6 +13,7 @@ class Message {
     required this.role,
     DateTime? createdAt,
     this.agentId,
+    this.imageUrl,
     this.metadata,
   }) : createdAt = createdAt ?? DateTime.now();
 
@@ -22,6 +24,7 @@ class Message {
       role: json['role']?.toString() ?? 'user',
       createdAt: _parseDateTime(json['created_at'] ?? json['createdAt']),
       agentId: json['agent_id']?.toString() ?? json['agentId']?.toString(),
+      imageUrl: json['imageUrl']?.toString() ?? json['image_url']?.toString(),
       metadata: json['metadata'] as Map<String, dynamic>?,
     );
   }
@@ -44,6 +47,7 @@ class Message {
       'role': role,
       'created_at': createdAt.toIso8601String(),
       'agent_id': agentId,
+      'imageUrl': imageUrl,
       'metadata': metadata,
     };
   }
@@ -54,6 +58,7 @@ class Message {
     String? role,
     DateTime? createdAt,
     String? agentId,
+    String? imageUrl,
     Map<String, dynamic>? metadata,
   }) {
     return Message(
@@ -62,6 +67,7 @@ class Message {
       role: role ?? this.role,
       createdAt: createdAt ?? this.createdAt,
       agentId: agentId ?? this.agentId,
+      imageUrl: imageUrl ?? this.imageUrl,
       metadata: metadata ?? this.metadata,
     );
   }

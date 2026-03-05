@@ -28,9 +28,10 @@ class AgentSelector extends StatelessWidget {
                 items:
                     chatProvider.availableAgents.map((agent) {
                   return DropdownMenuItem<String>(
-                    value: agent['id'] as String?,
+                    // 安全转换：确保 id 是 String 类型
+                    value: agent['id']?.toString(),
                     child: Text(
-                      agent['name'] as String? ?? 'Unknown',
+                      agent['name']?.toString() ?? 'Unknown',
                       style: TextStyle(
                         color: agent['is_default'] == true
                             ? Constants.primaryColor

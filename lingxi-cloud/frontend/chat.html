@@ -1166,22 +1166,42 @@
       
       console.log('📋 渲染会话项:', session.key, 'isActive:', isActive, 'currentKey:', currentKey);
       
-      // 生成显示名称：优先使用 label，否则用 lastMessage 前15个字
+      // 生成显示名称：优先使用 label，否则从 key 识别 agent
       let displayName = session.label || session.displayName;
+      
+      // 🔧 修复：从 session key 提取 agentId 并显示 agent 名称
       if (!displayName) {
+        // 检查是否是主会话
         if (session.key === 'main' || session.key.endsWith(':main')) {
           displayName = '灵犀（主会话）';
         } else {
-          // 使用 lastMessage 前15个字作为名称
-          const lastMsg = session.lastMessage || session.preview || session.last_message || '';
-          console.log('📋 lastMsg:', lastMsg);
-          if (lastMsg && lastMsg.length > 0) {
-            displayName = lastMsg.substring(0, 15) + (lastMsg.length > 15 ? '...' : '');
+          // 尝试从 key 中提取 agentId（格式: prefix:agent:agentId）
+          const agentMatch = session.key.match(/:agent:([a-z]+)$/);
+          if (agentMatch) {
+            const agentId = agentMatch[1];
+            // 从 AGENT_INFO 获取 agent 名称（如果 chat.js 已加载）
+            const agentInfo = typeof AGENT_INFO !== 'undefined' ? AGENT_INFO[agentId] : null;
+            if (agentInfo) {
+              displayName = agentInfo.name;
+            } else {
+              // 使用 lastMessage 前15个字作为名称
+              const lastMsg = session.lastMessage || session.preview || session.last_message || '';
+              if (lastMsg && lastMsg.length > 0) {
+                displayName = lastMsg.substring(0, 15) + (lastMsg.length > 15 ? '...' : '');
+              } else {
+                displayName = agentId.charAt(0).toUpperCase() + agentId.slice(1); // 首字母大写
+              }
+            }
           } else {
-            // 如果没有消息内容，用时间戳或 key 作为名称
-            displayName = session.updatedAt 
-              ? new Date(session.updatedAt).toLocaleString('zh-CN', {month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'})
-              : '对话';
+            // 非标准格式，使用 lastMessage 或时间戳
+            const lastMsg = session.lastMessage || session.preview || session.last_message || '';
+            if (lastMsg && lastMsg.length > 0) {
+              displayName = lastMsg.substring(0, 15) + (lastMsg.length > 15 ? '...' : '');
+            } else {
+              displayName = session.updatedAt 
+                ? new Date(session.updatedAt).toLocaleString('zh-CN', {month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'})
+                : '对话';
+            }
           }
         }
       }
@@ -1216,6 +1236,30 @@
       // 移动端关闭侧边栏
       if (window.innerWidth <= 768) {
         toggleSidebar();
+      }
+      
+      // 🔧 修复：如果是 agent session，更新 currentAgentId
+      const agentMatch = sessionKey.match(/:agent:([a-z]+)$/);
+      if (agentMatch) {
+        const agentId = agentMatch[1];
+        console.log('🎯 检测到 agent session，更新 currentAgentId:', agentId);
+        
+        // 更新 chat.js 中的 currentAgentId（如果存在）
+        if (typeof currentAgentId !== 'undefined') {
+          currentAgentId = agentId;
+        } else if (typeof window.currentAgentId !== 'undefined') {
+          window.currentAgentId = agentId;
+        }
+        
+        // 更新导航栏图标
+        const agentInfo = typeof AGENT_INFO !== 'undefined' ? AGENT_INFO[agentId] : null;
+        if (agentInfo) {
+          const iconEl = document.getElementById('currentAgentIcon');
+          if (iconEl) {
+            iconEl.setAttribute('data-lucide', agentInfo.icon || 'bot');
+            if (window.lucide) lucide.createIcons();
+          }
+        }
       }
       
       // 调用 chat.js 中的 switchSession 函数
@@ -1449,7 +1493,7 @@
     checkCheckinStatus();
   </script>
   
-  <script src="assets/js/chat.js?v=1772600838"></script>
+  <script src="assets/js/chat.js?v=1772709200"></script>
 
     <!-- 统一组件加载器 -->
     <script src="components/load-components.js"></script>

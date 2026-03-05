@@ -27,34 +27,44 @@ class _HomePageState extends State<HomePage> {
           appBar: AppBar(
             title: Row(
               children: [
-                Icon(Icons.auto_awesome, color: Constants.primaryColor),
-                const SizedBox(width: 8),
-                const Text('灵犀云', style: TextStyle(fontWeight: FontWeight.bold)),
-              ],
-            ),
-            actions: [
-              // 积分显示
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.orange.shade100,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.diamond, size: 16, color: Colors.orange),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${user?.points ?? 0}',
-                      style: const TextStyle(
-                        color: Colors.orange,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
+            Icon(Icons.auto_awesome, color: Constants.primaryColor),
+            const SizedBox(width: 8),
+            const Text('Lume', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          ],
+        ),
+        actions: [
+          // 积分显示 - 点击签到
+          GestureDetector(
+            onTap: () async {
+              // TODO: 实现签到功能
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('签到功能开发中...')),
+              );
+            },
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade100,
+                borderRadius: BorderRadius.circular(16),
               ),
+              child: Row(
+                children: [
+                  const Icon(Icons.diamond, size: 16, color: Colors.orange),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${user?.points ?? 0}',
+                    style: const TextStyle(
+                      color: Colors.orange,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.add_circle_outline, size: 14, color: Colors.orange),
+                ],
+              ),
+            ),
+          ),
               // 菜单
               PopupMenuButton<String>(
                 onSelected: (value) async {
@@ -122,83 +132,6 @@ class _HomePageState extends State<HomePage> {
                 '准备好与你的 AI 团队对话了吗？',
                 style: TextStyle(color: Colors.grey.shade600),
               ),
-              const SizedBox(height: 32),
-
-              // 积分卡片
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xfff59e0b), Color(0xffd97706)],
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('💎 我的积分', style: TextStyle(color: Colors.white70)),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${user?.points ?? 0}',
-                      style: const TextStyle(
-                        fontSize: 36,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          '邀请码: ${user?.userInviteCode ?? "-"}',
-                          style: const TextStyle(color: Colors.white70),
-                        ),
-                        if (user?.userInviteCode != null)
-                          TextButton(
-                            onPressed: () {
-                              // 复制邀请码
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('邀请码已复制')),
-                              );
-                            },
-                            child: const Text('复制', style: TextStyle(color: Colors.white)),
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // 邀请统计
-              if (user?.inviteCount != null && user!.inviteCount > 0)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      Column(
-                        children: [
-                          Text('${user.inviteCount}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                          const Text('已邀请', style: TextStyle(color: Colors.grey)),
-                        ],
-                      ),
-                      Column(
-                        children: [
-                          Text('${user.inviteCount * 100}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                          const Text('获得积分', style: TextStyle(color: Colors.grey)),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
               const SizedBox(height: 32),
 
               // 操作按钮
@@ -384,6 +317,8 @@ class _BrandStoryStreamState extends State<_BrandStoryStream> {
   int _charIndex = 0;
   int _lineIndex = 0;
   bool _done = false;
+  double _scrollOffset = 0;
+  final double _lineHeight = 36.0; // 行高 (fontSize 18 * height 2.0)
 
   // 品牌故事内容（纯文本，逐行输出）
   static const List<String> _brandStoryLines = [
@@ -464,6 +399,8 @@ class _BrandStoryStreamState extends State<_BrandStoryStream> {
     if (_lineIndex >= _brandStoryLines.length) {
       timer.cancel();
       setState(() => _done = true);
+      // 完成后确保最后内容可见
+      _onTypingComplete();
       return;
     }
 
@@ -479,6 +416,8 @@ class _BrandStoryStreamState extends State<_BrandStoryStream> {
       setState(() {
         displayText += '\n';
         _charIndex = 0;
+        // 每完成一行，检查是否需要滚动
+        _updateScrollOffset();
       });
       
       Future.delayed(const Duration(milliseconds: 400), () {
@@ -486,6 +425,50 @@ class _BrandStoryStreamState extends State<_BrandStoryStream> {
           _lineIndex++;
           _timer = Timer.periodic(const Duration(milliseconds: 100), _typeChar);
         }
+      });
+    }
+  }
+  
+  // 更新滚动偏移量
+  void _updateScrollOffset() {
+    // 计算当前文本的行数（通过换行符计数）
+    final lines = displayText.split('\n');
+    final lineCount = lines.length;
+    // 计算文本总高度
+    final textHeight = lineCount * _lineHeight;
+    // 容器高度
+    const containerHeight = 200.0;
+    
+    // 如果文本超出容器，计算滚动偏移
+    if (textHeight > containerHeight) {
+      setState(() {
+        // 滚动到显示最后的内容（保留最后几行可见）
+        // 滚动量 = 文本高度 - 容器高度 + 一行的高度（留一点缓冲）
+        _scrollOffset = (textHeight - containerHeight + _lineHeight).clamp(0.0, double.infinity);
+      });
+    } else {
+      // 文本未超出容器，不滚动
+      if (_scrollOffset > 0) {
+        setState(() {
+          _scrollOffset = 0;
+        });
+      }
+    }
+  }
+  
+  // 完成后确保最后内容可见
+  void _onTypingComplete() {
+    if (!mounted) return;
+    
+    final lines = displayText.split('\n');
+    final lineCount = lines.length;
+    final textHeight = lineCount * _lineHeight;
+    const containerHeight = 200.0;
+    
+    // 最终滚动，确保最后2-3行可见
+    if (textHeight > containerHeight) {
+      setState(() {
+        _scrollOffset = textHeight - containerHeight + _lineHeight;
       });
     }
   }
@@ -500,7 +483,10 @@ class _BrandStoryStreamState extends State<_BrandStoryStream> {
       if (i > 0) {
         spans.add(const TextSpan(
           text: 'Lume',
-          style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: Color(0xFF10A37F),
+            fontWeight: FontWeight.bold,
+          ),
         ));
       }
       spans.add(TextSpan(text: parts[i]));
@@ -508,70 +494,123 @@ class _BrandStoryStreamState extends State<_BrandStoryStream> {
     
     return RichText(
       text: TextSpan(
-        style: const TextStyle(fontSize: 16, height: 1.5, color: Colors.black87),
+        style: const TextStyle(
+          fontSize: 18,
+          height: 2.0,
+          color: Colors.black87,
+          fontWeight: FontWeight.w400,
+          letterSpacing: 0.5,
+        ),
         children: spans,
       ),
-      softWrap: true,
+      textAlign: TextAlign.center,
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(maxHeight: 120),
-      child: Stack(
-        alignment: Alignment.topCenter,
-        children: [
-          // 文本显示区域（120px固定高度，无边框）
-          FittedBox(
-            fit: BoxFit.contain,
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
-                child: _formatText(displayText),
+    return Column(
+      children: [
+        // Lume Logo
+        Container(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF10A37F), Color(0xFF0D8A6A)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF10A37F).withOpacity(0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: const Center(
+                  child: Text(
+                    'L',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
               ),
+              const SizedBox(width: 12),
+              const Text(
+                'Lume',
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF10A37F),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const Text(
+          '硅基生命 为你而来',
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.grey,
+            letterSpacing: 2,
+          ),
+        ),
+        const SizedBox(height: 24),
+        // 品牌故事区域 - 固定高度，滚动显示
+        Container(
+          height: 200,
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: ClipRect(
+            child: Stack(
+              children: [
+                // 可滚动文本
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOut,
+                  transform: Matrix4.translationValues(0, -_scrollOffset, 0),
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: _formatText(displayText),
+                  ),
+                ),
+                // 顶部渐变遮罩
+                if (_scrollOffset > 0)
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: 60,
+                    child: IgnorePointer(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Theme.of(context).scaffoldBackgroundColor,
+                              Theme.of(context).scaffoldBackgroundColor.withOpacity(0),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
-          // 顶部渐变遮罩让旧内容淡出
-          if (!_done)
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              height: 40,
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Theme.of(context).scaffoldBackgroundColor,
-                      Theme.of(context).scaffoldBackgroundColor.withOpacity(0),
-                    ],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  ),
-                ),
-              ),
-            ),
-          // 光标（闪烁）
-          if (!_done)
-            Positioned(
-              bottom: 0,
-              left: 0,
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 4.0),
-                child: AnimatedOpacity(
-                  opacity: _charIndex > 0 ? 1.0 : 0.5,
-                  duration: const Duration(milliseconds: 500),
-                  child: const Text(
-                    '|',
-                    style: TextStyle(color: Colors.black87),
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

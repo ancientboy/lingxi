@@ -117,6 +117,18 @@ app.use('/api/stripe', stripeRoutes);
 app.use('/api/alipay', alipayRoutes);
 app.use('/api/user', userRoutes);
 
+// 图片上传
+import uploadRoutes from './routes/upload.js';
+import speechRoutes from './routes/speech.js';
+app.use('/api/upload', uploadRoutes);
+app.use('/api/speech', speechRoutes);
+
+// 托管上传的图片
+import { fileURLToPath as fileURLToPath2 } from 'url';
+import { dirname as dirname2, join as join2 } from 'path';
+const __dirname2 = dirname2(fileURLToPath2(import.meta.url));
+app.use('/uploads', express.static(join2(__dirname2, '../uploads')));
+
 // 技能库同步定时任务
 import { startCronJob } from './skills/sync-cron.mjs';
 startCronJob('0 0 * * 0'); // 每周日中午12点同步

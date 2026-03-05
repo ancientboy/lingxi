@@ -138,15 +138,18 @@ class ApiService {
   // 获取使用量统计
   Future<Map<String, dynamic>?> getUsageStats() async {
     try {
-      final response = await get('/api/usage/stats');
+      final response = await get('/api/user/usage');
       final data = response.data;
       debugPrint('📊 使用量统计 API 响应: $data');
+      // 后端返回格式: { success: true, data: { credits: {...}, today: {...}, ... } }
       if (data is Map && data['success'] == true && data['data'] != null) {
         return data['data'] as Map<String, dynamic>;
       }
-      if (data is Map) {
-        debugPrint('⚠️ 使用量统计 API 返回失败: ${data['error'] ?? '未知错误'}');
+      // 兼容直接返回数据的情况
+      if (data is Map && data['credits'] != null) {
+        return data as Map<String, dynamic>;
       }
+      debugPrint('⚠️ 使用量统计 API 返回格式异常');
       return null;
     } catch (e) {
       debugPrint('❌ 使用量统计 API 调用异常: $e');
@@ -191,6 +194,39 @@ class ApiService {
       return [];
     } catch (e) {
       return [];
+    }
+  }
+  
+  // ============ 飞书配置 ============
+  
+  Future<Map<String, dynamic>?> getFeishuConfig(String userId) async {
+    try {
+      final response = await get('/api/remote-config/feishu', queryParameters: {'userId': userId});
+      return response.data;
+    } catch (e) {
+      debugPrint('❌ 获取飞书配置失败: $e');
+      return null;
+    }
+  }
+  
+  Future<bool> saveFeishuConfig({
+    required String userId,
+    required String appId,
+    required String appSecret,
+    String? verificationToken,
+  }) async {
+    try {
+      final response = await post('/api/remote-config/feishu', data: {
+        'userId': userId,
+        'appId': appId,
+        'appSecret': appSecret,
+        if (verificationToken != null && verificationToken.isNotEmpty)
+          'verificationToken': verificationToken,
+      });
+      return response.data['success'] == true;
+    } catch (e) {
+      debugPrint('❌ 保存飞书配置失败: $e');
+      return false;
     }
   }
 }

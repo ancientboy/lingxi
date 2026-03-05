@@ -205,14 +205,20 @@ class WebSocketService {
   void _handleMessage(Map<String, dynamic> data) {
     final msgType = _toString(data['type']);
     final msgEvent = _toString(data['event']);
+    final payloadType = data['payload'] is Map ? _toString(data['payload']?['type']) : '';
     
-    debugPrint('📥 收到消息: type=$msgType, event=$msgEvent');
+    debugPrint('📥 收到消息: type=$msgType, event=$msgEvent, payloadType=$payloadType, ok=${data['ok']}');
     
-    if (data['type'] == 'res' && data['ok'] == true && data['payload']?['type'] == 'hello-ok') {
+    // 检测 hello-ok 认证成功（多种格式兼容）
+    final isHelloOk = (data['type'] == 'res' && data['ok'] == true && payloadType == 'hello-ok') ||
+                      (data['type'] == 'event' && msgEvent == 'hello-ok') ||
+                      (data['type'] == 'res' && data['ok'] == true && data['payload']?['hello'] != null);
+    
+    if (isHelloOk) {
       _isConnected = true;
       _isConnecting = false;
       _reconnectAttempts = 0;
-      debugPrint('✅ WebSocket 认证成功');
+      debugPrint('✅ WebSocket 认证成功 (detected via: type=$msgType, event=$msgEvent, payloadType=$payloadType)');
       _notifyListeners({'type': 'connected'});
       return;
     }

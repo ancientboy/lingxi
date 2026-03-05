@@ -191,11 +191,12 @@ async function quickGeneratePackage(userId, token, sessionId, releasesDir) {
           "api": "openai-completions",
           "models": [
             { "id": "qwen3-max-2026-01-23", "name": "通义千问3-Max", "contextWindow": 262144, "maxTokens": 65536 },
-            { "id": "qwen3.5-plus", "name": "通义千问3.5-Plus", "contextWindow": 262144, "maxTokens": 65536 },
+            { "id": "qwen3.5-plus", "name": "通义千问3.5-Plus (推荐)", "contextWindow": 262144, "maxTokens": 65536, "input": ["text", "image"], "recommended": true },
             { "id": "qwen3-coder-next", "name": "Qwen3 Coder Next", "contextWindow": 262144, "maxTokens": 65536 },
             { "id": "qwen3-coder-plus", "name": "Qwen3 Coder Plus", "contextWindow": 262144, "maxTokens": 65536 },
-            { "id": "glm-5", "name": "GLM-5 (百炼)", "contextWindow": 200000, "maxTokens": 8192 },
-            { "id": "kimi-k2.5", "name": "Kimi K2.5 (百炼)", "contextWindow": 200000, "maxTokens": 8192 }
+            { "id": "glm-4-plus", "name": "GLM-4-Plus (视觉)", "contextWindow": 128000, "maxTokens": 8192, "input": ["text", "image"] },
+            { "id": "glm-4.7", "name": "GLM-4.7", "contextWindow": 128000, "maxTokens": 8192 },
+            { "id": "kimi-k2.5", "name": "Kimi K2.5 (百炼)", "contextWindow": 200000, "maxTokens": 8192, "input": ["text", "image"] }
           ]
         }
       }
@@ -204,12 +205,12 @@ async function quickGeneratePackage(userId, token, sessionId, releasesDir) {
       "defaults": {
         "model": {
           "primary": "alibaba-cloud/qwen3.5-plus",
-          "fallbacks": ["alibaba-cloud/qwen3-max-2026-01-23", "alibaba-cloud/glm-5"]
+          "fallbacks": ["alibaba-cloud/qwen3-max-2026-01-23"]
         },
         "workspace": "~/.openclaw/workspace"
       },
       "list": [
-        { "id": "main", "default": true, "name": "灵犀", "agentDir": "~/.openclaw/agents/main", "model": { "primary": "alibaba-cloud/glm-5" }, "subagents": { "allowAgents": ["coder", "ops", "inventor", "pm", "noter", "media", "smart"] } },
+        { "id": "main", "default": true, "name": "灵犀", "agentDir": "~/.openclaw/agents/main", "model": { "primary": "alibaba-cloud/qwen3.5-plus" }, "subagents": { "allowAgents": ["coder", "ops", "inventor", "pm", "noter", "media", "smart"] } },
         { "id": "coder", "name": "云溪", "agentDir": "~/.openclaw/agents/coder", "model": { "primary": "alibaba-cloud/qwen3-coder-next" } },
         { "id": "ops", "name": "若曦", "agentDir": "~/.openclaw/agents/ops", "model": { "primary": "alibaba-cloud/qwen3.5-plus" } },
         { "id": "inventor", "name": "紫萱", "agentDir": "~/.openclaw/agents/inventor", "model": { "primary": "alibaba-cloud/kimi-k2.5" } },

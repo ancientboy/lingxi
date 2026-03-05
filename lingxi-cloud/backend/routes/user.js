@@ -39,6 +39,24 @@ function authMiddleware(req, res, next) {
   }
 }
 
+// 管理员验证中间件
+async function adminMiddleware(req, res, next) {
+  try {
+    const userId = req.user.id;
+    const db = await getDB();
+    const user = db.users.find(u => u.id === userId);
+    
+    if (!user || !user.isAdmin) {
+      return res.status(403).json({ success: false, error: '需要管理员权限' });
+    }
+    
+    req.adminUser = user;
+    next();
+  } catch (err) {
+    return res.status(500).json({ success: false, error: '服务器错误' });
+  }
+}
+
 /**
  * 获取用户使用量统计
  * GET /api/user/usage
@@ -192,6 +210,116 @@ router.get('/credits', authMiddleware, async (req, res) => {
     
   } catch (error) {
     console.error('获取积分失败:', error);
+    res.status(500).json({ success: false, error: '服务器错误' });
+  }
+});
+
+/**
+ * 管理员赠送积分
+ * POST /api/user/gift-credits
+ * Body: { userId: string, points: number, reason: string }
+ */
+router.post('/gift-credits', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { userId, points, reason } = req.body;
+    
+    if (!userId || !points || points <= 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: '参数错误：需要 userId 和正数 points' 
+      });
+    }
+    
+    const db = await getDB();
+    
+    // 支持通过 ID 或昵称查找用户
+    const targetUser = db.users.find(u => 
+      u.id === userId || u.nickname === userId || u.id.includes(userId)
+    );
+    
+    if (!targetUser) {
+      return res.status(404).json({ success: false, error: '用户不存在' });
+    }
+    
+    const today = new Date().toISOString();
+    const giftReason = reason || '管理员赠送';
+    
+    // 1. 初始化 credits（如果不存在）
+    if (!targetUser.credits) {
+      targetUser.credits = {
+        balance: targetUser.points || 0,
+        freeDaily: FREE_DAILY_CREDITS,
+        freeDailyUsed: 0,
+        lastDailyReset: new Date().toISOString().split('T')[0]
+      };
+    }
+    
+    // 2. 更新 credits.balance
+    targetUser.credits.balance += points;
+    
+    // 3. 同步 points 字段
+    targetUser.points = targetUser.credits.balance;
+    
+    // 4. 添加历史记录
+    if (!targetUser.pointsHistory) {
+      targetUser.pointsHistory = [];
+    }
+    targetUser.pointsHistory.push({
+      type: 'earn',
+      points: points,
+      reason: giftReason,
+      balance: targetUser.credits.balance,
+      time: today,
+      adminId: req.user.id
+    });
+    
+    // 5. 保存
+    await saveDB(db);
+    
+    console.log(`[赠送积分] ${req.adminUser.nickname} -> ${targetUser.nickname}: +${points} (${giftReason})`);
+    
+    res.json({
+      success: true,
+      data: {
+        userId: targetUser.id,
+        nickname: targetUser.nickname,
+        pointsAdded: points,
+        newBalance: targetUser.credits.balance,
+        reason: giftReason
+      }
+    });
+    
+  } catch (error) {
+    console.error('赠送积分失败:', error);
+    res.status(500).json({ success: false, error: '服务器错误' });
+  }
+});
+
+/**
+ * 管理员查询所有用户积分
+ * GET /api/user/admin/credits
+ */
+router.get('/admin/credits', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const db = await getDB();
+    const today = new Date().toISOString().split('T')[0];
+    
+    const users = db.users.map(u => {
+      const credits = u.credits || { balance: u.points || 0, freeDaily: 100, freeDailyUsed: 0 };
+      return {
+        id: u.id,
+        nickname: u.nickname,
+        balance: credits.balance,
+        freeRemaining: credits.freeDaily - (credits.freeDailyUsed || 0),
+        total: credits.balance + (credits.freeDaily - (credits.freeDailyUsed || 0)),
+        lastLogin: u.lastLoginAt
+      };
+    });
+    
+    res.json({ success: true, data: users });
+    
+  } catch (error) {
+    console.error('查询用户积分失败:', error);
     res.status(500).json({ success: false, error: '服务器错误' });
   }
 });

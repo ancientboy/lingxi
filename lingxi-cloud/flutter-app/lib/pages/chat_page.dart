@@ -10,7 +10,11 @@ import 'package:lingxicloud/services/websocket_service.dart';
 import 'package:lingxicloud/services/api_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:record/record.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
@@ -28,19 +32,105 @@ class _ChatPageState extends State<ChatPage> {
   String _wsStatus = '连接中...';
   String _wsError = '';
   List<Message> _messages = [];
+  
+  // 语音识别（录音 + 后端阿里云识别）
+  final _audioRecorder = AudioRecorder();
+  bool _isListening = false;
+  bool _speechEnabled = true;  // 始终可用（后端处理）
+  String _lastWords = '';
+  bool _showVoiceInput = false;  // 是否显示语音输入模式
+  String? _recordingPath;  // 录音文件路径
   bool _isGenerating = false;
+  int _queuePosition = 0;  // 队列位置
+  int _queueTotal = 0;  // 队列总数
+  // 待发送的图片
+  String? _pendingImageBase64;
+  String? _pendingImageMimeType;
+  String? _pendingImageName;
   List<Map<String, dynamic>> _sessions = [];
   String? _currentSessionKey;
 
-  final _agents = {
-    'lingxi': {'name': '灵犀', 'icon': Icons.auto_awesome, 'role': '总管'},
-    'coder': {'name': '云溪', 'icon': Icons.code, 'role': '编程'},
-    'ops': {'name': '若曦', 'icon': Icons.bar_chart, 'role': '运维'},
-    'inventor': {'name': '紫萱', 'icon': Icons.lightbulb, 'role': '发明'},
-    'pm': {'name': '梓萱', 'icon': Icons.track_changes, 'role': '产品'},
-    'noter': {'name': '晓琳', 'icon': Icons.note, 'role': '笔记'},
-    'media': {'name': '音韵', 'icon': Icons.palette, 'role': '媒体'},
-    'smart': {'name': '智家', 'icon': Icons.home, 'role': '智家'},
+  final Map<String, Map<String, dynamic>> _agents = {
+    'lingxi': {
+      'name': '灵犀',
+      'icon': Icons.auto_awesome,
+      'role': '队长 · 智能调度',
+      'examples': [
+        {'text': '帮我安排明天的日程', 'desc': '日程规划'},
+        {'text': '提醒我下午3点开会', 'desc': '设置提醒'},
+        {'text': '这个任务应该派给谁？', 'desc': '智能调度'},
+      ],
+    },
+    'coder': {
+      'name': '云溪',
+      'icon': Icons.code,
+      'role': '编程开发',
+      'examples': [
+        {'text': '帮我写一个 Python 爬虫', 'desc': '代码生成'},
+        {'text': '这段代码有什么问题？', 'desc': '代码审查'},
+        {'text': '设计一个用户登录 API', 'desc': 'API 设计'},
+      ],
+    },
+    'ops': {
+      'name': '若曦',
+      'icon': Icons.bar_chart,
+      'role': '数据分析',
+      'examples': [
+        {'text': '分析一下这周的用户增长数据', 'desc': '数据分析'},
+        {'text': '给我一个 SEO 优化方案', 'desc': 'SEO 优化'},
+        {'text': '如何提高用户留存率？', 'desc': '增长策略'},
+      ],
+    },
+    'inventor': {
+      'name': '紫萱',
+      'icon': Icons.lightbulb,
+      'role': '创意发明',
+      'examples': [
+        {'text': '写一个产品宣传文案', 'desc': '文案创作'},
+        {'text': '给我的小红书账号想个选题', 'desc': '内容策划'},
+        {'text': '设计一个营销活动方案', 'desc': '活动策划'},
+      ],
+    },
+    'pm': {
+      'name': '梓萱',
+      'icon': Icons.track_changes,
+      'role': '产品经理',
+      'examples': [
+        {'text': '帮我写一个产品需求文档', 'desc': '需求分析'},
+        {'text': '设计一个用户注册流程', 'desc': '流程设计'},
+        {'text': '这个功能如何设计更好？', 'desc': '产品建议'},
+      ],
+    },
+    'noter': {
+      'name': '晓琳',
+      'icon': Icons.note,
+      'role': '笔记整理',
+      'examples': [
+        {'text': '翻译这段话成英文', 'desc': '翻译服务'},
+        {'text': '帮我整理一下今天的会议笔记', 'desc': '笔记整理'},
+        {'text': '搜索一下 AI Agent 的最新进展', 'desc': '信息检索'},
+      ],
+    },
+    'media': {
+      'name': '音韵',
+      'icon': Icons.palette,
+      'role': '媒体设计',
+      'examples': [
+        {'text': '生成一张科幻风格的封面图', 'desc': 'AI 绘图'},
+        {'text': '写一个短视频脚本', 'desc': '剧本创作'},
+        {'text': '设计一张海报', 'desc': '设计建议'},
+      ],
+    },
+    'smart': {
+      'name': '智家',
+      'icon': Icons.home,
+      'role': '智能家居',
+      'examples': [
+        {'text': '写一个自动备份脚本', 'desc': '脚本编写'},
+        {'text': '如何批量重命名文件？', 'desc': '效率工具'},
+        {'text': '帮我设计一个自动化工作流', 'desc': '流程自动化'},
+      ],
+    },
   };
 
   @override
@@ -48,6 +138,9 @@ class _ChatPageState extends State<ChatPage> {
     super.initState();
     
     debugPrint('📋 ChatPage initState 开始');
+    
+    // 初始化语音识别
+    _initSpeech();
     
     // 捕获异步错误
     _loadSessions().catchError((e, stack) {
@@ -77,13 +170,26 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _loadSessions() async {
-    final prefs = await SharedPreferences.getInstance();
-    final sessionsJson = prefs.getString('chat_sessions');
-    if (sessionsJson != null) {
-      final List<dynamic> decoded = json.decode(sessionsJson);
-      setState(() {
-        _sessions = decoded.cast<Map<String, dynamic>>();
-      });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final sessionsJson = prefs.getString('chat_sessions');
+      if (sessionsJson != null && mounted) {
+        final List<dynamic> decoded = json.decode(sessionsJson);
+        setState(() {
+          // 对每个 session 的 key 和 title 进行类型转换，确保是 String 类型
+          _sessions = decoded.map((s) {
+            final map = s is Map ? s as Map<String, dynamic> : <String, dynamic>{};
+            return {
+              'key': map['key']?.toString() ?? '',
+              'title': map['title']?.toString() ?? '新对话',
+              'createdAt': map['createdAt']?.toString(),
+              'updatedAt': map['updatedAt']?.toString(),
+            };
+          }).toList();
+        });
+      }
+    } catch (e, stack) {
+      debugPrint('❌ _loadSessions 异常: $e\nStack: $stack');
     }
   }
 
@@ -96,6 +202,7 @@ class _ChatPageState extends State<ChatPage> {
     final newSession = {
       'key': 'session_${DateTime.now().millisecondsSinceEpoch}',
       'title': '新对话',
+      'agentId': _currentAgent,  // 绑定当前 Agent
       'createdAt': DateTime.now().toIso8601String(),
       'updatedAt': DateTime.now().toIso8601String(),
     };
@@ -108,9 +215,22 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   void _switchSession(String sessionKey) {
+    // 找到对应的会话
+    final session = _sessions.firstWhere(
+      (s) => s['key'] == sessionKey,
+      orElse: () => <String, dynamic>{},
+    );
+    
     setState(() {
       _currentSessionKey = sessionKey;
       _messages.clear();
+      // 恢复会话的 Agent
+      if (session.isNotEmpty && session['agentId'] != null) {
+        final agentId = session['agentId'].toString();
+        if (_agents.containsKey(agentId)) {
+          _currentAgent = agentId;
+        }
+      }
     });
     Navigator.pop(context);
     _loadMessageHistory(sessionKey);
@@ -130,76 +250,123 @@ class _ChatPageState extends State<ChatPage> {
   void _initWebSocket() {
     final ws = WebSocketService();
     
-    // 先清理旧 listener，避免重复注册
-    ws.clearListeners();
+    // 注意：不要在这里 clearListeners()，因为 initState 已经清理过了
+    // 如果在这里再次清理，会把刚添加的 listener 清除掉！
+    
+    // 如果已经连接，直接更新状态
+    if (ws.isConnected) {
+      setState(() {
+        _wsConnected = true;
+        _wsStatus = '已连接';
+      });
+      debugPrint('✅ WebSocket 已连接（复用现有连接）');
+      // 加载会话列表
+      Future.microtask(() async {
+        try {
+          await Future.delayed(const Duration(milliseconds: 300));
+          _loadSessionsFromServer();
+        } catch (e) {
+          debugPrint('❌ 加载会话列表失败: $e');
+        }
+      });
+    }
     
     ws.addListener((data) {
       if (!mounted) return;
       
-      debugPrint('🔔 收到 WebSocket 消息: ${data['type']}');
-      
-      if (data['type'] == 'status') {
-        final status = data['status'];
-        setState(() {
-          _wsConnected = status == 'connected';
-          _wsStatus = status == 'connecting' ? '连接中...' 
-                    : status == 'connected' ? '已连接' 
-                    : status == 'disconnected' ? '已断开' : '连接失败';
-        });
-        return;
-      }
-      
-      if (data['type'] == 'connected') {
-        setState(() {
-          _wsConnected = true;
-          _wsStatus = '已连接';
-        });
-        debugPrint('✅ WebSocket 已连接');
+      try {
+        debugPrint('🔔 收到 WebSocket 消息: ${data['type']}');
         
-        // 异步加载会话，添加错误处理
-        Future.microtask(() async {
-          try {
-            await Future.delayed(const Duration(milliseconds: 500));
-            _loadSessionsFromServer();
-          } catch (e, stack) {
-            debugPrint('❌ 加载会话列表失败: $e\nStack: $stack');
-          }
-        });
-        return;
-      }
-      
-      if (data['type'] == 'error') {
-        setState(() {
-          _wsConnected = false;
-          _wsError = data['error']?.toString() ?? '未知错误';
-          _wsStatus = '连接失败';
-        });
-        debugPrint('❌ WebSocket 错误: ${data['error']}');
-        return;
-      }
-      
-      if (data['type'] == 'res' && data['ok'] == true && data['payload']?['sessions'] != null) {
-        final sessions = data['payload']?['sessions'] as List?;
-        if (sessions != null) {
-          debugPrint('📋 收到 ${sessions.length} 个会话');
+        if (data['type'] == 'status') {
+          final status = data['status'];
           setState(() {
-            _sessions = sessions.map((s) {
-              final map = s is Map ? s as Map<String, dynamic> : {};
-              return {
-                'key': (map['key'] ?? '').toString(),
-                'title': (map['title'] ?? '新对话').toString(),
-                'updatedAt': map['updatedAt'],
-              };
-            }).toList();
-            _sessions.sort((a, b) {
-              final timeA = a['updatedAt'] != null ? (a['updatedAt'] is int ? a['updatedAt'] as int : DateTime.tryParse(a['updatedAt'].toString())?.millisecondsSinceEpoch ?? 0) : 0;
-              final timeB = b['updatedAt'] != null ? (b['updatedAt'] is int ? b['updatedAt'] as int : DateTime.tryParse(b['updatedAt'].toString())?.millisecondsSinceEpoch ?? 0) : 0;
-              return timeB.compareTo(timeA);
-            });
+            _wsConnected = status == 'connected';
+            _wsStatus = status == 'connecting' ? '连接中...' 
+                      : status == 'connected' ? '已连接' 
+                      : status == 'disconnected' ? '已断开' : '连接失败';
           });
+          return;
         }
-        return;
-      }
+        
+        if (data['type'] == 'connected') {
+          // 防止重复处理
+          if (_wsConnected && _wsStatus == '已连接') {
+            debugPrint('🔔 已处理过 connected 事件，跳过');
+            return;
+          }
+          
+          debugPrint('🔔 收到 connected 事件，开始处理');
+          setState(() {
+            _wsConnected = true;
+            _wsStatus = '已连接';
+          });
+          debugPrint('✅ WebSocket 已连接（状态已更新）');
+          
+          // 异步加载会话，添加错误处理
+          Future.microtask(() async {
+            try {
+              debugPrint('🔄 开始加载会话列表...');
+              await Future.delayed(const Duration(milliseconds: 500));
+              _loadSessionsFromServer();
+              debugPrint('✅ 会话列表加载完成');
+            } catch (e, stack) {
+              debugPrint('❌ 加载会话列表失败: $e\nStack: $stack');
+            }
+          });
+          return;
+        }
+        
+        if (data['type'] == 'error') {
+          setState(() {
+            _wsConnected = false;
+            _wsError = data['error']?.toString() ?? '未知错误';
+            _wsStatus = '连接失败';
+          });
+          debugPrint('❌ WebSocket 错误: ${data['error']}');
+          return;
+        }
+        
+        if (data['type'] == 'res' && data['ok'] == true && data['payload']?['sessions'] != null) {
+          final sessions = data['payload']?['sessions'] as List?;
+          if (sessions != null) {
+            debugPrint('📋 收到 ${sessions.length} 个会话');
+            setState(() {
+              _sessions = sessions.map((s) {
+                final map = s is Map ? s as Map<String, dynamic> : {};
+                // 尝试从多个字段获取标题
+                String title = '新对话';
+                if (map['title'] != null && map['title'].toString().isNotEmpty && map['title'].toString() != '新对话') {
+                  title = map['title'].toString();
+                } else if (map['firstMessage'] != null) {
+                  // 从第一条消息获取标题
+                  title = map['firstMessage'].toString();
+                  if (title.length > 30) title = '${title.substring(0, 30)}...';
+                } else if (map['lastMessage'] != null) {
+                  // 从最后一条消息获取标题
+                  title = map['lastMessage'].toString();
+                  if (title.length > 30) title = '${title.substring(0, 30)}...';
+                }
+                
+                return {
+                  'key': (map['key'] ?? '').toString(),
+                  'title': title,
+                  'agentId': map['agentId'] ?? map['agent_id'] ?? 'lingxi',  // 保留 agentId
+                  'updatedAt': map['updatedAt'],
+                };
+              }).toList();
+              _sessions.sort((a, b) {
+                try {
+                  final timeA = a['updatedAt'] != null ? (a['updatedAt'] is int ? a['updatedAt'] as int : DateTime.tryParse(a['updatedAt'].toString())?.millisecondsSinceEpoch ?? 0) : 0;
+                  final timeB = b['updatedAt'] != null ? (b['updatedAt'] is int ? b['updatedAt'] as int : DateTime.tryParse(b['updatedAt'].toString())?.millisecondsSinceEpoch ?? 0) : 0;
+                  return timeB.compareTo(timeA);
+                } catch (e) {
+                  return 0;
+                }
+              });
+            });
+          }
+          return;
+        }
       
       // 处理历史消息响应
       if (data['type'] == 'res' && data['id']?.toString().contains('chat_history') == true) {
@@ -214,12 +381,14 @@ class _ChatPageState extends State<ChatPage> {
                   final map = m is Map ? m as Map<String, dynamic> : {};
                   final messageId = map['id']?.toString() ?? map['runId']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString();
                   final createdAt = _parseDateTime(map['createdAt'] ?? map['created_at']);
+                  // 使用消息自己的 agentId，如果没有则使用当前 Agent
+                  final msgAgentId = map['agentId']?.toString() ?? map['agent_id']?.toString() ?? _currentAgent;
                   return Message(
                     id: messageId,
                     role: _toString(map['role'] ?? 'assistant'),
                     content: _extractText(map) ?? _toString(map['content']),
                     createdAt: createdAt,
-                    agentId: _currentAgent,
+                    agentId: msgAgentId,
                   );
                 }).toList();
               });
@@ -254,6 +423,27 @@ class _ChatPageState extends State<ChatPage> {
         final state = payload['state'];
         final runId = _toString(payload['runId']);
         
+        // 处理队列状态
+        if (state == 'queued') {
+          setState(() {
+            _queuePosition = payload['position'] ?? 1;
+            _queueTotal = payload['total'] ?? 1;
+            _isGenerating = true;
+          });
+          debugPrint('📋 消息已加入队列: $_queuePosition/$_queueTotal');
+          return;
+        }
+        
+        // 处理开始生成
+        if (state == 'start' || state == 'begin') {
+          setState(() {
+            _queuePosition = 0;
+            _queueTotal = 0;
+            _isGenerating = true;
+          });
+          return;
+        }
+        
         if (state == 'delta') {
           final text = _extractText(payload['message']);
           if (text != null && runId != null) {
@@ -280,10 +470,18 @@ class _ChatPageState extends State<ChatPage> {
             _scrollToBottom();
           }
         } else if (state == 'final') {
-          setState(() => _isGenerating = false);
+          setState(() {
+            _isGenerating = false;
+            _queuePosition = 0;
+            _queueTotal = 0;
+          });
+          // 对话完成后刷新用户数据（更新 token 使用量）
+          _refreshUserData();
         } else if (state == 'error') {
           setState(() {
             _isGenerating = false;
+            _queuePosition = 0;
+            _queueTotal = 0;
             _messages.add(Message(
               id: DateTime.now().millisecondsSinceEpoch.toString(),
               role: 'assistant',
@@ -293,6 +491,9 @@ class _ChatPageState extends State<ChatPage> {
             ));
           });
         }
+      }
+      } catch (e, stack) {
+        debugPrint('❌ WebSocket 消息处理异常: $e\nStack: $stack');
       }
     });
     
@@ -345,6 +546,157 @@ class _ChatPageState extends State<ChatPage> {
     });
   }
 
+  // ===== 语音识别功能（录音 + 后端阿里云识别）=====
+  
+  void _initSpeech() async {
+    // 检查麦克风权限
+    bool hasPermission = await _audioRecorder.hasPermission();
+    debugPrint('🎤 麦克风权限: $hasPermission');
+  }
+
+  void _startListening() async {
+    debugPrint('🎤 开始录音...');
+    
+    // 检查权限
+    bool hasPermission = await _audioRecorder.hasPermission();
+    if (!hasPermission) {
+      debugPrint('❌ 没有麦克风权限');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('请授予麦克风权限')),
+        );
+      }
+      return;
+    }
+    
+    try {
+      // 创建录音文件路径
+      final directory = await getTemporaryDirectory();
+      _recordingPath = '${directory.path}/speech_${DateTime.now().millisecondsSinceEpoch}.m4a';
+      
+      // 开始录音
+      await _audioRecorder.start(
+        const RecordConfig(
+          encoder: AudioEncoder.aacLc,
+          sampleRate: 16000,
+          numChannels: 1,
+        ),
+        path: _recordingPath!,
+      );
+      
+      debugPrint('🎤 录音中... path: $_recordingPath');
+      setState(() {
+        _isListening = true;
+        _lastWords = '';
+      });
+      
+    } catch (e) {
+      debugPrint('❌ 录音启动失败: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('录音启动失败: $e')),
+        );
+      }
+    }
+  }
+
+  void _stopListening() async {
+    debugPrint('🎤 停止录音...');
+    
+    try {
+      // 停止录音
+      final path = await _audioRecorder.stop();
+      debugPrint('🎤 录音已保存: $path');
+      
+      setState(() {
+        _isListening = false;
+      });
+      
+      if (path != null && File(path).existsSync()) {
+        // 读取录音文件并转为 base64
+        final bytes = await File(path).readAsBytes();
+        final base64Audio = base64Encode(bytes);
+        
+        debugPrint('🎤 音频大小: ${bytes.length} bytes');
+        
+        // 显示加载提示
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('正在识别...')),
+          );
+        }
+        
+        // 发送到后端识别
+        _recognizeSpeech(base64Audio);
+        
+        // 删除临时文件
+        File(path).delete();
+      } else {
+        debugPrint('❌ 录音文件不存在');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('录音失败，请重试')),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ 停止录音失败: $e');
+      setState(() {
+        _isListening = false;
+      });
+    }
+  }
+  
+  // 调用后端语音识别 API
+  void _recognizeSpeech(String base64Audio) async {
+    try {
+      debugPrint('🎤 发送到后端识别...');
+      
+      final response = await ApiService().post('/api/speech/recognize', data: {
+        'audio': base64Audio,
+        'format': 'm4a',
+      });
+      
+      final data = response.data;
+      debugPrint('🎤 识别响应: ${data.toString().substring(0, (data.toString().length > 200 ? 200 : data.toString().length))}');
+      
+      if (data['success'] == true) {
+        final text = data['data']?['text'] ?? '';
+        debugPrint('🎤 识别结果: $text');
+        
+        if (text.isNotEmpty) {
+          _controller.text = text;
+          // 自动发送
+          _sendMessage();
+          setState(() {
+            _showVoiceInput = false;
+          });
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('未识别到语音内容，请重试')),
+            );
+          }
+        }
+      } else {
+        final error = data['error'] ?? '识别失败';
+        debugPrint('❌ 识别失败: $error');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('识别失败: $error')),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ 识别异常: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('识别失败: $e')),
+        );
+      }
+    }
+  }
+
   void _loadSessionsFromServer() {
     try {
       final ws = WebSocketService();
@@ -356,6 +708,17 @@ class _ChatPageState extends State<ChatPage> {
       ws.sendRequest('sessions.list', {});
     } catch (e, stack) {
       debugPrint('❌ _loadSessionsFromServer 异常: $e\nStack: $stack');
+    }
+  }
+  
+  // 刷新用户数据（更新 token 使用量等）
+  Future<void> _refreshUserData() async {
+    try {
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
+      await appProvider.init();
+      debugPrint('✅ 用户数据已刷新');
+    } catch (e) {
+      debugPrint('❌ 刷新用户数据失败: $e');
     }
   }
 
@@ -390,24 +753,71 @@ class _ChatPageState extends State<ChatPage> {
     super.dispose();
   }
 
+  // 选择图片并显示预览
+  Future<void> _selectImage(XFile file) async {
+    try {
+      // 读取图片文件
+      final bytes = await file.readAsBytes();
+      final base64Image = base64Encode(bytes);
+      
+      // 获取图片MIME类型
+      String mimeType = 'image/jpeg';
+      if (file.path.endsWith('.png')) mimeType = 'image/png';
+      if (file.path.endsWith('.gif')) mimeType = 'image/gif';
+      if (file.path.endsWith('.webp')) mimeType = 'image/webp';
+      
+      // 存储待发送的图片
+      setState(() {
+        _pendingImageBase64 = base64Image;
+        _pendingImageMimeType = mimeType;
+        _pendingImageName = file.name;
+      });
+      
+      debugPrint('✅ 图片已选择，等待发送: ${file.name}, 大小: ${bytes.length} bytes');
+    } catch (e) {
+      debugPrint('❌ 图片选择失败: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('图片选择失败: $e')),
+      );
+    }
+  }
+
+  // 清除待发送的图片
+  void _clearPendingImage() {
+    setState(() {
+      _pendingImageBase64 = null;
+      _pendingImageMimeType = null;
+      _pendingImageName = null;
+    });
+  }
+
   void _sendMessage() {
     final text = _controller.text.trim();
-    if (text.isEmpty || _isGenerating) return;
+    final hasImage = _pendingImageBase64 != null;
+    
+    // 如果没有文字也没有图片，不发送
+    if (text.isEmpty && !hasImage) return;
+    if (_isGenerating) return;
 
     _controller.clear();
     
+    // 构建用户消息
+    final userMessage = Message(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      role: 'user',
+      content: text,
+      imageUrl: hasImage ? 'data:$_pendingImageMimeType;base64,$_pendingImageBase64' : null,
+      createdAt: DateTime.now(),
+      agentId: _currentAgent,
+    );
+    
     setState(() {
-      _messages.add(Message(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        role: 'user',
-        content: text,
-        createdAt: DateTime.now(),
-        agentId: _currentAgent,
-      ));
+      _messages.add(userMessage);
       _isGenerating = true;
       
       if (_messages.length == 1 && _sessions.isNotEmpty) {
-        _sessions[0]['title'] = text.length > 20 ? text.substring(0, 20) + '...' : text;
+        final title = text.isNotEmpty ? text : '[图片]';
+        _sessions[0]['title'] = title.length > 20 ? title.substring(0, 20) + '...' : title;
         _saveSessions();
       }
     });
@@ -416,7 +826,31 @@ class _ChatPageState extends State<ChatPage> {
 
     final ws = WebSocketService();
     if (ws.isConnected) {
-      ws.sendMessage(text, agentId: _currentAgent);
+      // 构建发送参数（与Web版格式一致）
+      final params = <String, dynamic>{
+        'sessionKey': _currentSessionKey,
+        'message': text.isNotEmpty ? text : '请识别这张图片',
+        'idempotencyKey': 'msg_${DateTime.now().millisecondsSinceEpoch}',
+        'deliver': false,
+      };
+      
+      // 如果有图片，添加 attachments（OpenClaw格式）
+      if (hasImage) {
+        // OpenClaw 期望 content 字段，直接传 base64（不带前缀）
+        params['attachments'] = [
+          {
+            'type': 'image',
+            'mimeType': _pendingImageMimeType,
+            'content': _pendingImageBase64,  // 纯 base64，不带 data:xxx;base64, 前缀
+          }
+        ];
+        debugPrint('📎 发送带图片的消息，图片大小: ${_pendingImageBase64!.length} bytes, mimeType: $_pendingImageMimeType');
+      }
+      
+      ws.sendRequest('chat.send', params);
+      
+      // 清除待发送的图片
+      _clearPendingImage();
     } else {
       setState(() {
         _messages.add(Message(
@@ -428,6 +862,7 @@ class _ChatPageState extends State<ChatPage> {
         ));
         _isGenerating = false;
       });
+      _clearPendingImage();
     }
   }
 
@@ -449,6 +884,17 @@ class _ChatPageState extends State<ChatPage> {
     }
     return DateTime.now();
   }
+  
+  // 安全解析百分比（可能是 String 或 num）
+  double _parsePercent(dynamic value) {
+    if (value == null) return 0.0;
+    if (value is num) return value / 100;
+    if (value is String) {
+      final parsed = double.tryParse(value);
+      return (parsed ?? 0) / 100;
+    }
+    return 0.0;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -468,6 +914,34 @@ class _ChatPageState extends State<ChatPage> {
         ),
       );
   }
+  
+  // 错误处理包装器
+  Widget _errorWrapper(Widget child) {
+    return Builder(
+      builder: (context) {
+        try {
+          return child;
+        } catch (e, stack) {
+          debugPrint('🚨 Widget 构建异常: $e\nStack: $stack');
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                const SizedBox(height: 16),
+                Text('加载失败: $e'),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () => setState(() {}),
+                  child: const Text('重试'),
+                ),
+              ],
+            ),
+          );
+        }
+      },
+    );
+  }
 
   PreferredSizeWidget _buildAppBar(bool isWide) {
     final isDarkMode = Provider.of<AppProvider>(context).isDarkMode;
@@ -478,14 +952,15 @@ class _ChatPageState extends State<ChatPage> {
           if (!isWide) _scaffoldKey.currentState?.openDrawer();
         },
       ),
-      title: Row(children: [
-        Icon(Icons.auto_awesome, color: Constants.primaryColor),
-        const SizedBox(width: 8),
-        const Text('灵犀云'),
-      ]),
+      title: _buildAgentSelector(),  // Agent选择器放在中间
+      centerTitle: true,
       actions: [
-        _buildConnectionIndicator(),
-        _buildAgentSelector(),
+        // 状态指示灯
+        Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: _buildConnectionIndicator(),
+        ),
+        // 主题切换
         IconButton(
           icon: Icon(isDarkMode ? Icons.light_mode : Icons.dark_mode),
           onPressed: () {
@@ -499,14 +974,19 @@ class _ChatPageState extends State<ChatPage> {
   Widget _buildConnectionIndicator() {
     final color = _wsConnected ? Colors.green : Colors.orange;
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(color: color.shade100, borderRadius: BorderRadius.circular(12)),
-      child: Row(children: [
-        Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-        const SizedBox(width: 4),
-        Text(_wsStatus, style: TextStyle(color: color, fontSize: 12)),
-      ]),
+      width: 12,
+      height: 12,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.5),
+            blurRadius: 4,
+            spreadRadius: 1,
+          ),
+        ],
+      ),
     );
   }
 
@@ -607,18 +1087,439 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Widget _buildAgentSelector() {
+    // 确保 _currentAgent 在 _agents 中存在
+    final validAgent = _agents.containsKey(_currentAgent) ? _currentAgent : _agents.keys.first;
+    final currentAgentData = _agents[validAgent];
+    
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8),
       child: DropdownButton<String>(
-        value: _currentAgent,
+        value: validAgent,
         underline: const SizedBox(),
+        // 自定义当前选中的显示
+        selectedItemBuilder: (context) => _agents.entries.map((e) {
+          final agent = e.value;
+          final name = _toString(agent['name']);
+          final icon = agent['icon'] as IconData?;
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: 18, color: Constants.primaryColor),
+                const SizedBox(width: 6),
+              ],
+              Text(name),
+            ],
+          );
+        }).toList(),
         items: _agents.entries.map((e) {
           final agent = e.value;
           final name = _toString(agent['name']);
-          return DropdownMenuItem(value: e.key, child: Text(name));
+          final icon = agent['icon'] as IconData?;
+          final role = _toString(agent['role']);
+          return DropdownMenuItem(
+            value: e.key,
+            child: Row(
+              children: [
+                if (icon != null) ...[
+                  Icon(icon, size: 18, color: Constants.primaryColor),
+                  const SizedBox(width: 8),
+                ],
+                Text(name),
+                const SizedBox(width: 8),
+                Text('($role)', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+              ],
+            ),
+          );
         }).toList(),
-        onChanged: (v) => setState(() => _currentAgent = v!),
+        onChanged: (v) {
+          if (v != null && _agents.containsKey(v) && v != _currentAgent) {
+            // 切换Agent时，如果有消息，保存当前会话并创建新会话
+            if (_messages.isNotEmpty) {
+              _saveCurrentSession();
+            }
+            setState(() {
+              _currentAgent = v;
+              _messages = [];  // 清空消息，开始新会话
+            });
+          }
+        },
       ),
+    );
+  }
+
+  // 保存当前会话
+  void _saveCurrentSession() {
+    if (_messages.isEmpty) return;
+    
+    // 生成会话标题
+    final firstUserMsg = _messages.firstWhere((m) => m.role == 'user', orElse: () => _messages.first);
+    String title = firstUserMsg.content;
+    if (title.length > 20) title = '${title.substring(0, 20)}...';
+    
+    // 创建会话记录（使用与其他地方一致的格式）
+    final session = {
+      'key': 'session_${DateTime.now().millisecondsSinceEpoch}',
+      'title': title,
+      'agentId': _currentAgent,
+      'createdAt': DateTime.now().toIso8601String(),
+      'updatedAt': DateTime.now().toIso8601String(),
+      'messageCount': _messages.length,
+    };
+    
+    // 添加到会话列表开头
+    _sessions.insert(0, session);
+    _saveSessions();
+  }
+
+  // 构建欢迎界面和使用示例
+  Widget _buildWelcomeExamples(Map<String, dynamic>? agentInfo, bool isDarkMode) {
+    final agentName = agentInfo?['name']?.toString() ?? 'AI';
+    final agentIcon = agentInfo?['icon'] as IconData?;
+    final examples = (agentInfo?['examples'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+    
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Agent 图标和名称
+            if (agentIcon != null)
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  color: Constants.primaryColor.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(agentIcon, size: 40, color: Constants.primaryColor),
+              ),
+            const SizedBox(height: 16),
+            Text(
+              '开始与 $agentName 对话',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: isDarkMode ? Colors.white : Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              agentInfo?['role']?.toString() ?? '',
+              style: TextStyle(
+                fontSize: 14,
+                color: isDarkMode ? Colors.white54 : Colors.grey,
+              ),
+            ),
+            const SizedBox(height: 32),
+            // 使用示例
+            if (examples.isNotEmpty) ...[
+              Text(
+                '试试这些',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: isDarkMode ? Colors.white70 : Colors.grey.shade700,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                alignment: WrapAlignment.center,
+                children: examples.map((ex) {
+                  return GestureDetector(
+                    onTap: () {
+                      _controller.text = ex['text']?.toString() ?? '';
+                      _sendMessage();
+                    },
+                    child: Container(
+                      constraints: const BoxConstraints(maxWidth: 280),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: isDarkMode ? Colors.white.withOpacity(0.05) : Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isDarkMode ? Colors.white10 : Colors.grey.shade200,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            ex['text']?.toString() ?? '',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: isDarkMode ? Colors.white : Colors.black87,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            ex['desc']?.toString() ?? '',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Constants.primaryColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 构建文本输入区域
+  Widget _buildTextInputArea(bool isDarkMode) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 图片预览区域
+        if (_pendingImageBase64 != null)
+          Container(
+            height: 80,
+            margin: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              children: [
+                // 图片预览
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.memory(
+                    base64Decode(_pendingImageBase64!),
+                    height: 80,
+                    width: 80,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // 图片信息
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        _pendingImageName ?? '图片',
+                        style: TextStyle(
+                          color: isDarkMode ? Colors.white70 : Colors.black54,
+                          fontSize: 12,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '点击发送按钮上传',
+                        style: TextStyle(
+                          color: isDarkMode ? Colors.white54 : Colors.black38,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // 删除按钮
+                IconButton(
+                  icon: Icon(Icons.close, color: Colors.red.shade400, size: 20),
+                  onPressed: _clearPendingImage,
+                ),
+              ],
+            ),
+          ),
+        // 输入行
+        Row(
+          children: [
+            IconButton(
+              icon: Icon(
+                _pendingImageBase64 != null ? Icons.image : Icons.attach_file,
+                color: _pendingImageBase64 != null 
+                    ? Constants.primaryColor 
+                    : (isDarkMode ? const Color(0xFFECECF1) : null),
+              ),
+              onPressed: () async {
+                final picker = ImagePicker();
+                final XFile? file = await picker.pickImage(source: ImageSource.gallery);
+                if (file != null) {
+                  _selectImage(file);
+                }
+              },
+            ),
+            // 语音输入切换按钮
+            IconButton(
+              icon: Icon(
+                Icons.mic,
+                color: isDarkMode ? const Color(0xFFECECF1) : null,
+              ),
+              onPressed: _speechEnabled
+                  ? () {
+                      setState(() {
+                        _showVoiceInput = true;
+                      });
+                    }
+                  : null,
+            ),
+            Expanded(
+              child: TextField(
+                controller: _controller,
+                style: TextStyle(color: isDarkMode ? const Color(0xFFECECF1) : Colors.black87),
+                decoration: InputDecoration(
+                  hintText: _pendingImageBase64 != null ? '添加图片描述（可选）...' : '输入消息...',
+                  hintStyle: TextStyle(color: isDarkMode ? const Color(0xFF6E6E80) : Colors.grey),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
+                  filled: true,
+                  fillColor: isDarkMode ? const Color(0xFF424454) : Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  isDense: true,
+                ),
+                maxLines: null,
+                textInputAction: TextInputAction.send,
+                onSubmitted: (_) => _sendMessage(),
+              ),
+            ),
+            const SizedBox(width: 8),
+            FloatingActionButton(
+              onPressed: _isGenerating ? _abortChat : _sendMessage,
+              backgroundColor: _isGenerating ? Colors.red : Constants.primaryColor,
+              child: Icon(
+                _isGenerating ? Icons.stop : Icons.send,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // 取消对话
+  void _abortChat() {
+    final ws = WebSocketService();
+    if (!ws.isConnected) {
+      debugPrint('⚠️ WebSocket 未连接，无法取消');
+      return;
+    }
+    
+    debugPrint('🛑 发送取消请求');
+    ws.sendRequest('chat.abort', {
+      'sessionKey': _currentSessionKey,
+    });
+    
+    setState(() {
+      _isGenerating = false;
+      _queuePosition = 0;
+      _queueTotal = 0;
+    });
+    
+    // 移除正在输入的提示
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('已取消生成'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+  }
+
+  // 构建语音输入区域
+  Widget _buildVoiceInputArea(bool isDarkMode) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 显示识别中的文字
+        if (_lastWords.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(
+              _lastWords,
+              style: TextStyle(
+                color: isDarkMode ? Colors.white70 : Colors.black54,
+                fontSize: 14,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        // 语音输入按钮行
+        Row(
+          children: [
+            // 取消按钮
+            IconButton(
+              icon: Icon(Icons.keyboard, color: isDarkMode ? const Color(0xFFECECF1) : null),
+              onPressed: () {
+                setState(() {
+                  _showVoiceInput = false;
+                  _lastWords = '';
+                });
+              },
+            ),
+            Expanded(
+              child: GestureDetector(
+                onLongPressStart: (_) {
+                  _startListening();
+                },
+                onLongPressEnd: (_) {
+                  _stopListening();
+                  // 延迟一下，等待识别结果
+                  Future.delayed(const Duration(milliseconds: 800), () {
+                    debugPrint('🎤 延迟检查, _lastWords: $_lastWords');
+                    if (_lastWords.isNotEmpty) {
+                      _controller.text = _lastWords;
+                      // 自动发送
+                      _sendMessage();
+                      setState(() {
+                        _showVoiceInput = false;
+                        _lastWords = '';
+                      });
+                    } else {
+                      // 没有识别到内容，显示提示
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('未识别到语音内容，请重试')),
+                        );
+                      }
+                    }
+                  });
+                },
+                child: Container(
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: _isListening
+                        ? Colors.red.shade400
+                        : Constants.primaryColor,
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        _isListening ? Icons.mic : Icons.mic_none,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _isListening ? '松开发送' : '按住说话',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 48),  // 平衡左边的图标按钮
+          ],
+        ),
+      ],
     );
   }
 
@@ -697,9 +1598,17 @@ class _ChatPageState extends State<ChatPage> {
     final older = <Map<String, dynamic>>[];
     
     for (final session in _sessions) {
-      final updatedAt = session['updatedAt'] != null 
-          ? DateTime.tryParse(session['updatedAt']) ?? now
-          : now;
+      // 安全解析 updatedAt，处理 int 或 String 类型
+      DateTime updatedAt = now;
+      final updatedAtValue = session['updatedAt'];
+      if (updatedAtValue != null) {
+        if (updatedAtValue is int) {
+          updatedAt = DateTime.fromMillisecondsSinceEpoch(updatedAtValue);
+        } else if (updatedAtValue is String) {
+          updatedAt = DateTime.tryParse(updatedAtValue) ?? now;
+        }
+      }
+      
       final daysAgo = now.difference(updatedAt).inDays;
       
       if (daysAgo < 1) today.add(session);
@@ -732,12 +1641,18 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Widget _buildSessionItem(Map<String, dynamic> session, bool isDarkMode) {
-    final isActive = session['key'] == _currentSessionKey;
+    // 安全获取 session key，确保转换为 String 类型
+    final sessionKey = session['key']?.toString() ?? '';
+    final isActive = sessionKey == _currentSessionKey;
     final bgColor = isDarkMode 
         ? (isActive ? Colors.white10 : Colors.transparent)
         : (isActive ? Colors.black.withOpacity(0.05) : Colors.transparent);
     final textColor = isDarkMode ? Colors.white : Colors.black87;
     final iconColor = isDarkMode ? Colors.white54 : Colors.black45;
+    
+    // 获取会话的Agent图标
+    final sessionAgentId = session['agentId']?.toString() ?? 'lingxi';
+    final agentIcon = _agents[sessionAgentId]?['icon'] as IconData? ?? Icons.chat_outlined;
     
     return Container(
       margin: const EdgeInsets.only(bottom: 2),
@@ -747,18 +1662,75 @@ class _ChatPageState extends State<ChatPage> {
       ),
       child: ListTile(
         dense: true,
-        leading: Icon(Icons.chat_outlined, color: iconColor, size: 18),
+        leading: Icon(agentIcon, color: iconColor, size: 18),
         title: Text(
-          session['title'] ?? '新对话',
+          session['title']?.toString() ?? '新对话',
           style: TextStyle(color: textColor, fontSize: 14),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
         trailing: IconButton(
           icon: Icon(Icons.close, color: iconColor, size: 16),
-          onPressed: () => _deleteSession(session['key']),
+          onPressed: () => _deleteSession(sessionKey),
         ),
-        onTap: () => _switchSession(session['key']),
+        onTap: () => _switchSession(sessionKey),
+        onLongPress: () => _showEditTitleDialog(session, isDarkMode),
+      ),
+    );
+  }
+
+  // 编辑会话标题
+  void _showEditTitleDialog(Map<String, dynamic> session, bool isDarkMode) {
+    final sessionKey = session['key']?.toString() ?? '';
+    final currentTitle = session['title']?.toString() ?? '新对话';
+    final controller = TextEditingController(text: currentTitle);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: isDarkMode ? const Color(0xFF2D2D2D) : Colors.white,
+        title: const Text('编辑标题'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: '输入新标题',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final newTitle = controller.text.trim();
+              if (newTitle.isNotEmpty) {
+                // 更新本地会话标题
+                setState(() {
+                  final index = _sessions.indexWhere((s) => s['key'] == sessionKey);
+                  if (index >= 0) {
+                    _sessions[index]['title'] = newTitle;
+                  }
+                });
+                _saveSessions();
+                
+                // 同步到服务器
+                final ws = WebSocketService();
+                if (ws.isConnected) {
+                  ws.sendRequest('sessions.update', {
+                    'key': sessionKey,
+                    'title': newTitle,
+                  });
+                }
+              }
+              Navigator.pop(context);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Constants.primaryColor),
+            child: const Text('保存', style: TextStyle(color: Colors.white)),
+          ),
+        ],
       ),
     );
   }
@@ -841,6 +1813,15 @@ class _ChatPageState extends State<ChatPage> {
               },
             ),
             ListTile(
+              leading: Icon(Icons.people_outline, color: textColor),
+              title: Text('邀请列表', style: TextStyle(color: textColor)),
+              trailing: Text('${appProvider.user?.inviteCount ?? 0} 人', style: TextStyle(color: Colors.grey)),
+              onTap: () {
+                Navigator.pop(context);
+                _showInviteListDialog(appProvider);
+              },
+            ),
+            ListTile(
               leading: Icon(Icons.star_outline, color: textColor),
               title: Text('我的订阅', style: TextStyle(color: textColor)),
               onTap: () async {
@@ -856,6 +1837,14 @@ class _ChatPageState extends State<ChatPage> {
               onTap: () {
                 Navigator.pop(context);
                 _showPasswordChangeDialog();
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.message_outlined, color: textColor),
+              title: Text('飞书配置', style: TextStyle(color: textColor)),
+              onTap: () {
+                Navigator.pop(context);
+                _showFeishuConfigDialog(isDarkMode);
               },
             ),
             ListTile(
@@ -906,9 +1895,17 @@ class _ChatPageState extends State<ChatPage> {
 
   void _showTeamDialog() {
     final appProvider = Provider.of<AppProvider>(context, listen: false);
-    List<String> myAgents = List.from(appProvider.user?.agents ?? ['lingxi']);
+    // 确保 myAgents 是 List<String> 类型
+    List<String> myAgents = [];
+    try {
+      final rawAgents = appProvider.user?.agents ?? ['lingxi'];
+      myAgents = rawAgents.map((e) => e?.toString() ?? 'lingxi').toList();
+    } catch (e) {
+      debugPrint('❌ 解析 myAgents 失败: $e');
+      myAgents = ['lingxi'];
+    }
     
-    final allAgents = {
+    final allAgents = <String, Map<String, dynamic>>{
       'lingxi': {'name': '灵犀', 'icon': Icons.auto_awesome, 'role': '队长 · 智能调度'},
       'coder': {'name': '云溪', 'icon': Icons.code, 'role': '编程开发'},
       'ops': {'name': '若曦', 'icon': Icons.bar_chart, 'role': '数据分析'},
@@ -1034,42 +2031,86 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  Future<void> _showPasswordChangeDialog() async {
-    final currentPasswordController = TextEditingController();
-    final newPasswordController = TextEditingController();
-    final confirmPasswordController = TextEditingController();
-    
-    await showDialog(
+  // 显示邀请列表弹窗
+  void _showInviteListDialog(AppProvider appProvider) {
+    final user = appProvider.user;
+    final inviteCode = user?.userInviteCode ?? '-';
+    final inviteCount = user?.inviteCount ?? 0;
+    final earnedPoints = inviteCount * 100;
+
+    showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('修改密码'),
+        title: const Row(
+          children: [
+            Icon(Icons.people_outline, color: Constants.primaryColor),
+            SizedBox(width: 8),
+            Text('邀请好友'),
+          ],
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            TextField(
-              controller: currentPasswordController,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: '当前密码',
-                border: OutlineInputBorder(),
+            // 邀请码
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Constants.primaryColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('我的邀请码', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                      const SizedBox(height: 4),
+                      Text(
+                        inviteCode,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Constants.primaryColor,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                    ],
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.copy, color: Constants.primaryColor),
+                    onPressed: () {
+                      // 复制到剪贴板
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('邀请码已复制')),
+                      );
+                    },
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: newPasswordController,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: '新密码',
-                border: OutlineInputBorder(),
-              ),
+            const SizedBox(height: 20),
+            // 邀请统计
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildInviteStat(inviteCount.toString(), '已邀请人数'),
+                Container(width: 1, height: 40, color: Colors.grey.shade300),
+                _buildInviteStat(earnedPoints.toString(), '获得积分'),
+              ],
             ),
             const SizedBox(height: 16),
-            TextField(
-              controller: confirmPasswordController,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: '确认新密码',
-                border: OutlineInputBorder(),
+            // 邀请说明
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text(
+                '💡 每邀请一位好友注册，即可获得 100 积分奖励',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
               ),
             ),
           ],
@@ -1077,44 +2118,359 @@ class _ChatPageState extends State<ChatPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (newPasswordController.text != confirmPasswordController.text) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('两次密码不一致')));
-                return;
-              }
-              if (newPasswordController.text.length < 6) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('密码长度至少6位')));
-                return;
-              }
-              
-              try {
-                final result = await ApiService().changePassword(
-                  currentPassword: currentPasswordController.text,
-                  newPassword: newPasswordController.text,
-                );
-                final success = result['success'] == true;
-                if (success) {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('密码修改成功')));
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('密码修改失败')));
-                }
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('修改失败: $e')));
-              }
-            },
-            child: const Text('确认'),
+            child: const Text('关闭'),
           ),
         ],
       ),
     );
   }
 
+  Widget _buildInviteStat(String value, String label) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            color: Constants.primaryColor,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+      ],
+    );
+  }
+
+  Future<void> _showPasswordChangeDialog() async {
+    final currentPasswordController = TextEditingController();
+    final newPasswordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+    bool obscureCurrent = true;
+    bool obscureNew = true;
+    bool obscureConfirm = true;
+    
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Constants.primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.lock_outline, color: Constants.primaryColor),
+                ),
+                const SizedBox(width: 12),
+                const Text('修改密码', style: TextStyle(fontSize: 18)),
+              ],
+            ),
+            content: SizedBox(
+              width: 320,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 当前密码
+                  TextField(
+                    controller: currentPasswordController,
+                    obscureText: obscureCurrent,
+                    decoration: InputDecoration(
+                      labelText: '当前密码',
+                      prefixIcon: const Icon(Icons.lock_outline, size: 20),
+                      suffixIcon: IconButton(
+                        icon: Icon(obscureCurrent ? Icons.visibility_off : Icons.visibility, size: 20),
+                        onPressed: () => setDialogState(() => obscureCurrent = !obscureCurrent),
+                      ),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      filled: true,
+                      fillColor: Colors.grey.shade50,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // 新密码
+                  TextField(
+                    controller: newPasswordController,
+                    obscureText: obscureNew,
+                    decoration: InputDecoration(
+                      labelText: '新密码',
+                      prefixIcon: const Icon(Icons.vpn_key_outlined, size: 20),
+                      suffixIcon: IconButton(
+                        icon: Icon(obscureNew ? Icons.visibility_off : Icons.visibility, size: 20),
+                        onPressed: () => setDialogState(() => obscureNew = !obscureNew),
+                      ),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      filled: true,
+                      fillColor: Colors.grey.shade50,
+                      helperText: '密码长度至少6位',
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // 确认密码
+                  TextField(
+                    controller: confirmPasswordController,
+                    obscureText: obscureConfirm,
+                    decoration: InputDecoration(
+                      labelText: '确认新密码',
+                      prefixIcon: const Icon(Icons.check_circle_outline, size: 20),
+                      suffixIcon: IconButton(
+                        icon: Icon(obscureConfirm ? Icons.visibility_off : Icons.visibility, size: 20),
+                        onPressed: () => setDialogState(() => obscureConfirm = !obscureConfirm),
+                      ),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      filled: true,
+                      fillColor: Colors.grey.shade50,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('取消', style: TextStyle(color: Colors.grey.shade600)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Constants.primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () async {
+                  if (currentPasswordController.text.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('请输入当前密码')),
+                    );
+                    return;
+                  }
+                  if (newPasswordController.text != confirmPasswordController.text) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('两次密码不一致')),
+                    );
+                    return;
+                  }
+                  if (newPasswordController.text.length < 6) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('密码长度至少6位')),
+                    );
+                    return;
+                  }
+                  
+                  try {
+                    final result = await ApiService().changePassword(
+                      currentPassword: currentPasswordController.text,
+                      newPassword: newPasswordController.text,
+                    );
+                    final success = result['success'] == true;
+                    if (success) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Row(
+                            children: [
+                              Icon(Icons.check_circle, color: Colors.white),
+                              SizedBox(width: 8),
+                              Text('密码修改成功'),
+                            ],
+                          ),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(result['error'] ?? '密码修改失败'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('修改失败: $e'), backgroundColor: Colors.red),
+                    );
+                  }
+                },
+                child: const Text('确认修改'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  // 飞书配置弹窗
+  Future<void> _showFeishuConfigDialog(bool isDarkMode) async {
+    final textColor = isDarkMode ? Colors.white : Colors.black87;
+    final bgColor = isDarkMode ? const Color(0xFF2D2D2D) : Colors.white;
+    
+    final appIdController = TextEditingController();
+    final appSecretController = TextEditingController();
+    final verificationController = TextEditingController();
+    
+    // 加载已有配置
+    try {
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
+      final userId = appProvider.user?.id;
+      if (userId != null) {
+        final config = await ApiService().getFeishuConfig(userId);
+        if (config != null) {
+          appIdController.text = config['appId'] ?? '';
+          verificationController.text = config['verificationToken'] ?? '';
+        }
+      }
+    } catch (e) {
+      debugPrint('加载飞书配置失败: $e');
+    }
+    
+    if (!mounted) return;
+    
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          backgroundColor: bgColor,
+          title: Row(
+            children: [
+              const Icon(Icons.message_outlined, color: Constants.primaryColor),
+              const SizedBox(width: 8),
+              Text('飞书配置', style: TextStyle(color: textColor)),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: SizedBox(
+              width: 350,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // App ID
+                  TextField(
+                    controller: appIdController,
+                    style: TextStyle(color: textColor),
+                    decoration: InputDecoration(
+                      labelText: 'App ID',
+                      hintText: 'cli_xxxxxxxxxxxx',
+                      labelStyle: TextStyle(color: Colors.grey.shade600),
+                      border: const OutlineInputBorder(),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // App Secret
+                  TextField(
+                    controller: appSecretController,
+                    style: TextStyle(color: textColor),
+                    obscureText: true,
+                    decoration: InputDecoration(
+                      labelText: 'App Secret',
+                      hintText: '应用密钥',
+                      labelStyle: TextStyle(color: Colors.grey.shade600),
+                      border: const OutlineInputBorder(),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // 验证令牌
+                  TextField(
+                    controller: verificationController,
+                    style: TextStyle(color: textColor),
+                    decoration: InputDecoration(
+                      labelText: '验证令牌（可选）',
+                      hintText: '从飞书开放平台事件订阅页获取',
+                      labelStyle: TextStyle(color: Colors.grey.shade600),
+                      border: const OutlineInputBorder(),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // 说明文字
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isDarkMode ? Colors.white.withOpacity(0.05) : Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '配置说明：',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '1. 在飞书开放平台创建企业自建应用\n'
+                          '2. 获取 App ID 和 App Secret\n'
+                          '3. 配置事件订阅，填写 Webhook 地址\n'
+                          '4. 发布应用并授权',
+                          style: TextStyle(fontSize: 11, color: Colors.grey.shade600, height: 1.5),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('取消'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final appId = appIdController.text.trim();
+                final appSecret = appSecretController.text.trim();
+                final verification = verificationController.text.trim();
+                
+                if (appId.isEmpty || appSecret.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('请填写 App ID 和 App Secret')),
+                  );
+                  return;
+                }
+                
+                try {
+                  final appProvider = Provider.of<AppProvider>(context, listen: false);
+                  final userId = appProvider.user?.id;
+                  if (userId == null) return;
+                  
+                  await ApiService().saveFeishuConfig(
+                    userId: userId,
+                    appId: appId,
+                    appSecret: appSecret,
+                    verificationToken: verification,
+                  );
+                  
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('飞书配置已保存')),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('保存失败: $e')),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: Constants.primaryColor),
+              child: const Text('保存配置', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _showUsageStatsDialog(AppProvider appProvider) async {
-    // 显示加载中
+    // 先检查 mounted
+    if (!mounted) return;
+    
+    // 显示加载中 - 允许点击外部关闭
     showDialog(
       context: context,
       barrierDismissible: true,  // 允许点击外部关闭
@@ -1128,9 +2484,13 @@ class _ChatPageState extends State<ChatPage> {
       debugPrint('❌ 获取使用量统计失败: $e');
     }
     
-    // 关闭加载中（使用 Navigator.of 而不是 context，避免 context 失效问题）
-    if (mounted) {
-      Navigator.of(context, rootNavigator: true).pop();
+    // 关闭加载中 - 使用 try-catch 确保不会抛出异常
+    try {
+      if (mounted && Navigator.of(context, rootNavigator: true).canPop()) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+    } catch (e) {
+      debugPrint('❌ 关闭 loading dialog 失败: $e');
     }
     
     if (!mounted) return;
@@ -1185,7 +2545,7 @@ class _ChatPageState extends State<ChatPage> {
                       ClipRRect(
                         borderRadius: BorderRadius.circular(4),
                         child: LinearProgressIndicator(
-                          value: (usageData?['quota']?['percent'] ?? 0) / 100,
+                          value: _parsePercent(usageData?['quota']?['percent']),
                           backgroundColor: Colors.grey.shade200,
                           valueColor: const AlwaysStoppedAnimation(Constants.primaryColor),
                           minHeight: 8,
@@ -1265,48 +2625,89 @@ class _ChatPageState extends State<ChatPage> {
     final isDarkMode = Provider.of<AppProvider>(context, listen: false).isDarkMode;
     
     try {
+      // 获取当前 agent 名称
+      final currentAgentInfo = _agents[_currentAgent];
+      final currentAgentName = currentAgentInfo?['name']?.toString() ?? 'AI';
+      
       return Column(
         children: [
           Expanded(
             child: _messages.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey.shade400),
-                        const SizedBox(height: 16),
-                        Text(
-                          '开始与 ${_agents[_currentAgent]?['name'] ?? 'AI'} 对话',
-                          style: TextStyle(color: Colors.grey.shade600),
-                        ),
-                      ],
-                    ),
-                  )
+                ? _buildWelcomeExamples(currentAgentInfo, isDarkMode)
                 : ListView.builder(
                     controller: _scrollController,
                     padding: const EdgeInsets.only(bottom: 16),
                     itemCount: _messages.length,
-                    itemBuilder: (context, i) => _MessageBubble(
-                      content: _messages[i].content,
-                      isUser: _messages[i].role == 'user',
-                      agentId: _messages[i].agentId ?? _currentAgent,
-                      agents: _agents,
-                      isDarkMode: isDarkMode,
-                    ),
+                    itemBuilder: (context, i) {
+                      try {
+                        // 安全获取 agentId，确保是 String 类型
+                        final msgAgentId = _messages[i].agentId;
+                        final safeAgentId = msgAgentId is String 
+                            ? msgAgentId 
+                            : msgAgentId != null 
+                                ? msgAgentId.toString() 
+                                : _currentAgent;
+                        
+                        return _MessageBubble(
+                          content: _messages[i].content,
+                          isUser: _messages[i].role == 'user',
+                          agentId: safeAgentId,
+                          agents: _agents,
+                          isDarkMode: isDarkMode,
+                          imageUrl: _messages[i].imageUrl,
+                        );
+                      } catch (e, stack) {
+                        debugPrint('❌ 构建 MessageBubble 失败: $e');
+                        debugPrint('Stack: $stack');
+                        return ListTile(
+                          title: Text('消息加载失败'),
+                          subtitle: Text(e.toString()),
+                        );
+                      }
+                    },
                   ),
           ),
           if (_isGenerating)
             Container(
               padding: const EdgeInsets.all(16),
-              child: Row(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Constants.primaryColor),
-                  ),
-                  const SizedBox(width: 12),
-                  Text('AI 正在思考...', style: TextStyle(color: isDarkMode ? const Color(0xFFECECF1) : Colors.grey)),
+                  if (_queueTotal > 1) ...[
+                    Row(
+                      children: [
+                        SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Constants.primaryColor),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          '队列中: $_queuePosition/$_queueTotal',
+                          style: TextStyle(color: isDarkMode ? const Color(0xFFECECF1) : Colors.grey),
+                        ),
+                      ],
+                    ),
+                    if (_queuePosition > 1) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        '预计等待: ${(_queuePosition - 1) * 15}秒',
+                        style: TextStyle(color: isDarkMode ? const Color(0xFFECECF1) : Colors.grey, fontSize: 12),
+                      ),
+                    ],
+                  ] else ...[
+                    Row(
+                      children: [
+                        SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Constants.primaryColor),
+                        ),
+                        const SizedBox(width: 12),
+                        Text('AI 正在思考...', style: TextStyle(color: isDarkMode ? const Color(0xFFECECF1) : Colors.grey)),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -1327,44 +2728,9 @@ class _ChatPageState extends State<ChatPage> {
             ),
             child: SafeArea(
               top: false,
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: Icon(Icons.attach_file, color: isDarkMode ? const Color(0xFFECECF1) : null),
-                    onPressed: () async {
-                      final picker = ImagePicker();
-                      final XFile? file = await picker.pickImage(source: ImageSource.gallery);
-                      if (file != null) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('图片上传功能开发中')));
-                      }
-                    },
-                  ),
-                  Expanded(
-                    child: TextField(
-                      controller: _controller,
-                      style: TextStyle(color: isDarkMode ? const Color(0xFFECECF1) : Colors.black87),
-                      decoration: InputDecoration(
-                        hintText: '输入消息...',
-                        hintStyle: TextStyle(color: isDarkMode ? const Color(0xFF6E6E80) : Colors.grey),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
-                        filled: true,
-                        fillColor: isDarkMode ? const Color(0xFF424454) : Colors.white,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        isDense: true,
-                      ),
-                      maxLines: null,
-                      textInputAction: TextInputAction.send,
-                      onSubmitted: (_) => _sendMessage(),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  FloatingActionButton(
-                    onPressed: _isGenerating ? null : _sendMessage,
-                    backgroundColor: Constants.primaryColor,
-                    child: const Icon(Icons.send, color: Colors.white),
-                  ),
-                ],
-              ),
+              child: _showVoiceInput 
+                  ? _buildVoiceInputArea(isDarkMode)
+                  : _buildTextInputArea(isDarkMode),
             ),
           ),
         ],
@@ -1394,8 +2760,9 @@ class _MessageBubble extends StatelessWidget {
   final String content;
   final bool isUser;
   final String agentId;
-  final Map<String, dynamic> agents;
+  final Map<String, Map<String, dynamic>> agents;
   final bool isDarkMode;
+  final String? imageUrl;
 
   const _MessageBubble({
     required this.content,
@@ -1403,6 +2770,7 @@ class _MessageBubble extends StatelessWidget {
     required this.agentId,
     required this.agents,
     this.isDarkMode = false,
+    this.imageUrl,
   });
 
   @override
@@ -1412,6 +2780,26 @@ class _MessageBubble extends StatelessWidget {
         : (isDarkMode ? const Color(0xFF343541) : Colors.grey.shade100);
     final textColor = isDarkMode ? const Color(0xFFECECF1) : (isUser ? Colors.white : Colors.black87);
     final iconColor = isDarkMode ? const Color(0xFF10A37F) : Constants.primaryColor;
+    
+    // 安全获取 agent 信息
+    final agent = agents[agentId];
+    String agentName = 'AI';
+    IconData? agentIcon;
+    
+    if (agent != null) {
+      // 安全获取 name
+      final nameValue = agent['name'];
+      if (nameValue is String) {
+        agentName = nameValue;
+      } else if (nameValue != null) {
+        agentName = nameValue.toString();
+      }
+      // 安全获取 icon
+      final iconValue = agent['icon'];
+      if (iconValue is IconData) {
+        agentIcon = iconValue;
+      }
+    }
     
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
@@ -1429,16 +2817,39 @@ class _MessageBubble extends StatelessWidget {
             if (!isUser)
               Row(
                 children: [
-                  Icon(agents[agentId]?['icon'] as IconData?, size: 16, color: iconColor),
+                  if (agentIcon != null) Icon(agentIcon, size: 16, color: iconColor),
                   const SizedBox(width: 4),
                   Text(
-                    (agents[agentId]?['name']?.toString() ?? 'AI'),
+                    agentName,
                     style: TextStyle(color: iconColor, fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                 ],
               ),
             if (!isUser) const SizedBox(height: 8),
-            Text(content, style: TextStyle(color: textColor)),
+            // 显示图片
+            if (imageUrl != null && imageUrl!.isNotEmpty)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: imageUrl!.startsWith('data:')
+                    ? Image.memory(
+                        base64Decode(imageUrl!.split(',').last),
+                        width: 200,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 48),
+                      )
+                    : Image.network(
+                        imageUrl!,
+                        width: 200,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 48),
+                      ),
+              ),
+            if (imageUrl != null && imageUrl!.isNotEmpty) const SizedBox(height: 8),
+            if (content.isNotEmpty)
+              // 使用 SelectionArea 支持文本选择和复制
+              SelectionArea(
+                child: Text(content, style: TextStyle(color: textColor)),
+              ),
           ],
         ),
       ),
