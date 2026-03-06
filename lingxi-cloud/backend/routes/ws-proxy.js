@@ -156,11 +156,15 @@ export function setupWebSocketProxy(app) {
               console.log(`   - attachments: ${msg.params?.attachments?.length || 0} 个`);
               
               if (msg.params?.attachments?.length > 0) {
-                // OpenClaw 支持直接传 URL 到 content 字段！
-                // 格式: { type: "image", content: "https://..." }
-                // OpenClaw 会自动识别 http/https 开头的 URL，转发给模型时拼成 image_url 格式
+                // OpenClaw 会识别 content 字段的内容来判断图片类型：
+                // 1. 以 http:// 或 https:// 开头 → 远程图片 URL
+                // 2. 以 data:image/xxx;base64, 开头 → Base64 图片
+                // 3. 否则 → 服务器本地文件路径
+                //
+                // 正确格式: { type: "image", content: "https://..." }
+                // 不需要 url 字段！只需要把 URL 放进 content！
                 msg.params.attachments = msg.params.attachments.map(att => {
-                  // 如果已经是正确格式，直接返回
+                  // 如果已经有 content，直接返回
                   if (att.content) {
                     return {
                       type: att.type || 'image',
@@ -168,18 +172,19 @@ export function setupWebSocketProxy(app) {
                     };
                   }
                   
-                  // 如果有 URL，直接放到 content 字段
+                  // 如果有 url，放到 content 字段
                   if (att.url) {
                     return {
                       type: att.type || 'image',
-                      content: att.url  // 👈 URL 直接放这里，不转 base64！
+                      content: att.url  // 👈 URL 直接放 content，不转 base64！
                     };
                   }
                   
+                  // 其他情况保持原样
                   return att;
                 });
                 
-                console.log(`✅ [${userId?.substring(0, 8)}] 附件已转换为 OpenClaw 格式 (URL -> content)`);
+                console.log(`✅ [${userId?.substring(0, 8)}] 附件已转换为 OpenClaw 格式`);
                 msg.params.attachments.forEach((att, i) => {
                   const contentPreview = att.content?.substring(0, 60) || '';
                   console.log(`   - 附件${i + 1}: type=${att.type}, content=${contentPreview}...`);
