@@ -156,45 +156,34 @@ export function setupWebSocketProxy(app) {
               console.log(`   - attachments: ${msg.params?.attachments?.length || 0} 个`);
               
               if (msg.params?.attachments?.length > 0) {
-                msg.params.attachments.forEach((att, i) => {
-                  const urlLen = att.url?.length || 0;
-                  const contentLen = att.content?.length || 0;
-                  console.log(`   - 附件${i + 1}: type=${att.type}, url长度=${urlLen}, content长度=${contentLen}`);
+                // OpenClaw 支持直接传 URL 到 content 字段！
+                // 格式: { type: "image", content: "https://..." }
+                // OpenClaw 会自动识别 http/https 开头的 URL，转发给模型时拼成 image_url 格式
+                msg.params.attachments = msg.params.attachments.map(att => {
+                  // 如果已经是正确格式，直接返回
+                  if (att.content) {
+                    return {
+                      type: att.type || 'image',
+                      content: att.content
+                    };
+                  }
+                  
+                  // 如果有 URL，直接放到 content 字段
+                  if (att.url) {
+                    return {
+                      type: att.type || 'image',
+                      content: att.url  // 👈 URL 直接放这里，不转 base64！
+                    };
+                  }
+                  
+                  return att;
                 });
                 
-                // OpenClaw Gateway 只接受 content (base64)，不接受 url
-                // 所以需要下载图片并转成 base64
-                for (let i = 0; i < msg.params.attachments.length; i++) {
-                  const att = msg.params.attachments[i];
-                  
-                  // 如果有 URL 但没有 content，需要下载并转换
-                  if (att.url && !att.content) {
-                    console.log(`📥 [${userId?.substring(0, 8)}] 下载图片: ${att.url}`);
-                    
-                    try {
-                      const imgRes = await fetch(att.url);
-                      
-                      if (!imgRes.ok) {
-                        console.error(`❌ [${userId?.substring(0, 8)}] 下载图片失败: ${imgRes.status}`);
-                        continue;
-                      }
-                      
-                      const buffer = await imgRes.arrayBuffer();
-                      const base64 = Buffer.from(buffer).toString('base64');
-                      
-                      // OpenClaw 期望的格式: { type, mimeType, content }
-                      msg.params.attachments[i] = {
-                        type: att.type || 'image',
-                        mimeType: att.mimeType || imgRes.headers.get('content-type') || 'image/png',
-                        content: base64
-                      };
-                      
-                      console.log(`✅ [${userId?.substring(0, 8)}] 图片已转 base64, 大小: ${base64.length} 字节`);
-                    } catch (e) {
-                      console.error(`❌ [${userId?.substring(0, 8)}] 下载图片失败:`, e.message);
-                    }
-                  }
-                }
+                console.log(`✅ [${userId?.substring(0, 8)}] 附件已转换为 OpenClaw 格式 (URL -> content)`);
+                msg.params.attachments.forEach((att, i) => {
+                  const contentPreview = att.content?.substring(0, 60) || '';
+                  console.log(`   - 附件${i + 1}: type=${att.type}, content=${contentPreview}...`);
+                });
               }
             } else {
               console.log(`📤 [${userId?.substring(0, 8)}] 方法: ${msg.method}`);
