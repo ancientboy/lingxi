@@ -58,6 +58,13 @@ class _ChatPageState extends State<ChatPage> {
   String? _pendingImageName;
   List<Map<String, dynamic>> _sessions = [];
   String? _currentSessionKey;
+  
+  // 会话分组展开/收缩状态
+  final Map<String, bool> _sessionGroupExpanded = {
+    '今天': true,
+    '最近 7 天': true,
+    '更早': false,  // 默认收缩
+  };
 
   // 用户服务器信息（用于文件预览）
   String? _userServerIp;
@@ -424,25 +431,35 @@ class _ChatPageState extends State<ChatPage> {
             setState(() {
               _sessions = sessions.map((s) {
                 final map = s is Map ? s as Map<String, dynamic> : {};
-                // 尝试从多个字段获取标题
+                
+                // 🔧 优先使用服务器返回的 derivedTitle，然后是 label，最后才用本地逻辑
                 String title = '新对话';
-                if (map['title'] != null && map['title'].toString().isNotEmpty && map['title'].toString() != '新对话') {
+                
+                // 1. 优先使用 derivedTitle（从第一条用户消息派生）
+                if (map['derivedTitle'] != null && map['derivedTitle'].toString().isNotEmpty) {
+                  title = map['derivedTitle'].toString();
+                  if (title.length > 30) title = '${title.substring(0, 30)}...';
+                }
+                // 2. 使用用户设置的 label
+                else if (map['label'] != null && map['label'].toString().isNotEmpty) {
+                  title = map['label'].toString();
+                }
+                // 3. 使用 lastMessagePreview
+                else if (map['lastMessagePreview'] != null && map['lastMessagePreview'].toString().isNotEmpty) {
+                  title = map['lastMessagePreview'].toString();
+                  if (title.length > 30) title = '${title.substring(0, 30)}...';
+                }
+                // 4. 兼容旧逻辑
+                else if (map['title'] != null && map['title'].toString().isNotEmpty && map['title'].toString() != '新对话') {
                   title = map['title'].toString();
-                } else if (map['firstMessage'] != null) {
-                  // 从第一条消息获取标题
-                  title = map['firstMessage'].toString();
-                  if (title.length > 30) title = '${title.substring(0, 30)}...';
-                } else if (map['lastMessage'] != null) {
-                  // 从最后一条消息获取标题
-                  title = map['lastMessage'].toString();
-                  if (title.length > 30) title = '${title.substring(0, 30)}...';
                 }
                 
                 return {
                   'key': (map['key'] ?? '').toString(),
                   'title': title,
-                  'agentId': map['agentId'] ?? map['agent_id'] ?? 'lingxi',  // 保留 agentId
+                  'agentId': map['agentId'] ?? map['agent_id'] ?? 'lingxi',
                   'updatedAt': map['updatedAt'],
+                  'lastMessage': map['lastMessagePreview'] ?? map['lastMessage'],
                 };
               }).toList();
               _sessions.sort((a, b) {
@@ -904,7 +921,12 @@ class _ChatPageState extends State<ChatPage> {
         return;
       }
       debugPrint('📋 发送 sessions.list 请求');
-      ws.sendRequest('sessions.list', {});
+      // 🔧 添加 includeDerivedTitles 和 includeLastMessage 参数
+      ws.sendRequest('sessions.list', {
+        'includeDerivedTitles': true,
+        'includeLastMessage': true,
+        'limit': 50,  // 限制数量
+      });
     } catch (e, stack) {
       debugPrint('❌ _loadSessionsFromServer 异常: $e\nStack: $stack');
     }
@@ -2015,15 +2037,56 @@ class _ChatPageState extends State<ChatPage> {
 
   Widget _buildSessionGroup(String title, List<Map<String, dynamic>> sessions, bool isDarkMode) {
     final subTextColor = isDarkMode ? Colors.white54 : Colors.black54;
+    final isExpanded = _sessionGroupExpanded[title] ?? true;
+    final displaySessions = isExpanded ? sessions : sessions.take(3).toList();
+    final hasMore = sessions.length > 3;
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(8, 12, 8, 4),
-          child: Text(title, style: TextStyle(color: subTextColor, fontSize: 12, fontWeight: FontWeight.w500)),
+        // 分组标题（可点击展开/收缩）
+        InkWell(
+          onTap: () {
+            setState(() {
+              _sessionGroupExpanded[title] = !isExpanded;
+            });
+          },
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 12, 8, 4),
+            child: Row(
+              children: [
+                Icon(
+                  isExpanded ? Icons.expand_more : Icons.chevron_right,
+                  size: 16,
+                  color: subTextColor,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '$title (${sessions.length})',
+                  style: TextStyle(color: subTextColor, fontSize: 12, fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          ),
         ),
-        ...sessions.map((session) => _buildSessionItem(session, isDarkMode)),
+        // 会话列表
+        ...displaySessions.map((session) => _buildSessionItem(session, isDarkMode)),
+        // "显示更多" 按钮
+        if (hasMore && !isExpanded)
+          InkWell(
+            onTap: () {
+              setState(() {
+                _sessionGroupExpanded[title] = true;
+              });
+            },
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(32, 4, 8, 8),
+              child: Text(
+                '显示更多 (${sessions.length - 3})',
+                style: TextStyle(color: Colors.blue.shade400, fontSize: 12),
+              ),
+            ),
+          ),
       ],
     );
   }
