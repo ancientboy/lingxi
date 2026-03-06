@@ -162,9 +162,12 @@ export function setupWebSocketProxy(app) {
                   console.log(`   - 附件${i + 1}: type=${att.type}, url长度=${urlLen}, content长度=${contentLen}`);
                 });
                 
+                // OpenClaw Gateway 只接受 content (base64)，不接受 url
+                // 所以需要下载图片并转成 base64
                 for (let i = 0; i < msg.params.attachments.length; i++) {
                   const att = msg.params.attachments[i];
                   
+                  // 如果有 URL 但没有 content，需要下载并转换
                   if (att.url && !att.content) {
                     console.log(`📥 [${userId?.substring(0, 8)}] 下载图片: ${att.url}`);
                     
@@ -179,6 +182,7 @@ export function setupWebSocketProxy(app) {
                       const buffer = await imgRes.arrayBuffer();
                       const base64 = Buffer.from(buffer).toString('base64');
                       
+                      // OpenClaw 期望的格式: { type, mimeType, content }
                       msg.params.attachments[i] = {
                         type: att.type || 'image',
                         mimeType: att.mimeType || imgRes.headers.get('content-type') || 'image/png',
