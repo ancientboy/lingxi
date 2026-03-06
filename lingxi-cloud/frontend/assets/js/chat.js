@@ -172,6 +172,7 @@ let ws = null;
 let pendingMessage = null;
 let currentRunId = null;
 let isGenerating = false;
+let userServerInfo = null; // 用户服务器信息（IP、端口）
 
 // 初始化
 
@@ -284,6 +285,23 @@ async function init() {
     console.error('❌ 获取 Gateway 配置失败:', e);
     alert('网络错误，请刷新页面');
     return;
+  }
+
+  // 🔧 获取用户服务器信息（用于文件预览）
+  try {
+    console.log('📡 获取用户服务器信息...');
+    const serverRes = await fetch(`${API_BASE}/api/user/server`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (serverRes.ok) {
+      userServerInfo = await serverRes.json();
+      console.log('✅ 服务器信息:', userServerInfo);
+    } else {
+      console.warn('⚠️  无法获取服务器信息，文件预览可能不可用');
+    }
+  } catch (e) {
+    console.warn('⚠️  获取服务器信息失败:', e.message);
   }
 
   // 使用用户ID生成主会话key
@@ -1470,7 +1488,7 @@ function addMessage(role, content, name) {
     ? '<div class="avatar user-avatar"><i data-lucide="user" class="icon-sm"></i></div>'
     : `<div class="avatar">${agentIcon(currentAgent, 'sm')}</div>`;
 
-  // 处理消息内容（支持图片）
+  // 处理消息内容（支持图片和文件）
   let bubbleContent = '';
   if (typeof content === 'object' && content.image) {
     // 带图片的消息
@@ -1481,8 +1499,23 @@ function addMessage(role, content, name) {
       ${content.text ? `<div>${escapeHtml(content.text)}</div>` : ''}
     `;
   } else {
-    // 纯文本消息
-    bubbleContent = escapeHtml(content);
+    // 处理文本消息，提取文件
+    const text = typeof content === 'string' ? content : '';
+    
+    // 使用文件预览模块处理消息
+    const fileOptions = userServerInfo ? {
+      serverIp: userServerInfo.serverIp, // 使用用户实例的 IP
+      port: userServerInfo.fileServerPort || 9876,
+      token: userServerInfo.fileServerToken // 添加文件服务 token
+    } : {};
+    
+    const { text: cleanText, filesHtml } = processMessage(text, fileOptions);
+    
+    // 渲染文本和文件附件
+    bubbleContent = `
+      ${cleanText ? `<div>${escapeHtml(cleanText)}</div>` : ''}
+      ${filesHtml}
+    `;
   }
 
   div.innerHTML = `

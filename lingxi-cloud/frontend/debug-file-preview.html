@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>文件预览调试</title>
+  <style>
+    body {
+      font-family: monospace;
+      max-width: 1000px;
+      margin: 20px auto;
+      padding: 20px;
+      background: #1f2937;
+      color: #f9fafb;
+    }
+    .section {
+      background: #374151;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    h2 {
+      margin-top: 0;
+      color: #10a37f;
+    }
+    pre {
+      background: #111827;
+      padding: 12px;
+      border-radius: 6px;
+      overflow-x: auto;
+      color: #fbbf24;
+    }
+    .success {
+      color: #10a37f;
+    }
+    .error {
+      color: #ef4444;
+    }
+    button {
+      background: #3b82f6;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-right: 8px;
+    }
+    button:hover {
+      background: #2563eb;
+    }
+    .url-test {
+      margin-top: 12px;
+      padding: 12px;
+      background: #111827;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔍 文件预览调试工具</h1>
+
+  <div class="section">
+    <h2>1️⃣ 检查 file-preview.js 是否加载</h2>
+    <pre id="check1"></pre>
+  </div>
+
+  <div class="section">
+    <h2>2️⃣ 测试路径识别</h2>
+    <pre id="test-path"></pre>
+    <button onclick="testExtract()">测试提取文件路径</button>
+  </div>
+
+  <div class="section">
+    <h2>3️⃣ 测试 URL 生成</h2>
+    <pre id="test-url"></pre>
+    <button onclick="testUrl()">测试生成 URL</button>
+  </div>
+
+  <div class="section">
+    <h2>4️⃣ 测试文件访问</h2>
+    <div id="url-test" class="url-test"></div>
+    <button onclick="testAccess()">测试访问文件</button>
+  </div>
+
+  <div class="section">
+    <h2>5️⃣ 完整测试（模拟 Agent 消息）</h2>
+    <pre id="full-test"></pre>
+    <button onclick="fullTest()">运行完整测试</button>
+  </div>
+
+  <script src="components/file-preview.js"></script>
+  <script>
+    // 1. 检查模块加载
+    document.getElementById('check1').textContent =
+      typeof processMessage === 'function'
+        ? '✅ file-preview.js 已加载\n✅ processMessage 函数可用'
+        : '❌ file-preview.js 未加载';
+
+    // 2. 测试路径识别
+    function testExtract() {
+      const testText = `✓ 测试 PDF 已生成！
+
+**文件信息：**
+- 📄 路径：\`/root/.openclaw/workspace/test-document.pdf\`
+- 📏 尺寸：A4
+- 📦 大小：2.5KB`;
+
+      const files = extractFiles(testText);
+      document.getElementById('test-path').textContent =
+        `输入文本：\n${testText}\n\n` +
+        `识别结果：\n` +
+        JSON.stringify(files, null, 2);
+    }
+
+    // 3. 测试 URL 生成
+    function testUrl() {
+      const filePath = '/root/.openclaw/workspace/test-document.pdf';
+      const options = {
+        serverIp: '120.26.33.181',
+        port: 9876,
+        token: 'lingxi-file-server-2026'
+      };
+
+      const url = getFileUrl(filePath, options);
+      document.getElementById('test-url').textContent =
+        `文件路径：${filePath}\n\n` +
+        `服务器配置：\n${JSON.stringify(options, null, 2)}\n\n` +
+        `生成的 URL：\n${url}\n\n` +
+        `URL 解析：\n` +
+        `- 协议：${new URL(url).protocol}\n` +
+        `- 主机：${new URL(url).host}\n` +
+        `- 路径：${new URL(url).pathname}\n` +
+        `- 查询：${new URL(url).search}`;
+    }
+
+    // 4. 测试文件访问
+    async function testAccess() {
+      const url = 'http://120.26.33.181:9876/preview?path=test-document.pdf&token=lingxi-file-server-2026';
+      document.getElementById('url-test').innerHTML = '测试中...';
+
+      try {
+        const response = await fetch(url);
+        const text = await response.text();
+
+        document.getElementById('url-test').innerHTML =
+          `<div class="${response.ok ? 'success' : 'error'}">` +
+          `状态：${response.status} ${response.statusText}<br>` +
+          `Content-Type：${response.headers.get('content-type')}<br><br>` +
+          `响应内容（前 200 字符）：<br>` +
+          `<pre>${text.substring(0, 200)}</pre>` +
+          `</div>`;
+      } catch (err) {
+        document.getElementById('url-test').innerHTML =
+          `<div class="error">请求失败：${err.message}</div>`;
+      }
+    }
+
+    // 5. 完整测试
+    function fullTest() {
+      const message = `✓ 测试 PDF 已生成！
+
+**文件信息：**
+- 📄 路径：\`/root/.openclaw/workspace/test-document.pdf\`
+- 📏 尺寸：A4
+- 📦 大小：2.5KB`;
+
+      const options = {
+        serverIp: '120.26.33.181',
+        port: 9876,
+        token: 'lingxi-file-server-2026'
+      };
+
+      const result = processMessage(message, options);
+
+      document.getElementById('full-test').textContent =
+        `原始消息：\n${message}\n\n` +
+        `处理结果：\n` +
+        `- 清理后的文本：${result.text}\n` +
+        `- 识别的文件：${JSON.stringify(result.files, null, 2)}\n\n` +
+        `生成的 HTML：\n${result.filesHtml}`;
+    }
+
+    // 自动运行测试
+    setTimeout(() => {
+      testExtract();
+      testUrl();
+      fullTest();
+    }, 500);
+  </script>
+</body>
+</html>

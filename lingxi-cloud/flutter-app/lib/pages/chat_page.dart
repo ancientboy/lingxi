@@ -8,10 +8,12 @@ import 'package:lingxicloud/pages/skills_page.dart';
 import 'package:lingxicloud/pages/login_page.dart';
 import 'package:lingxicloud/services/websocket_service.dart';
 import 'package:lingxicloud/services/api_service.dart';
+import 'package:lingxicloud/widgets/file_preview.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter/services.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -40,6 +42,10 @@ class _ChatPageState extends State<ChatPage> {
   String _lastWords = '';
   bool _showVoiceInput = false;  // 是否显示语音输入模式
   String? _recordingPath;  // 录音文件路径
+  Timer? _waveAnimationTimer;  // 波浪动画定时器
+  int _waveIndex = 0;  // 波浪动画索引
+  bool _isCanceling = false;  // 是否正在取消（上移取消）
+  double _dragY = 0;  // 拖动 Y 坐标
   bool _isGenerating = false;
   int _queuePosition = 0;  // 队列位置
   int _queueTotal = 0;  // 队列总数
@@ -49,6 +55,11 @@ class _ChatPageState extends State<ChatPage> {
   String? _pendingImageName;
   List<Map<String, dynamic>> _sessions = [];
   String? _currentSessionKey;
+
+  // 用户服务器信息（用于文件预览）
+  String? _userServerIp;
+  int? _userServerPort;
+  String? _userServerToken;
 
   final Map<String, Map<String, dynamic>> _agents = {
     'lingxi': {
@@ -142,6 +153,9 @@ class _ChatPageState extends State<ChatPage> {
     // 初始化语音识别
     _initSpeech();
     
+    // 获取用户服务器信息（用于文件预览）
+    _loadUserServerInfo();
+    
     // 捕获异步错误
     _loadSessions().catchError((e, stack) {
       debugPrint('❌ 加载会话失败: $e\nStack: $stack');
@@ -167,6 +181,41 @@ class _ChatPageState extends State<ChatPage> {
     });
     
     debugPrint('📋 ChatPage initState 完成');
+  }
+
+  /// 获取用户服务器信息（用于文件预览）
+  Future<void> _loadUserServerInfo() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('lingxi_token');
+      if (token == null || token.isEmpty) {
+        debugPrint('⚠️ 未获取到登录 token，跳过获取服务器信息');
+        return;
+      }
+      
+      // 设置认证 token
+      ApiService().setAuthToken(token);
+      
+      final response = await ApiService().get(
+        '${Constants.baseUrl}/api/user/server',
+      );
+      
+      if (response.statusCode == 200) {
+        final data = response.data;
+        debugPrint('✅ 获取用户服务器信息: $data');
+        if (mounted) {
+          setState(() {
+            _userServerIp = data['serverIp']?.toString();
+            _userServerPort = data['fileServerPort'];
+            _userServerToken = data['fileServerToken']?.toString();
+          });
+        }
+      } else {
+        debugPrint('❌ 获取用户服务器信息失败: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('❌ _loadUserServerInfo 异常: $e');
+    }
   }
 
   Future<void> _loadSessions() async {
@@ -557,6 +606,9 @@ class _ChatPageState extends State<ChatPage> {
   void _startListening() async {
     debugPrint('🎤 开始录音...');
     
+    // 震动反馈
+    HapticFeedback.mediumImpact();
+    
     // 检查权限
     bool hasPermission = await _audioRecorder.hasPermission();
     if (!hasPermission) {
@@ -585,9 +637,21 @@ class _ChatPageState extends State<ChatPage> {
       );
       
       debugPrint('🎤 录音中... path: $_recordingPath');
+      
+      // 启动波浪动画
+      _waveAnimationTimer?.cancel();
+      _waveAnimationTimer = Timer.periodic(const Duration(milliseconds: 150), (timer) {
+        if (mounted) {
+          setState(() {
+            _waveIndex = (_waveIndex + 1) % 4;
+          });
+        }
+      });
+      
       setState(() {
         _isListening = true;
         _lastWords = '';
+        _isCanceling = false;
       });
       
     } catch (e) {
@@ -600,17 +664,41 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  void _stopListening() async {
-    debugPrint('🎤 停止录音...');
+  void _stopListening({bool cancel = false}) async {
+    debugPrint('🎤 停止录音... cancel: $cancel');
+    
+    // 震动反馈
+    HapticFeedback.lightImpact();
+    
+    // 停止波浪动画
+    _waveAnimationTimer?.cancel();
+    _waveAnimationTimer = null;
+    
+    setState(() {
+      _isListening = false;
+    });
+    
+    // 如果是取消，直接返回
+    if (cancel) {
+      try {
+        await _audioRecorder.stop();
+        if (_recordingPath != null && File(_recordingPath!).existsSync()) {
+          File(_recordingPath!).delete();
+        }
+      } catch (e) {
+        debugPrint('❌ 取消录音失败: $e');
+      }
+      setState(() {
+        _lastWords = '';
+        _isCanceling = false;
+      });
+      return;
+    }
     
     try {
       // 停止录音
       final path = await _audioRecorder.stop();
       debugPrint('🎤 录音已保存: $path');
-      
-      setState(() {
-        _isListening = false;
-      });
       
       if (path != null && File(path).existsSync()) {
         // 读取录音文件并转为 base64
@@ -619,14 +707,7 @@ class _ChatPageState extends State<ChatPage> {
         
         debugPrint('🎤 音频大小: ${bytes.length} bytes');
         
-        // 显示加载提示
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('正在识别...')),
-          );
-        }
-        
-        // 发送到后端识别
+        // 发送到后端识别（不显示"正在识别"提示）
         _recognizeSpeech(base64Audio);
         
         // 删除临时文件
@@ -645,6 +726,31 @@ class _ChatPageState extends State<ChatPage> {
         _isListening = false;
       });
     }
+  }
+  
+  // 语音波浪动画
+  Widget _buildVoiceWaveAnimation() {
+    return SizedBox(
+      width: 24,
+      height: 24,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: List.generate(4, (index) {
+          // 根据动画索引计算每个条的高度
+          final height = 8.0 + ((_waveIndex + index) % 4) * 4.0;
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            height: _isListening ? height : 8,
+            width: 3,
+            margin: const EdgeInsets.symmetric(horizontal: 1),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          );
+        }),
+      ),
+    );
   }
   
   // 调用后端语音识别 API
@@ -666,6 +772,7 @@ class _ChatPageState extends State<ChatPage> {
         
         if (text.isNotEmpty) {
           _controller.text = text;
+          _lastWords = text;  // 同步更新，避免延迟回调弹出提示
           // 自动发送
           _sendMessage();
           setState(() {
@@ -1464,47 +1571,51 @@ class _ChatPageState extends State<ChatPage> {
                 onLongPressStart: (_) {
                   _startListening();
                 },
+                onLongPressMoveUpdate: (details) {
+                  // 检测上移（Y 轴负方向移动超过 100 像素）
+                  final isCanceling = details.localOffsetFromOrigin.dy < -100;
+                  if (isCanceling != _isCanceling) {
+                    HapticFeedback.selectionClick();
+                    setState(() {
+                      _isCanceling = isCanceling;
+                    });
+                  }
+                },
                 onLongPressEnd: (_) {
-                  _stopListening();
-                  // 延迟一下，等待识别结果
-                  Future.delayed(const Duration(milliseconds: 800), () {
-                    debugPrint('🎤 延迟检查, _lastWords: $_lastWords');
-                    if (_lastWords.isNotEmpty) {
-                      _controller.text = _lastWords;
-                      // 自动发送
-                      _sendMessage();
-                      setState(() {
-                        _showVoiceInput = false;
-                        _lastWords = '';
-                      });
-                    } else {
-                      // 没有识别到内容，显示提示
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('未识别到语音内容，请重试')),
-                        );
-                      }
-                    }
-                  });
+                  if (_isCanceling) {
+                    // 上移取消
+                    _stopListening(cancel: true);
+                    setState(() {
+                      _showVoiceInput = false;
+                      _isCanceling = false;
+                    });
+                  } else {
+                    // 正常发送（_recognizeSpeech 会处理成功/失败）
+                    _stopListening();
+                  }
                 },
                 child: Container(
                   height: 48,
                   decoration: BoxDecoration(
-                    color: _isListening
-                        ? Colors.red.shade400
-                        : Constants.primaryColor,
+                    color: _isCanceling 
+                        ? Colors.grey.shade600 
+                        : (_isListening ? Colors.red.shade400 : Constants.primaryColor),
                     borderRadius: BorderRadius.circular(24),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
-                        _isListening ? Icons.mic : Icons.mic_none,
-                        color: Colors.white,
-                      ),
+                      // 语音波浪动画或取消图标
+                      _isCanceling
+                          ? const Icon(Icons.cancel, color: Colors.white)
+                          : (_isListening 
+                              ? _buildVoiceWaveAnimation()
+                              : const Icon(Icons.mic_none, color: Colors.white)),
                       const SizedBox(width: 8),
                       Text(
-                        _isListening ? '松开发送' : '按住说话',
+                        _isCanceling 
+                            ? '松开取消' 
+                            : (_isListening ? '松开发送' : '按住说话'),
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 16,
@@ -2655,6 +2766,9 @@ class _ChatPageState extends State<ChatPage> {
                           agents: _agents,
                           isDarkMode: isDarkMode,
                           imageUrl: _messages[i].imageUrl,
+                          serverIp: _userServerIp,
+                          serverPort: _userServerPort,
+                          serverToken: _userServerToken,
                         );
                       } catch (e, stack) {
                         debugPrint('❌ 构建 MessageBubble 失败: $e');
@@ -2763,6 +2877,9 @@ class _MessageBubble extends StatelessWidget {
   final Map<String, Map<String, dynamic>> agents;
   final bool isDarkMode;
   final String? imageUrl;
+  final String? serverIp;
+  final int? serverPort;
+  final String? serverToken;
 
   const _MessageBubble({
     required this.content,
@@ -2771,6 +2888,9 @@ class _MessageBubble extends StatelessWidget {
     required this.agents,
     this.isDarkMode = false,
     this.imageUrl,
+    this.serverIp,
+    this.serverPort,
+    this.serverToken,
   });
 
   @override
@@ -2845,6 +2965,15 @@ class _MessageBubble extends StatelessWidget {
                       ),
               ),
             if (imageUrl != null && imageUrl!.isNotEmpty) const SizedBox(height: 8),
+            // 文件预览
+            if (!isUser && content.isNotEmpty)
+              FilePreview(
+                files: FilePreview.extractFiles(content),
+                serverIp: serverIp,
+                serverPort: serverPort,
+                serverToken: serverToken,
+                isDarkMode: isDarkMode,
+              ),
             if (content.isNotEmpty)
               // 使用 SelectionArea 支持文本选择和复制
               SelectionArea(

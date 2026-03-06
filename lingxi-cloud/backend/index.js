@@ -108,6 +108,10 @@ app.use('/api/genes', genesRoutes);
 
 import userRoutes from './routes/user.js';
 
+// 用户服务器信息
+import userServerInfoRoutes from './routes/user-server-info.js';
+app.use('/api/user', userServerInfoRoutes);
+
 // 订阅管理
 import subscriptionRoutes from './routes/subscription.js';
 import stripeRoutes from './routes/stripe.js';
@@ -123,6 +127,10 @@ import speechRoutes from './routes/speech.js';
 app.use('/api/upload', uploadRoutes);
 app.use('/api/speech', speechRoutes);
 
+// 文件代理（从用户实例拉取文件）
+import filesRoutes from './routes/files.js';
+app.use('/api/files', filesRoutes);
+
 // 托管上传的图片
 import { fileURLToPath as fileURLToPath2 } from 'url';
 import { dirname as dirname2, join as join2 } from 'path';
@@ -132,6 +140,17 @@ app.use('/uploads', express.static(join2(__dirname2, '../uploads')));
 // 技能库同步定时任务
 import { startCronJob } from './skills/sync-cron.mjs';
 startCronJob('0 0 * * 0'); // 每周日中午12点同步
+
+// 临时文件清理定时任务（每天凌晨2点）
+import cron from 'node-cron';
+import { cleanupTempFiles } from './routes/files.js';
+cron.schedule('0 2 * * *', () => {
+  console.log('🕒 开始清理临时文件...');
+  cleanupTempFiles();
+}, {
+  timezone: 'Asia/Shanghai'
+});
+console.log('⏰ 临时文件清理任务已启动: 每天凌晨2点');
 
 // 错误处理
 app.use((err, req, res, next) => {

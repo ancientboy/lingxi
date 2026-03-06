@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>测试路径提取</title>
+</head>
+<body>
+  <h1>测试路径提取（修复后）</h1>
+  <pre id="output"></pre>
+
+  <script src="components/file-preview.js"></script>
+  <script>
+    // 模拟 Agent 返回的消息
+    const testMessages = [
+      // 测试 1: Markdown 反引号
+      '- 📄 路径：`/root/.openclaw/workspace/test-document.pdf`',
+      
+      // 测试 2: 普通路径
+      '文件已生成：/root/.openclaw/workspace/report.pdf',
+      
+      // 测试 3: 多个文件
+      '生成了：`file1.pdf` 和 file2.png'
+    ];
+
+    let output = '';
+    
+    testMessages.forEach((msg, i) => {
+      const files = extractFiles(msg);
+      output += `测试 ${i + 1}:\n`;
+      output += `输入: ${msg}\n`;
+      output += `提取: ${JSON.stringify(files, null, 2)}\n\n`;
+    });
+
+    document.getElementById('output').textContent = output;
+    console.log(output);
+  </script>
+</body>
+</html>

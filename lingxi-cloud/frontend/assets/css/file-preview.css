@@ -1,0 +1,180 @@
+/**
+ * 文件预览样式
+ */
+
+/* 文件附件容器 */
+.file-attachments {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 文件卡片 */
+.file-card {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  transition: all 0.2s;
+}
+
+.file-card:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+/* 图片卡片 */
+.file-card.image-card {
+  padding: 8px;
+}
+
+.file-preview-image {
+  max-width: 100%;
+  max-height: 300px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.file-preview-image:hover {
+  transform: scale(1.02);
+}
+
+/* 文件图标 */
+.file-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 8px;
+  color: white;
+  flex-shrink: 0;
+}
+
+.file-icon .icon-lg {
+  width: 24px;
+  height: 24px;
+}
+
+/* PDF 卡片 */
+.file-card.pdf-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.file-card.pdf-card .file-icon {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+/* 文件信息 */
+.file-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.file-name {
+  display: block;
+  font-weight: 500;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 14px;
+}
+
+.file-type {
+  display: block;
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+/* 文件操作按钮 */
+.file-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.file-card.image-card .file-actions {
+  margin-top: 8px;
+  padding: 0 4px;
+}
+
+.file-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.file-btn:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.file-btn:active {
+  transform: scale(0.98);
+}
+
+/* 暗色模式 */
+.dark .file-card {
+  background: #1f2937;
+  border-color: #374151;
+}
+
+.dark .file-card:hover {
+  background: #111827;
+  border-color: #4b5563;
+}
+
+.dark .file-name {
+  color: #f9fafb;
+}
+
+.dark .file-type {
+  color: #9ca3af;
+}
+
+.dark .file-btn {
+  background: #374151;
+  border-color: #4b5563;
+  color: #f9fafb;
+}
+
+.dark .file-btn:hover {
+  background: #4b5563;
+  border-color: #6b7280;
+}
+
+/* 响应式 */
+@media (max-width: 640px) {
+  .file-preview-image {
+    max-height: 200px;
+  }
+  
+  .file-card.pdf-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .file-actions {
+    width: 100%;
+  }
+  
+  .file-btn {
+    flex: 1;
+    justify-content: center;
+  }
+}

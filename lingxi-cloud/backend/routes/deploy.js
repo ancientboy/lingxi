@@ -26,11 +26,7 @@ const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 const router = Router();
 
 // 从统一配置获取
-// AI 代理配置（默认使用国内主服务器）
-// 高可用方案：在用户服务器上配置 Nginx 负载均衡，主备自动切换
-// 主：120.55.192.144:3000  备：120.26.137.51:3001
 const SERVER_PASSWORD = config.userServer.password;
-const AI_PROXY_URL = process.env.AI_PROXY_URLS || 'http://120.55.192.144:13000';
 const OPENCLAW_PORT = config.userServer.openclawPort;
 const OPENCLAW_VERSION = '2026.2.25';
 
@@ -52,6 +48,97 @@ function createEcsClient() {
   clientConfig.readTimeout = 120000;
   clientConfig.connectTimeout = 60000;
   return new EcsClient(clientConfig);
+}
+
+/**
+ * 确保安全组规则完整
+ * 检查并添加缺失的端口规则
+ */
+const REQUIRED_PORTS = [
+  { port: 22, desc: 'SSH' },
+  { port: 80, desc: 'HTTP' },
+  { port: 443, desc: 'HTTPS' },
+  { port: 3000, desc: '灵犀云后端' },
+  { port: 8000, desc: '备用HTTP' },
+  { port: 8080, desc: '备用HTTP' },
+  { port: 9876, desc: '文件预览服务' },
+  { port: 13000, desc: '灵犀云备用' },
+  { port: 17860, desc: '其他服务' },
+  { port: 18789, desc: 'OpenClaw Gateway' },
+  { port: 18790, desc: 'OpenClaw备用' },
+  { port: 18791, desc: 'OpenClaw备用' },
+  { port: 18792, desc: 'OpenClaw备用' }
+];
+
+let securityGroupChecked = false; // 缓存检查结果，避免每次部署都检查
+
+async function ensureSecurityGroupRules(client) {
+  // 如果已经检查过，直接返回
+  if (securityGroupChecked) {
+    return;
+  }
+
+  const sgId = process.env.ALIYUN_SECURITY_GROUP_ID;
+  const regionId = config.aliyun.region;
+
+  if (!sgId) {
+    console.log('⚠️ 未配置安全组 ID，跳过规则检查');
+    return;
+  }
+
+  console.log('🔒 检查安全组规则...');
+
+  try {
+    // 获取现有规则
+    const result = await client.describeSecurityGroupAttribute({
+      regionId: regionId,
+      securityGroupId: sgId,
+      direction: 'ingress'
+    });
+
+    const permissions = result.body.permissions.permission;
+    const existingPorts = permissions
+      .filter(p => p.sourceCidrIp === '0.0.0.0/0' && p.ipProtocol === 'TCP')
+      .map(p => parseInt(p.portRange.split('/')[0]));
+
+    // 检查缺失的端口
+    const missingPorts = REQUIRED_PORTS.filter(p => !existingPorts.includes(p.port));
+
+    if (missingPorts.length === 0) {
+      console.log('✅ 安全组规则完整');
+      securityGroupChecked = true;
+      return;
+    }
+
+    console.log(`🔧 发现 ${missingPorts.length} 个缺失端口，正在添加...`);
+
+    // 添加缺失的端口
+    for (const rule of missingPorts) {
+      try {
+        await client.authorizeSecurityGroup({
+          regionId: regionId,
+          securityGroupId: sgId,
+          ipProtocol: 'TCP',
+          portRange: `${rule.port}/${rule.port}`,
+          sourceCidrIp: '0.0.0.0/0',
+          description: rule.desc
+        });
+        console.log(`  ✅ 端口 ${rule.port} (${rule.desc})`);
+      } catch (e) {
+        if (e.message.includes('already exist') || e.message.includes('Duplicate')) {
+          console.log(`  ⚠️ 端口 ${rule.port} 已存在`);
+        } else {
+          console.log(`  ❌ 端口 ${rule.port} 添加失败: ${e.message}`);
+        }
+      }
+    }
+
+    securityGroupChecked = true;
+    console.log('✅ 安全组规则检查完成');
+  } catch (e) {
+    console.error('⚠️ 检查安全组规则失败:', e.message);
+    // 不抛出错误，继续部署
+  }
 }
 
 /**
@@ -127,7 +214,6 @@ async function quickGeneratePackage(userId, token, sessionId, releasesDir) {
     fs.mkdirSync(path.join(packageDir, '.openclaw', 'agents', agent), { recursive: true });
   }
   fs.mkdirSync(path.join(packageDir, '.openclaw', 'workspace'), { recursive: true });
-  fs.mkdirSync(path.join(packageDir, '.openclaw', 'workspace', 'skills'), { recursive: true });
   
   // 复制所有 agent 的 SOUL.md
   for (const agent of agents) {
@@ -136,39 +222,6 @@ async function quickGeneratePackage(userId, token, sessionId, releasesDir) {
       fs.copyFileSync(soulPath, path.join(packageDir, '.openclaw', 'agents', agent, 'SOUL.md'));
     }
   }
-  
-  // 读取 Agent 核心技能配置
-  const coreSkillsPath = path.join(__dirname, '../skills/agent-core-skills.json');
-  let agentCoreSkills = {};
-  try {
-    agentCoreSkills = JSON.parse(fs.readFileSync(coreSkillsPath, 'utf-8'));
-  } catch (e) {
-    console.warn('无法读取 agent-core-skills.json:', e.message);
-  }
-  
-  // 收集所有 Agent 需要的技能（去重）
-  const allRequiredSkills = new Set();
-  for (const agentSkills of Object.values(agentCoreSkills)) {
-    agentSkills.forEach(s => allRequiredSkills.add(s));
-  }
-  
-  // 复制 Agent 核心技能到用户的 skills 目录
-  const localSkillsDir = path.join(process.env.HOME || '/root', '.openclaw', 'workspace', 'skills');
-  const packageSkillsDir = path.join(packageDir, '.openclaw', 'workspace', 'skills');
-  
-  let copiedCount = 0;
-  for (const skillId of allRequiredSkills) {
-    const srcSkillPath = path.join(localSkillsDir, skillId);
-    const destSkillPath = path.join(packageSkillsDir, skillId);
-    
-    if (fs.existsSync(srcSkillPath) && fs.existsSync(path.join(srcSkillPath, 'SKILL.md'))) {
-      fs.cpSync(srcSkillPath, destSkillPath, { recursive: true });
-      copiedCount++;
-    } else {
-      console.warn(`  ⚠️ 技能不存在: ${skillId}`);
-    }
-  }
-  console.log(`📦 已复制 ${copiedCount}/${allRequiredSkills.size} 个核心技能`);
   
   // 生成配置文件
   const configJson = {
@@ -187,37 +240,35 @@ async function quickGeneratePackage(userId, token, sessionId, releasesDir) {
       "mode": "merge",
       "providers": {
         "alibaba-cloud": {
-          "baseUrl": AI_PROXY_URL + '/api/ai/aliyun',
+          "baseUrl": "https://coding.dashscope.aliyuncs.com/v1",
           "api": "openai-completions",
           "models": [
+            { "id": "qwen3.5-plus", "name": "通义千问3.5-Plus", "contextWindow": 262144, "maxTokens": 65536 },
             { "id": "qwen3-max-2026-01-23", "name": "通义千问3-Max", "contextWindow": 262144, "maxTokens": 65536 },
-            { "id": "qwen3.5-plus", "name": "通义千问3.5-Plus (推荐)", "contextWindow": 262144, "maxTokens": 65536, "input": ["text", "image"], "recommended": true },
-            { "id": "qwen3-coder-next", "name": "Qwen3 Coder Next", "contextWindow": 262144, "maxTokens": 65536 },
-            { "id": "qwen3-coder-plus", "name": "Qwen3 Coder Plus", "contextWindow": 262144, "maxTokens": 65536 },
-            { "id": "glm-4-plus", "name": "GLM-4-Plus (视觉)", "contextWindow": 128000, "maxTokens": 8192, "input": ["text", "image"] },
-            { "id": "glm-4.7", "name": "GLM-4.7", "contextWindow": 128000, "maxTokens": 8192 },
-            { "id": "kimi-k2.5", "name": "Kimi K2.5 (百炼)", "contextWindow": 200000, "maxTokens": 8192, "input": ["text", "image"] }
+            { "id": "glm-5", "name": "GLM-5 (智谱)", "contextWindow": 200000, "maxTokens": 8192 }
+          ]
+        },
+        "zhipu": {
+          "baseUrl": "https://open.bigmodel.cn/api/coding/paas/v4",
+          "api": "openai-completions",
+          "authHeader": true,
+          "models": [
+            { "id": "glm-5", "name": "GLM-5", "contextWindow": 200000, "maxTokens": 8192 }
           ]
         }
       }
     },
     "agents": {
-      "defaults": {
-        "model": {
-          "primary": "alibaba-cloud/qwen3.5-plus",
-          "fallbacks": ["alibaba-cloud/qwen3-max-2026-01-23"]
-        },
-        "workspace": "~/.openclaw/workspace"
-      },
+      "defaults": { "model": { "primary": "alibaba-cloud/qwen3.5-plus" }, "workspace": "~/.openclaw/workspace" },
       "list": [
-        { "id": "main", "default": true, "name": "灵犀", "agentDir": "~/.openclaw/agents/main", "model": { "primary": "alibaba-cloud/qwen3.5-plus" }, "subagents": { "allowAgents": ["coder", "ops", "inventor", "pm", "noter", "media", "smart"] } },
-        { "id": "coder", "name": "云溪", "agentDir": "~/.openclaw/agents/coder", "model": { "primary": "alibaba-cloud/qwen3-coder-next" } },
-        { "id": "ops", "name": "若曦", "agentDir": "~/.openclaw/agents/ops", "model": { "primary": "alibaba-cloud/qwen3.5-plus" } },
-        { "id": "inventor", "name": "紫萱", "agentDir": "~/.openclaw/agents/inventor", "model": { "primary": "alibaba-cloud/kimi-k2.5" } },
-        { "id": "pm", "name": "梓萱", "agentDir": "~/.openclaw/agents/pm", "model": { "primary": "alibaba-cloud/qwen3-max-2026-01-23" } },
-        { "id": "noter", "name": "晓琳", "agentDir": "~/.openclaw/agents/noter", "model": { "primary": "alibaba-cloud/kimi-k2.5" } },
-        { "id": "media", "name": "音韵", "agentDir": "~/.openclaw/agents/media", "model": { "primary": "alibaba-cloud/qwen3.5-plus" } },
-        { "id": "smart", "name": "智家", "agentDir": "~/.openclaw/agents/smart", "model": { "primary": "alibaba-cloud/qwen3-coder-plus" } }
+        { "id": "main", "default": true, "name": "灵犀", "agentDir": "~/.openclaw/agents/main", "subagents": { "allowAgents": ["coder", "ops", "inventor", "pm", "noter", "media", "smart"] } },
+        { "id": "coder", "name": "云溪", "agentDir": "~/.openclaw/agents/coder" },
+        { "id": "ops", "name": "若曦", "agentDir": "~/.openclaw/agents/ops" },
+        { "id": "inventor", "name": "紫萱", "agentDir": "~/.openclaw/agents/inventor" },
+        { "id": "pm", "name": "梓萱", "agentDir": "~/.openclaw/agents/pm" },
+        { "id": "noter", "name": "晓琳", "agentDir": "~/.openclaw/agents/noter" },
+        { "id": "media", "name": "音韵", "agentDir": "~/.openclaw/agents/media" },
+        { "id": "smart", "name": "智家", "agentDir": "~/.openclaw/agents/smart" }
       ]
     },
     "gateway": {
@@ -447,6 +498,9 @@ async function deployServerAsync(serverId, taskId, openclawToken, openclawSessio
     await updateTask(taskId, 10, '正在创建阿里云 ECS 实例...');
     
     const client = createEcsClient();
+    
+    // 确保安全组规则完整（首次部署时检查）
+    await ensureSecurityGroupRules(client);
     
     // 优先使用自定义镜像（预装 Node.js 22 + OpenClaw）
     const customImageId = process.env.ALIYUN_CUSTOM_IMAGE_ID;
@@ -1124,33 +1178,29 @@ async function uploadAndDeployCustom(host, port, password, packagePath, packageN
         const writeStream = sftp.createWriteStream(remotePath);
         
         writeStream.on('close', () => {
-          // 根据是否使用自定义镜像选择安装步骤
-          const installSteps = useCustomImage ? `
-echo "⚡ 使用自定义镜像，跳过安装..."
-echo "Node: $(node --version)"
-` : `
+          const deployCommands = `
+cd /root
+tar -xzf ${packageFile}
+
 if ! command -v node &> /dev/null; then
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
     apt-get install -y nodejs
 fi
-npm install -g openclaw@${OPENCLAW_VERSION}
-`;
-          
-          const deployCommands = `
-set -e
-cd /root
-tar -xzf ${packageFile}
-${installSteps}
-cd ${packageName}
-cp -r .openclaw ~/.openclaw
-cd ~/.openclaw
+
 pkill -f openclaw 2>/dev/null || true
 sleep 2
+
+npm install -g openclaw@${OPENCLAW_VERSION}
+
+cd ${packageName}
+cp -r .openclaw ~/.openclaw
+
+cd ~/.openclaw
 nohup openclaw gateway > /var/log/openclaw.log 2>&1 &
 sleep 5
+
 ss -tlnp | grep 18789
 `;
-
           
           conn.exec(deployCommands, (err, stream) => {
             if (err) {
