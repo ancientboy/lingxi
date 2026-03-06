@@ -11,6 +11,7 @@ import { getDB } from '../utils/db.js';
 import WebSocket from 'ws';
 import expressWs from 'express-ws';
 import crypto from 'crypto';
+import { replaceImageUrls, replaceHistoryImageUrls } from '../utils/image-downloader.js';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'lingxi-cloud-secret-key-2026';
@@ -39,8 +40,11 @@ async function getUserGatewayConfig(userId) {
   
   console.log("🔍 userServer:", userServer?.ip, userServer?.status);
   if (userServer && userServer.status === 'running' && userServer.ip) {
+    const httpUrl = `http://${userServer.ip === "120.55.192.144" ? "localhost" : userServer.ip}:${userServer.openclawPort}`;
     return {
       wsUrl: `ws://${userServer.ip === "120.55.192.144" ? "localhost" : userServer.ip}:${userServer.openclawPort}`,
+      httpUrl: httpUrl,  // 👈 新增 HTTP URL
+      basePath: userServer.openclawSession,
       session: userServer.openclawSession,
       token: userServer.openclawToken,
       sessionPrefix: `user_${user.id.substring(0, 8)}`
@@ -48,6 +52,8 @@ async function getUserGatewayConfig(userId) {
   } else if (MVP_MODE) {
     return {
       wsUrl: `ws://localhost:18789`,
+      httpUrl: `http://localhost:18789`,  // 👈 新增 HTTP URL
+      basePath: SHARED_GATEWAY.session,
       session: SHARED_GATEWAY.session,
       token: SHARED_GATEWAY.token,
       sessionPrefix: `user_${user.id.substring(0, 8)}`
@@ -55,6 +61,82 @@ async function getUserGatewayConfig(userId) {
   }
   
   return null;
+}
+
+/**
+ * 🆕 通过 HTTP responses API 发送带图片的消息
+ * OpenClaw HTTP API 支持图片 URL，不需要转 base64
+ */
+async function sendImageMessageViaHTTP(params) {
+  const { gatewayConfig, message, attachments, sessionKey, requestId } = params;
+  
+  // 构建 responses API 格式的 input
+  const inputContent = [];
+  
+  // 1. 添加文本
+  if (message && message.trim()) {
+    inputContent.push({
+      type: 'input_text',
+      text: message.trim()
+    });
+  }
+  
+  // 2. 添加图片（直接传 URL，OpenClaw 会自动下载）
+  for (const att of attachments) {
+    const imageUrl = att.url || att.content;
+    if (imageUrl && /^https?:\/\//.test(imageUrl)) {
+      inputContent.push({
+        type: 'input_image',
+        source: {
+          type: 'url',
+          url: imageUrl
+        }
+      });
+    }
+  }
+  
+  // 3. 提取 agentId
+  const agentId = sessionKey?.split(':').pop() || 'main';
+  
+  // 4. 构建 responses API 请求（路径不带 basePath）
+  const url = `${gatewayConfig.httpUrl}/v1/responses`;
+  const body = {
+    model: `agent:${agentId}`,
+    input: [{
+      type: 'message',
+      role: 'user',
+      content: inputContent
+    }]
+  };
+  
+  console.log(`📤 [HTTP] 发送到 responses API: ${url}`);
+  console.log(`   - agentId: ${agentId}`);
+  console.log(`   - 图片数量: ${attachments.length}`);
+  console.log(`   - 请求体:`, JSON.stringify(body, null, 2));
+  
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${gatewayConfig.token}`
+      },
+      body: JSON.stringify(body)
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+    
+    const result = await response.json();
+    console.log(`✅ [HTTP] responses API 成功`);
+    
+    return result;
+  } catch (error) {
+    console.error(`❌ [HTTP] responses API 失败:`, error.message);
+    throw error;
+  }
 }
 
 /**
@@ -101,27 +183,20 @@ export function setupWebSocketProxy(app) {
       console.log(`🔌 [${userId.substring(0, 8)}] WebSocket 连接建立`);
       console.log(`   - Gateway: ${gatewayConfig.wsUrl}`);
       
+      const origin = gatewayConfig.wsUrl.replace('ws://', 'http://').replace('wss://', 'https://');
+      console.log(`🔧 [${userId.substring(0, 8)}] 设置 Origin: ${origin}`);
+      
       targetWs = new WebSocket(gatewayConfig.wsUrl, {
         headers: {
-          'Authorization': `Bearer ${gatewayConfig.token}`
+          // 使用目标 Gateway 的地址作为 Origin（绕过 Origin 检查）
+          'Origin': origin
         }
       });
       
-      targetWs.on('open', async () => {
-        console.log(`✅ [${userId.substring(0, 8)}] 已连接到 Gateway`);
+      targetWs.on('open', () => {
+        console.log(`✅ [${userId.substring(0, 8)}] 已连接到 Gateway（透传模式）`);
         
-        const connectMsg = {
-          type: 'req',
-          id: `connect_${Date.now()}`,
-          method: 'connect',
-          params: {
-            session: gatewayConfig.session,
-            sessionPrefix: gatewayConfig.sessionPrefix
-          }
-        };
-        targetWs.send(JSON.stringify(connectMsg));
-        console.log(`📤 [${userId.substring(0, 8)}] 已发送 connect 请求`);
-        
+        // 透传模式：不发送 connect，让前端自己发送
         while (messageQueue.length > 0) {
           const msg = messageQueue.shift();
           targetWs.send(msg);
@@ -129,9 +204,51 @@ export function setupWebSocketProxy(app) {
         }
       });
       
-      targetWs.on('message', (data) => {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(data);
+      targetWs.on('message', async (data) => {
+        try {
+          const msgStr = data.toString();
+          const msg = JSON.parse(msgStr);
+
+          // 🔍 拦截 AI 响应中的图片 URL
+          if (msg.type === 'event' && msg.event === 'chat') {
+            const text = msg.payload?.message || '';
+            if (text && text.includes('dashscope-result')) {
+              // 替换图片 URL（下载到本地）
+              const modifiedText = await replaceImageUrls(text, userId);
+              msg.payload.message = modifiedText;
+              console.log(`🖼️ [${userId?.substring(0, 8)}] 已替换图片 URL`);
+            }
+          }
+
+          // 🔍 拦截历史消息中的图片 URL
+          if (msg.type === 'res' && msg.ok && msg.payload?.messages) {
+            const messages = msg.payload.messages;
+            let modified = false;
+
+            for (let i = 0; i < messages.length; i++) {
+              const msgText = messages[i].content || '';
+              if (msgText.includes('dashscope-result')) {
+                // 替换历史图片 URL（基于文件名匹配）
+                messages[i].content = await replaceHistoryImageUrls(msgText, userId);
+                modified = true;
+              }
+            }
+
+            if (modified) {
+              console.log(`🔄 [${userId?.substring(0, 8)}] 已替换历史消息中的图片 URL`);
+            }
+          }
+
+          // 转发给前端
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify(msg));
+          }
+        } catch (e) {
+          // 解析失败，直接转发
+          console.error('解析 Gateway 消息失败:', e);
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(data);
+          }
         }
       });
       
@@ -143,11 +260,7 @@ export function setupWebSocketProxy(app) {
           try {
             msg = JSON.parse(msgStr);
             
-            if (msg.method === 'connect') {
-              console.log(`🚫 [${userId?.substring(0, 8)}] 拦截前端 connect 请求（后端已处理）`);
-              return;
-            }
-            
+            // 透传模式：不拦截 connect，让前端自己处理
             const isChatSend = msg.method === 'chat.send';
             
             if (isChatSend) {
@@ -156,39 +269,61 @@ export function setupWebSocketProxy(app) {
               console.log(`   - attachments: ${msg.params?.attachments?.length || 0} 个`);
               
               if (msg.params?.attachments?.length > 0) {
-                // OpenClaw 会识别 content 字段的内容来判断图片类型：
-                // 1. 以 http:// 或 https:// 开头 → 远程图片 URL
-                // 2. 以 data:image/xxx;base64, 开头 → Base64 图片
-                // 3. 否则 → 服务器本地文件路径
-                //
-                // 正确格式: { type: "image", content: "https://..." }
-                // 不需要 url 字段！只需要把 URL 放进 content！
-                msg.params.attachments = msg.params.attachments.map(att => {
-                  // 如果已经有 content，直接返回
-                  if (att.content) {
-                    return {
-                      type: att.type || 'image',
-                      content: att.content
-                    };
-                  }
-                  
-                  // 如果有 url，放到 content 字段
-                  if (att.url) {
-                    return {
-                      type: att.type || 'image',
-                      content: att.url  // 👈 URL 直接放 content，不转 base64！
-                    };
-                  }
-                  
-                  // 其他情况保持原样
-                  return att;
-                });
+                // 🆕 有图片 → 使用 HTTP responses API（支持 URL）
+                console.log(`🖼️ [${userId?.substring(0, 8)}] 检测到图片，使用 HTTP responses API`);
                 
-                console.log(`✅ [${userId?.substring(0, 8)}] 附件已转换为 OpenClaw 格式`);
-                msg.params.attachments.forEach((att, i) => {
-                  const contentPreview = att.content?.substring(0, 60) || '';
-                  console.log(`   - 附件${i + 1}: type=${att.type}, content=${contentPreview}...`);
-                });
+                try {
+                  const result = await sendImageMessageViaHTTP({
+                    gatewayConfig: gatewayConfig,
+                    message: msg.params?.message || '',
+                    attachments: msg.params.attachments,
+                    sessionKey: msg.params?.sessionKey,
+                    requestId: msg.id
+                  });
+                  
+                  // 提取响应文本
+                  const responseText = result?.output?.[0]?.content?.[0]?.text || '图片处理完成';
+                  
+                  console.log(`✅ [${userId?.substring(0, 8)}] HTTP 响应: ${responseText.substring(0, 50)}...`);
+                  
+                  // 返回前端期望的格式
+                  if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                      type: 'res',
+                      id: msg.id,
+                      ok: true,
+                      payload: {
+                        text: responseText,
+                        done: true
+                      }
+                    }));
+                    
+                    // 发送完成事件（包含 sessionKey）
+                    ws.send(JSON.stringify({
+                      type: 'event',
+                      event: 'chat',
+                      payload: {
+                        message: responseText,
+                        sessionKey: msg.params?.sessionKey,  // ✅ 添加 sessionKey
+                        state: 'final',
+                        done: true
+                      }
+                    }));
+                  }
+                  return;  // 不通过 WebSocket 转发
+                } catch (httpError) {
+                  // HTTP 失败 → 返回错误
+                  console.error(`❌ [${userId?.substring(0, 8)}] HTTP 发送失败:`, httpError.message);
+                  if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                      type: 'res',
+                      id: msg.id,
+                      ok: false,
+                      error: { code: 'IMAGE_SEND_FAILED', message: httpError.message }
+                    }));
+                  }
+                  return;
+                }
               }
             } else {
               console.log(`📤 [${userId?.substring(0, 8)}] 方法: ${msg.method}`);

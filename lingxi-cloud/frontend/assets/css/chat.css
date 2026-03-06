@@ -225,7 +225,12 @@ html {
   background: #f4f4f4;
 }
 
-.sidebar-user-avatar {
+.sidebar-user-avatar-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.sidebar-user-avatar{
   width: 32px;
   height: 32px;
   background: #10a37f;
@@ -236,6 +241,90 @@ html {
   color: white;
   font-size: 14px;
   font-weight: 500;
+}
+
+.sidebar-user-badge{
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  padding: 2px 6px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  z-index: 1;
+}
+
+.sidebar-user-badge.free{
+  background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%);
+  color: white;
+}
+
+.sidebar-user-badge.lite{
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+  color: white;
+}
+
+.sidebar-user-badge.pro{
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+  animation: badge-glow 2s ease-in-out infinite;
+}
+
+@keyframes badge-glow{
+  0%, 100%{
+    box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
+  }
+  50%{
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.6);
+  }
+}
+
+/* 用户头像徽章 */
+.sidebar-user-avatar-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.sidebar-user-badge {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.sidebar-user-badge.free {
+  background: #9ca3af;
+  color: white;
+}
+
+.sidebar-user-badge.lite {
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+  color: white;
+}
+
+.sidebar-user-badge.pro {
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  color: white;
+  animation: badge-glow 2s ease-in-out infinite;
+}
+
+@keyframes badge-glow {
+  0%, 100% {
+    box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
+  }
+  50% {
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.6);
+  }
 }
 
 .sidebar-user-name {
@@ -1114,6 +1203,21 @@ html {
   position: relative;
   margin-bottom: 12px;
   display: none;
+}
+
+/* 图片预览动画 */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes zoomIn {
+  from { transform: scale(0.8); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.image-preview-overlay {
+  animation: fadeIn 0.2s ease;
 }
 
 .image-preview-container.show {

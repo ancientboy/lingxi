@@ -11,6 +11,7 @@ import { Router } from 'express';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { SUBSCRIPTION_PLANS, getMonthlyQuota, getDailyCredits, resetUserCredits } from '../utils/subscription-plans.js';
 
 const router = Router();
 const __filename = fileURLToPath(import.meta.url);
@@ -487,25 +488,41 @@ async function updateDbWithCredits(userId, provider, tokens) {
     
     // 2. 扣除积分
     if (tokens.total > 0) {
+      const currentMonth = new Date().toISOString().substring(0, 7); // YYYY-MM
+      
       // 初始化 credits
       if (!user.credits) {
-        user.credits = {
-          balance: user.points || 0,
-          freeDaily: FREE_DAILY_CREDITS,
-          freeDailyUsed: 0,
-          lastDailyReset: today
-        };
+        const plan = user.subscription?.plan || 'free';
+        resetUserCredits(user, plan);
       }
       
-      // 检查每日重置
+      // 🔍 检查月度重置（订阅套餐）
+      const plan = user.subscription?.plan || 'free';
+      const monthlyQuota = getMonthlyQuota(plan);
+      
+      if (monthlyQuota > 0 && user.credits.lastMonthlyReset !== currentMonth) {
+        // 月度重置
+        user.credits.balance = monthlyQuota;
+        user.credits.monthlyQuota = monthlyQuota;
+        user.credits.lastMonthlyReset = currentMonth;
+        user.points = monthlyQuota;
+        console.log(`[积分] ${user.nickname} 月度积分已重置: ${monthlyQuota}`);
+      }
+      
+      // 🔍 检查每日重置（免费用户）
       if (user.credits.lastDailyReset !== today) {
+        const dailyCredits = getDailyCredits(plan);
+        user.credits.freeDaily = dailyCredits;
         user.credits.freeDailyUsed = 0;
         user.credits.lastDailyReset = today;
+        if (dailyCredits > 0) {
+          console.log(`[积分] ${user.nickname} 每日免费积分已重置: ${dailyCredits}`);
+        }
       }
       
       // 计算积分
       const creditsNeeded = calculateCredits(provider, tokens.total);
-      const freeRemaining = user.credits.freeDaily - user.credits.freeDailyUsed;
+      const freeRemaining = Math.max(0, user.credits.freeDaily - user.credits.freeDailyUsed);
       
       if (freeRemaining >= creditsNeeded) {
         // 从免费额度扣除

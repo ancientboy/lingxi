@@ -7,6 +7,8 @@ class User {
   final List<String> agents;
   final bool? canClaimTeam;
   final String? subscriptionPlan;
+  final Map<String, dynamic>? subscription;
+  final Map<String, dynamic>? credits;
 
   User({
     required this.id,
@@ -17,6 +19,8 @@ class User {
     this.agents = const [],
     this.canClaimTeam,
     this.subscriptionPlan,
+    this.subscription,
+    this.credits,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -31,6 +35,8 @@ class User {
           : [],
       canClaimTeam: json['canClaimTeam'] as bool?,
       subscriptionPlan: json['subscriptionPlan']?.toString(),
+      subscription: json['subscription'] as Map<String, dynamic>?,
+      credits: json['credits'] as Map<String, dynamic>?,
     );
   }
 
@@ -44,6 +50,8 @@ class User {
       'agents': agents,
       'canClaimTeam': canClaimTeam,
       'subscriptionPlan': subscriptionPlan,
+      'subscription': subscription,
+      'credits': credits,
     };
   }
 
@@ -56,6 +64,8 @@ class User {
     List<String>? agents,
     bool? canClaimTeam,
     String? subscriptionPlan,
+    Map<String, dynamic>? subscription,
+    Map<String, dynamic>? credits,
   }) {
     return User(
       id: id ?? this.id,
@@ -66,6 +76,8 @@ class User {
       agents: agents ?? this.agents,
       canClaimTeam: canClaimTeam ?? this.canClaimTeam,
       subscriptionPlan: subscriptionPlan ?? this.subscriptionPlan,
+      subscription: subscription ?? this.subscription,
+      credits: credits ?? this.credits,
     );
   }
 }

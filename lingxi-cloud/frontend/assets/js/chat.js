@@ -209,6 +209,11 @@ async function init() {
 
     console.log('👤 用户信息:', userData);
 
+    // ✅ 更新用户订阅徽章
+    if (typeof updateUserBadge === 'function') {
+      updateUserBadge();
+    }
+
     // 🔒 检查是否有团队（agents 不为空）
     if (!userData.agents || userData.agents.length === 0) {
       console.log('⚠️ 用户没有团队，跳转首页领取');
@@ -619,7 +624,9 @@ function updateStreamingMessage(text, runId) {
     streamingMessages[runId].text = text;
     const bubble = streamingMessages[runId].element.querySelector('.bubble');
     if (bubble) {
-      bubble.innerHTML = escapeHtml(text);
+      // 🔧 使用 processMessageFull 解析 Markdown 图片
+      const { text: cleanText, filesHtml, imagesHtml } = processMessageFull(text, {});
+      bubble.innerHTML = `${cleanText ? escapeHtml(cleanText) : ''}${imagesHtml}${filesHtml}`;
     }
   }
 
@@ -639,7 +646,9 @@ function finalizeStreamingMessage(text, runId) {
     streamingMessages[runId].text = text;
     const bubble = streamingMessages[runId].element.querySelector('.bubble');
     if (bubble) {
-      bubble.innerHTML = escapeHtml(text);
+      // 🔧 使用 processMessageFull 解析 Markdown 图片
+      const { text: cleanText, filesHtml, imagesHtml } = processMessageFull(text, {});
+      bubble.innerHTML = `${cleanText ? escapeHtml(cleanText) : ''}${imagesHtml}${filesHtml}`;
     }
   }
   // 清理
@@ -675,6 +684,68 @@ function renderTeamTags() {
 // ===== 图片上传功能 =====
 let selectedImage = null;  // 当前选中的图片 { url, filename, file }
 
+/**
+ * 压缩图片（使用 Canvas）
+ * @param {File} file - 原始图片文件
+ * @param {number} quality - 压缩质量 (0-100)，默认 80
+ * @param {number} minSize - 最小边长，默认 1024（和 Flutter 一致）
+ * @returns {Promise<Blob>} 压缩后的图片
+ */
+async function compressImage(file, quality = 80, minSize = 1024) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      img.src = e.target.result;
+    };
+    
+    img.onload = () => {
+      // 计算压缩后的尺寸（和 Flutter 一致：minWidth/minHeight 1024）
+      let width = img.width;
+      let height = img.height;
+      
+      // 如果任一边大于 minSize，按比例缩小
+      if (width > minSize || height > minSize) {
+        if (width > height) {
+          height = (height * minSize) / width;
+          width = minSize;
+        } else {
+          width = (width * minSize) / height;
+          height = minSize;
+        }
+      }
+      
+      // 创建 Canvas
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      // 转换为 Blob（JPEG 格式，质量 80%）
+      canvas.toBlob(
+        (blob) => {
+          if (blob) {
+            console.log(`📷 图片压缩: ${(file.size / 1024).toFixed(1)}KB → ${(blob.size / 1024).toFixed(1)}KB`);
+            resolve(blob);
+          } else {
+            reject(new Error('Canvas toBlob 失败'));
+          }
+        },
+        'image/jpeg',
+        quality / 100
+      );
+    };
+    
+    img.onerror = () => reject(new Error('图片加载失败'));
+    reader.onerror = () => reject(new Error('文件读取失败'));
+    
+    reader.readAsDataURL(file);
+  });
+}
+
 // 处理图片选择 - 上传到服务器获取 URL
 async function handleImageSelect(event) {
   console.log('🖼️ handleImageSelect 被调用');
@@ -709,15 +780,34 @@ async function handleImageSelect(event) {
   previewImg.style.opacity = '0.5';
 
   try {
-    // ✅ 直接用 FormData 上传二进制文件（不用 base64）
+    let fileToUpload = file;
+    const FILE_SIZE_LIMIT = 200 * 1024; // 200KB（和 Flutter 一致）
+    
+    // 🔧 如果大于 200KB，压缩图片（和 Flutter 逻辑一致）
+    if (file.size > FILE_SIZE_LIMIT && (file.type === 'image/jpeg' || file.type === 'image/webp' || file.type === 'image/png')) {
+      try {
+        console.log(`🔄 图片大于 200KB，开始压缩: ${(file.size / 1024).toFixed(1)}KB`);
+        const compressedBlob = await compressImage(file, 80, 1024);
+        // 创建新的 File 对象
+        const filename = file.name.replace(/\.(png|webp)$/i, '.jpg');
+        fileToUpload = new File([compressedBlob], filename, { type: 'image/jpeg' });
+        console.log('✅ 图片已压缩');
+      } catch (e) {
+        console.warn('⚠️ 压缩失败，使用原图:', e.message);
+      }
+    } else if (file.size <= FILE_SIZE_LIMIT) {
+      console.log(`📷 图片小于 200KB，跳过压缩: ${(file.size / 1024).toFixed(1)}KB`);
+    }
+    
+    // ✅ 用 FormData 上传
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('file', fileToUpload);
 
     console.log('📤 开始上传图片到服务器...');
 
     const res = await fetch(`${API_BASE}/api/upload/image`, {
       method: 'POST',
-      body: formData  // 不需要设置 Content-Type，浏览器会自动设置
+      body: formData
     });
 
     const data = await res.json();
@@ -729,7 +819,7 @@ async function handleImageSelect(event) {
       selectedImage = {
         url: data.url,
         filename: data.filename,
-        file: file
+        file: fileToUpload
       };
 
       // 用服务器 URL 显示预览
@@ -1036,10 +1126,33 @@ function renderHistory(messages) {
   for (const msg of messages) {
     const role = msg.role || 'user';
     const content = extractText(msg);
-    if (!content) continue;
+    
+    // ✅ 提取图片 URL（从 attachments 或 parts 字段）
+    let imageUrl = null;
+    const attachments = msg.attachments || msg.parts || [];
+    if (Array.isArray(attachments) && attachments.length > 0) {
+      for (const att of attachments) {
+        if (att && (att.type === 'image' || (att.type && att.type.includes('image')))) {
+          imageUrl = att.url || att.content || att.image;
+          if (imageUrl && imageUrl.length > 0) {
+            console.log('📷 找到历史图片:', imageUrl);
+            break;
+          }
+        }
+      }
+    }
+    
+    // 如果没有内容且没有图片，跳过
+    if (!content && !imageUrl) continue;
 
     const name = role === 'user' ? (user?.nickname || '我') : '灵犀';
-    addMessage(role, content, name);
+    
+    // ✅ 如果有图片，传递对象格式
+    if (imageUrl) {
+      addMessage(role, { text: content || '', image: imageUrl }, name);
+    } else {
+      addMessage(role, content, name);
+    }
   }
 
   console.log('✅ 渲染了', messages.length, '条历史消息');
@@ -1494,12 +1607,12 @@ function addMessage(role, content, name) {
     // 带图片的消息
     bubbleContent = `
       <div class="message-image">
-        <img src="${content.image}" alt="上传的图片" style="max-width: 100%; border-radius: 8px; margin-bottom: 8px;">
+        <img src="${content.image}" alt="上传的图片" style="max-width: 100%; border-radius: 8px; margin-bottom: 8px; cursor: zoom-in;" onclick="showImagePreview('${content.image}', '上传的图片')">
       </div>
       ${content.text ? `<div>${escapeHtml(content.text)}</div>` : ''}
     `;
   } else {
-    // 处理文本消息，提取文件
+    // 处理文本消息，提取 Markdown 图片和文件路径
     const text = typeof content === 'string' ? content : '';
     
     // 使用文件预览模块处理消息
@@ -1509,11 +1622,13 @@ function addMessage(role, content, name) {
       token: userServerInfo.fileServerToken // 添加文件服务 token
     } : {};
     
-    const { text: cleanText, filesHtml } = processMessage(text, fileOptions);
+    // 🔧 使用 processMessageFull 同时处理 Markdown 图片和文件路径
+    const { text: cleanText, filesHtml, imagesHtml } = processMessageFull(text, fileOptions);
     
-    // 渲染文本和文件附件
+    // 渲染文本、图片和文件附件
     bubbleContent = `
       ${cleanText ? `<div>${escapeHtml(cleanText)}</div>` : ''}
+      ${imagesHtml}
       ${filesHtml}
     `;
   }
@@ -3450,3 +3565,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // 导出函数
 window.toggleVoiceInput = toggleVoiceInput;
+
+// 更新用户订阅徽章
+function updateUserBadge() {
+  const badgeEl = document.getElementById('sidebarUserBadge');
+  if (!badgeEl || !user) return;
+
+  const plan = user.subscription?.plan || 'free';
+  const planNames = {
+    'free': 'FREE',
+    'lite': 'LITE',
+    'pro': 'PRO'
+  };
+
+  badgeEl.textContent = planNames[plan] || 'FREE';
+  badgeEl.className = `sidebar-user-badge ${plan}`;
+
+  // 更新头像文字
+  const avatarEl = document.getElementById('sidebarUserAvatar');
+  if (avatarEl && user.nickname) {
+    avatarEl.textContent = user.nickname.charAt(0).toUpperCase();
+  }
+
+  // 更新用户名
+  const nameEl = document.getElementById('sidebarUserName');
+  if (nameEl && user.nickname) {
+    nameEl.textContent = user.nickname;
+  }
+}

@@ -132,9 +132,9 @@
       height: 120px;
       overflow: hidden;
       position: relative;
-      /* 顶部渐变遮罩 - 让旧内容淡出 */
-      -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 30%, black 100%);
-      mask-image: linear-gradient(to bottom, transparent 0%, black 30%, black 100%);
+      /* 底部渐变遮罩 - 让底部内容保持可见，顶部淡出 */
+      -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 100%);
+      mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 100%);
     }
     
     .brand-story-text {
@@ -584,53 +584,41 @@
       const textEl = document.getElementById('brandStoryText');
       const container = textEl.parentElement;
       const cursorEl = document.getElementById('brandStoryCursor');
-      
+
       if (!textEl) return;
-      
+
       let fullText = '';
-      let scrollOffset = 0;
-      const lineHeight = 40; // 行高（line-height 2.2 * font-size 18 ≈ 40px）
-      
+
       for (let i = 0; i < brandStoryLines.length; i++) {
         const line = brandStoryLines[i];
-        
+
         // 逐字输出
         for (let j = 0; j < line.length; j++) {
           fullText += line[j];
           textEl.innerHTML = formatStoryText(fullText);
-          
-          // 检查是否需要滚动
-          const textHeight = textEl.scrollHeight;
-          const containerHeight = container.clientHeight;
-          
-          if (textHeight > containerHeight) {
-            // 超出容器，往上滚动
-            scrollOffset = textHeight - containerHeight + 20;
-            textEl.style.transform = `translateY(-${scrollOffset}px)`;
-          }
-          
+
+          // 自动滚动到底部
+          container.scrollTop = container.scrollHeight;
+
           await sleep(100); // 每个字更慢
         }
-        
+
         // 换行
         fullText += '\n';
         textEl.innerHTML = formatStoryText(fullText);
-        
+
         // 行间停顿
         await sleep(400); // 行间停顿更长
       }
-      
-      // 完成后隐藏光标，停在最后一段
+
+      // 完成后隐藏光标
       if (cursorEl) {
         cursorEl.style.display = 'none';
       }
-      
-      // 最终滚动到最后一行
+
+      // 最终滚动到底部
       setTimeout(() => {
-        const textHeight = textEl.scrollHeight;
-        const containerHeight = container.clientHeight;
-        scrollOffset = textHeight - containerHeight + 20;
-        textEl.style.transform = `translateY(-${scrollOffset}px)`;
+        container.scrollTop = container.scrollHeight;
       }, 500);
     }
     

@@ -142,7 +142,7 @@ function getFileUrl(filePath, options = {}) {
 }
 
 /**
- * 显示图片预览弹框
+ * 显示图片预览弹框（带下载功能）
  */
 function showImagePreview(url, filename) {
   // 移除已存在的弹框
@@ -200,13 +200,52 @@ function showImagePreview(url, filename) {
     });
   };
   
+  // 顶部工具栏
+  const toolbar = document.createElement('div');
+  toolbar.style.cssText = `
+    position: absolute;
+    top: -50px;
+    right: 0;
+    display: flex;
+    gap: 10px;
+  `;
+  
+  // 下载按钮
+  const downloadBtn = document.createElement('button');
+  downloadBtn.innerHTML = '⬇️';
+  downloadBtn.title = '下载图片';
+  downloadBtn.style.cssText = `
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    font-size: 20px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+  `;
+  downloadBtn.onmouseenter = () => downloadBtn.style.background = 'rgba(255, 255, 255, 0.3)';
+  downloadBtn.onmouseleave = () => downloadBtn.style.background = 'rgba(255, 255, 255, 0.2)';
+  downloadBtn.onclick = (e) => {
+    e.stopPropagation();
+    // 下载图片
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename || 'image.jpg';
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+  
   // 关闭按钮
   const closeBtn = document.createElement('button');
   closeBtn.innerHTML = '✕';
   closeBtn.style.cssText = `
-    position: absolute;
-    top: -40px;
-    right: 0;
     background: rgba(255, 255, 255, 0.2);
     border: none;
     color: white;
@@ -259,8 +298,10 @@ function showImagePreview(url, filename) {
   document.addEventListener('keydown', handleEsc);
   
   // 组装
+  toolbar.appendChild(downloadBtn);
+  toolbar.appendChild(closeBtn);
   imgContainer.appendChild(img);
-  imgContainer.appendChild(closeBtn);
+  imgContainer.appendChild(toolbar);
   imgContainer.appendChild(filenameEl);
   modal.appendChild(imgContainer);
   document.body.appendChild(modal);
@@ -375,6 +416,61 @@ window.downloadFile = function(url, filename) {
 };
 
 /**
+ * 提取 Markdown 图片语法
+ * 支持：![alt](url) 和 ![alt](url "title")
+ */
+function extractMarkdownImages(text) {
+  const images = [];
+  // 匹配 ![alt](url) 或 ![alt](url "title")
+  const pattern = /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/g;
+  
+  let match;
+  while ((match = pattern.exec(text)) !== null) {
+    images.push({
+      fullMatch: match[0],
+      alt: match[1] || 'image',
+      url: match[2],
+      title: match[3] || ''
+    });
+  }
+  
+  return images;
+}
+
+/**
+ * 解析消息中的 Markdown 图片并转换为 HTML
+ */
+function parseMarkdownImages(text, options = {}) {
+  if (!text) return { text: '', imagesHtml: '' };
+  
+  const images = extractMarkdownImages(text);
+  let cleanText = text;
+  const imageElements = [];
+  
+  images.forEach(img => {
+    // 从文本中移除 Markdown 图片语法
+    cleanText = cleanText.replace(img.fullMatch, '').trim();
+    
+    // 生成图片 HTML
+    imageElements.push(`
+      <div class="message-image" style="margin: 8px 0;">
+        <img src="${img.url}" 
+             alt="${img.alt}" 
+             style="max-width: 100%; max-height: 400px; border-radius: 8px; cursor: zoom-in;"
+             onclick="showImagePreview('${img.url}', '${img.alt}')"
+             loading="lazy"
+             onerror="this.onerror=null; this.style.display='none'; this.insertAdjacentHTML('afterend', '<div style=\\'color:#ef4444;font-size:12px;\\'>图片加载失败</div>');">
+      </div>
+    `);
+  });
+  
+  return {
+    text: cleanText,
+    imagesHtml: imageElements.join('')
+  };
+}
+
+/**
  * 处理消息 - 提取文件并渲染
  */
 function processMessage(text, options = {}) {
@@ -396,9 +492,30 @@ function processMessage(text, options = {}) {
   };
 }
 
+/**
+ * 处理消息（完整版）- 同时处理 Markdown 图片和文件路径
+ */
+function processMessageFull(text, options = {}) {
+  if (!text) return { text: '', filesHtml: '', imagesHtml: '' };
+  
+  // 1. 先处理 Markdown 图片
+  const { text: textAfterImages, imagesHtml } = parseMarkdownImages(text, options);
+  
+  // 2. 再处理文件路径
+  const { text: cleanText, filesHtml } = processMessage(textAfterImages, options);
+  
+  return {
+    text: cleanText,
+    filesHtml,
+    imagesHtml
+  };
+}
+
 // 挂载到 window（全局可用）
 window.extractFiles = extractFiles;
 window.getFileUrl = getFileUrl;
 window.renderFileAttachments = renderFileAttachments;
 window.processMessage = processMessage;
+window.processMessageFull = processMessageFull;
+window.parseMarkdownImages = parseMarkdownImages;
 window.showImagePreview = showImagePreview;

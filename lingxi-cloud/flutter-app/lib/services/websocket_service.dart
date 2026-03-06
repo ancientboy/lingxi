@@ -191,6 +191,8 @@ class WebSocketService {
       'userAgent': 'LingxiCloud-Flutter/1.0.0 (Android)',
     };
     
+    debugPrint('📤 Connect params: $params');
+    
     final connectMsg = {
       'type': 'req',
       'id': 'req_${_requestId++}',

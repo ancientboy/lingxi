@@ -197,6 +197,18 @@ router.get('/me', async (req, res) => {
       canClaimTeam,
       claimTeamCost: 100,
       inviteReward: 100,
+      // 订阅和积分详情
+      credits: user.credits || {
+        balance: points,
+        freeDaily: 100,
+        freeDailyUsed: 0,
+        monthlyQuota: 0
+      },
+      subscription: user.subscription || {
+        plan: 'free',
+        planName: 'Free',
+        status: 'active'
+      },
       // 引导状态
       onboardingCompleted: user.onboardingCompleted === true
     });

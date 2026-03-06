@@ -23,7 +23,7 @@ if (flutterVersionName == null) {
 }
 
 android {
-    namespace "com.lingxi.lingxicloud"
+    namespace "cn.lumeword.app"
     compileSdk flutter.compileSdkVersion
     ndkVersion flutter.ndkVersion
 
@@ -40,15 +40,35 @@ android {
         main.java.srcDirs += 'src/main/kotlin'
     }
 
+    // 签名配置
+    signingConfigs {
+        debug {
+            storeFile file('/root/.android/debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+        release {
+            // 使用 debug keystore（仅用于测试）
+            // 生产环境应该使用正式的 release keystore
+            storeFile file('/root/.android/debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
+
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId "com.lingxi.lingxicloud"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://docs.flutter.dev/deployment/android#reviewing-the-gradle-build-configuration.
+        applicationId "cn.lumeword.app"
         minSdkVersion 23
         targetSdkVersion flutter.targetSdkVersion
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
+        
+        // 只包含 arm64-v8a 架构，减小 APK 大小（现代手机都是 64 位）
+        ndk {
+            abiFilters 'arm64-v8a'
+        }
     }
 
     buildTypes {
@@ -56,7 +76,17 @@ android {
             // 启用代码混淆，减小 APK 大小
             minifyEnabled true
             shrinkResources true
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.release
+        }
+    }
+    
+    // 自定义 APK 输出文件名
+    applicationVariants.all { variant ->
+        variant.outputs.all { output ->
+            def projectAppFlavorName = output.name
+            if (projectAppFlavorName.contains("release")) {
+                outputFileName = "lume-v${flutterVersionName}.apk"
+            }
         }
     }
 }

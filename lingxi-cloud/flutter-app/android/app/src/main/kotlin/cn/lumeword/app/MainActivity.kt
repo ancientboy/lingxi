@@ -1,4 +1,4 @@
-package com.lingxi.lingxicloud
+package cn.lumeword.app
 
 import io.flutter.embedding.android.FlutterActivity
 
