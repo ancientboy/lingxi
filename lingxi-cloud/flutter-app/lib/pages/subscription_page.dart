@@ -395,7 +395,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
           ),
           const SizedBox(height: 12),
           Text(
-            '${plan['credits']} 积分/月 · ${plan['serverSpec'] ?? '独享服务器'}',
+            '${plan['credits']} 积分/月',
             style: TextStyle(color: Colors.grey.shade600),
           ),
           const SizedBox(height: 8),

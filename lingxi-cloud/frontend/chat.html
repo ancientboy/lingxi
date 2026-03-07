@@ -1405,6 +1405,435 @@
       alert('灵犀云 v1.0\n\n你的 AI 团队，一键拥有');
     }
     
+    // ===== LumeClaw 维护模式 =====
+    let lumeclawModal = null;
+    
+    // 检查 LumeClaw 权限
+    async function checkLumeclawAccess() {
+      const token = localStorage.getItem('lingxi_token');
+      if (!token) return null;
+      
+      try {
+        // 解析 token 获取 userId
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const userId = payload.userId;
+        
+        const res = await fetch(`${API_BASE}/api/lumeclaw/permissions/${userId}`);
+        const data = await res.json();
+        
+        if (data.success && data.allowed) {
+          // 显示 LumeClaw 入口
+          const entry = document.getElementById('lumeclawEntry');
+          if (entry) entry.style.display = 'flex';
+        }
+        
+        return data;
+      } catch (e) {
+        console.error('检查 LumeClaw 权限失败:', e);
+        return null;
+      }
+    }
+    
+    // 打开 LumeClaw
+    async function openLumeClaw() {
+      const token = localStorage.getItem('lingxi_token');
+      if (!token) {
+        alert('请先登录');
+        return;
+      }
+      
+      // 创建弹窗
+      if (!lumeclawModal) {
+        lumeclawModal = document.createElement('div');
+        lumeclawModal.id = 'lumeclawModal';
+        lumeclawModal.className = 'lumeclaw-overlay';
+        lumeclawModal.innerHTML = `
+          <div class="lumeclaw-modal">
+            <div class="lumeclaw-header">
+              <div class="lumeclaw-title">
+                <i data-lucide="bot" class="icon-lg"></i>
+                <span>LumeClaw</span>
+              </div>
+              <button class="lumeclaw-close" onclick="closeLumeClaw()">
+                <i data-lucide="x" class="icon-sm"></i>
+              </button>
+            </div>
+            
+            <!-- 功能介绍区 -->
+            <div class="lumeclaw-intro">
+              <div class="lumeclaw-intro-icon">🤖</div>
+              <div class="lumeclaw-intro-text">
+                <strong>Lume 维护助手</strong>
+                <p>灵犀云的智能维护代理，帮你诊断问题、查看日志、监控资源</p>
+              </div>
+            </div>
+            
+            <!-- 快捷功能按钮 -->
+            <div class="lumeclaw-quick-actions">
+              <button onclick="sendLumeQuickMessage('检查灵犀云服务状态')" class="lume-quick-btn">
+                <i data-lucide="activity" class="icon-sm"></i>
+                <span>服务状态</span>
+              </button>
+              <button onclick="sendLumeQuickMessage('查看最近的错误日志')" class="lume-quick-btn">
+                <i data-lucide="file-text" class="icon-sm"></i>
+                <span>查看日志</span>
+              </button>
+              <button onclick="sendLumeQuickMessage('检查 CPU 和内存使用情况')" class="lume-quick-btn">
+                <i data-lucide="cpu" class="icon-sm"></i>
+                <span>系统资源</span>
+              </button>
+              <button onclick="sendLumeQuickMessage('检查 PM2 管理的所有服务')" class="lume-quick-btn">
+                <i data-lucide="settings" class="icon-sm"></i>
+                <span>PM2 管理</span>
+              </button>
+            </div>
+            
+            <!-- 聊天区域 -->
+            <div class="lumeclaw-messages" id="lumeclawMessages"></div>
+            
+            <!-- 输入区域 -->
+            <div class="lumeclaw-input-area">
+              <input type="text" id="lumeclawInput" placeholder="输入维护指令或描述问题..." 
+                onkeypress="if(event.key==='Enter')sendLumeMessage()">
+              <button onclick="sendLumeMessage()" class="lumeclaw-send-btn">
+                <i data-lucide="send" class="icon-sm"></i>
+              </button>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(lumeclawModal);
+        
+        // 添加样式
+        const style = document.createElement('style');
+        style.textContent = `
+          /* 遮罩层 */
+          .lumeclaw-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+          }
+          .lumeclaw-overlay.show {
+            opacity: 1;
+            visibility: visible;
+          }
+          
+          /* 弹窗主体 */
+          .lumeclaw-modal {
+            width: 90%;
+            max-width: 600px;
+            height: 80vh;
+            max-height: 700px;
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transform: scale(0.9) translateY(20px);
+            transition: transform 0.3s ease;
+          }
+          .lumeclaw-overlay.show .lumeclaw-modal {
+            transform: scale(1) translateY(0);
+          }
+          
+          /* 头部 */
+          .lumeclaw-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 24px;
+            background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
+            color: white;
+          }
+          .lumeclaw-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 20px;
+            font-weight: 600;
+          }
+          .lumeclaw-title svg {
+            color: white;
+          }
+          .lumeclaw-close {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+          }
+          .lumeclaw-close:hover {
+            background: rgba(255,255,255,0.3);
+          }
+          
+          /* 功能介绍区 */
+          .lumeclaw-intro {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 20px 24px;
+            background: linear-gradient(135deg, rgba(16,163,127,0.08) 0%, rgba(16,163,127,0.02) 100%);
+            border-bottom: 1px solid #e5e5e5;
+          }
+          .lumeclaw-intro-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+          }
+          .lumeclaw-intro-text strong {
+            display: block;
+            font-size: 16px;
+            color: #202123;
+            margin-bottom: 4px;
+          }
+          .lumeclaw-intro-text p {
+            font-size: 13px;
+            color: #6e6e80;
+            margin: 0;
+          }
+          
+          /* 快捷按钮 */
+          .lumeclaw-quick-actions {
+            display: flex;
+            gap: 8px;
+            padding: 16px 24px;
+            border-bottom: 1px solid #e5e5e5;
+            flex-wrap: wrap;
+          }
+          .lume-quick-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            background: #f7f7f8;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            color: #202123;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+          }
+          .lume-quick-btn:hover {
+            background: rgba(16,163,127,0.1);
+            border-color: #10a37f;
+            color: #10a37f;
+          }
+          .lume-quick-btn svg {
+            color: #10a37f;
+          }
+          
+          /* 消息区域 */
+          .lumeclaw-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px 24px;
+            background: #f9fafb;
+          }
+          .lume-message {
+            margin-bottom: 16px;
+            padding: 14px 18px;
+            border-radius: 12px;
+            max-width: 90%;
+            line-height: 1.6;
+          }
+          .lume-message.user {
+            background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
+            color: white;
+            margin-left: auto;
+            text-align: right;
+          }
+          .lume-message.lume {
+            background: white;
+            border: 1px solid #e5e5e5;
+            color: #202123;
+            white-space: pre-wrap;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+          }
+          .lume-message.lume code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Consolas', monospace;
+            font-size: 13px;
+          }
+          
+          /* 输入区域 */
+          .lumeclaw-input-area {
+            display: flex;
+            gap: 10px;
+            padding: 16px 24px;
+            background: white;
+            border-top: 1px solid #e5e5e5;
+          }
+          .lumeclaw-input-area input {
+            flex: 1;
+            padding: 14px 18px;
+            border: 2px solid #e5e5e5;
+            border-radius: 12px;
+            font-size: 14px;
+            color: #202123;
+            transition: all 0.2s;
+          }
+          .lumeclaw-input-area input:focus {
+            outline: none;
+            border-color: #10a37f;
+            box-shadow: 0 0 0 3px rgba(16,163,127,0.1);
+          }
+          .lumeclaw-send-btn {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            box-shadow: 0 4px 12px rgba(16,163,127,0.3);
+          }
+          .lumeclaw-send-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(16,163,127,0.4);
+          }
+          .lumeclaw-send-btn svg {
+            color: white;
+          }
+        `;
+        document.head.appendChild(style);
+      }
+      
+      // 显示弹窗
+      lumeclawModal.classList.add('show');
+      
+      // 重新渲染图标
+      if (window.lucide) lucide.createIcons();
+      
+      // 添加欢迎消息
+      const messagesDiv = document.getElementById('lumeclawMessages');
+      if (messagesDiv.children.length === 0) {
+        addLumeMessage('lume', '👋 你好！我是 Lume，灵犀云的维护助手。\n\n我可以帮你：\n• 检查服务器状态\n• 查看错误日志\n• 监控系统资源\n• 管理 PM2 服务\n\n请描述你需要解决的问题，或点击上方快捷按钮。');
+      }
+      
+      // 聚焦输入框
+      document.getElementById('lumeclawInput').focus();
+    }
+    
+    // 关闭 LumeClaw
+    function closeLumeClaw() {
+      if (lumeclawModal) {
+        lumeclawModal.classList.remove('show');
+      }
+    }
+    
+    // ESC 键关闭 LumeClaw
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && lumeclawModal && lumeclawModal.classList.contains('show')) {
+        closeLumeClaw();
+      }
+    });
+    
+    // 发送消息
+    async function sendLumeMessage() {
+      const input = document.getElementById('lumeclawInput');
+      const message = input.value.trim();
+      if (!message) return;
+      
+      input.value = '';
+      
+      // 显示用户消息
+      addLumeMessage('user', message);
+      
+      // 显示加载中
+      const loadingId = addLumeMessage('lume', '⏳ 分析中...', true);
+      
+      try {
+        const token = localStorage.getItem('lingxi_token');
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        
+        const res = await fetch(`${API_BASE}/api/lumeclaw/chat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            userId: payload.userId,
+            message: message
+          })
+        });
+        
+        const data = await res.json();
+        
+        // 移除加载中
+        removeLumeMessage(loadingId);
+        
+        if (data.success) {
+          addLumeMessage('lume', data.response);
+        } else {
+          addLumeMessage('lume', '❌ ' + (data.error || '请求失败'));
+        }
+      } catch (e) {
+        removeLumeMessage(loadingId);
+        addLumeMessage('lume', '❌ 网络错误: ' + e.message);
+      }
+    }
+    
+    // 发送快捷消息
+    function sendLumeQuickMessage(message) {
+      document.getElementById('lumeclawInput').value = message;
+      sendLumeMessage();
+    }
+    
+    // 添加消息
+    function addLumeMessage(type, content, isTemp = false) {
+      const messagesDiv = document.getElementById('lumeclawMessages');
+      const msgDiv = document.createElement('div');
+      msgDiv.className = `lume-message ${type}`;
+      msgDiv.innerHTML = content;
+      if (isTemp) {
+        msgDiv.id = 'lume-loading-' + Date.now();
+        msgDiv.style.opacity = '0.6';
+      }
+      messagesDiv.appendChild(msgDiv);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      return msgDiv.id;
+    }
+    
+    // 移除消息
+    function removeLumeMessage(id) {
+      if (id) {
+        const el = document.getElementById(id);
+        if (el) el.remove();
+      }
+    }
+    
+    // 页面加载时检查 LumeClaw 权限
+    setTimeout(checkLumeclawAccess, 1000);
+    
     // 切换用户菜单
     function toggleUserMenu() {
       const trigger = document.querySelector('.sidebar-user-trigger');

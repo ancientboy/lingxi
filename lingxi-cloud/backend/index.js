@@ -131,6 +131,10 @@ app.use('/api/speech', speechRoutes);
 import filesRoutes from './routes/files.js';
 app.use('/api/files', filesRoutes);
 
+// LumeClaw 维护 Agent
+import lumeclawRoutes from './routes/lumeclaw.js';
+app.use('/api/lumeclaw', lumeclawRoutes);
+
 // 托管上传的图片
 import { fileURLToPath as fileURLToPath2 } from 'url';
 import { dirname as dirname2, join as join2 } from 'path';
