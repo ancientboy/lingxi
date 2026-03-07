@@ -183,24 +183,34 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       debugPrint('❌ 加载会话失败: $e\nStack: $stack');
     });
     
-    // 捕获 WebSocket 初始化错误
-    Future.microtask(() async {
-      try {
-        debugPrint('📋 开始初始化 WebSocket');
-        // 先清理旧 listener，避免重复注册
-        WebSocketService().clearListeners();
-        _initWebSocket();
-        debugPrint('✅ WebSocket 初始化完成');
-      } catch (e, stack) {
-        debugPrint('❌ WebSocket 初始化异常: $e\nStack: $stack');
-        if (mounted) {
-          setState(() {
-            _wsStatus = '连接初始化失败';
-            _wsError = e.toString();
-          });
+    // ✅ 检查是否是免费用户
+    final user = Provider.of<AppProvider>(context, listen: false).user;
+    final isFreeUser = user?.subscription?['plan'] == 'free' || user?.subscription?['plan'] == null;
+    
+    if (isFreeUser) {
+      // 免费用户不需要 WebSocket
+      debugPrint('📋 免费用户，跳过 WebSocket 初始化');
+    } else {
+      // 订阅用户：初始化 WebSocket
+      // 捕获 WebSocket 初始化错误
+      Future.microtask(() async {
+        try {
+          debugPrint('📋 开始初始化 WebSocket');
+          // 先清理旧 listener，避免重复注册
+          WebSocketService().clearListeners();
+          _initWebSocket();
+          debugPrint('✅ WebSocket 初始化完成');
+        } catch (e, stack) {
+          debugPrint('❌ WebSocket 初始化异常: $e\nStack: $stack');
+          if (mounted) {
+            setState(() {
+              _wsStatus = '连接初始化失败';
+              _wsError = e.toString();
+            });
+          }
         }
-      }
-    });
+      });
+    }
     
     debugPrint('📋 ChatPage initState 完成');
   }
@@ -1126,6 +1136,94 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     });
   }
 
+  /// 免费用户发送消息（HTTP API）
+  Future<void> _sendMessageForFreeUser(String text, bool hasImage) async {
+    final user = Provider.of<AppProvider>(context, listen: false).user;
+    final userId = user?.id;
+    
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('未登录，请重新登录')),
+      );
+      return;
+    }
+    
+    // 清空输入框
+    _controller.clear();
+    
+    // 构建用户消息
+    final userMessage = Message(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      role: 'user',
+      content: text,
+      imageUrl: hasImage ? _pendingImageUrl : null,
+      createdAt: DateTime.now(),
+      agentId: 'lingxi',
+    );
+    
+    setState(() {
+      _messages.add(userMessage);
+      _isGenerating = true;
+      _pendingImageUrl = null;
+      _pendingImageName = null;
+    });
+    
+    _scrollToBottom();
+    
+    try {
+      final response = await ApiService().post(
+        '/api/chat/simple',
+        data: {
+          'userId': userId,
+          'message': text.isNotEmpty ? text : '请识别这张图片',
+        },
+      );
+      
+      final data = response.data;
+      
+      if (mounted) {
+        if (data['success'] == true || data['response'] != null) {
+          final responseText = data['response'] ?? data['message'] ?? '收到~';
+          
+          setState(() {
+            _messages.add(Message(
+              id: DateTime.now().millisecondsSinceEpoch.toString(),
+              role: 'assistant',
+              content: responseText,
+              createdAt: DateTime.now(),
+              agentId: 'lingxi',
+            ));
+            _isGenerating = false;
+          });
+          _scrollToBottom();
+        } else {
+          // 显示错误
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(data['error'] ?? '发送失败')),
+          );
+          setState(() {
+            _isGenerating = false;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ 免费用户发送消息失败: $e');
+      if (mounted) {
+        setState(() {
+          _isGenerating = false;
+          _messages.add(Message(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            role: 'assistant',
+            content: '网络错误: $e',
+            createdAt: DateTime.now(),
+            agentId: 'lingxi',
+          ));
+        });
+        _scrollToBottom();
+      }
+    }
+  }
+
   void _sendMessage() {
     final text = _controller.text.trim();
     final hasImage = _pendingImageUrl != null;
@@ -1134,7 +1232,17 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     if (text.isEmpty && !hasImage) return;
     if (_isGenerating) return;
     
-    // ✅ 问题1：改进连接检查逻辑
+    // ✅ 检查是否是免费用户
+    final user = Provider.of<AppProvider>(context, listen: false).user;
+    final isFreeUser = user?.subscription?['plan'] == 'free' || user?.subscription?['plan'] == null;
+    
+    if (isFreeUser) {
+      // 免费用户：使用 HTTP API 调用
+      _sendMessageForFreeUser(text, hasImage);
+      return;
+    }
+    
+    // ✅ 订阅用户：WebSocket 逻辑
     final ws = WebSocketService();
     if (!ws.isConnected) {
       debugPrint('⚠️ WebSocket 未连接，状态: ${ws.isConnecting ? "正在连接" : "未连接"}');
@@ -1471,9 +1579,17 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
 
   Widget _buildAgentSelector() {
-    // 确保 _currentAgent 在 _agents 中存在
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final user = appProvider.user;
+    // 免费用户判断：plan 为 'free' 或 null
+    final isFreeUser = user?.subscription?['plan'] == 'free' || user?.subscription?['plan'] == null;
     final validAgent = _agents.containsKey(_currentAgent) ? _currentAgent : _agents.keys.first;
     final currentAgentData = _agents[validAgent];
+    
+    // 拼接 Agent 列表（免费用户只能选择 'lingxi'）
+    final availableAgents = isFreeUser
+        ? {'lingxi': _agents['lingxi']!}
+        : _agents;
     
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8),
@@ -1481,7 +1597,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         value: validAgent,
         underline: const SizedBox(),
         // 自定义当前选中的显示
-        selectedItemBuilder: (context) => _agents.entries.map((e) {
+        selectedItemBuilder: (context) => availableAgents.entries.map((e) {
           final agent = e.value;
           final name = _toString(agent['name']);
           final icon = agent['icon'] as IconData?;
@@ -1496,11 +1612,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             ],
           );
         }).toList(),
-        items: _agents.entries.map((e) {
+        items: availableAgents.entries.map((e) {
           final agent = e.value;
           final name = _toString(agent['name']);
           final icon = agent['icon'] as IconData?;
           final role = _toString(agent['role']);
+          final isLocked = isFreeUser && e.key != 'lingxi';
+          
           return DropdownMenuItem(
             value: e.key,
             child: Row(
@@ -1510,6 +1628,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   const SizedBox(width: 8),
                 ],
                 Text(name),
+                if (isLocked) ...[
+                  const SizedBox(width: 8),
+                  Icon(Icons.lock, size: 14, color: Colors.grey),
+                ],
                 const SizedBox(width: 8),
                 Text('($role)', style: const TextStyle(fontSize: 10, color: Colors.grey)),
               ],
@@ -1517,7 +1639,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           );
         }).toList(),
         onChanged: (v) {
-          if (v != null && _agents.containsKey(v) && v != _currentAgent) {
+          if (v != null && availableAgents.containsKey(v) && v != _currentAgent) {
             // 切换Agent时，如果有消息，保存当前会话并创建新会话
             if (_messages.isNotEmpty) {
               _saveCurrentSession();
@@ -1526,8 +1648,39 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               _currentAgent = v;
               _messages = [];  // 清空消息，开始新会话
             });
+          } else if (v != null && !availableAgents.containsKey(v)) {
+            // 选中被锁定的 Agent，弹出升级提示
+            _showUpgradeDialog();
           }
         },
+      ),
+    );
+  }
+  
+  // 升级提示对话框
+  void _showUpgradeDialog() {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('解锁 AI 团队'),
+        content: const Text('订阅后可以使用完整的 8 位 Agent 团队'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('稍后再说'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              // 直接跳转到订阅页面
+              Navigator.push(
+                dialogContext,
+                MaterialPageRoute(builder: (_) => const SubscriptionPage()),
+              );
+            },
+            child: const Text('立即订阅'),
+          ),
+        ],
       ),
     );
   }
@@ -2076,7 +2229,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           ),
           
           Divider(color: isDarkMode ? Colors.white10 : Colors.black12, height: 1),
-          _buildToolItem(Icons.people_outline, '我的团队', () => _showTeamDialog(), isDarkMode),
+          _buildToolItem(Icons.people_outline, _getTeamMenuTitle(), _getTeamMenuAction(), isDarkMode),
           _buildToolItem(Icons.message_outlined, '飞书配置', () => _showComingSoon('飞书配置'), isDarkMode),
           _buildToolItem(Icons.business_outlined, '企业微信', () => _showComingSoon('企业微信配置'), isDarkMode),
           _buildToolItem(Icons.extension_outlined, '技能库', () {
@@ -2619,6 +2772,175 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             ],
           );
         },
+      ),
+    );
+  }
+
+  // 获取侧边栏菜单标题
+  String _getTeamMenuTitle() {
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final user = appProvider.user;
+    
+    // 免费用户显示"领取AI团队"
+    final plan = user?.subscription?['plan'] ?? 'free';
+    if (plan == 'free') {
+      return '领取AI团队';
+    }
+    
+    // 订阅用户根据是否有团队显示不同内容
+    if (user?.agents.isEmpty ?? true) {
+      return '领取AI团队';
+    }
+    
+    return '我的团队';
+  }
+
+  // 获取侧边栏菜单点击操作
+  void Function() _getTeamMenuAction() {
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final user = appProvider.user;
+    
+    // 免费用户点击显示AI团队介绍
+    final plan = user?.subscription?['plan'] ?? 'free';
+    if (plan == 'free') {
+      return () => _showAITeamIntroDialog(appProvider);
+    }
+    
+    // 订阅用户根据是否有团队显示不同内容
+    if (user?.agents.isEmpty ?? true) {
+      return () => _showAITeamIntroDialog(appProvider);
+    }
+    
+    return () => _showTeamDialog();
+  }
+
+  // 显示AI团队介绍对话框
+  void _showAITeamIntroDialog(AppProvider appProvider) {
+    final allAgents = <String, Map<String, dynamic>>{
+      'lingxi': {
+        'name': '灵犀',
+        'icon': Icons.auto_awesome,
+        'role': '队长 · 智能调度',
+        'desc': '作为团队队长，灵犀负责智能调度和任务分配，能够根据任务类型自动指派给合适的团队成员。',
+        'examples': ['帮我安排明天的日程', '提醒我下午3点开会', '这个任务应该派给谁？'],
+      },
+      'coder': {
+        'name': '云溪',
+        'icon': Icons.code,
+        'role': '编程开发',
+        'desc': '擅长各种编程语言的代码生成和审查，能快速实现你的功能需求并优化现有代码。',
+        'examples': ['帮我写一个 Python 爬虫', '这段代码有什么问题？', '设计一个用户登录 API'],
+      },
+      'ops': {
+        'name': '若曦',
+        'icon': Icons.bar_chart,
+        'role': '数据分析',
+        'desc': '精通数据分析和可视化，能帮你快速分析数据并生成专业的分析报告。',
+        'examples': ['分析最近一周的销售数据', '生成月度报表', '预测下季度趋势'],
+      },
+      'inventor': {
+        'name': '紫萱',
+        'icon': Icons.lightbulb,
+        'role': '创意发明',
+        'desc': '拥有丰富的创意和发明能力，能帮你把想法转化为具体的方案和设计。',
+        'examples': ['设计一个智能家居系统', '创新产品构思', '专利申请指导'],
+      },
+      'pm': {
+        'name': '梓萱',
+        'icon': Icons.track_changes,
+        'role': '产品经理',
+        'desc': '精通产品设计和需求分析，能帮你完善产品功能和用户界面设计。',
+        'examples': ['设计用户注册流程', '编写产品需求文档', '优化用户体验'],
+      },
+      'noter': {
+        'name': '晓琳',
+        'icon': Icons.note,
+        'role': '笔记整理',
+        'desc': '擅长内容整理和知识管理，能帮你快速整理会议记录和学习笔记。',
+        'examples': ['整理会议纪要', '总结学习笔记', '归档文档资料'],
+      },
+      'media': {
+        'name': '音韵',
+        'icon': Icons.palette,
+        'role': '媒体设计',
+        'desc': '精通各种媒体设计工具，能帮你快速制作高质量的设计素材。',
+        'examples': ['设计宣传海报', '制作视频脚本', '配色方案建议'],
+      },
+      'smart': {
+        'name': '智家',
+        'icon': Icons.home,
+        'role': '智能家居',
+        'desc': '擅长智能家居和生活助手场景，能帮你打造高效的智能生活体验。',
+        'examples': ['自动化场景设置', '智能家居控制', '生活小贴士'],
+      },
+    };
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.people_outline, color: Constants.primaryColor),
+              const SizedBox(width: 8),
+              const Text('AI 团队介绍'),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '升级订阅后即可领取完整的 AI 团队，每个 Agent 都有独特的技能和专长：',
+                  style: TextStyle(fontSize: 14),
+                ),
+                const SizedBox(height: 16),
+                ...allAgents.entries.map((entry) {
+                  final agent = entry.value;
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: Constants.primaryColor.withOpacity(0.1),
+                        child: Icon(agent['icon'] as IconData, color: Constants.primaryColor, size: 24),
+                      ),
+                      title: Text(agent['name'] as String, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(agent['role'] as String, style: const TextStyle(fontSize: 12)),
+                          const SizedBox(height: 4),
+                          Text(
+                            agent['desc'] as String,
+                            style: const TextStyle(fontSize: 12, color: Colors.grey),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('取消'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('请先订阅后领取 AI 团队')),
+                );
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: Constants.primaryColor),
+              child: const Text('领取'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -3214,7 +3536,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
 
   Widget _buildMainContent() {
-    final isDarkMode = Provider.of<AppProvider>(context, listen: false).isDarkMode;
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final user = appProvider.user;
+    final isFreeUser = user?.subscription?['plan'] == 'free' || user?.subscription?['plan'] == null;
+    final isDarkMode = appProvider.isDarkMode;
     
     try {
       // 获取当前 agent 名称
@@ -3223,6 +3548,29 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       
       return Column(
         children: [
+          // 顶部升级提示条（仅免费用户显示）
+          if (isFreeUser) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              color: const Color(0xFFEAB308),
+              child: GestureDetector(
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SubscriptionPage())),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.star, size: 16, color: Colors.white),
+                    const SizedBox(width: 8),
+                    const Text(
+                      '订阅解锁完整 AI 团队 →',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
           Expanded(
             child: _messages.isEmpty
                 ? _buildWelcomeExamples(currentAgentInfo, isDarkMode)

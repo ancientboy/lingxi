@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lingxicloud/providers/app_provider.dart';
 import 'package:lingxicloud/pages/login_page.dart';
-import 'package:lingxicloud/pages/home_page.dart';
 import 'package:lingxicloud/pages/chat_page.dart';
 import 'package:lingxicloud/pages/starfield_intro_page.dart';
 import 'package:lingxicloud/pages/team_intro_page.dart';
@@ -57,29 +56,33 @@ class _SplashPageState extends State<SplashPage> {
       return;
     }
 
-    // 已登录，检查是否有团队
-    final hasTeam = appProvider.user?.agents.isNotEmpty ?? false;
-
-    if (hasTeam) {
-      // 有团队 → 直接进入聊天页
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const ChatPage()),
-      );
-    } else {
-      // 无团队 → 显示团队引导页
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => TeamIntroPage(
-            onComplete: () {
-              // 领取团队后进入聊天页
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (_) => const ChatPage()),
-              );
-            },
+    // 已登录，统一跳转到 ChatPage
+    // 订阅用户检查是否有团队
+    final plan = appProvider.user?.subscription?['plan'] ?? 'free';
+    
+    if (plan != 'free') {
+      // 订阅用户但没有团队 → 显示团队引导页
+      final hasTeam = appProvider.user?.agents.isNotEmpty ?? false;
+      if (!hasTeam) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => TeamIntroPage(
+              onComplete: () {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (_) => const ChatPage()),
+                );
+              },
+            ),
           ),
-        ),
-      );
+        );
+        return;
+      }
     }
+    
+    // 免费用户或订阅用户有团队 → 直接进入聊天页
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const ChatPage()),
+    );
   }
 
   @override

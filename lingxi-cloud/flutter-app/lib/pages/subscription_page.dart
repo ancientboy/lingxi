@@ -398,6 +398,16 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
             '${plan['credits']} 积分/月 · ${plan['serverSpec'] ?? '独享服务器'}',
             style: TextStyle(color: Colors.grey.shade600),
           ),
+          const SizedBox(height: 8),
+          // 套餐详细说明
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildFeatureItem('解锁 8 个 AI Agent 团队'),
+              _buildFeatureItem('独立 OpenClaw 服务器'),
+              _buildFeatureItem('优先技术支持'),
+            ],
+          ),
           const SizedBox(height: 12),
           if (!isCurrent)
             SizedBox(
@@ -422,6 +432,19 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                 child: Text('当前套餐', style: TextStyle(color: Colors.grey)),
               ),
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFeatureItem(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Icon(Icons.check_circle, size: 16, color: Constants.primaryColor),
+          const SizedBox(width: 8),
+          Text(text, style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
         ],
       ),
     );

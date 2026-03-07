@@ -2,7 +2,8 @@ import 'package:lingxicloud/utils/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lingxicloud/providers/app_provider.dart';
-import 'package:lingxicloud/pages/home_page.dart';
+import 'package:lingxicloud/pages/chat_page.dart';
+import 'package:lingxicloud/pages/team_intro_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -48,8 +49,9 @@ class _LoginPageState extends State<LoginPage> {
         });
 
         if (success) {
+          // 统一跳转到 ChatPage
           Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const HomePage()),
+            MaterialPageRoute(builder: (_) => const ChatPage()),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(

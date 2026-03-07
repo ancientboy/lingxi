@@ -89,11 +89,6 @@ class _TeamIntroPageState extends State<TeamIntroPage>
     }
   }
 
-  // 跳过（先体验灵犀）
-  void _skip() {
-    widget.onComplete();
-  }
-
   @override
   Widget build(BuildContext context) {
     final appProvider = Provider.of<AppProvider>(context);
@@ -221,7 +216,7 @@ class _TeamIntroPageState extends State<TeamIntroPage>
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          '订阅用户 或 累计消耗 5000 积分',
+                          '订阅用户 或 累计消耗 ≥5000 积分',
                           style: TextStyle(
                             fontSize: 13,
                             color: isDarkMode ? Colors.white70 : Colors.grey.shade600,
@@ -229,10 +224,10 @@ class _TeamIntroPageState extends State<TeamIntroPage>
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '当前积分: ${user?.points ?? 0}',
+                          '当前积分: ${user?.points ?? 0} / 5000',
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.orange,
+                            color: (user?.points ?? 0) >= 5000 ? Colors.green : Colors.orange,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -264,26 +259,13 @@ class _TeamIntroPageState extends State<TeamIntroPage>
                               ),
                             )
                           : const Text(
-                              '一键领取团队',
+                              '领取 AI 团队',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,
                               ),
                             ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // 跳过按钮
-                  TextButton(
-                    onPressed: _skip,
-                    child: Text(
-                      '先体验灵犀',
-                      style: TextStyle(
-                        color: isDarkMode ? Colors.white54 : Colors.grey,
-                      ),
                     ),
                   ),
 

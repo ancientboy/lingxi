@@ -67,7 +67,13 @@ router.post('/register', async (req, res) => {
         instanceId: user.instanceId,
         instanceStatus: user.instanceStatus,
         agents: user.agents || [],
-        userInviteCode: user.userInviteCode  // 返回用户专属邀请码
+        userInviteCode: user.userInviteCode,  // 返回用户专属邀请码
+        // 新用户默认免费订阅
+        subscription: {
+          plan: 'free',
+          planName: 'Free',
+          status: 'active'
+        }
       }
     });
   } catch (error) {
@@ -123,7 +129,13 @@ router.post('/login', async (req, res) => {
         userInviteCode: user.userInviteCode,  // 返回用户专属邀请码
         inviteCount: user.inviteCount || 0,    // 邀请人数
         points: user.points || 0,              // 积分
-        canClaimTeam: (user.points || 0) >= 100
+        canClaimTeam: (user.points || 0) >= 5000,
+        // 订阅信息
+        subscription: user.subscription || {
+          plan: 'free',
+          planName: 'Free',
+          status: 'active'
+        }
       }
     });
   } catch (error) {
@@ -179,7 +191,7 @@ router.get('/me', async (req, res) => {
     
     // 计算是否可以领取团队
     const points = user.points || 0;
-    const canClaimTeam = points >= 100;
+    const canClaimTeam = points >= 5000;
     
     res.json({
       id: user.id,

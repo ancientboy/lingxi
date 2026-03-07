@@ -50,15 +50,19 @@ class _StarfieldIntroPageState extends State<StarfieldIntroPage>
   // 动画控制器
   late AnimationController _logoGlowController;
   late Animation<double> _logoGlowAnimation;
-  late AnimationController _storyController;
   late AnimationController _ctaController;
-  late ScrollController _scrollController;
 
   // CTA 按钮是否激活
   bool _ctaActive = false;
 
-  // 滚动动画状态
-  bool _storyAnimationComplete = false;
+  // 当前显示的行索引
+  int _currentLineIndex = -1;
+  
+  // 滚动偏移（向上为负）
+  double _scrollOffset = 0.0;
+  
+  // 动画是否完成
+  bool _animationComplete = false;
 
   @override
   void initState() {
@@ -74,15 +78,6 @@ class _StarfieldIntroPageState extends State<StarfieldIntroPage>
       CurvedAnimation(parent: _logoGlowController, curve: Curves.easeInOut),
     );
 
-    // 初始化滚动控制器
-    _scrollController = ScrollController();
-
-    // 初始化品牌故事动画控制器
-    _storyController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 3500),
-    );
-
     // 初始化 CTA 按钮动画控制器
     _ctaController = AnimationController(
       vsync: this,
@@ -92,16 +87,14 @@ class _StarfieldIntroPageState extends State<StarfieldIntroPage>
     // 生成星星
     _generateStars();
 
-    // 启动动画序列
-    _startAnimationSequence();
+    // 启动动画
+    _startAnimation();
   }
 
   @override
   void dispose() {
     _logoGlowController.dispose();
-    _storyController.dispose();
     _ctaController.dispose();
-    _scrollController.dispose();
     super.dispose();
   }
 
@@ -119,22 +112,44 @@ class _StarfieldIntroPageState extends State<StarfieldIntroPage>
     }
   }
 
-  // 启动动画序列
-  Future<void> _startAnimationSequence() async {
-    // 动画 1: 文字从中间淡入并向上滚动
-    await _storyController.forward(from: 0.0);
-
-    // 动画 2: 滚动完成后，最后一个文本保持在中间
-    await Future.delayed(const Duration(milliseconds: 800));
-
-    // 动画 3: CTA 按钮淡入
+  // 启动动画
+  Future<void> _startAnimation() async {
+    // 逐行显示文字，每显示完一行就向上滚动
+    for (int i = 0; i < _storyLines.length; i++) {
+      if (!mounted) return;
+      
+      setState(() {
+        _currentLineIndex = i;
+      });
+      
+      // 等待这行文字显示
+      await Future.delayed(Duration(
+        milliseconds: _storyLines[i].isEmpty ? 200 : 600,
+      ));
+      
+      // 向上滚动一点
+      if (mounted) {
+        setState(() {
+          _scrollOffset -= 30;
+        });
+      }
+      
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+    
+    // 所有文字显示完，激活按钮
     if (mounted) {
+      setState(() {
+        _animationComplete = true;
+      });
+      
+      // 按钮淡入
       _ctaController.forward(from: 0.0);
       await Future.delayed(const Duration(milliseconds: 300));
+      
       if (mounted) {
         setState(() {
           _ctaActive = true;
-          _storyAnimationComplete = true;
         });
       }
     }
@@ -142,6 +157,8 @@ class _StarfieldIntroPageState extends State<StarfieldIntroPage>
 
   // 完成启动屏
   void _complete() {
+    if (!_ctaActive) return;
+    
     StarfieldIntroPage._markAsShown();
     widget.onComplete();
   }
@@ -179,51 +196,23 @@ class _StarfieldIntroPageState extends State<StarfieldIntroPage>
             ..._buildStars(),
 
             // 内容
-            Center(
-              child: _buildContent(),
+            SafeArea(
+              child: Column(
+                children: [
+                  const SizedBox(height: 40),
+                  // Logo
+                  _buildLogo(),
+                  const SizedBox(height: 40),
+                  // 品牌故事
+                  Expanded(child: _buildStory()),
+                  // CTA 按钮
+                  _buildCTAButton(),
+                  const SizedBox(height: 40),
+                ],
+              ),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  // 构建主要内容
-  Widget _buildContent() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(40),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // Logo
-          _buildLogo(),
-
-          const SizedBox(height: 60),
-
-          // 品牌故事
-          _buildStory(),
-
-          const SizedBox(height: 48),
-
-          // CTA 按钮
-          _buildCTAButton(),
-
-          const SizedBox(height: 24),
-
-          // 提示文字
-          if (_ctaActive)
-            AnimatedOpacity(
-              opacity: 1.0,
-              duration: const Duration(milliseconds: 500),
-              child: Text(
-                '点击按钮或按 Enter 键继续',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.white.withOpacity(0.5),
-                ),
-              ),
-            ),
-        ],
       ),
     );
   }
@@ -312,121 +301,80 @@ class _StarfieldIntroPageState extends State<StarfieldIntroPage>
 
   // 构建品牌故事
   Widget _buildStory() {
-    return SizedBox(
-      height: 280,
-      child: Stack(
-        children: [
-          // 滚动容器
-          Positioned.fill(
-            child: AnimatedBuilder(
-              animation: _storyController,
-              builder: (context, child) {
-                // 计算滚动偏移
-                // 0.0 = 初始位置, 1.0 = 结束位置
-                double progress = _storyController.value;
-
-                // 最后一段文字（"让陪伴与助力，触手可及。"）作为最后保持在中间的文本
-                // 它的位置应该在垂直居中处 (1.0)
-                // 它的透明度在开始和结束时为 1.0
-                final keepCenterIndex = _storyLines.length - 1;
-
-                return Column(
-                  children: List.generate(_storyLines.length, (index) {
-                    final line = _storyLines[index];
-                    final isHighlight = line.contains('Lume');
-
-                    // 计算每一行的位置
-                    // 使用 transform 来控制位置和透明度
-                    double verticalOffset = 0.0;
-                    double opacity = 1.0;
-
-                    if (index < keepCenterIndex) {
-                      // 除最后一行外，其他向上滚动
-                      // 0 开始位置在底部，1 结束位置在顶部周围
-                      verticalOffset = 120.0 * progress;
-                      // 越早出现的行，越快淡出
-                      if (progress > 0.2) {
-                        opacity = 1.0 - (progress - 0.2) / 0.8;
-                      }
-                    } else if (index == keepCenterIndex) {
-                      // 最后一行保持在中间
-                      verticalOffset = 0.0;
-                      // 在动画结束时保持可见
-                      opacity = 1.0;
-                    } else {
-                      // 最后一行之后的行（如果有）
-                      verticalOffset = 0.0;
-                      opacity = 1.0;
-                    }
-
-                    return Transform.translate(
-                      offset: Offset(0, verticalOffset),
-                      child: Opacity(
-                        opacity: opacity,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 8,
-                            horizontal: 20,
-                          ),
-                          child: Text(
-                            line.isEmpty ? ' ' : line,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 18,
-                              height: 1.5,
-                              color: isHighlight
-                                  ? const Color(0xFF10a37f)
-                                  : Colors.white.withOpacity(0.85),
-                              fontWeight: isHighlight
-                                  ? FontWeight.w600
-                                  : FontWeight.normal,
-                              shadows: isHighlight
-                                  ? [
-                                      Shadow(
-                                        color: const Color(0xFF10a37f)
-                                            .withOpacity(0.5),
-                                        blurRadius: 20,
-                                      ),
-                                    ]
-                                  : null,
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  }),
-                );
-              },
-            ),
-          ),
-
-          // 底部渐变遮罩（使向上滚动时顶部淡出）
-          Positioned.fill(
-            bottom: 40,
-            child: FractionalTranslation(
-              translation: const Offset(0, 0.5),
-              child: AnimatedOpacity(
-                opacity: _storyController.isCompleted ? 0 : 1,
+    return Stack(
+      children: [
+        // 滚动的文字
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+          transform: Matrix4.translationValues(0, _scrollOffset, 0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: List.generate(_storyLines.length, (index) {
+              final line = _storyLines[index];
+              final isHighlight = line.contains('Lume');
+              final isVisible = index <= _currentLineIndex;
+              
+              return AnimatedOpacity(
                 duration: const Duration(milliseconds: 300),
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: RadialGradient(
-                      center: const Alignment(0, -1),
-                      colors: [
-                        Colors.transparent,
-                        Colors.transparent,
-                        Colors.black.withOpacity(0.3),
-                        Colors.black.withOpacity(0.6),
-                      ],
-                      stops: const [0.0, 0.5, 0.8, 1.0],
+                opacity: isVisible ? 1.0 : 0.0,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 6,
+                    horizontal: 24,
+                  ),
+                  child: Text(
+                    line.isEmpty ? ' ' : line,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 17,
+                      height: 1.6,
+                      color: isHighlight
+                          ? const Color(0xFF10a37f)
+                          : Colors.white.withOpacity(0.85),
+                      fontWeight: isHighlight
+                          ? FontWeight.w600
+                          : FontWeight.normal,
+                      shadows: isHighlight
+                          ? [
+                              Shadow(
+                                color: const Color(0xFF10a37f)
+                                    .withOpacity(0.5),
+                                blurRadius: 20,
+                              ),
+                            ]
+                          : null,
                     ),
                   ),
+                ),
+              );
+            }),
+          ),
+        ),
+        
+        // 顶部渐变遮罩
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 60,
+          child: IgnorePointer(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    const Color(0xFF090A0F),
+                    const Color(0xFF090A0F).withOpacity(0.5),
+                    Colors.transparent,
+                  ],
                 ),
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -435,49 +383,54 @@ class _StarfieldIntroPageState extends State<StarfieldIntroPage>
     return AnimatedBuilder(
       animation: _ctaController,
       builder: (context, child) {
-        return Transform.translate(
-          offset: Offset(0, 25 * (1 - _ctaController.value)),
-          child: Opacity(
-            opacity: _ctaController.value,
-            child: ElevatedButton(
-              onPressed: _ctaActive ? _complete : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF10a37f),
-                disabledBackgroundColor:
-                    const Color(0xFF10a37f).withOpacity(0.3),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 60, vertical: 20),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(50),
+        return Opacity(
+          opacity: _ctaController.value,
+          child: Column(
+            children: [
+              ElevatedButton(
+                onPressed: _ctaActive ? _complete : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF10a37f),
+                  disabledBackgroundColor:
+                      const Color(0xFF10a37f).withOpacity(0.3),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 60, vertical: 20),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(50),
+                  ),
+                  elevation: _ctaActive ? 8 : 0,
+                  shadowColor: const Color(0xFF10a37f).withOpacity(0.5),
                 ),
-                elevation: _ctaActive ? 8 : 0,
-                shadowColor:
-                    const Color(0xFF10a37f).withOpacity(0.5 * _ctaController.value),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '开始体验',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: _ctaActive
-                          ? Colors.white
-                          : Colors.white54.withOpacity(_ctaController.value),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '开始体验',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: _ctaActive ? Colors.white : Colors.white54,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Icon(
-                    Icons.arrow_forward,
-                    size: 18,
-                    color: _ctaActive
-                        ? Colors.white
-                        : Colors.white54.withOpacity(_ctaController.value),
-                  ),
-                ],
+                    const SizedBox(width: 12),
+                    Icon(
+                      Icons.arrow_forward,
+                      size: 18,
+                      color: _ctaActive ? Colors.white : Colors.white54,
+                    ),
+                  ],
+                ),
               ),
-            ),
+              const SizedBox(height: 16),
+              if (_ctaActive)
+                Text(
+                  '点击按钮或按 Enter 键继续',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.white.withOpacity(0.5),
+                  ),
+                ),
+            ],
           ),
         );
       },
