@@ -15,9 +15,9 @@ const OPENCLAW_SESSION = process.env.OPENCLAW_SESSION || 'c308f1f0';
  */
 router.post('/simple', async (req, res) => {
   try {
-    const { userId, message } = req.body;
+    const { userId, message, imageUrl } = req.body;
 
-    if (!message) {
+    if (!message && !imageUrl) {
       return res.status(400).json({ error: '消息不能为空' });
     }
 
@@ -45,7 +45,7 @@ router.post('/simple', async (req, res) => {
     }
 
     // 直接调用模型 API（不经过 OpenClaw）
-    const response = await callModelAPI(message);
+    const response = await callModelAPI(message || '请描述这张图片', imageUrl);
 
     // 记录使用次数
     await recordUsage(userId);

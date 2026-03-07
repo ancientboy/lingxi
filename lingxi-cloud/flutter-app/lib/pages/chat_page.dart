@@ -1176,6 +1176,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         data: {
           'userId': userId,
           'message': text.isNotEmpty ? text : '请识别这张图片',
+          'imageUrl': hasImage ? userMessage.imageUrl : null,
         },
       );
       
