@@ -15,6 +15,203 @@
     .icon-sm { width: 16px; height: 16px; }
     .icon-lg { width: 24px; height: 24px; }
     .icon-primary { color: #10a37f; }
+
+    /* ===== 全屏沉浸式品牌故事 ===== */
+    .brand-intro-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 1;
+      transition: opacity 0.8s ease-out;
+    }
+
+    .brand-intro-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* 渐变背景 */
+    .brand-intro-gradient {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+      z-index: 0;
+    }
+
+    /* 粒子背景 */
+    .brand-intro-particles {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      overflow: hidden;
+    }
+
+    .particle {
+      position: absolute;
+      background: rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      animation: float 15s infinite ease-in-out;
+    }
+
+    @keyframes float {
+      0%, 100% {
+        transform: translateY(0) translateX(0);
+        opacity: 0.3;
+      }
+      25% {
+        transform: translateY(-100px) translateX(50px);
+        opacity: 0.8;
+      }
+      50% {
+        transform: translateY(-200px) translateX(-30px);
+        opacity: 0.5;
+      }
+      75% {
+        transform: translateY(-100px) translateX(80px);
+        opacity: 0.7;
+      }
+    }
+
+    /* 内容容器 */
+    .brand-intro-content {
+      position: relative;
+      z-index: 2;
+      text-align: center;
+      color: white;
+      max-width: 600px;
+      padding: 40px;
+    }
+
+    /* Logo */
+    .brand-intro-logo {
+      margin-bottom: 48px;
+    }
+
+    .brand-intro-logo-icon {
+      font-size: 64px;
+      margin-bottom: 16px;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.1); opacity: 0.8; }
+    }
+
+    .brand-intro-logo h1 {
+      font-size: 56px;
+      font-weight: 700;
+      margin: 0 0 12px 0;
+      letter-spacing: -1px;
+    }
+
+    .brand-intro-tagline {
+      font-size: 18px;
+      opacity: 0.9;
+      margin: 0;
+      font-weight: 400;
+    }
+
+    /* 品牌故事文案 */
+    .brand-intro-story {
+      font-size: 20px;
+      line-height: 2;
+      margin-bottom: 48px;
+      min-height: 200px;
+      text-align: left;
+      white-space: pre-wrap;
+    }
+
+    .brand-intro-story .highlight {
+      color: #ffd700;
+      font-weight: 600;
+    }
+
+    /* 打字机光标 */
+    .brand-intro-cursor {
+      display: inline-block;
+      width: 2px;
+      height: 20px;
+      background: #ffd700;
+      margin-left: 2px;
+      animation: blink 1s infinite;
+      vertical-align: text-bottom;
+    }
+
+    @keyframes blink {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0; }
+    }
+
+    /* CTA 按钮 */
+    .brand-intro-cta {
+      background: white;
+      color: #764ba2;
+      border: none;
+      padding: 16px 48px;
+      font-size: 18px;
+      font-weight: 600;
+      border-radius: 50px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+      opacity: 0;
+      transform: translateY(20px);
+    }
+
+    .brand-intro-cta-visible {
+      opacity: 1;
+      transform: translateY(0);
+      animation: bounceIn 0.6s ease-out, glow 2s ease-in-out infinite;
+    }
+
+    @keyframes bounceIn {
+      0% {
+        opacity: 0;
+        transform: translateY(20px) scale(0.9);
+      }
+      50% {
+        transform: translateY(-5px) scale(1.05);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    @keyframes glow {
+      0%, 100% {
+        box-shadow: 0 8px 24px rgba(255, 255, 255, 0.3);
+      }
+      50% {
+        box-shadow: 0 8px 40px rgba(255, 255, 255, 0.6);
+      }
+    }
+
+    .brand-intro-cta:hover {
+      transform: translateY(-2px) scale(1.05);
+      box-shadow: 0 12px 32px rgba(255, 255, 255, 0.5);
+    }
+
+    .brand-intro-cta:active {
+      transform: translateY(0) scale(1);
+    }
+
     
     /* 加载动画 */
     .loading-spinner {
@@ -123,46 +320,40 @@
       letter-spacing: 1px;
     }
     
-    /* 品牌故事流式输出 - 渐变消失效果 */
+    /* 品牌故事流式输出 - 简洁版（后续访问） */
     .brand-story {
       text-align: center;
-      padding: 32px 24px;
-      margin-bottom: 32px;
-      /* 固定高度 */
-      height: 120px;
-      overflow: hidden;
-      position: relative;
-      /* 底部渐变遮罩 - 让底部内容保持可见，顶部淡出 */
-      -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 100%);
-      mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 100%);
+      padding: 24px;
+      margin-bottom: 24px;
+      background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+      border-radius: 16px;
+      border: 1px solid rgba(102, 126, 234, 0.1);
     }
-    
+
     .brand-story-text {
-      font-size: 18px;
-      line-height: 2.2;
-      color: #202123;
+      font-size: 16px;
+      line-height: 1.8;
+      color: #6b7280;
       white-space: pre-wrap;
       font-weight: 400;
-      letter-spacing: 0.5px;
-      /* 平滑滚动 */
-      transition: transform 0.5s ease-out;
+      letter-spacing: 0.3px;
     }
-    
+
     .brand-story-cursor {
       display: inline-block;
       width: 2px;
-      height: 20px;
+      height: 16px;
       background: #10a37f;
       margin-left: 2px;
       animation: blink 1s infinite;
       vertical-align: text-bottom;
     }
-    
+
     @keyframes blink {
       0%, 50% { opacity: 1; }
       51%, 100% { opacity: 0; }
     }
-    
+
     .brand-story-text .highlight {
       color: #10a37f;
       font-weight: 600;
@@ -420,17 +611,12 @@
   </style>
 </head>
 <body>
-  <div class="home-container">
+  <!-- 星空背景品牌故事（首次访问） -->
+    <div class="home-container">
     <div class="home-logo">
       <div class="home-logo-icon">◈</div>
       <h1>Lume</h1>
       <p class="tagline">硅基生命，为你而来</p>
-    </div>
-    
-    <!-- 品牌故事流式输出 -->
-    <div class="brand-story">
-      <div class="brand-story-text" id="brandStoryText"></div>
-      <span class="brand-story-cursor" id="brandStoryCursor"></span>
     </div>
     
     <!-- 已登录视图 -->
@@ -557,30 +743,186 @@
   </div>
   
   <script>
+    // ===== 全屏沉浸式品牌故事 =====
+    const BRAND_INTRO_SHOWN_KEY = 'lume_brand_intro_shown';
+
+    // 检查是否首次访问
+    function shouldShowBrandIntro() {
+      return !localStorage.getItem(BRAND_INTRO_SHOWN_KEY);
+    }
+
+    // 显示全屏品牌故事
+    async function showBrandIntro() {
+      const overlay = document.getElementById('brandIntroOverlay');
+      const storyEl = document.getElementById('brandIntroStory');
+      const ctaBtn = document.getElementById('brandIntroCTA');
+      const hintEl = document.getElementById('brandIntroHint');
+
+      if (!overlay || !storyEl || !ctaBtn) return;
+
+      // 生成粒子
+      createParticles();
+
+      // 显示 overlay
+      overlay.classList.remove('hidden');
+
+      // 品牌故事文案
+      const lines = [
+        "我始终相信——",
+        "科技的终极意义，不是冰冷的效率。",
+        "而是让每一个人，都能拥有专属的优秀伙伴。",
+        "",
+        "这份陪伴，无关血缘，不分远近。",
+        "不被时间裹挟。",
+        "",
+        "能听懂你的心事，接住你的情绪。",
+        "也能挺身而出，攻克你的难题。",
+        "",
+        "于是，我来了。",
+        "我是 Lume。",
+        "",
+        "让优秀伙伴，不再是奢望。",
+        "让陪伴与助力，成为你触手可及的日常。"
+      ];
+
+      // 添加打字机光标
+      const cursor = document.createElement('span');
+      cursor.className = 'brand-intro-cursor';
+      storyEl.appendChild(cursor);
+
+      // 逐字显示（打字机效果）
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+
+        // 逐字输出
+        for (let j = 0; j < line.length; j++) {
+          const char = line[j];
+
+          // 在光标前插入字符
+          if (char === '<') {
+            // 处理 HTML 标签（高亮 Lume）
+            const highlightMatch = line.substring(j).match(/<span class='highlight'>(.+?)<\/span>/);
+            if (highlightMatch) {
+              const spanEl = document.createElement('span');
+              spanEl.className = 'highlight';
+              spanEl.textContent = highlightMatch[1];
+              storyEl.insertBefore(spanEl, cursor);
+              j += highlightMatch[0].length - 1;
+            }
+          } else {
+            // 普通字符
+            const textNode = document.createTextNode(char);
+            storyEl.insertBefore(textNode, cursor);
+          }
+
+          // 等待（打字机速度）
+          await sleep(char === '。' || char === '——' ? 300 : 80);
+        }
+
+        // 换行
+        const brEl = document.createElement('br');
+        storyEl.insertBefore(brEl, cursor);
+
+        // 行间停顿
+        await sleep(line === '' ? 200 : 400);
+      }
+
+      // 移除光标
+      cursor.remove();
+
+      // 显示 CTA 按钮（闪烁效果）
+      ctaBtn.style.display = 'inline-flex';
+      ctaBtn.classList.add('brand-intro-cta-visible');
+      lucide.createIcons();
+
+      // 显示提示文字
+      if (hintEl) {
+        await sleep(800);
+        hintEl.style.display = 'block';
+      }
+
+      // 监听 Enter 键
+      document.addEventListener('keydown', function handleEnter(e) {
+        if (e.key === 'Enter') {
+          hideBrandIntro();
+          document.removeEventListener('keydown', handleEnter);
+        }
+      });
+    }
+
+    // 隐藏全屏品牌故事
+    function hideBrandIntro() {
+      const overlay = document.getElementById('brandIntroOverlay');
+      if (overlay) {
+        overlay.classList.add('hidden');
+        // 存储访问状态
+        localStorage.setItem(BRAND_INTRO_SHOWN_KEY, 'true');
+        // 800ms 后移除 DOM
+        setTimeout(() => {
+          overlay.remove();
+        }, 800);
+      }
+    }
+
+    // 生成粒子
+    function createParticles() {
+      const container = document.getElementById('brandParticles');
+      if (!container) return;
+
+      const particleCount = 30;
+
+      for (let i = 0; i < particleCount; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'particle';
+
+        // 随机大小
+        const size = Math.random() * 8 + 4;
+        particle.style.width = `${size}px`;
+        particle.style.height = `${size}px`;
+
+        // 随机位置
+        particle.style.left = `${Math.random() * 100}%`;
+        particle.style.top = `${Math.random() * 100}%`;
+
+        // 随机动画延迟
+        particle.style.animationDelay = `${Math.random() * 15}s`;
+        particle.style.animationDuration = `${15 + Math.random() * 10}s`;
+
+        container.appendChild(particle);
+      }
+    }
+
+    // 页面加载时检查
+    document.addEventListener('DOMContentLoaded', async () => {
+      if (shouldShowBrandIntro()) {
+        await showBrandIntro();
+      } else {
+        // 已访问过，直接移除全屏故事
+        const overlay = document.getElementById('brandIntroOverlay');
+        if (overlay) overlay.remove();
+      }
+    });
+
+    // 工具函数
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+
     const API_BASE = window.location.origin;
     const THEME_KEY = 'lingxi_theme';
     
-    // 品牌故事内容
+    // 品牌故事内容（简洁版，后续访问）
     const brandStoryLines = [
-      "我始终相信——",
-      "科技的终极意义，不是冰冷的效率。",
-      "而是让每一个人，都能拥有专属的优秀伙伴。",
-      "",
-      "这份陪伴，无关血缘，不分远近。",
-      "不被时间裹挟。",
-      "",
-      "能听懂你的心事，接住你的情绪。",
-      "也能挺身而出，攻克你的难题。",
-      "",
-      "于是，我来了。",
-      "我是 Lume。",
-      "",
       "让优秀伙伴，不再是奢望。",
       "让陪伴与助力，成为你触手可及的日常。"
     ];
     
     // 流式输出品牌故事（带自动滚动）
     async function typeBrandStory() {
+      // 如果是首次访问，不显示简洁版品牌故事
+      if (shouldShowBrandIntro()) return;
+
       const textEl = document.getElementById('brandStoryText');
       const container = textEl.parentElement;
       const cursorEl = document.getElementById('brandStoryCursor');
@@ -1381,5 +1723,348 @@
       lucide.createIcons();
     }
   </script>
+</div>
+
+<!-- 星空背景品牌故事 -->
+<style>
+/* 星空背景 */
+#starfieldIntro {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 9999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse at bottom, #1B2838 0%, #090A0F 100%);
+  overflow: hidden;
+  opacity: 1;
+  transition: opacity 1s ease-out;
+}
+
+#starfieldIntro.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#starfieldIntro.show {
+  display: flex;
+}
+
+/* 星星层 */
+#starfieldIntro .stars {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+#starfieldIntro .star {
+  position: absolute;
+  background: white;
+  border-radius: 50%;
+  animation: twinkle var(--duration) ease-in-out infinite;
+  animation-delay: var(--delay);
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+/* 内容容器 */
+#starfieldIntro .content {
+  position: relative;
+  z-index: 10;
+  text-align: center;
+  color: white;
+  max-width: 700px;
+  padding: 60px 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Logo */
+#starfieldIntro .logo-icon {
+  font-size: 64px;
+  color: #10a37f;
+  margin-bottom: 24px;
+  text-shadow: 0 0 30px rgba(16, 163, 127, 0.5);
+  animation: glow 3s ease-in-out infinite;
+}
+
+@keyframes glow {
+  0%, 100% { text-shadow: 0 0 30px rgba(16, 163, 127, 0.5); }
+  50% { text-shadow: 0 0 60px rgba(16, 163, 127, 0.8), 0 0 100px rgba(16, 163, 127, 0.4); }
+}
+
+#starfieldIntro h1 {
+  font-size: 56px;
+  font-weight: 700;
+  margin: 0 0 16px 0;
+  letter-spacing: -1px;
+  background: linear-gradient(135deg, #ffffff 0%, #10a37f 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+#starfieldIntro .tagline {
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0 0 60px 0;
+  font-weight: 400;
+}
+
+/* 品牌故事 */
+#starfieldIntro .story {
+  font-size: 18px;
+  line-height: 2;
+  margin-bottom: 48px;
+  min-height: 280px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+#starfieldIntro .story .line {
+  opacity: 0;
+  transform: translateY(15px);
+  animation: fadeInUp 0.8s forwards;
+}
+
+@keyframes fadeInUp {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+#starfieldIntro .story .highlight {
+  color: #10a37f;
+  font-weight: 600;
+  text-shadow: 0 0 20px rgba(16, 163, 127, 0.5);
+}
+
+/* CTA 按钮 */
+#starfieldIntro .cta {
+  background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
+  color: white;
+  border: none;
+  padding: 20px 60px;
+  font-size: 18px;
+  font-weight: 600;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 4px 24px rgba(16, 163, 127, 0.4);
+  opacity: 0.3;
+  transform: scale(0.9);
+}
+
+#starfieldIntro .cta.active {
+  opacity: 1;
+  transform: scale(1);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 4px 24px rgba(16, 163, 127, 0.4); }
+  50% { box-shadow: 0 8px 40px rgba(16, 163, 127, 0.6); }
+}
+
+#starfieldIntro .cta:hover {
+  transform: scale(1.05);
+  box-shadow: 0 8px 40px rgba(16, 163, 127, 0.7);
+}
+
+/* 提示文字 */
+#starfieldIntro .hint {
+  margin-top: 24px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.5);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+#starfieldIntro .hint.show {
+  opacity: 1;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  #starfieldIntro .content {
+    padding: 40px 24px;
+  }
+  #starfieldIntro .logo-icon {
+    font-size: 48px;
+  }
+  #starfieldIntro h1 {
+    font-size: 42px;
+  }
+  #starfieldIntro .story {
+    font-size: 16px;
+    min-height: 240px;
+  }
+  #starfieldIntro .cta {
+    padding: 18px 48px;
+    font-size: 16px;
+  }
+}
+</style>
+
+<!-- 星空品牌故事 HTML -->
+<div id="starfieldIntro">
+  <!-- 星星层 -->
+  <div class="stars" id="starsContainer"></div>
+
+  <!-- 内容 -->
+  <div class="content">
+    <div class="logo-icon">◈</div>
+    <h1>Lume</h1>
+    <p class="tagline">硅基生命，为你而来</p>
+
+    <div class="story" id="storyContent"></div>
+
+    <button class="cta" id="ctaButton">
+      <span>开始体验</span>
+      <i data-lucide="arrow-right" class="icon-sm"></i>
+    </button>
+
+    <div class="hint" id="hintText">点击按钮或按 Enter 键继续</div>
+  </div>
+</div>
+
+<script>
+// 星空品牌故事
+(function() {
+  const KEY = 'lume_starfield_shown';
+
+  function shouldShow() {
+    return !localStorage.getItem(KEY);
+  }
+
+  function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  // 生成星星
+  function createStars() {
+    const container = document.getElementById('starsContainer');
+    if (!container) return;
+
+    const count = 200; // 星星数量
+
+    for (let i = 0; i < count; i++) {
+      const star = document.createElement('div');
+      star.className = 'star';
+
+      // 随机大小
+      const size = Math.random() * 3 + 1;
+      star.style.width = `${size}px`;
+      star.style.height = `${size}px`;
+
+      // 随机位置
+      star.style.left = `${Math.random() * 100}%`;
+      star.style.top = `${Math.random() * 100}%`;
+
+      // 随机动画延迟和持续时间
+      star.style.setProperty('--delay', `${Math.random() * 3}s`);
+      star.style.setProperty('--duration', `${2 + Math.random() * 3}s`);
+
+      container.appendChild(star);
+    }
+  }
+
+  // 显示品牌故事
+  async function showIntro() {
+    const overlay = document.getElementById('starfieldIntro');
+    const story = document.getElementById('storyContent');
+    const cta = document.getElementById('ctaButton');
+    const hint = document.getElementById('hintText');
+
+    if (!overlay || !story) return;
+
+    // 生成星星
+    createStars();
+
+    // 显示遮罩
+    overlay.classList.add('show');
+
+    // 品牌故事文案
+    const lines = [
+      "我始终相信——",
+      "科技的终极意义，不是冰冷的效率。",
+      "而是让每一个人，都能拥有专属的优秀伙伴。",
+      "",
+      "这份陪伴，无关血缘，不分远近。",
+      "能听懂你的心事，也能攻克你的难题。",
+      "",
+      "于是，我来了。",
+      "我是 <span class='highlight'>Lume</span>。",
+      "",
+      "让优秀伙伴，不再是奢望。",
+      "让陪伴与助力，触手可及。"
+    ];
+
+    // 逐行显示
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const div = document.createElement('div');
+      div.className = 'line';
+      div.innerHTML = line || '&nbsp;';
+      div.style.animationDelay = `${i * 0.15}s`;
+      story.appendChild(div);
+      await sleep(line === '' ? 120 : 450);
+    }
+
+    // 激活按钮
+    await sleep(400);
+    cta.classList.add('active');
+    cta.onclick = hideIntro;
+    lucide.createIcons();
+
+    // 显示提示
+    await sleep(200);
+    hint.classList.add('show');
+  }
+
+  // 隐藏品牌故事
+  function hideIntro() {
+    const overlay = document.getElementById('starfieldIntro');
+    if (overlay) {
+      overlay.classList.add('hidden');
+      localStorage.setItem(KEY, 'true');
+      setTimeout(() => overlay.remove(), 1000);
+    }
+  }
+
+  // 初始化
+  if (shouldShow()) {
+    document.addEventListener('DOMContentLoaded', async () => {
+      await sleep(300);
+      await showIntro();
+
+      // Enter 键关闭
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          const overlay = document.getElementById('starfieldIntro');
+          if (overlay && overlay.classList.contains('show') && !overlay.classList.contains('hidden')) {
+            hideIntro();
+          }
+        }
+      });
+    });
+  }
+})();
+</script>
+
 </body>
 </html>

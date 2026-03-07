@@ -514,7 +514,11 @@ async function deployServerAsync(serverId, taskId, openclawToken, openclawSessio
       vSwitchId: process.env.ALIYUN_VSWITCH_ID,
       instanceName: `lingxi-${userName}`,
       password: SERVER_PASSWORD,
-      // 公网 IP 配置（按量付费实例需要）
+      // 付费类型配置（包月）
+      instanceChargeType: config.aliyun.instanceChargeType,
+      period: config.aliyun.period,
+      periodUnit: config.aliyun.periodUnit,
+      // 公网 IP 配置
       internetMaxBandwidthOut: config.aliyun.bandwidth,
       allocatePublicIp: true,
       networkChargeType: 'PayByBandwidth',

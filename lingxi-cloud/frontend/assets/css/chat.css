@@ -1170,7 +1170,8 @@ html {
 
 /* 语音输入按钮 */
 .voice-btn,
-.image-btn {
+.image-btn,
+.camera-btn {
   width: 48px;
   height: 48px;
   background: transparent;
@@ -1186,7 +1187,8 @@ html {
 }
 
 .voice-btn:hover,
-.image-btn:hover {
+.image-btn:hover,
+.camera-btn:hover {
   background: #f9fafb;
   border-color: #10a37f;
   color: #10a37f;

@@ -212,7 +212,7 @@ export async function getUserByUserInviteCode(code) {
 // ============ 积分系统 ============
 
 // 邀请奖励积分
-const INVITE_REWARD_POINTS = 100;
+const INVITE_REWARD_POINTS = 500;
 // 领取团队消耗积分
 const CLAIM_TEAM_COST = 100;
 
@@ -246,6 +246,7 @@ export async function spendPoints(userId, points, reason = '') {
   }
   
   user.points -= points;
+  user.totalSpent = (user.totalSpent || 0) + points;  // 累计消耗积分
   user.pointsHistory = user.pointsHistory || [];
   user.pointsHistory.push({
     type: 'spend',
@@ -255,8 +256,8 @@ export async function spendPoints(userId, points, reason = '') {
     time: new Date().toISOString()
   });
   await saveDB(db);
-  console.log(`💸 用户 ${user.nickname} 消耗 ${points} 积分 (${reason})，剩余: ${user.points}`);
-  return { success: true, balance: user.points };
+  console.log(`💸 用户 ${user.nickname} 消耗 ${points} 积分 (${reason})，剩余: ${user.points}, 累计消耗: ${user.totalSpent}`);
+  return { success: true, balance: user.points, totalSpent: user.totalSpent };
 }
 
 export async function getPointsInfo(userId) {

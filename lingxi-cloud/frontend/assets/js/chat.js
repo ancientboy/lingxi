@@ -826,6 +826,9 @@ async function handleImageSelect(event) {
       previewImg.src = data.url;
       previewImg.style.opacity = '1';
       previewContainer.classList.remove('uploading');
+
+      // 🔧 更新按钮显示状态（有图片了，显示发送按钮）
+      updateInputButtons();
     } else {
       throw new Error(data.error || '上传失败');
     }
@@ -851,6 +854,9 @@ function removeSelectedImage() {
   previewImg.src = '';
   previewImg.style.opacity = '1';
   imageBtn.classList.remove('has-image');
+
+  // 🔧 更新按钮显示状态
+  updateInputButtons();
 }
 
 // 构建带图片的消息内容（异步版本）
@@ -918,6 +924,9 @@ async function sendMessage() {
   input.style.height = 'auto';
   const currentImage = selectedImage;  // 保存当前图片引用
   removeSelectedImage();
+
+  // 🔧 更新按钮显示状态（恢复到初始状态）
+  updateInputButtons();
 
   // 通过 WebSocket 发送
   console.log('🔌 WebSocket 状态:', ws ? ws.readyState : 'null', '(OPEN=1)');
@@ -1258,6 +1267,15 @@ async function loadSessions() {
       allSessions = allSessions.filter(s => {
         const key = s.key.toLowerCase();
         return !systemPatterns.some(p => key.includes(p));
+      });
+
+      // 🔧 去重：基于 sessionKey 或 key
+      const seenKeys = new Set();
+      allSessions = allSessions.filter(session => {
+        const key = session.sessionKey || session.key || '';
+        if (seenKeys.has(key)) return false;
+        seenKeys.add(key);
+        return true;
       });
 
       // 按更新时间排序（最新的在前）
@@ -3561,10 +3579,66 @@ function stopRecording() {
 // 页面加载时初始化语音识别
 document.addEventListener('DOMContentLoaded', () => {
   initVoiceRecognition();
+
+  // 🔧 监听输入框文字变化，动态切换按钮显示（豆包风格）
+  const inputField = document.getElementById('inputField');
+  if (inputField) {
+    inputField.addEventListener('input', updateInputButtons);
+    // 初始化时也调用一次
+    updateInputButtons();
+  }
 });
+
+// 更新输入框右侧按钮显示（豆包风格：有文字显示发送，无文字显示麦克风+上传）
+function updateInputButtons() {
+  const inputField = document.getElementById('inputField');
+  const inputRightBtns = document.getElementById('inputRightBtns');
+  const sendBtn = document.getElementById('sendBtn');
+
+  if (!inputField || !inputRightBtns || !sendBtn) return;
+
+  const hasText = inputField.value.trim().length > 0;
+  const hasImage = document.getElementById('imagePreviewContainer')?.classList.contains('show');
+
+  if (hasText || hasImage) {
+    // 有文字或图片：显示发送按钮，隐藏麦克风+上传
+    inputRightBtns.classList.add('hidden');
+    sendBtn.classList.remove('hidden');
+  } else {
+    // 无文字且无图片：显示麦克风+上传，隐藏发送按钮
+    inputRightBtns.classList.remove('hidden');
+    sendBtn.classList.add('hidden');
+  }
+}
+
+// 拍照功能（调用摄像头）
+async function handleCameraCapture() {
+  try {
+    // 创建隐藏的 input 元素
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.capture = 'environment';  // 使用后置摄像头
+
+    input.onchange = (event) => {
+      const file = event.target.files[0];
+      if (file) {
+        // 复用 handleImageSelect 的逻辑
+        const fakeEvent = { target: { files: [file] } };
+        handleImageSelect(fakeEvent);
+      }
+    };
+
+    input.click();
+  } catch (error) {
+    console.error('❌ 打开摄像头失败:', error);
+    alert('无法打开摄像头，请检查权限设置');
+  }
+}
 
 // 导出函数
 window.toggleVoiceInput = toggleVoiceInput;
+window.handleCameraCapture = handleCameraCapture;
 
 // 更新用户订阅徽章
 function updateUserBadge() {

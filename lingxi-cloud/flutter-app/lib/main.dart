@@ -4,11 +4,17 @@ import 'package:provider/provider.dart';
 import 'package:lingxicloud/providers/app_provider.dart';
 import 'package:lingxicloud/providers/chat_provider.dart';
 import 'package:lingxicloud/pages/splash_page.dart';
+import 'package:lingxicloud/services/notification_service.dart';
 import 'dart:ui' show PlatformDispatcher;
 
-void main() {
+void main() async {
   // 确保 Flutter 绑定初始化
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 🔔 初始化通知服务
+  final notificationService = NotificationService();
+  await notificationService.initialize();
+  await notificationService.requestPermission();
   
   // 捕获 Flutter 框架错误 - 禁用默认错误页面
   FlutterError.onError = (FlutterErrorDetails details) {

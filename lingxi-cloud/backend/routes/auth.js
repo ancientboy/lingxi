@@ -277,7 +277,7 @@ router.post('/onboarding/complete', async (req, res) => {
   }
 });
 
-// 领取 AI 团队（消耗积分 + 完整部署流程）
+// 领取 AI 团队（必须是订阅用户或累计消耗5000积分）
 router.post('/claim-team', async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -289,7 +289,7 @@ router.post('/claim-team', async (req, res) => {
   
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    const { getUser, spendPoints, saveDB, getDB } = await import('../utils/db.js');
+    const { getUser, saveDB, getDB } = await import('../utils/db.js');
     
     const user = await getUser(decoded.userId);
     if (!user) {
@@ -301,26 +301,26 @@ router.post('/claim-team', async (req, res) => {
       return res.status(400).json({ error: '你已经领取过 AI 团队了' });
     }
     
-    // 检查积分
-    const points = user.points || 0;
-    if (points < 100) {
+    // 检查资格：订阅用户 或 累计消耗 >= 5000 积分
+    const isSubscribed = user.subscription && 
+                         user.subscription.plan !== 'free' && 
+                         user.subscription.status === 'active';
+    const totalSpent = user.totalSpent || 0;
+    const hasEnoughSpent = totalSpent >= 5000;
+    
+    if (!isSubscribed && !hasEnoughSpent) {
       return res.status(400).json({ 
-        error: '积分不足',
-        points,
-        required: 100,
-        need: 100 - points
+        error: '领取 AI 团队需要订阅或累计消耗5000积分',
+        isSubscribed,
+        totalSpent,
+        required: 5000,
+        need: 5000 - totalSpent
       });
     }
     
     // 默认团队
     const defaultAgents = ['lingxi', 'coder', 'ops', 'inventor', 'pm', 'noter', 'media', 'smart'];
     const selectedAgents = agents || defaultAgents;
-    
-    // 扣除积分
-    const result = await spendPoints(user.id, 100, '领取 AI 团队');
-    if (!result.success) {
-      return res.status(400).json({ error: result.error });
-    }
     
     // 更新用户团队配置
     const db = await getDB();
@@ -341,14 +341,13 @@ router.post('/claim-team', async (req, res) => {
     
     if (!deployResponse.ok) {
       console.error('部署失败:', deployData);
-      // 部署失败，返还积分并清空 agents
-      await spendPoints(user.id, -100, '部署失败返还');
+      // 部署失败，清空 agents
       const db2 = await getDB();
       const dbUser2 = db2.users.find(u => u.id === user.id);
       dbUser2.agents = [];
       await saveDB(db2);
       return res.status(500).json({ 
-        error: '部署失败，积分已返还', 
+        error: '部署失败', 
         details: deployData.error 
       });
     }

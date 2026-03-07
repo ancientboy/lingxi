@@ -573,27 +573,38 @@ class _SessionsDialogState extends State<_SessionsDialog> {
         collectedSessions.addAll(
           sessions.map((s) => s as Map<String, dynamic>).toList(),
         );
-        
+
         // 过滤掉本地已删除的会话
         _filterDeletedSessions(collectedSessions);
-        
+
+        // 🔧 去重：基于 sessionKey 或 id
+        final seenKeys = <String>{};
+        collectedSessions.retainWhere((session) {
+          final key = session['sessionKey'] ?? session['id'] ?? '';
+          if (seenKeys.contains(key)) {
+            return false;
+          }
+          seenKeys.add(key);
+          return true;
+        });
+
         // 按更新时间排序（最新的在前）
         collectedSessions.sort((a, b) {
-          final timeA = a['updatedAt'] != null 
+          final timeA = a['updatedAt'] != null
               ? DateTime.tryParse(a['updatedAt'] as String)
               : null;
-          final timeB = b['updatedAt'] != null 
+          final timeB = b['updatedAt'] != null
               ? DateTime.tryParse(b['updatedAt'] as String)
               : null;
           if (timeA == null || timeB == null) return 0;
           return timeB!.compareTo(timeA!);
         });
-        
+
         // 限制最多 50 个会话
         if (collectedSessions.length > 50) {
           collectedSessions.removeRange(50, collectedSessions.length);
         }
-        
+
         if (!completer.isCompleted) {
           completer.complete(collectedSessions);
         }

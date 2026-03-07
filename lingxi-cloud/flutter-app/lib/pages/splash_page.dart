@@ -4,6 +4,9 @@ import 'package:provider/provider.dart';
 import 'package:lingxicloud/providers/app_provider.dart';
 import 'package:lingxicloud/pages/login_page.dart';
 import 'package:lingxicloud/pages/home_page.dart';
+import 'package:lingxicloud/pages/chat_page.dart';
+import 'package:lingxicloud/pages/starfield_intro_page.dart';
+import 'package:lingxicloud/pages/team_intro_page.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
@@ -20,20 +23,62 @@ class _SplashPageState extends State<SplashPage> {
   }
 
   Future<void> _initApp() async {
-    await Future.delayed(const Duration(seconds: 2));
+    await Future.delayed(const Duration(seconds: 1));
+
+    // 检查是否需要显示星空启动屏
+    final shouldShowIntro = await StarfieldIntroPage.shouldShow();
+
+    if (mounted && shouldShowIntro) {
+      // 显示星空启动屏
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => StarfieldIntroPage(
+            onComplete: () => _navigateToNext(),
+          ),
+        ),
+      );
+    } else {
+      // 直接进入下一步
+      _navigateToNext();
+    }
+  }
+
+  Future<void> _navigateToNext() async {
     final appProvider = Provider.of<AppProvider>(context, listen: false);
     await appProvider.init();
-    
-    if (mounted) {
-      if (appProvider.isLoggedIn) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const HomePage()),
-        );
-      } else {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const LoginPage()),
-        );
-      }
+
+    if (!mounted) return;
+
+    // 未登录 → 登录页
+    if (!appProvider.isLoggedIn) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const LoginPage()),
+      );
+      return;
+    }
+
+    // 已登录，检查是否有团队
+    final hasTeam = appProvider.user?.agents.isNotEmpty ?? false;
+
+    if (hasTeam) {
+      // 有团队 → 直接进入聊天页
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const ChatPage()),
+      );
+    } else {
+      // 无团队 → 显示团队引导页
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => TeamIntroPage(
+            onComplete: () {
+              // 领取团队后进入聊天页
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (_) => const ChatPage()),
+              );
+            },
+          ),
+        ),
+      );
     }
   }
 

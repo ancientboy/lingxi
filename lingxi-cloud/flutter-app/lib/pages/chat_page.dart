@@ -8,6 +8,7 @@ import 'package:lingxicloud/pages/skills_page.dart';
 import 'package:lingxicloud/pages/login_page.dart';
 import 'package:lingxicloud/services/websocket_service.dart';
 import 'package:lingxicloud/services/api_service.dart';
+import 'package:lingxicloud/services/notification_service.dart';
 import 'package:lingxicloud/widgets/file_preview.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -29,7 +30,7 @@ class ChatPage extends StatefulWidget {
   State<ChatPage> createState() => _ChatPageState();
 }
 
-class _ChatPageState extends State<ChatPage> {
+class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
   final _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -38,6 +39,9 @@ class _ChatPageState extends State<ChatPage> {
   String _wsStatus = '连接中...';
   String _wsError = '';
   List<Message> _messages = [];
+
+  // 🔔 App 生命周期状态（用于判断是否发送通知）
+  bool _isAppInBackground = false;
   
   // 语音识别（录音 + 后端阿里云识别）
   final _audioRecorder = AudioRecorder();
@@ -157,9 +161,17 @@ class _ChatPageState extends State<ChatPage> {
   @override
   void initState() {
     super.initState();
-    
+
     debugPrint('📋 ChatPage initState 开始');
-    
+
+    // 🔔 添加生命周期监听器
+    WidgetsBinding.instance.addObserver(this);
+
+    // 监听输入框文字变化（用于显示/隐藏发送按钮）
+    _controller.addListener(() {
+      setState(() {});  // 有文字变化时触发重建
+    });
+
     // 初始化语音识别
     _initSpeech();
     
@@ -635,6 +647,26 @@ class _ChatPageState extends State<ChatPage> {
           });
           // 对话完成后刷新用户数据（更新 token 使用量）
           _refreshUserData();
+
+          // 🔔 如果 App 在后台，发送通知
+          if (_isAppInBackground) {
+            final lastMessage = _messages.isNotEmpty ? _messages.last : null;
+            if (lastMessage != null && lastMessage.role == 'assistant') {
+              final agentName = _agents[_currentAgent]?['name'] ?? 'AI';
+              final content = lastMessage.content;
+              // 截取前 100 字符作为通知内容
+              final preview = content.length > 100
+                  ? '${content.substring(0, 100)}...'
+                  : content;
+
+              NotificationService().showNotification(
+                id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+                title: '$agentName 的回复',
+                body: preview,
+                payload: _currentSessionKey,
+              );
+            }
+          }
         } else if (state == 'error') {
           setState(() {
             _isGenerating = false;
@@ -965,6 +997,10 @@ class _ChatPageState extends State<ChatPage> {
   void dispose() {
     _controller.dispose();
     _scrollController.dispose();
+
+    // 🔔 移除生命周期监听器
+    WidgetsBinding.instance.removeObserver(this);
+
     try {
       WebSocketService().clearListeners();
       debugPrint('✅ WebSocket 监听器已清理');
@@ -972,6 +1008,37 @@ class _ChatPageState extends State<ChatPage> {
       debugPrint('❌ 清理 WebSocket 监听器失败: $e');
     }
     super.dispose();
+  }
+
+  // 🔔 监听 App 生命周期状态变化
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    switch (state) {
+      case AppLifecycleState.resumed:
+        // App 回到前台
+        debugPrint('📱 App 回到前台');
+        _isAppInBackground = false;
+        break;
+      case AppLifecycleState.paused:
+        // App 进入后台
+        debugPrint('📱 App 进入后台');
+        _isAppInBackground = true;
+        break;
+      case AppLifecycleState.inactive:
+        // App 不活跃（例如来电、分屏）
+        debugPrint('📱 App 不活跃');
+        break;
+      case AppLifecycleState.detached:
+        // App 分离（例如关闭）
+        debugPrint('📱 App 分离');
+        break;
+      case AppLifecycleState.hidden:
+        // App 隐藏
+        debugPrint('📱 App 隐藏');
+        break;
+    }
   }
 
   // 选择图片并上传到服务器
@@ -1683,8 +1750,10 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  // 构建文本输入区域
+  // 构建文本输入区域（豆包风格布局）
   Widget _buildTextInputArea(bool isDarkMode) {
+    final hasText = _controller.text.isNotEmpty;  // 检测输入框是否有文字
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -1740,38 +1809,24 @@ class _ChatPageState extends State<ChatPage> {
               ],
             ),
           ),
-        // 输入行
+        // 输入行（豆包风格：左相机，右麦克风+上传，有文字显示发送）
         Row(
           children: [
+            // 左边：相机图标
             IconButton(
               icon: Icon(
-                _pendingImageUrl != null ? Icons.image : Icons.attach_file,
-                color: _pendingImageUrl != null 
-                    ? Constants.primaryColor 
-                    : (isDarkMode ? const Color(0xFFECECF1) : null),
+                Icons.camera_alt_outlined,
+                color: isDarkMode ? const Color(0xFFECECF1) : Colors.grey.shade700,
               ),
               onPressed: () async {
                 final picker = ImagePicker();
-                final XFile? file = await picker.pickImage(source: ImageSource.gallery);
+                final XFile? file = await picker.pickImage(source: ImageSource.camera);
                 if (file != null) {
                   _selectImage(file);
                 }
               },
             ),
-            // 语音输入切换按钮
-            IconButton(
-              icon: Icon(
-                Icons.mic,
-                color: isDarkMode ? const Color(0xFFECECF1) : null,
-              ),
-              onPressed: _speechEnabled
-                  ? () {
-                      setState(() {
-                        _showVoiceInput = true;
-                      });
-                    }
-                  : null,
-            ),
+            // 中间：输入框
             Expanded(
               child: TextField(
                 controller: _controller,
@@ -1790,15 +1845,51 @@ class _ChatPageState extends State<ChatPage> {
                 onSubmitted: (_) => _sendMessage(),
               ),
             ),
-            const SizedBox(width: 8),
-            FloatingActionButton(
-              onPressed: _isGenerating ? _abortChat : _sendMessage,
-              backgroundColor: _isGenerating ? Colors.red : Constants.primaryColor,
-              child: Icon(
-                _isGenerating ? Icons.stop : Icons.send,
-                color: Colors.white,
+            // 右边：麦克风 + 上传文件（或发送按钮）
+            if (hasText || _pendingImageUrl != null)
+              // 有文字或图片时：显示发送按钮（绿色箭头）
+              IconButton(
+                icon: Icon(
+                  Icons.send,
+                  color: Constants.primaryColor,
+                ),
+                onPressed: _isGenerating ? _abortChat : _sendMessage,
+              )
+            else
+              // 没有文字时：显示麦克风 + 上传图标
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 语音输入按钮
+                  IconButton(
+                    icon: Icon(
+                      Icons.mic,
+                      color: isDarkMode ? const Color(0xFFECECF1) : Colors.grey.shade700,
+                    ),
+                    onPressed: _speechEnabled
+                        ? () {
+                            setState(() {
+                              _showVoiceInput = true;
+                            });
+                          }
+                        : null,
+                  ),
+                  // 上传文件按钮
+                  IconButton(
+                    icon: Icon(
+                      Icons.attach_file,
+                      color: isDarkMode ? const Color(0xFFECECF1) : Colors.grey.shade700,
+                    ),
+                    onPressed: () async {
+                      final picker = ImagePicker();
+                      final XFile? file = await picker.pickImage(source: ImageSource.gallery);
+                      if (file != null) {
+                        _selectImage(file);
+                      }
+                    },
+                  ),
+                ],
               ),
-            ),
           ],
         ),
       ],

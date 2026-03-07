@@ -1,0 +1,243 @@
+<!-- 品牌故事补丁：在 </body> 前插入此代码 -->
+
+<style>
+/* 简洁优雅的品牌故事样式 */
+#brandIntroOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 9999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  opacity: 1;
+  transition: opacity 0.8s ease-out;
+}
+
+#brandIntroOverlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#brandIntroOverlay.show {
+  display: flex;
+}
+
+.brand-intro-content {
+  text-align: center;
+  color: #202123;
+  max-width: 680px;
+  padding: 60px 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.brand-intro-logo {
+  margin-bottom: 60px;
+}
+
+.brand-intro-logo-icon {
+  font-size: 56px;
+  color: #10a37f;
+  margin-bottom: 20px;
+  display: inline-block;
+}
+
+.brand-intro-logo h1 {
+  font-size: 48px;
+  font-weight: 700;
+  margin: 0 0 12px 0;
+  letter-spacing: -1px;
+  color: #202123;
+}
+
+.brand-intro-tagline {
+  font-size: 16px;
+  color: #6b7280;
+  margin: 0;
+  font-weight: 400;
+}
+
+.brand-intro-story {
+  font-size: 18px;
+  line-height: 2;
+  margin-bottom: 48px;
+  min-height: 240px;
+  text-align: center;
+  color: #374151;
+}
+
+.brand-intro-story .line {
+  opacity: 0;
+  transform: translateY(10px);
+  animation: fadeInLine 0.6s forwards;
+}
+
+@keyframes fadeInLine {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.brand-intro-story .highlight {
+  color: #10a37f;
+  font-weight: 600;
+}
+
+#brandIntroCTA {
+  background: #10a37f;
+  color: white;
+  border: none;
+  padding: 18px 56px;
+  font-size: 18px;
+  font-weight: 600;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 4px 16px rgba(16, 163, 127, 0.3);
+  opacity: 0.4;
+  transform: scale(0.95);
+}
+
+#brandIntroCTA.active {
+  opacity: 1;
+  transform: scale(1);
+  animation: pulseButton 2s ease-in-out infinite;
+}
+
+@keyframes pulseButton {
+  0%, 100% { box-shadow: 0 4px 16px rgba(16, 163, 127, 0.3); }
+  50% { box-shadow: 0 8px 32px rgba(16, 163, 127, 0.5); }
+}
+
+#brandIntroCTA:hover {
+  transform: scale(1.05);
+  box-shadow: 0 8px 32px rgba(16, 163, 127, 0.5);
+}
+
+#brandIntroHint {
+  margin-top: 20px;
+  font-size: 14px;
+  color: #9ca3af;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+#brandIntroHint.show {
+  opacity: 1;
+}
+</style>
+
+<!-- 品牌故事 HTML -->
+<div id="brandIntroOverlay">
+  <div class="brand-intro-content">
+    <div class="brand-intro-logo">
+      <div class="brand-intro-logo-icon">◈</div>
+      <h1>Lume</h1>
+      <p class="brand-intro-tagline">硅基生命，为你而来</p>
+    </div>
+    <div class="brand-intro-story" id="brandIntroStory"></div>
+    <button id="brandIntroCTA">
+      <span>开始体验</span>
+      <i data-lucide="arrow-right" class="icon-sm"></i>
+    </button>
+    <div id="brandIntroHint">点击按钮或按 Enter 键继续</div>
+  </div>
+</div>
+
+<script>
+// 品牌故事逻辑（简洁优雅版）
+(function() {
+  const KEY = 'lume_brand_intro_shown_v2';
+
+  function shouldShow() {
+    return !localStorage.getItem(KEY);
+  }
+
+  function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  async function showIntro() {
+    const overlay = document.getElementById('brandIntroOverlay');
+    const story = document.getElementById('brandIntroStory');
+    const cta = document.getElementById('brandIntroCTA');
+    const hint = document.getElementById('brandIntroHint');
+
+    if (!overlay) return;
+
+    overlay.classList.add('show');
+
+    const lines = [
+      "我始终相信——",
+      "科技的终极意义，不是冰冷的效率。",
+      "而是让每一个人，都能拥有专属的优秀伙伴。",
+      "",
+      "这份陪伴，无关血缘，不分远近。",
+      "能听懂你的心事，也能攻克你的难题。",
+      "",
+      "于是，我来了。",
+      "我是 <span class='highlight'>Lume</span>。",
+      "",
+      "让优秀伙伴，不再是奢望。",
+      "让陪伴与助力，触手可及。"
+    ];
+
+    // 逐行显示
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const div = document.createElement('div');
+      div.className = 'line';
+      div.innerHTML = line || '&nbsp;';
+      div.style.animationDelay = `${i * 0.2}s`;
+      story.appendChild(div);
+      await sleep(line === '' ? 150 : 500);
+    }
+
+    // 激活按钮
+    await sleep(400);
+    cta.classList.add('active');
+    cta.onclick = hideIntro;
+    lucide.createIcons();
+
+    // 显示提示
+    await sleep(200);
+    hint.classList.add('show');
+  }
+
+  function hideIntro() {
+    const overlay = document.getElementById('brandIntroOverlay');
+    if (overlay) {
+      overlay.classList.add('hidden');
+      localStorage.setItem(KEY, 'true');
+      setTimeout(() => overlay.remove(), 800);
+    }
+  }
+
+  // 初始化
+  if (shouldShow()) {
+    document.addEventListener('DOMContentLoaded', async () => {
+      await sleep(500);
+      await showIntro();
+
+      // Enter 键关闭
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          const overlay = document.getElementById('brandIntroOverlay');
+          if (overlay && overlay.classList.contains('show') && !overlay.classList.contains('hidden')) {
+            hideIntro();
+          }
+        }
+      });
+    });
+  }
+})();
+</script>

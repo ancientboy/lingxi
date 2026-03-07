@@ -57,7 +57,21 @@
     .icon-sm { width: 16px; height: 16px; }
     .icon-lg { width: 24px; height: 24px; }
     .icon-primary { color: #10a37f; }
-  
+
+    /* 输入框右侧按钮容器 */
+    .input-right-btns {
+      display: flex;
+      gap: 4px;
+    }
+
+    .input-right-btns.hidden {
+      display: none;
+    }
+
+    .send-btn.hidden {
+      display: none;
+    }
+
 </style>
 </head>
 <body data-page="chat">
@@ -940,17 +954,26 @@
         </div>
         
         <div class="input-wrapper">
-          <button class="voice-btn" id="voiceBtn" onclick="toggleVoiceInput()" title="语音输入">
-            <i data-lucide="mic" class="icon-sm"></i>
+          <!-- 左边：相机图标 -->
+          <button class="camera-btn" id="cameraBtn" onclick="handleCameraCapture()" title="拍照">
+            <i data-lucide="camera" class="icon-sm"></i>
           </button>
-          <button class="image-btn" id="imageBtn" onclick="document.getElementById('imageInput').click()" title="上传图片">
-            <i data-lucide="image" class="icon-sm"></i>
-          </button>
-          <input type="file" id="imageInput" class="image-input" accept="image/*" onchange="handleImageSelect(event)">
+          <!-- 中间：输入框 -->
           <textarea class="input-field" id="inputField" placeholder="输入消息..." rows="1"></textarea>
-          <button class="send-btn" id="sendBtn" onclick="handleSendClick()">
+          <!-- 右边：动态显示（有文字显示发送，无文字显示麦克风+上传） -->
+          <div class="input-right-btns" id="inputRightBtns">
+            <!-- 默认显示麦克风和上传图标 -->
+            <button class="voice-btn" id="voiceBtn" onclick="toggleVoiceInput()" title="语音输入">
+              <i data-lucide="mic" class="icon-sm"></i>
+            </button>
+            <button class="image-btn" id="imageBtn" onclick="document.getElementById('imageInput').click()" title="上传图片">
+              <i data-lucide="image" class="icon-sm"></i>
+            </button>
+          </div>
+          <button class="send-btn hidden" id="sendBtn" onclick="handleSendClick()" title="发送">
             <i data-lucide="send" class="icon-sm"></i>
           </button>
+          <input type="file" id="imageInput" class="image-input" accept="image/*" onchange="handleImageSelect(event)">
         </div>
       </div>
     </div>

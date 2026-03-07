@@ -70,6 +70,11 @@ export const config = {
     instanceType: process.env.ALIYUN_INSTANCE_TYPE || 'ecs.t5-c1m2.large',
     systemDiskSize: parseInt(process.env.ALIYUN_DISK_SIZE || '40'),
     bandwidth: parseInt(process.env.ALIYUN_BANDWIDTH || '5'),
+    
+    // 付费类型：PrePaid（包月）或 PostPaid（按量）
+    instanceChargeType: process.env.ALIYUN_CHARGE_TYPE || 'PrePaid',
+    period: parseInt(process.env.ALIYUN_PERIOD || '1'),  // 购买时长（月）
+    periodUnit: process.env.ALIYUN_PERIOD_UNIT || 'Monthly',
   },
   
   // 运行模式
