@@ -60,3 +60,11 @@ scripts/create-*.sh
 # 临时文件
 frontend/debug.html
 frontend/test-js.html
+-e 
+# APK 文件
+*.apk
+frontend/public/lingxi*.apk
+releases/
+
+# 临时文件
+*.tar.gz
