@@ -26,6 +26,7 @@ class WebSocketService {
   String? _sessionPrefix;
   int _requestId = 1;
   Timer? _reconnectTimer;
+  Timer? _heartbeatTimer;  // 心跳定时器
   final int _maxReconnectAttempts = 5;
   int _reconnectAttempts = 0;
   Function? _onInitError;
@@ -222,6 +223,7 @@ class WebSocketService {
       _reconnectAttempts = 0;
       debugPrint('✅ WebSocket 认证成功 (detected via: type=$msgType, event=$msgEvent, payloadType=$payloadType)');
       _notifyListeners({'type': 'connected'});
+      _startHeartbeat();  // 启动心跳
       return;
     }
     
@@ -230,26 +232,47 @@ class WebSocketService {
 
   void _scheduleReconnect() {
     if (_reconnectAttempts >= _maxReconnectAttempts) {
-      debugPrint('Max reconnect attempts reached');
+      debugPrint('❌ 达到最大重连次数 ($_maxReconnectAttempts)，停止重连');
+      _notifyListeners({
+        'type': 'error', 
+        'error': '连接失败，请检查网络后手动重试',
+        'maxRetriesReached': true
+      });
       return;
     }
     
     _reconnectAttempts++;
     final delay = Duration(seconds: _reconnectAttempts * 2);
     _reconnectTimer?.cancel();
+    debugPrint('⏳ ${delay.inSeconds} 秒后尝试第 $_reconnectAttempts 次重连...');
     _reconnectTimer = Timer(delay, () {
-      debugPrint('Reconnecting... (attempt $_reconnectAttempts)');
+      debugPrint('🔄 开始重连 (第 $_reconnectAttempts 次)');
       connect();
     });
   }
 
   void disconnect() {
     _reconnectTimer?.cancel();
+    _heartbeatTimer?.cancel();  // 停止心跳
     _subscription?.cancel();
     _channel?.sink.close();
     _channel = null;
     _isConnected = false;
     _isConnecting = false;
+  }
+  
+  // 启动心跳（每 30 秒发送一次 ping）
+  void _startHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (_channel != null && _isConnected) {
+        debugPrint('💓 发送心跳 ping');
+        _channel!.sink.add(json.encode({'type': 'ping'}));
+      } else {
+        debugPrint('⚠️ WebSocket 未连接，停止心跳');
+        timer.cancel();
+      }
+    });
   }
 
   void sendMessage(String content, {String? agentId, String? sessionKey}) {

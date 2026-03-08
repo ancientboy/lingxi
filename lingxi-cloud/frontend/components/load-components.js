@@ -27,6 +27,11 @@ async function loadChatComponents() {
     loadUserInfo();
   }
   
+  // 检查 LumeClaw 权限（侧边栏加载完成后）
+  if (typeof checkLumeclawAccess === 'function') {
+    checkLumeclawAccess();
+  }
+  
   console.log('✅ 聊天组件加载完成');
 }
 

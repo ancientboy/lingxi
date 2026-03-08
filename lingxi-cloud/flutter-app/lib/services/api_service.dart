@@ -39,15 +39,23 @@ class ApiService {
   Future<Response> get(
     String path, {
     Map<String, dynamic>? queryParameters,
+    CancelToken? cancelToken, // ✅ 终极防崩：支持取消请求
   }) async {
     try {
       final response = await _dio.get(
         path,
         queryParameters: queryParameters,
+        cancelToken: cancelToken, // ✅ 终极防崩：传递 cancelToken
       );
       return response;
     } on DioException catch (e) {
-      throw _handleError(e);
+      // ✅ 终极防崩：如果是取消请求，直接返回
+      if (CancelToken.isCancel(e)) {
+        debugPrint('🚫 请求已取消: $path');
+        rethrow;
+      }
+      debugPrint('❌ GET 请求失败: ${_handleError(e).toString()}');
+      rethrow;
     }
   }
 
@@ -56,16 +64,24 @@ class ApiService {
     String path, {
     Map<String, dynamic>? data,
     Map<String, dynamic>? queryParameters,
+    CancelToken? cancelToken, // ✅ 终极防崩：支持取消请求
   }) async {
     try {
       final response = await _dio.post(
         path,
         data: data,
         queryParameters: queryParameters,
+        cancelToken: cancelToken, // ✅ 终极防崩：传递 cancelToken
       );
       return response;
     } on DioException catch (e) {
-      throw _handleError(e);
+      // ✅ 终极防崩：如果是取消请求，直接返回
+      if (CancelToken.isCancel(e)) {
+        debugPrint('🚫 请求已取消: $path');
+        rethrow;
+      }
+      debugPrint('❌ POST 请求失败: ${_handleError(e).toString()}');
+      rethrow;
     }
   }
 
@@ -73,15 +89,23 @@ class ApiService {
   Future<Response> put(
     String path, {
     Map<String, dynamic>? data,
+    CancelToken? cancelToken, // ✅ 终极防崩：支持取消请求
   }) async {
     try {
       final response = await _dio.put(
         path,
         data: data,
+        cancelToken: cancelToken, // ✅ 终极防崩：传递 cancelToken
       );
       return response;
     } on DioException catch (e) {
-      throw _handleError(e);
+      // ✅ 终极防崩：如果是取消请求，直接返回
+      if (CancelToken.isCancel(e)) {
+        debugPrint('🚫 请求已取消: $path');
+        rethrow;
+      }
+      debugPrint('❌ PUT 请求失败: ${_handleError(e).toString()}');
+      rethrow;
     }
   }
 
@@ -89,15 +113,23 @@ class ApiService {
   Future<Response> delete(
     String path, {
     Map<String, dynamic>? data,
+    CancelToken? cancelToken, // ✅ 终极防崩：支持取消请求
   }) async {
     try {
       final response = await _dio.delete(
         path,
         data: data,
+        cancelToken: cancelToken, // ✅ 终极防崩：传递 cancelToken
       );
       return response;
     } on DioException catch (e) {
-      throw _handleError(e);
+      // ✅ 终极防崩：如果是取消请求，直接返回
+      if (CancelToken.isCancel(e)) {
+        debugPrint('🚫 请求已取消: $path');
+        rethrow;
+      }
+      debugPrint('❌ DELETE 请求失败: ${_handleError(e).toString()}');
+      rethrow;
     }
   }
 

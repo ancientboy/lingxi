@@ -13,6 +13,9 @@ class SubscriptionPage extends StatefulWidget {
 }
 
 class _SubscriptionPageState extends State<SubscriptionPage> {
+  // ✅ 终极防崩：每个页面必加的变量
+  bool _isDisposed = false;
+  
   Map<String, dynamic>? _subscriptionData;
   bool _isLoading = true;
   String? _error;
@@ -23,7 +26,17 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     _loadData();
   }
 
+  // ✅ 终极防崩：dispose 必写
+  @override
+  void dispose() {
+    _isDisposed = true;
+    super.dispose();
+  }
+
   Future<void> _loadData() async {
+    // ✅ 终极防崩：所有异步前先判断
+    if (_isDisposed || !mounted) return;
+    
     setState(() {
       _isLoading = true;
       _error = null;
@@ -31,6 +44,8 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
 
     try {
       final data = await ApiService().get('/api/subscription/current');
+      if (_isDisposed || !mounted) return;
+      
       if (data.data['success'] == true) {
         setState(() {
           _subscriptionData = data.data['data'] as Map<String, dynamic>?;
@@ -43,6 +58,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
         });
       }
     } catch (e) {
+      if (_isDisposed || !mounted) return;
       setState(() {
         _error = e.toString();
         _isLoading = false;

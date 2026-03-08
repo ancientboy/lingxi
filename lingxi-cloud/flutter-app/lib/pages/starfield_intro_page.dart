@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:lingxicloud/pages/chat_page.dart';
 import 'dart:async';
 import 'dart:math';
 
@@ -58,6 +59,9 @@ class _StarfieldIntroPageState extends State<StarfieldIntroPage>
   // 当前显示的行索引
   int _currentLineIndex = -1;
   
+  // 当前行的打字机文字
+  String _currentTypingText = '';
+  
   // 滚动偏移（向上为负）
   double _scrollOffset = 0.0;
   
@@ -114,27 +118,43 @@ class _StarfieldIntroPageState extends State<StarfieldIntroPage>
 
   // 启动动画
   Future<void> _startAnimation() async {
-    // 逐行显示文字，每显示完一行就向上滚动
+    // 逐行显示文字，打字机效果
     for (int i = 0; i < _storyLines.length; i++) {
       if (!mounted) return;
       
+      final line = _storyLines[i];
       setState(() {
         _currentLineIndex = i;
+        _currentTypingText = '';
       });
       
-      // 等待这行文字显示
-      await Future.delayed(Duration(
-        milliseconds: _storyLines[i].isEmpty ? 200 : 600,
-      ));
-      
-      // 向上滚动一点
-      if (mounted) {
-        setState(() {
-          _scrollOffset -= 30;
-        });
+      // 打字机效果：逐字显示
+      if (line.isNotEmpty) {
+        for (int charIndex = 0; charIndex < line.length; charIndex++) {
+          if (!mounted) return;
+          
+          await Future.delayed(const Duration(milliseconds: 50));
+          
+          if (mounted) {
+            setState(() {
+              _currentTypingText = line.substring(0, charIndex + 1);
+            });
+          }
+        }
+        
+        // 完整一行后，等待一下再向上滚动
+        await Future.delayed(const Duration(milliseconds: 400));
+      } else {
+        // 空行，快速通过
+        await Future.delayed(const Duration(milliseconds: 200));
       }
       
-      await Future.delayed(const Duration(milliseconds: 100));
+      // 向上滚动
+      if (mounted && i < _storyLines.length - 1) {
+        setState(() {
+          _scrollOffset -= 35;
+        });
+      }
     }
     
     // 所有文字显示完，激活按钮
@@ -160,7 +180,12 @@ class _StarfieldIntroPageState extends State<StarfieldIntroPage>
     if (!_ctaActive) return;
     
     StarfieldIntroPage._markAsShown();
-    widget.onComplete();
+    
+    // 直接跳转到聊天页面（避免 context 丢失）
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const ChatPage()),
+      (route) => false,
+    );
   }
 
   @override
@@ -195,19 +220,52 @@ class _StarfieldIntroPageState extends State<StarfieldIntroPage>
             // 星星层
             ..._buildStars(),
 
-            // 内容
+            // 主内容
             SafeArea(
               child: Column(
                 children: [
-                  const SizedBox(height: 40),
-                  // Logo
+                  // Logo 区域（固定在顶部）
+                  const SizedBox(height: 60),
                   _buildLogo(),
-                  const SizedBox(height: 40),
-                  // 品牌故事
-                  Expanded(child: _buildStory()),
-                  // CTA 按钮
+                  
+                  // 中间滚动区域
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        // 滚动的文字
+                        _buildScrollingText(),
+                        
+                        // 顶部渐变遮罩（碰到 Logo 时渐变消失）
+                        Positioned(
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          height: 100,
+                          child: IgnorePointer(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    const Color(0xFF090A0F),
+                                    const Color(0xFF090A0F).withOpacity(0.8),
+                                    const Color(0xFF090A0F).withOpacity(0.4),
+                                    Colors.transparent,
+                                  ],
+                                  stops: const [0.0, 0.3, 0.7, 1.0],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  // 底部按钮区域
                   _buildCTAButton(),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 60),
                 ],
               ),
             ),
@@ -299,82 +357,61 @@ class _StarfieldIntroPageState extends State<StarfieldIntroPage>
     );
   }
 
-  // 构建品牌故事
-  Widget _buildStory() {
-    return Stack(
-      children: [
-        // 滚动的文字
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-          transform: Matrix4.translationValues(0, _scrollOffset, 0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: List.generate(_storyLines.length, (index) {
-              final line = _storyLines[index];
-              final isHighlight = line.contains('Lume');
-              final isVisible = index <= _currentLineIndex;
-              
-              return AnimatedOpacity(
-                duration: const Duration(milliseconds: 300),
-                opacity: isVisible ? 1.0 : 0.0,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 6,
-                    horizontal: 24,
-                  ),
-                  child: Text(
-                    line.isEmpty ? ' ' : line,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 17,
-                      height: 1.6,
-                      color: isHighlight
-                          ? const Color(0xFF10a37f)
-                          : Colors.white.withOpacity(0.85),
-                      fontWeight: isHighlight
-                          ? FontWeight.w600
-                          : FontWeight.normal,
-                      shadows: isHighlight
-                          ? [
-                              Shadow(
-                                color: const Color(0xFF10a37f)
-                                    .withOpacity(0.5),
-                                blurRadius: 20,
-                              ),
-                            ]
-                          : null,
-                    ),
-                  ),
-                ),
-              );
-            }),
-          ),
-        ),
-        
-        // 顶部渐变遮罩
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 60,
-          child: IgnorePointer(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    const Color(0xFF090A0F),
-                    const Color(0xFF090A0F).withOpacity(0.5),
-                    Colors.transparent,
-                  ],
+  // 构建滚动的文字（打字机固定在中间）
+  Widget _buildScrollingText() {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeOut,
+      transform: Matrix4.translationValues(0, _scrollOffset, 0),
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: List.generate(_storyLines.length, (index) {
+          final line = _storyLines[index];
+          final isHighlight = line.contains('Lume');
+          final isCurrentLine = index == _currentLineIndex;
+          final isVisible = index < _currentLineIndex;
+          
+          // 当前正在打字的行，或者已经显示完的行
+          final displayText = isCurrentLine 
+              ? _currentTypingText 
+              : (isVisible ? line : '');
+          
+          return AnimatedOpacity(
+            duration: const Duration(milliseconds: 300),
+            opacity: (isCurrentLine || isVisible) ? 1.0 : 0.0,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                vertical: 6,
+                horizontal: 24,
+              ),
+              child: Text(
+                line.isEmpty ? ' ' : displayText,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 17,
+                  height: 1.6,
+                  color: isHighlight
+                      ? const Color(0xFF10a37f)
+                      : Colors.white.withOpacity(0.85),
+                  fontWeight: isHighlight
+                      ? FontWeight.w600
+                      : FontWeight.normal,
+                  shadows: isHighlight
+                      ? [
+                          Shadow(
+                            color: const Color(0xFF10a37f)
+                                .withOpacity(0.5),
+                            blurRadius: 20,
+                          ),
+                        ]
+                      : null,
                 ),
               ),
             ),
-          ),
-        ),
-      ],
+          );
+        }),
+      ),
     );
   }
 

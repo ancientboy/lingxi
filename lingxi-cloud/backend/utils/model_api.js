@@ -6,6 +6,9 @@
 
 // 免费文本模型列表（按优先级排序）
 const FREE_TEXT_MODELS = [
+  'gpt-5.4',              // ✅ OpenAI GPT-5.4
+  'gpt-5-pro',            // ✅ OpenAI GPT-5 Pro
+  'gpt-5',                // ✅ OpenAI GPT-5
   'qwen-flash',           // 阿里通义，稳定
   'GLM-4.5-Flash',        // 智谱 GLM
   'Qwen3-8B',             // 通义千问3

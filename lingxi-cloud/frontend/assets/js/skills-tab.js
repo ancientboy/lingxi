@@ -22,19 +22,47 @@ let skillsState = {
 };
 
 function switchView(view) {
+  console.log('🔄 switchView 被调用, view:', view);
+  
   const chatContainer = document.querySelector('.chat-container');
   const skillsView = document.getElementById('skillsView');
   
+  console.log('📦 chatContainer:', chatContainer);
+  console.log('📦 skillsView:', skillsView);
+  
   if (view === 'chat') {
-    if (chatContainer) chatContainer.classList.remove('hidden');
-    if (skillsView) skillsView.classList.remove('active');
+    // 切换到聊天视图
+    if (chatContainer) {
+      chatContainer.classList.remove('hidden');
+      chatContainer.style.display = ''; // 清除内联样式
+      console.log('✅ chatContainer 已显示');
+    }
+    if (skillsView) {
+      skillsView.classList.remove('active');
+      console.log('✅ skillsView 已隐藏');
+    }
   } else if (view === 'skills') {
-    if (chatContainer) chatContainer.classList.add('hidden');
-    if (skillsView) skillsView.classList.add('active');
+    // 切换到技能库视图
+    if (chatContainer) {
+      chatContainer.classList.add('hidden');
+      console.log('✅ chatContainer 已隐藏');
+    }
+    if (skillsView) {
+      skillsView.classList.add('active');
+      console.log('✅ skillsView 已显示');
+    }
     
     if (!skillsState.loaded) {
       loadSkillsLibrary();
     }
+  }
+  
+  // 强制重绘
+  if (chatContainer) {
+    void chatContainer.offsetHeight;
+  }
+  if (skillsView) {
+    void skillsView.offsetHeight;
   }
 }
 
@@ -317,4 +345,34 @@ function showToast(msg, type) {
 window.switchView = switchView;
 window.copySkillCmd = copySkillCmd;
 
+// 初始化视图状态
+function initSkillsView() {
+  // 检查是否需要自动切换视图
+  const autoView = sessionStorage.getItem('autoSwitchView');
+  if (autoView) {
+    console.log('🔄 检测到自动切换视图请求，跳过初始化');
+    return;
+  }
+  
+  const chatContainer = document.querySelector('.chat-container');
+  const skillsView = document.getElementById('skillsView');
+  
+  console.log('🔧 初始化视图状态');
+  
+  // 确保初始状态：聊天视图显示，技能库隐藏
+  if (chatContainer) {
+    chatContainer.classList.remove('hidden');
+    console.log('✅ 初始：chatContainer 显示');
+  }
+  if (skillsView) {
+    skillsView.classList.remove('active');
+    console.log('✅ 初始：skillsView 隐藏');
+  }
+}
+
+// 延迟初始化，避免与自动切换冲突
+setTimeout(initSkillsView, 200);
+
 console.log('✅ skills-tab.js 已加载');
+
+window.initSkillsView = initSkillsView;

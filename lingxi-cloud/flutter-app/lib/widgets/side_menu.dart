@@ -7,6 +7,7 @@ import 'package:lingxicloud/pages/home_page.dart';
 import 'package:lingxicloud/pages/subscription_page.dart';
 import 'package:lingxicloud/pages/skills_page.dart';
 import 'package:lingxicloud/pages/settings_page.dart';
+import 'package:lingxicloud/pages/lumeclaw_page.dart';
 import 'package:lingxicloud/services/api_service.dart';
 import 'package:lingxicloud/services/websocket_service.dart';
 import 'package:lingxicloud/pages/chat_page.dart';
@@ -118,36 +119,6 @@ class SideMenu extends StatelessWidget {
                   );
                 },
               ),
-              _MenuItem(
-                icon: Icons.star_rounded,
-                title: '我的订阅',
-                onTap: () {
-                  Navigator.of(context).pop();
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const SubscriptionPage()),
-                  );
-                },
-              ),
-              _MenuItem(
-                icon: Icons.segment_outlined,
-                title: '技能库',
-                onTap: () {
-                  Navigator.of(context).pop();
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const SkillsPage()),
-                  );
-                },
-              ),
-              const Divider(height: 24),
-              const _MenuSection(title: '历史会话'),
-              _MenuItem(
-                icon: Icons.history_outlined,
-                title: '历史会话',
-                onTap: () {
-                  Navigator.of(context).pop();
-                  _showSessionsDialog(context);
-                },
-              ),
               const Divider(height: 24),
               const _MenuSection(title: '功能'),
               _MenuItem(
@@ -175,11 +146,54 @@ class SideMenu extends StatelessWidget {
                 },
               ),
               _MenuItem(
+                icon: Icons.segment_outlined,
+                title: '技能库',
+                onTap: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const SkillsPage()),
+                  );
+                },
+              ),
+              // LumeClaw 维护模式
+              _MenuItem(
+                icon: Icons.build_outlined,
+                title: 'LumeClaw',
+                onTap: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const LumeClawPage()),
+                  );
+                },
+              ),
+              const Divider(height: 24),
+              const _MenuSection(title: '历史会话'),
+              _MenuItem(
+                icon: Icons.history_outlined,
+                title: '历史会话',
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _showSessionsDialog(context);
+                },
+              ),
+              _MenuItem(
                 icon: Icons.bar_chart_outlined,
                 title: '使用量统计',
                 onTap: () {
                   Navigator.of(context).pop();
                   _showUsageStatsDialog(context);
+                },
+              ),
+              const Divider(height: 24),
+              const _MenuSection(title: '订阅'),
+              _MenuItem(
+                icon: Icons.star_rounded,
+                title: '我的订阅',
+                onTap: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const SubscriptionPage()),
+                  );
                 },
               ),
               const Divider(height: 24),

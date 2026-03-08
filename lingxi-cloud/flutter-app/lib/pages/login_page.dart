@@ -108,15 +108,6 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  // 体验 Demo 按钮点击
-  void _onDemoClick() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('请联系管理员获取邀请码'),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -361,16 +352,7 @@ class _LoginPageState extends State<LoginPage> {
                             thickness: 1,
                           ),
                         ),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 16),
-                          child: Text(
-                            '或者',
-                            style: TextStyle(
-                              color: Constants.textSecondaryColor,
-                            ),
-                          ),
-                        ),
-                        Expanded(
+                        const Expanded(
                           child: Divider(
                             color: Constants.textLightColor,
                             thickness: 1,
@@ -379,24 +361,6 @@ class _LoginPageState extends State<LoginPage> {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    OutlinedButton(
-                      onPressed: _onDemoClick,
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        side: const BorderSide(color: Constants.primaryColor),
-                      ),
-                      child: const Text(
-                        '体验 Demo',
-                        style: TextStyle(
-                          color: Constants.primaryColor,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
                   ],
 
                   // 注册表单

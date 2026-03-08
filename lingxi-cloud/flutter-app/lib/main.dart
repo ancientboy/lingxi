@@ -7,6 +7,9 @@ import 'package:lingxicloud/pages/splash_page.dart';
 import 'package:lingxicloud/services/notification_service.dart';
 import 'dart:ui' show PlatformDispatcher;
 
+// ✅ 终极防崩：全局路由观察者
+final RouteObserver<ModalRoute<void>> routeObserver = RouteObserver<ModalRoute<void>>();
+
 void main() async {
   // 确保 Flutter 绑定初始化
   WidgetsFlutterBinding.ensureInitialized();
@@ -45,68 +48,24 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 自定义错误页面构建器 - 显示详细错误信息和堆栈
+    // 禁用错误页面的红色死屏
     ErrorWidget.builder = (FlutterErrorDetails details) {
-      final error = details.exception.toString();
-      final stack = details.stack?.toString() ?? '';
-      debugPrint('🚨🚨🚨 ErrorWidget 触发: $error');
-      debugPrint('Stack: $stack');
-      
-      // 提取关键信息
-      String shortError = error;
-      String? fileName;
-      int? lineNumber;
-      
-      // 尝试从堆栈中提取文件名和行号
-      final stackLines = stack.split('\n');
-      for (final line in stackLines) {
-        if (line.contains('chat_page.dart')) {
-          final match = RegExp(r'chat_page\.dart:(\d+)').firstMatch(line);
-          if (match != null) {
-            fileName = 'chat_page.dart';
-            lineNumber = int.tryParse(match.group(1) ?? '');
-            break;
-          }
-        }
-      }
-      
+      debugPrint('🚨 Error: ${details.exception}');
       return Material(
         color: Colors.white,
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                const SizedBox(height: 16),
-                const Text('页面加载失败', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                if (fileName != null && lineNumber != null)
-                  Text(
-                    '位置: $fileName:$lineNumber',
-                    style: const TextStyle(fontSize: 12, color: Colors.blue),
-                  ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    shortError.length > 150 ? shortError.substring(0, 150) + '...' : shortError,
-                    style: const TextStyle(fontSize: 11, color: Colors.red),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () {},
-                  child: const Text('返回'),
-                ),
-              ],
-            ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 48, color: Colors.red),
+              const SizedBox(height: 16),
+              const Text('出现错误', style: TextStyle(fontSize: 18)),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () {},
+                child: const Text('返回'),
+              ),
+            ],
           ),
         ),
       );
@@ -122,6 +81,8 @@ class MyApp extends StatelessWidget {
           return MaterialApp(
             title: Constants.appName,
             debugShowCheckedModeBanner: false,
+            // ✅ 终极防崩：添加路由观察者
+            navigatorObservers: [routeObserver],
             theme: ThemeData(
               useMaterial3: true,
               colorScheme: ColorScheme.fromSeed(

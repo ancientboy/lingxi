@@ -245,9 +245,9 @@ async function proxyRequest(provider, req, res) {
 
   // 获取可用的后端代理
   const backendProxy = getAvailableProxy();
-  
+
   try {
-    const url = `${backendProxy}/${provider}${req.path}`;
+    const url = `${backendProxy}/${provider}${req.originalPath || req.path}`;
     
     const fetchOptions = {
       method: req.method,
@@ -400,7 +400,8 @@ router.use('/zhipu', (req, res) => { proxyRequest('zhipu', req, res); });
 
 router.post('/v1/chat/completions', (req, res) => {
   const model = req.body?.model || '';
-  req.path = '/chat/completions';
+  // 使用原始 URL 路径，不修改 req.path（只读属性）
+  req.originalPath = '/chat/completions';
   if (model.includes('glm') || model.includes('chatglm')) {
     return proxyRequest('zhipu', req, res);
   }

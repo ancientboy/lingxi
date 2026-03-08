@@ -5,6 +5,8 @@ import 'package:lingxicloud/providers/app_provider.dart';
 import 'package:lingxicloud/models/message.dart';
 import 'package:lingxicloud/pages/subscription_page.dart';
 import 'package:lingxicloud/pages/skills_page.dart';
+import 'package:lingxicloud/pages/lumeclaw_page.dart';
+import 'package:lingxicloud/pages/test_page.dart';
 import 'package:lingxicloud/pages/login_page.dart';
 import 'package:lingxicloud/services/websocket_service.dart';
 import 'package:lingxicloud/services/api_service.dart';
@@ -1395,7 +1397,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     final isDarkMode = Provider.of<AppProvider>(context).isDarkMode;
     
     // 添加错误边界包装
-    return Scaffold(
+    return _errorWrapper(
+      Scaffold(
         key: _scaffoldKey,
         appBar: _buildAppBar(isWide),
         drawer: isWide ? null : Drawer(child: _buildSidebar(isDarkMode)),
@@ -1405,7 +1408,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             Expanded(child: _buildMainContent()),
           ],
         ),
-      );
+      ),
+    );
   }
   
   // 错误处理包装器
@@ -2233,10 +2237,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           _buildToolItem(Icons.people_outline, _getTeamMenuTitle(), _getTeamMenuAction(), isDarkMode),
           _buildToolItem(Icons.message_outlined, '飞书配置', () => _showComingSoon('飞书配置'), isDarkMode),
           _buildToolItem(Icons.business_outlined, '企业微信', () => _showComingSoon('企业微信配置'), isDarkMode),
-          _buildToolItem(Icons.extension_outlined, '技能库', () {
-            Navigator.pop(context);
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const SkillsPage()));
-          }, isDarkMode),
           
           Divider(color: isDarkMode ? Colors.white10 : Colors.black12, height: 1),
           _buildUserFooter(isDarkMode),
@@ -2574,6 +2574,24 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                 Navigator.pop(context);
                 Navigator.pop(context);
                 await Navigator.push(context, MaterialPageRoute(builder: (_) => const SubscriptionPage()));
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.build_outlined, color: textColor),
+              title: Text('LumeClaw', style: TextStyle(color: textColor)),
+              onTap: () async {
+                Navigator.pop(context);
+                Navigator.pop(context);
+                await Navigator.push(context, MaterialPageRoute(builder: (_) => const LumeClawPage()));
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.extension_outlined, color: textColor),
+              title: Text('技能库', style: TextStyle(color: textColor)),
+              onTap: () async {
+                Navigator.pop(context);
+                Navigator.pop(context);
+                await Navigator.push(context, MaterialPageRoute(builder: (_) => const SkillsPage()));
               },
             ),
             const Divider(height: 1),

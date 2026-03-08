@@ -1464,27 +1464,31 @@
               <div class="lumeclaw-intro-icon">🤖</div>
               <div class="lumeclaw-intro-text">
                 <strong>Lume 维护助手</strong>
-                <p>灵犀云的智能维护代理，帮你诊断问题、查看日志、监控资源</p>
+                <p>Lume - OpenClaw 智能维护助手，帮你诊断问题、查看日志、修复配置</p>
               </div>
             </div>
             
             <!-- 快捷功能按钮 -->
             <div class="lumeclaw-quick-actions">
-              <button onclick="sendLumeQuickMessage('检查灵犀云服务状态')" class="lume-quick-btn">
+              <button onclick="sendLumeQuickMessage('检查 OpenClaw Gateway 状态')" class="lume-quick-btn">
                 <i data-lucide="activity" class="icon-sm"></i>
-                <span>服务状态</span>
+                <span>Gateway 状态</span>
               </button>
-              <button onclick="sendLumeQuickMessage('查看最近的错误日志')" class="lume-quick-btn">
+              <button onclick="sendLumeQuickMessage('查看 OpenClaw 错误日志')" class="lume-quick-btn">
                 <i data-lucide="file-text" class="icon-sm"></i>
-                <span>查看日志</span>
+                <span>错误日志</span>
               </button>
-              <button onclick="sendLumeQuickMessage('检查 CPU 和内存使用情况')" class="lume-quick-btn">
+              <button onclick="sendLumeQuickMessage('修复 OpenClaw 配置并重启 Gateway')" class="lume-quick-btn">
+                <i data-lucide="wrench" class="icon-sm"></i>
+                <span>修复配置</span>
+              </button>
+              <button onclick="sendLumeQuickMessage('重启 OpenClaw Gateway')" class="lume-quick-btn">
+                <i data-lucide="refresh-cw" class="icon-sm"></i>
+                <span>重启 Gateway</span>
+              </button>
+              <button onclick="sendLumeQuickMessage('检查系统资源（CPU、内存、磁盘）')" class="lume-quick-btn">
                 <i data-lucide="cpu" class="icon-sm"></i>
                 <span>系统资源</span>
-              </button>
-              <button onclick="sendLumeQuickMessage('检查 PM2 管理的所有服务')" class="lume-quick-btn">
-                <i data-lucide="settings" class="icon-sm"></i>
-                <span>PM2 管理</span>
               </button>
             </div>
             
@@ -1735,7 +1739,7 @@
       // 添加欢迎消息
       const messagesDiv = document.getElementById('lumeclawMessages');
       if (messagesDiv.children.length === 0) {
-        addLumeMessage('lume', '👋 你好！我是 Lume，灵犀云的维护助手。\n\n我可以帮你：\n• 检查服务器状态\n• 查看错误日志\n• 监控系统资源\n• 管理 PM2 服务\n\n请描述你需要解决的问题，或点击上方快捷按钮。');
+        addLumeMessage('lume', '👋 你好！我是 **Lume**，OpenClaw 的守护者。\n\n我可以帮你：\n• 🩺 诊断 Gateway 故障\n• 📋 查看错误日志\n• 🔧 修复配置问题\n• 🔄 重启服务\n• 💻 监控系统资源\n\n直接告诉我问题，或点击上方快捷按钮。');
       }
       
       // 聚焦输入框
@@ -1831,8 +1835,7 @@
       }
     }
     
-    // 页面加载时检查 LumeClaw 权限
-    setTimeout(checkLumeclawAccess, 1000);
+    // 注意：LumeClaw 权限检查在 load-components.js 中调用（侧边栏加载完成后）
     
     // 切换用户菜单
     function toggleUserMenu() {

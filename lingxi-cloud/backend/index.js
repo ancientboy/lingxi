@@ -50,6 +50,24 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// APK 下载（简洁路径）
+app.get('/lingxi.apk', (req, res) => {
+  const apkPath = join(__dirname, '../frontend/public/lingxi.apk');
+  res.download(apkPath, 'lingxi.apk');
+});
+
+// 测试版 APK 下载
+app.get('/lingxi-test.apk', (req, res) => {
+  const apkPath = join(__dirname, '../frontend/public/lingxi-test.apk');
+  res.download(apkPath, 'lingxi-test.apk');
+});
+
+// 极简版 APK 下载
+app.get('/lingxi-minimal.apk', (req, res) => {
+  const apkPath = join(__dirname, '../frontend/public/lingxi-minimal.apk');
+  res.download(apkPath, 'lingxi-minimal.apk');
+});
+
 // 实例管理
 import instanceRoutes from './routes/instance.js';
 app.use('/api/instance', instanceRoutes);
