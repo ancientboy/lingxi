@@ -33,10 +33,31 @@ const upload = multer({
   storage,
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
   fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
+    // 允许图片和文档类型
+    const allowedMimes = [
+      // 图片
+      'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+      // 文档（OpenClaw 支持的类型）
+      'application/pdf',      // PDF
+      'text/plain',           // 纯文本
+      'text/markdown',        // Markdown
+      'text/html',            // HTML
+      'text/csv',             // CSV
+      'application/json',     // JSON
+      // Office 文档（新格式）
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',  // Word (.docx)
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',        // Excel (.xlsx)
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation', // PowerPoint (.pptx)
+      // Office 文档（旧格式）
+      'application/msword',            // Word (.doc)
+      'application/vnd.ms-excel',      // Excel (.xls)
+      'application/vnd.ms-powerpoint'  // PowerPoint (.ppt)
+    ];
+    
+    if (allowedMimes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('只允许上传图片'));
+      cb(new Error(`不支持的文件类型: ${file.mimetype}`));
     }
   }
 });
@@ -48,13 +69,18 @@ router.post('/image', upload.single('file'), async (req, res) => {
     
     // 方式1: multipart/form-data 上传（推荐）
     if (req.file) {
-      const imageUrl = `http://120.55.192.144:3000/uploads/${req.file.filename}`;
-      console.log(`📷 图片已上传(multipart): ${req.file.filename}, 大小: ${req.file.size} bytes`);
+      const fileUrl = `http://120.55.192.144:3000/uploads/${req.file.filename}`;
+      const isDocument = !req.file.mimetype.startsWith('image/');
+      const emoji = isDocument ? '📄' : '📷';
+      
+      console.log(`${emoji} 文件已上传(multipart): ${req.file.filename}, 类型: ${req.file.mimetype}, 大小: ${req.file.size} bytes`);
       
       return res.json({
         success: true,
-        url: imageUrl,
-        filename: req.file.filename
+        url: fileUrl,
+        filename: req.file.filename,
+        mimeType: req.file.mimetype,
+        type: isDocument ? 'document' : 'image'
       });
     }
     
@@ -84,13 +110,17 @@ router.post('/image', upload.single('file'), async (req, res) => {
     
     // 返回可访问的 URL
     const imageUrl = `http://120.55.192.144:3000/uploads/${filename}`;
+    const isDocument = !mimeType.startsWith('image/');
+    const emoji = isDocument ? '📄' : '📷';
     
-    console.log(`📷 图片已上传(base64): ${filename}, 大小: ${base64Data.length} bytes`);
+    console.log(`${emoji} 文件已上传(base64): ${filename}, 类型: ${mimeType}, 大小: ${base64Data.length} bytes`);
     
     res.json({
       success: true,
       url: imageUrl,
-      filename
+      filename,
+      mimeType,
+      type: isDocument ? 'document' : 'image'
     });
     
   } catch (error) {

@@ -567,6 +567,14 @@ function handleWebSocketMessage(data) {
       console.log('⚠️ 消息已中止');
     }
   }
+
+  // 🎵 音频消息处理
+  if (data.type === 'audio') {
+    const { url, text, name } = data.payload || {};
+    console.log('🎵 收到音频消息:', url);
+    addMessage('assistant', { audio: url, text }, name || '灵犀');
+    return;
+  }
 }
 
 // 从消息对象中提取文本
@@ -646,9 +654,15 @@ function finalizeStreamingMessage(text, runId) {
     streamingMessages[runId].text = text;
     const bubble = streamingMessages[runId].element.querySelector('.bubble');
     if (bubble) {
-      // 🔧 使用 processMessageFull 解析 Markdown 图片
-      const { text: cleanText, filesHtml, imagesHtml } = processMessageFull(text, {});
-      bubble.innerHTML = `${cleanText ? escapeHtml(cleanText) : ''}${imagesHtml}${filesHtml}`;
+      // 🔧 使用 processMessageFull 解析 Markdown 图片、音频和文件
+      const fileOptions = userServerInfo ? {
+        serverIp: userServerInfo.serverIp,
+        serverPort: userServerInfo.fileServerPort || 9876,
+        serverToken: userServerInfo.fileServerToken,
+        userId: user?.id
+      } : { userId: user?.id };
+      const { text: cleanText, filesHtml, imagesHtml, audioHtml } = processMessageFull(text, fileOptions);
+      bubble.innerHTML = `${cleanText ? escapeHtml(cleanText) : ''}${audioHtml}${imagesHtml}${filesHtml}`;
     }
   }
   // 清理
@@ -747,6 +761,7 @@ async function compressImage(file, quality = 80, minSize = 1024) {
 }
 
 // 处理图片选择 - 上传到服务器获取 URL
+// 处理图片/文档选择 - 上传到服务器获取 URL
 async function handleImageSelect(event) {
   console.log('🖼️ handleImageSelect 被调用');
   const file = event.target.files[0];
@@ -757,15 +772,67 @@ async function handleImageSelect(event) {
 
   console.log('📁 选择的文件:', file.name, 'type:', file.type, 'size:', file.size);
 
+  // 定义允许的文档类型
+  const allowedDocMimes = [
+    'application/pdf',      // PDF
+    'text/plain',           // 纯文本
+    'text/markdown',        // Markdown
+    'text/html',            // HTML
+    'text/csv',             // CSV
+    'application/json',     // JSON
+    // Office 文档（新格式）
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',  // Word (.docx)
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',        // Excel (.xlsx)
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation', // PowerPoint (.pptx)
+    // Office 文档（旧格式）
+    'application/msword',            // Word (.doc)
+    'application/vnd.ms-excel',      // Excel (.xls)
+    'application/vnd.ms-powerpoint'  // PowerPoint (.ppt)
+  ];
+  
+  // 🆕 通过文件扩展名判断类型（解决浏览器不返回 MIME 类型的问题）
+  const fileExtension = file.name.split('.').pop().toLowerCase();
+  const extensionMimeMap = {
+    'pdf': 'application/pdf',
+    'txt': 'text/plain',
+    'md': 'text/markdown',
+    'markdown': 'text/markdown',
+    'html': 'text/html',
+    'htm': 'text/html',
+    'csv': 'text/csv',
+    'json': 'application/json',
+    // Office 文档（新格式）
+    'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    // Office 文档（旧格式）
+    'doc': 'application/msword',
+    'xls': 'application/vnd.ms-excel',
+    'ppt': 'application/vnd.ms-powerpoint'
+  };
+  
+  // 🎯 优先使用 MIME 类型，如果没有则使用扩展名判断
+  let mimeType = file.type;
+  if (!mimeType && extensionMimeMap[fileExtension]) {
+    mimeType = extensionMimeMap[fileExtension];
+    console.log(`🔧 浏览器未返回 MIME 类型，通过扩展名判断: ${fileExtension} → ${mimeType}`);
+  }
+  
+  const isDocument = allowedDocMimes.includes(mimeType);
+  const isImage = mimeType.startsWith('image/');
+  
   // 检查文件类型
-  if (!file.type.startsWith('image/')) {
-    alert('请选择图片文件');
+  if (!isImage && !isDocument) {
+    alert('不支持的文件类型\n\n支持的格式：\n• 图片：JPG, PNG, GIF, WebP\n• 文档：PDF, TXT, MD, HTML, CSV, JSON');
     return;
   }
 
-  // 检查文件大小（最大 10MB）
-  if (file.size > 10 * 1024 * 1024) {
-    alert('图片大小不能超过 10MB');
+  // 检查文件大小
+  const maxSize = isDocument ? 5 * 1024 * 1024 : 10 * 1024 * 1024;  // 文档 5MB，图片 10MB
+  const maxSizeText = isDocument ? '5MB' : '10MB';
+  
+  if (file.size > maxSize) {
+    alert(`${isDocument ? '文档' : '图片'}大小不能超过 ${maxSizeText}\n\n当前文件大小：${(file.size / 1024 / 1024).toFixed(2)}MB`);
     return;
   }
 
@@ -778,68 +845,350 @@ async function handleImageSelect(event) {
   previewImg.src = '';
   imageBtn.classList.add('has-image');
   previewImg.style.opacity = '0.5';
+  
+  // 🔧 添加进度条（大文件时显示）
+  let progressBar = document.getElementById('uploadProgressBar');
+  if (!progressBar && (file.size > 500 * 1024)) {  // 大于 500KB 显示进度条
+    progressBar = document.createElement('div');
+    progressBar.id = 'uploadProgressBar';
+    progressBar.className = 'upload-progress-bar';
+    progressBar.innerHTML = '<div class="upload-progress-fill" id="uploadProgressFill"></div>';
+    previewContainer.querySelector('.image-preview-wrapper').appendChild(progressBar);
+  }
 
   try {
     let fileToUpload = file;
-    const FILE_SIZE_LIMIT = 200 * 1024; // 200KB（和 Flutter 一致）
     
-    // 🔧 如果大于 200KB，压缩图片（和 Flutter 逻辑一致）
-    if (file.size > FILE_SIZE_LIMIT && (file.type === 'image/jpeg' || file.type === 'image/webp' || file.type === 'image/png')) {
-      try {
-        console.log(`🔄 图片大于 200KB，开始压缩: ${(file.size / 1024).toFixed(1)}KB`);
-        const compressedBlob = await compressImage(file, 80, 1024);
-        // 创建新的 File 对象
-        const filename = file.name.replace(/\.(png|webp)$/i, '.jpg');
-        fileToUpload = new File([compressedBlob], filename, { type: 'image/jpeg' });
-        console.log('✅ 图片已压缩');
-      } catch (e) {
-        console.warn('⚠️ 压缩失败，使用原图:', e.message);
+    // 图片压缩逻辑（仅图片）
+    if (isImage) {
+      const FILE_SIZE_LIMIT = 200 * 1024; // 200KB（和 Flutter 一致）
+      
+      // 🔧 如果大于 200KB，压缩图片（和 Flutter 逻辑一致）
+      if (file.size > FILE_SIZE_LIMIT && (file.type === 'image/jpeg' || file.type === 'image/webp' || file.type === 'image/png')) {
+        try {
+          console.log(`🔄 图片大于 200KB，开始压缩: ${(file.size / 1024).toFixed(1)}KB`);
+          const compressedBlob = await compressImage(file, 80, 1024);
+          // 创建新的 File 对象
+          const filename = file.name.replace(/\.(png|webp)$/i, '.jpg');
+          fileToUpload = new File([compressedBlob], filename, { type: 'image/jpeg' });
+          console.log('✅ 图片已压缩');
+        } catch (e) {
+          console.warn('⚠️ 压缩失败，使用原图:', e.message);
+        }
+      } else if (file.size <= FILE_SIZE_LIMIT) {
+        console.log(`📷 图片小于 200KB，跳过压缩: ${(file.size / 1024).toFixed(1)}KB`);
       }
-    } else if (file.size <= FILE_SIZE_LIMIT) {
-      console.log(`📷 图片小于 200KB，跳过压缩: ${(file.size / 1024).toFixed(1)}KB`);
+    }
+    
+    // 🆕 文档上传：重新创建 File 对象，使用正确的 MIME 类型
+    if (isDocument && mimeType && mimeType !== file.type) {
+      fileToUpload = new File([file], file.name, { type: mimeType });
+      console.log(`🔧 文档 MIME 类型已修正: ${file.type || '(空)'} → ${mimeType}`);
     }
     
     // ✅ 用 FormData 上传
     const formData = new FormData();
     formData.append('file', fileToUpload);
 
-    console.log('📤 开始上传图片到服务器...');
+    console.log(`📤 开始上传${isDocument ? '文档' : '图片'}到服务器...`);
+    
+    // 🎯 显示进度条（大文件）
+    const progressBar = document.getElementById('uploadProgressBar');
+    const progressFill = document.getElementById('uploadProgressFill');
+    if (progressBar && file.size > 500 * 1024) {  // 大于 500KB 显示进度
+      progressBar.style.display = 'block';
+      if (progressFill) progressFill.style.width = '0%';
+    }
 
-    const res = await fetch(`${API_BASE}/api/upload/image`, {
-      method: 'POST',
-      body: formData
+    // ✅ 使用 XMLHttpRequest 支持上传进度
+    const xhr = new XMLHttpRequest();
+    
+    // 创建 Promise 包装 XHR
+    const uploadPromise = new Promise((resolve, reject) => {
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+          const percent = Math.round((e.loaded / e.total) * 100);
+          const progressFill = document.getElementById('uploadProgressFill');
+          if (progressFill) {
+            progressFill.style.width = percent + '%';
+          }
+          console.log(`📤 上传进度: ${percent}%`);
+        }
+      });
+
+      xhr.addEventListener('load', () => {
+        if (xhr.status === 200) {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            resolve(data);
+          } catch (e) {
+            reject(new Error('解析响应失败'));
+          }
+        } else {
+          reject(new Error(`上传失败: ${xhr.status}`));
+        }
+      });
+
+      xhr.addEventListener('error', () => {
+        reject(new Error('网络错误'));
+      });
+
+      xhr.open('POST', `${API_BASE}/api/upload/image`);
+      xhr.send(formData);
     });
 
-    const data = await res.json();
+    const data = await uploadPromise;
 
     if (data.success && data.url) {
-      console.log('✅ 图片上传成功:', data.url);
+      console.log(`✅ ${isDocument ? '文档' : '图片'}上传成功:`, data.url);
+      
+      // 🎉 隐藏进度条
+      const progressBar = document.getElementById('uploadProgressBar');
+      if (progressBar) {
+        progressBar.style.display = 'none';
+      }
 
       // 保存服务器返回的 URL
       selectedImage = {
         url: data.url,
         filename: data.filename,
+        mimeType: data.mimeType || mimeType,
+        type: data.type || (isDocument ? 'document' : 'image'),
         file: fileToUpload
       };
 
-      // 用服务器 URL 显示预览
-      previewImg.src = data.url;
+      // 显示预览
+      if (isDocument) {
+        // 🎨 根据文档类型显示美观的卡片
+        const docCard = getDocumentPreviewCard(mimeType, file.name, file.size);
+        previewImg.src = docCard;
+        
+        // 💡 显示文件信息提示
+        const fileSize = formatFileSize(file.size);
+        const fileName = file.name.length > 20 ? file.name.substring(0, 20) + '...' : file.name;
+        console.log(`📄 文档预览: ${fileName} (${fileSize})`);
+        
+        // 🔧 隐藏文件信息覆盖层（卡片已包含文件名和大小）
+        const fileInfoOverlay = document.getElementById('fileInfoOverlay');
+        if (fileInfoOverlay) {
+          fileInfoOverlay.style.display = 'none';
+        }
+      } else {
+        // 图片预览：显示图片
+        previewImg.src = data.url;
+        
+        // 隐藏文件信息覆盖层
+        const fileInfoOverlay = document.getElementById('fileInfoOverlay');
+        if (fileInfoOverlay) {
+          fileInfoOverlay.style.display = 'none';
+        }
+      }
+      
       previewImg.style.opacity = '1';
       previewContainer.classList.remove('uploading');
 
-      // 🔧 更新按钮显示状态（有图片了，显示发送按钮）
+      // 🔧 更新按钮显示状态（有附件了，显示发送按钮）
       updateInputButtons();
     } else {
       throw new Error(data.error || '上传失败');
     }
   } catch (e) {
-    console.error('❌ 图片上传失败:', e);
-    alert('图片上传失败: ' + e.message);
+    console.error(`❌ ${isDocument ? '文档' : '图片'}上传失败:`, e);
+    alert(`${isDocument ? '文档' : '图片'}上传失败: ` + e.message);
     removeSelectedImage();
   }
 
   // 清空 input，允许重复选择同一文件
   event.target.value = '';
+}
+
+// 🎨 根据文档类型获取图标
+// 🎨 获取文档预览卡片（SVG 格式，用于 img 标签）
+function getDocumentPreviewCard(mimeType, filename, fileSize) {
+  const typeConfig = {
+    'application/pdf': { type: 'PDF', icon: 'PDF', gradient: ['#FF5252', '#FF8A80'], color: '#FF5252' },
+    'text/markdown': { type: 'MD', icon: 'MD', gradient: ['#4CAF50', '#81C784'], color: '#4CAF50' },
+    'text/html': { type: 'HTML', icon: '<>', gradient: ['#FF9800', '#FFB74D'], color: '#FF9800' },
+    'text/csv': { type: 'CSV', icon: 'CSV', gradient: ['#2196F3', '#64B5F6'], color: '#2196F3' },
+    'application/json': { type: 'JSON', icon: '{ }', gradient: ['#9C27B0', '#BA68C8'], color: '#9C27B0' },
+    'text/plain': { type: 'TXT', icon: 'TXT', gradient: ['#757575', '#9E9E9E'], color: '#757575' }
+  };
+  
+  const config = typeConfig[mimeType] || { type: 'FILE', icon: 'FILE', gradient: ['#667eea', '#764ba2'], color: '#667eea' };
+  const displayName = filename.length > 20 ? filename.substring(0, 20) + '...' : filename;
+  const displaySize = fileSize ? formatFileSize(fileSize) : '';
+  
+  // 🎨 创建简单的 SVG 卡片（不使用 emoji，改用文字图标）
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">
+      <defs>
+        <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:${config.gradient[0]};stop-opacity:1" />
+          <stop offset="100%" style="stop-color:${config.gradient[1]};stop-opacity:1" />
+        </linearGradient>
+      </defs>
+      
+      <!-- 背景卡片 -->
+      <rect x="0" y="0" width="120" height="120" rx="12" fill="url(#grad)" />
+      
+      <!-- 文件图标（模拟文档图标） -->
+      <rect x="35" y="20" width="50" height="60" rx="4" fill="rgba(255,255,255,0.3)" />
+      <rect x="40" y="25" width="40" height="50" rx="2" fill="rgba(255,255,255,0.95)" />
+      <rect x="45" y="35" width="30" height="2" fill="${config.color}" opacity="0.6" />
+      <rect x="45" y="42" width="30" height="2" fill="${config.color}" opacity="0.6" />
+      <rect x="45" y="49" width="20" height="2" fill="${config.color}" opacity="0.6" />
+      
+      <!-- 类型徽章 -->
+      <rect x="70" y="15" width="35" height="18" rx="4" fill="rgba(255,255,255,0.95)" />
+      <text x="87.5" y="27" text-anchor="middle" font-size="9" font-weight="bold" fill="${config.color}" font-family="Arial, sans-serif">${config.type}</text>
+      
+      <!-- 文件名 -->
+      <text x="60" y="100" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.95)" font-family="Arial, sans-serif">
+        ${displayName.length > 15 ? displayName.substring(0, 15) + '...' : displayName}
+      </text>
+    </svg>
+  `;
+  
+  return 'data:image/svg+xml,' + encodeURIComponent(svg);
+}
+
+// 🎨 获取文档预览卡片（HTML iframe 格式，用于消息气泡）
+// 🎨 获取文档预览卡片 HTML（直接返回 HTML 字符串，用于消息气泡）
+function getDocumentPreviewCardHTML(mimeType, filename, fileSize) {
+  const typeConfig = {
+    'application/pdf': { type: 'PDF', icon: 'PDF', gradient: 'linear-gradient(135deg, #FF5252 0%, #FF8A80 100%)', color: '#FF5252' },
+    'text/markdown': { type: 'MD', icon: 'MD', gradient: 'linear-gradient(135deg, #4CAF50 0%, #81C784 100%)', color: '#4CAF50' },
+    'text/html': { type: 'HTML', icon: '&lt;&gt;', gradient: 'linear-gradient(135deg, #FF9800 0%, #FFB74D 100%)', color: '#FF9800' },
+    'text/csv': { type: 'CSV', icon: 'CSV', gradient: 'linear-gradient(135deg, #2196F3 0%, #64B5F6 100%)', color: '#2196F3' },
+    'application/json': { type: 'JSON', icon: '{ }', gradient: 'linear-gradient(135deg, #9C27B0 0%, #BA68C8 100%)', color: '#9C27B0' },
+    'text/plain': { type: 'TXT', icon: 'TXT', gradient: 'linear-gradient(135deg, #757575 0%, #9E9E9E 100%)', color: '#757575' },
+    // Office 文档（新格式）
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': { type: 'DOCX', icon: 'W', gradient: 'linear-gradient(135deg, #2196F3 0%, #42A5F5 100%)', color: '#1565C0' },
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': { type: 'XLSX', icon: 'X', gradient: 'linear-gradient(135deg, #4CAF50 0%, #66BB6A 100%)', color: '#2E7D32' },
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation': { type: 'PPTX', icon: 'P', gradient: 'linear-gradient(135deg, #FF9800 0%, #FFA726 100%)', color: '#E65100' },
+    // Office 文档（旧格式）
+    'application/msword': { type: 'DOC', icon: 'W', gradient: 'linear-gradient(135deg, #2196F3 0%, #42A5F5 100%)', color: '#1565C0' },
+    'application/vnd.ms-excel': { type: 'XLS', icon: 'X', gradient: 'linear-gradient(135deg, #4CAF50 0%, #66BB6A 100%)', color: '#2E7D32' },
+    'application/vnd.ms-powerpoint': { type: 'PPT', icon: 'P', gradient: 'linear-gradient(135deg, #FF9800 0%, #FFA726 100%)', color: '#E65100' }
+  };
+  
+  const config = typeConfig[mimeType] || { type: 'FILE', icon: 'FILE', gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: '#667eea' };
+  const displayName = filename.length > 20 ? filename.substring(0, 20) + '...' : filename;
+  const displaySize = fileSize ? formatFileSize(fileSize) : '';
+  
+  // 🎨 直接返回 HTML 字符串（不使用 data URL 或 iframe）
+  return `
+    <div style="width: 120px; height: 120px; background: ${config.gradient}; border-radius: 12px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; font-family: -apple-system, BlinkMacSystemFont, sans-serif; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+      <div style="position: absolute; top: 8px; right: 8px; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; background: rgba(255,255,255,0.95); color: ${config.color}; text-transform: uppercase;">${config.type}</div>
+      <div style="width: 50px; height: 60px; margin-bottom: 8px; position: relative;">
+        <div style="width: 100%; height: 100%; background: rgba(255,255,255,0.3); border-radius: 4px;"></div>
+        <div style="position: absolute; top: 5px; left: 5px; right: 5px; bottom: 5px; background: rgba(255,255,255,0.95); border-radius: 2px; display: flex; align-items: center; justify-content: center;">
+          <div style="font-size: 16px; font-weight: bold; color: ${config.color};">${config.icon}</div>
+        </div>
+      </div>
+      <div style="font-size: 11px; text-align: center; padding: 0 12px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: 0.95;">${displayName}</div>
+      ${displaySize ? `<div style="font-size: 9px; opacity: 0.8; margin-top: 4px;">${displaySize}</div>` : ''}
+    </div>
+  `;
+}
+function getDocumentIcon(mimeType, filename) {
+  // PDF 文档
+  if (mimeType === 'application/pdf') {
+    return 'data:image/svg+xml,' + encodeURIComponent(`
+      <svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 24 24" fill="none">
+        <rect x="3" y="2" width="18" height="20" rx="2" fill="#FF5252" opacity="0.1"/>
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="#FF5252" stroke-width="1.5" fill="none"/>
+        <polyline points="14 2 14 8 20 8" stroke="#FF5252" stroke-width="1.5" fill="none"/>
+        <text x="12" y="15" text-anchor="middle" font-size="6" fill="#FF5252" font-weight="bold">PDF</text>
+      </svg>
+    `);
+  }
+  
+  // Markdown 文档
+  if (mimeType === 'text/markdown' || filename.endsWith('.md')) {
+    return 'data:image/svg+xml,' + encodeURIComponent(`
+      <svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 24 24" fill="none">
+        <rect x="3" y="2" width="18" height="20" rx="2" fill="#4CAF50" opacity="0.1"/>
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="#4CAF50" stroke-width="1.5" fill="none"/>
+        <polyline points="14 2 14 8 20 8" stroke="#4CAF50" stroke-width="1.5" fill="none"/>
+        <text x="12" y="15" text-anchor="middle" font-size="6" fill="#4CAF50" font-weight="bold">MD</text>
+      </svg>
+    `);
+  }
+  
+  // HTML 文档
+  if (mimeType === 'text/html') {
+    return 'data:image/svg+xml,' + encodeURIComponent(`
+      <svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 24 24" fill="none">
+        <rect x="3" y="2" width="18" height="20" rx="2" fill="#FF9800" opacity="0.1"/>
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="#FF9800" stroke-width="1.5" fill="none"/>
+        <polyline points="14 2 14 8 20 8" stroke="#FF9800" stroke-width="1.5" fill="none"/>
+        <text x="12" y="15" text-anchor="middle" font-size="5" fill="#FF9800" font-weight="bold">&lt;/&gt;</text>
+      </svg>
+    `);
+  }
+  
+  // CSV 文档
+  if (mimeType === 'text/csv') {
+    return 'data:image/svg+xml,' + encodeURIComponent(`
+      <svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 24 24" fill="none">
+        <rect x="3" y="2" width="18" height="20" rx="2" fill="#2196F3" opacity="0.1"/>
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="#2196F3" stroke-width="1.5" fill="none"/>
+        <polyline points="14 2 14 8 20 8" stroke="#2196F3" stroke-width="1.5" fill="none"/>
+        <text x="12" y="15" text-anchor="middle" font-size="6" fill="#2196F3" font-weight="bold">CSV</text>
+      </svg>
+    `);
+  }
+  
+  // JSON 文档
+  if (mimeType === 'application/json') {
+    return 'data:image/svg+xml,' + encodeURIComponent(`
+      <svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 24 24" fill="none">
+        <rect x="3" y="2" width="18" height="20" rx="2" fill="#9C27B0" opacity="0.1"/>
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="#9C27B0" stroke-width="1.5" fill="none"/>
+        <polyline points="14 2 14 8 20 8" stroke="#9C27B0" stroke-width="1.5" fill="none"/>
+        <text x="12" y="15" text-anchor="middle" font-size="5" fill="#9C27B0" font-weight="bold">{ }</text>
+      </svg>
+    `);
+  }
+  
+  // 默认文档图标（TXT 等）
+  return 'data:image/svg+xml,' + encodeURIComponent(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 24 24" fill="none">
+      <rect x="3" y="2" width="18" height="20" rx="2" fill="#666" opacity="0.1"/>
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="#666" stroke-width="1.5" fill="none"/>
+      <polyline points="14 2 14 8 20 8" stroke="#666" stroke-width="1.5" fill="none"/>
+      <line x1="16" y1="13" x2="8" y2="13" stroke="#666" stroke-width="1.5"/>
+      <line x1="16" y1="17" x2="8" y2="17" stroke="#666" stroke-width="1.5"/>
+    </svg>
+  `);
+}
+
+// 📏 格式化文件大小
+function formatFileSize(bytes) {
+  if (bytes === 0) return '0 B';
+  
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// 🆕 格式化相对时间
+function formatRelativeTime(timestamp) {
+  const now = Date.now();
+  const diff = now - timestamp;
+  
+  if (diff < 60000) return '刚刚';
+  if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`;
+  if (diff < 172800000) return '昨天';
+  if (diff < 604800000) return `${Math.floor(diff / 86400000)} 天前`;
+  
+  // 超过一周，显示绝对时间
+  const date = new Date(timestamp);
+  return `${date.getMonth() + 1}月${date.getDate()}日`;
 }
 
 // 移除选中的图片
@@ -849,6 +1198,12 @@ function removeSelectedImage() {
   const previewContainer = document.getElementById('imagePreviewContainer');
   const previewImg = document.getElementById('imagePreview');
   const imageBtn = document.getElementById('imageBtn');
+  
+  // 隐藏文件信息覆盖层
+  const fileInfoOverlay = document.getElementById('fileInfoOverlay');
+  if (fileInfoOverlay) {
+    fileInfoOverlay.style.display = 'none';
+  }
 
   previewContainer.classList.remove('show', 'uploading');
   previewImg.src = '';
@@ -859,13 +1214,18 @@ function removeSelectedImage() {
   updateInputButtons();
 }
 
-// 构建带图片的消息内容（异步版本）
-// 构建带图片的消息内容（发送给 OpenClaw）
-async function buildMessageParamsAsync(text, image) {
+// 构建带附件的消息内容（异步版本）
+// 构建带附件的消息内容（发送给 OpenClaw）
+async function buildMessageParamsAsync(text, attachment) {
   let messageText = (text !== undefined && text !== null) ? String(text) : '';
   
-  if (!messageText.trim() && image) {
-    messageText = '请识别这张图片';
+  if (!messageText.trim() && attachment) {
+    // 根据附件类型设置默认提示语
+    if (attachment.type === 'document') {
+      messageText = '请帮我分析这个文档';
+    } else {
+      messageText = '请识别这张图片';
+    }
   }
   
   const params = {
@@ -876,14 +1236,25 @@ async function buildMessageParamsAsync(text, image) {
   };
   
   // ✅ 直接传 URL，后端代理会自动下载转 base64
-  if (image && image.url) {
+  if (attachment && attachment.url) {
     params.attachments = [{
-      type: 'image',
-      url: image.url,
-      mimeType: image.file?.type || 'image/png'
+      type: attachment.type || 'image',  // 'image' 或 'document'
+      url: attachment.url,
+      mimeType: attachment.mimeType || 'image/png',
+      filename: attachment.filename || 'attachment'
     }];
-    console.log('  - attachments: 1个图片');
-    console.log('  - url:', image.url);
+    
+    // 🆕 双重保险：在消息文本中保存附件信息
+    // 格式：[附件:类型:文件名:URL]
+    const type = attachment.type === 'document' ? '文档' : '图片';
+    const attachmentInfo = `[附件:${type}:${attachment.filename}:${attachment.url}]`;
+    params.message = `${attachmentInfo}\n\n${messageText}`;
+    
+    console.log(`  - attachments: 1个${attachment.type === 'document' ? '文档' : '图片'}`);
+    console.log('  - url:', attachment.url);
+    console.log('  - mimeType:', attachment.mimeType);
+    console.log('  - 双重保险：已将附件信息保存到消息文本');
+    console.log('  - 附件标记:', attachmentInfo);
   }
 
   return params;
@@ -955,6 +1326,34 @@ async function sendMessage() {
     try {
       ws.send(JSON.stringify(req));
       console.log('✅ 消息已发送到 WebSocket');
+      
+      // 🆕 自动更新 session label（如果是第一条消息）
+      if (window.sessions) {
+        const currentSession = window.sessions.find(s => s.key === currentSessionKey);
+        if (currentSession && (!currentSession.label || currentSession.label === '灵犀' || currentSession.label.includes('agent:'))) {
+          // 使用消息文本作为新的 label
+          const newLabel = text.substring(0, 50);
+          console.log('📝 更新 session label:', currentSessionKey, '→', newLabel);
+          
+          // 发送更新请求
+          ws.send(JSON.stringify({
+            type: 'req',
+            id: `update-label-${Date.now()}`,
+            method: 'sessions.update',
+            params: {
+              sessionKey: currentSessionKey,
+              label: newLabel
+            }
+          }));
+          
+          // 更新本地缓存
+          currentSession.label = newLabel;
+          currentSession.title = newLabel;
+          
+          // 重新渲染会话列表
+          renderSessionList();
+        }
+      }
     } catch (sendError) {
       console.error('❌ WebSocket 发送失败:', sendError);
     }
@@ -1134,31 +1533,157 @@ function renderHistory(messages) {
   // 渲染历史消息
   for (const msg of messages) {
     const role = msg.role || 'user';
-    const content = extractText(msg);
     
-    // ✅ 提取图片 URL（从 attachments 或 parts 字段）
+    // 🚫 过滤掉工具调用结果和系统消息
+    if (role === 'toolResult' || role === 'system' || role === 'tool') {
+      console.log('⏭️ 跳过工具/系统消息:', role);
+      continue;
+    }
+    
+    // 🚫 过滤掉非用户/助手消息
+    if (role !== 'user' && role !== 'assistant') {
+      console.log('⏭️ 跳过非对话消息:', role);
+      continue;
+    }
+    
+    let content = extractText(msg);
+    
+    // 🚫 过滤掉内容为空的消息
+    if (!content || content.trim().length === 0) {
+      console.log('⏭️ 跳过空消息');
+      continue;
+    }
+    
+    // 🚫 过滤掉纯元数据消息（不包含附件标记，且主要是 JSON 格式）
+    const hasAttachmentMark = content.includes('[附件:');
+    const isMetadata = content.includes('<<<EXTERNAL_UNTRUSTED_CONTENT') && 
+                       content.includes('"url":') && 
+                       content.includes('"contentType":');
+    
+    if (!hasAttachmentMark && isMetadata) {
+      console.log('⏭️ 跳过纯元数据消息（长度:', content.length, '）');
+      continue;
+    }
+    
+    // 🔍 调试：打印历史消息结构
+    console.log('📜 历史消息结构:', {
+      id: msg.id,
+      role: role,
+      contentPreview: content ? content.substring(0, 100) + '...' : '(空)',
+      hasAttachmentMark: hasAttachmentMark,
+      hasAttachments: !!msg.attachments,
+      hasParts: !!msg.parts,
+      attachmentsCount: (msg.attachments || msg.parts || []).length,
+      messageKeys: Object.keys(msg)
+    });
+    
+    // ✅ 提取附件（图片或文档）
     let imageUrl = null;
+    let documentInfo = null;
     const attachments = msg.attachments || msg.parts || [];
+    
+    // 🔧 方案 A：从 attachments 字段提取
     if (Array.isArray(attachments) && attachments.length > 0) {
+      console.log('📎 附件详情:', attachments);
       for (const att of attachments) {
-        if (att && (att.type === 'image' || (att.type && att.type.includes('image')))) {
+        if (!att) continue;
+        
+        console.log('🔍 检查附件:', {
+          type: att.type,
+          mimeType: att.mimeType,
+          url: att.url || att.content,
+          filename: att.filename
+        });
+        
+        // 🖼️ 图片附件
+        const attMimeType = att.mimeType || '';
+        if (att.type === 'image' || att.type?.includes('image') || attMimeType.startsWith('image/')) {
           imageUrl = att.url || att.content || att.image;
           if (imageUrl && imageUrl.length > 0) {
             console.log('📷 找到历史图片:', imageUrl);
             break;
           }
         }
+        
+        // 📄 文档附件
+        if (att.type === 'document' || (attMimeType && !attMimeType.startsWith('image/'))) {
+          const docUrl = att.url || att.content;
+          if (docUrl && docUrl.length > 0) {
+            documentInfo = {
+              url: docUrl,
+              mimeType: attMimeType || 'application/octet-stream',
+              filename: att.filename || 'document',
+              fileSize: att.fileSize || 0
+            };
+            console.log('📄 找到历史文档:', documentInfo);
+            break;
+          }
+        }
       }
     }
     
-    // 如果没有内容且没有图片，跳过
-    if (!content && !imageUrl) continue;
+    // 🔧 方案 B：从消息文本中提取附件信息（双重保险）
+    if (!imageUrl && !documentInfo && content) {
+      const attachmentRegex = /\[附件:(图片|文档):([^:]+):([^\]]+)\]/;
+      const match = content.match(attachmentRegex);
+      
+      if (match) {
+        const type = match[1];  // '图片' 或 '文档'
+        const filename = match[2];
+        const url = match[3];
+        
+        console.log('🔧 从文本中提取附件信息:', { type, filename, url });
+        
+        // 清理消息文本，移除附件标记
+        const cleanContent = content.replace(attachmentRegex, '').trim();
+        content = cleanContent;  // 更新 content
+        
+        if (type === '图片') {
+          imageUrl = url;
+          console.log('📷 提取到历史图片:', imageUrl);
+        } else if (type === '文档') {
+          // 🎯 根据文件扩展名判断 MIME 类型（支持所有格式）
+          const ext = filename.split('.').pop().toLowerCase();
+          const mimeMap = {
+            'pdf': 'application/pdf',
+            'txt': 'text/plain',
+            'md': 'text/markdown',
+            'markdown': 'text/markdown',
+            'html': 'text/html',
+            'htm': 'text/html',
+            'csv': 'text/csv',
+            'json': 'application/json',
+            // Office 文档（新格式）
+            'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            // Office 文档（旧格式）
+            'doc': 'application/msword',
+            'xls': 'application/vnd.ms-excel',
+            'ppt': 'application/vnd.ms-powerpoint'
+          };
+          
+          documentInfo = {
+            url: url,
+            mimeType: mimeMap[ext] || 'application/octet-stream',
+            filename: filename,
+            fileSize: 0
+          };
+          console.log('📄 提取到历史文档:', documentInfo);
+        }
+      }
+    }
+    
+    // 如果没有内容且没有附件，跳过
+    if (!content && !imageUrl && !documentInfo) continue;
 
     const name = role === 'user' ? (user?.nickname || '我') : '灵犀';
     
-    // ✅ 如果有图片，传递对象格式
+    // ✅ 根据附件类型传递不同格式
     if (imageUrl) {
       addMessage(role, { text: content || '', image: imageUrl }, name);
+    } else if (documentInfo) {
+      addMessage(role, { text: content || '', document: documentInfo }, name);
     } else {
       addMessage(role, content, name);
     }
@@ -1278,10 +1803,94 @@ async function loadSessions() {
         return true;
       });
 
+      // 🆕 为每个 session 添加标题和预览
+      // 对于没有 label 的 session，延迟加载第一条消息
+      const loadPromises = allSessions.slice(0, 10).map(async (session) => {
+        // 如果已经有 label 且不是默认值，直接使用
+        if (session.label && session.label !== '灵犀' && !session.label.includes('agent:')) {
+          session.title = session.label;
+          session.preview = session.label;
+        } else {
+          // 否则，加载第一条消息
+          try {
+            const history = await new Promise((resolve, reject) => {
+              const id = `load-history-${session.key}`;
+              const handler = (event) => {
+                try {
+                  const data = JSON.parse(event.data);
+                  if (data.id === id) {
+                    ws.removeEventListener('message', handler);
+                    resolve(data);
+                  }
+                } catch (e) {}
+              };
+              ws.addEventListener('message', handler);
+              
+              ws.send(JSON.stringify({
+                type: 'req',
+                id: id,
+                method: 'chat.history',
+                params: {
+                  sessionKey: session.key,
+                  limit: 1
+                }
+              }));
+              
+              // 超时处理
+              setTimeout(() => {
+                ws.removeEventListener('message', handler);
+                resolve({ ok: false });
+              }, 2000);
+            });
+            
+            if (history.ok && history.payload?.messages?.length > 0) {
+              const firstMessage = history.payload.messages[0];
+              const content = extractText(firstMessage);
+              // 移除附件标记
+              const cleanContent = content.replace(/\[附件:[^\]]+\]\s*/g, '').trim();
+              session.title = cleanContent.substring(0, 50);
+              session.preview = cleanContent.substring(0, 100);
+            } else {
+              // 没有消息，使用 session key 的最后一部分
+              const keyParts = (session.key || '').split(':');
+              session.title = keyParts[keyParts.length - 1] || '未命名会话';
+              session.preview = '暂无消息';
+            }
+          } catch (e) {
+            console.warn('⚠️ 加载会话历史失败:', session.key, e);
+            const keyParts = (session.key || '').split(':');
+            session.title = keyParts[keyParts.length - 1] || '未命名会话';
+            session.preview = '暂无消息';
+          }
+        }
+        
+        // 格式化时间
+        const timestamp = session.updatedAt ? new Date(session.updatedAt).getTime() : Date.now();
+        session.relativeTime = formatRelativeTime(timestamp);
+        session.timestamp = timestamp;
+        
+        return session;
+      });
+      
+      // 等待所有加载完成
+      allSessions = await Promise.all(loadPromises);
+      
+      // 对于没有加载的 session（超过前 10 个），使用默认标题
+      allSessions.slice(10).forEach(session => {
+        if (!session.title) {
+          const keyParts = (session.key || '').split(':');
+          session.title = session.label || keyParts[keyParts.length - 1] || '未命名会话';
+          session.preview = '暂无消息';
+        }
+        const timestamp = session.updatedAt ? new Date(session.updatedAt).getTime() : Date.now();
+        session.relativeTime = formatRelativeTime(timestamp);
+        session.timestamp = timestamp;
+      });
+
       // 按更新时间排序（最新的在前）
       allSessions.sort((a, b) => {
-        const timeA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
-        const timeB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+        const timeA = a.timestamp || 0;
+        const timeB = b.timestamp || 0;
         return timeB - timeA;
       });
 
@@ -1351,16 +1960,15 @@ function renderSessionList() {
   // 显示所有会话
   for (const session of window.sessions) {
     const isActive = session.key === currentSessionKey;
-    // 解析显示名称
-    let displayName = session.label || session.displayName || session.key;
-    if (session.key === 'main') {
-      displayName = '灵犀（主会话）';
-    } else if (session.key.includes(':')) {
-      displayName = session.key.split(':').pop();
-    }
-
-    const preview = session.lastMessage || session.preview || '暂无消息';
-    const time = session.updatedAt ? new Date(session.updatedAt).toLocaleString('zh-CN', {month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'}) : '';
+    
+    // 🆕 使用提取的标题、预览和时间
+    const displayName = session.title || session.label || '未命名会话';
+    const preview = session.preview || session.lastMessage || '暂无消息';
+    const time = session.relativeTime || '';
+    
+    // 🔧 截断预览文本
+    const truncatedPreview = preview.substring(0, 50);
+    const displayPreview = truncatedPreview + (preview.length > 50 ? '...' : '');
 
     console.log('📋 会话:', session.key, 'displayName:', displayName, 'isActive:', isActive);
 
@@ -1369,7 +1977,7 @@ function renderSessionList() {
         <div class="session-avatar">${isActive ? '⚡' : '💬'}</div>
         <div class="session-info">
           <div class="session-name">${escapeHtml(displayName)}</div>
-          <div class="session-preview">${time ? time + ' · ' : ''}${escapeHtml(preview.substring(0, 30))}${preview.length > 30 ? '...' : ''}</div>
+          <div class="session-preview">${time ? time + ' · ' : ''}${escapeHtml(displayPreview)}</div>
         </div>
         <button class="session-delete" onclick="event.stopPropagation(); deleteSession('${session.key}')">×</button>
       </div>
@@ -1619,16 +2227,44 @@ function addMessage(role, content, name) {
     ? '<div class="avatar user-avatar"><i data-lucide="user" class="icon-sm"></i></div>'
     : `<div class="avatar">${agentIcon(currentAgent, 'sm')}</div>`;
 
-  // 处理消息内容（支持图片和文件）
+  // 处理消息内容（支持图片、文档、音频和文件）
   let bubbleContent = '';
-  if (typeof content === 'object' && content.image) {
-    // 带图片的消息
-    bubbleContent = `
-      <div class="message-image">
-        <img src="${content.image}" alt="上传的图片" style="max-width: 100%; border-radius: 8px; margin-bottom: 8px; cursor: zoom-in;" onclick="showImagePreview('${content.image}', '上传的图片')">
-      </div>
-      ${content.text ? `<div>${escapeHtml(content.text)}</div>` : ''}
-    `;
+  if (typeof content === 'object') {
+    if (content.audio) {
+      // 🎵 音频消息
+      bubbleContent = `
+        <div class="audio-player" style="margin: 8px 0;">
+          <audio controls style="width: 100%; height: 40px;" preload="metadata">
+            <source src="${content.audio}" type="audio/mpeg">
+            <source src="${content.audio}" type="audio/wav">
+            <source src="${content.audio}" type="audio/ogg">
+            您的浏览器不支持音频播放
+          </audio>
+          ${content.text ? `<div style="margin-top: 8px; font-size: 12px; color: #6B7280;">${escapeHtml(content.text)}</div>` : ''}
+        </div>
+      `;
+    } else if (content.document) {
+      // 📄 带文档的消息 - 使用纯 HTML/CSS 渲染
+      const doc = content.document;
+      const docCard = getDocumentPreviewCardHTML(doc.mimeType, doc.filename, doc.fileSize || 0);
+      bubbleContent = `
+        <div class="message-document" style="margin: 8px 0;">
+          ${docCard}
+        </div>
+        ${content.text ? `<div style="margin-top: 8px;">${escapeHtml(content.text)}</div>` : ''}
+      `;
+    } else if (content.image) {
+      // 📷 带图片的消息
+      bubbleContent = `
+        <div class="message-image">
+          <img src="${content.image}" alt="上传的图片" style="max-width: 100%; border-radius: 8px; margin-bottom: 8px; cursor: zoom-in;" onclick="showImagePreview('${content.image}', '上传的图片')">
+        </div>
+        ${content.text ? `<div>${escapeHtml(content.text)}</div>` : ''}
+      `;
+    } else if (content.text) {
+      // 普通对象消息
+      bubbleContent = `<div>${escapeHtml(content.text)}</div>`;
+    }
   } else {
     // 处理文本消息，提取 Markdown 图片和文件路径
     const text = typeof content === 'string' ? content : '';
@@ -1640,12 +2276,13 @@ function addMessage(role, content, name) {
       token: userServerInfo.fileServerToken // 添加文件服务 token
     } : {};
     
-    // 🔧 使用 processMessageFull 同时处理 Markdown 图片和文件路径
-    const { text: cleanText, filesHtml, imagesHtml } = processMessageFull(text, fileOptions);
-    
-    // 渲染文本、图片和文件附件
+    // 🔧 使用 processMessageFull 同时处理 Markdown 图片、音频和文件路径
+    const { text: cleanText, filesHtml, imagesHtml, audioHtml } = processMessageFull(text, fileOptions);
+
+    // 渲染文本、图片、音频和文件附件
     bubbleContent = `
       ${cleanText ? `<div>${escapeHtml(cleanText)}</div>` : ''}
+      ${audioHtml}
       ${imagesHtml}
       ${filesHtml}
     `;
@@ -3423,7 +4060,8 @@ function initVoiceRecognition() {
       // 如果有最终结果，追加到输入框
       if (finalTranscript) {
         console.log('[语音] 最终结果:', finalTranscript);
-        inputField.value += finalTranscript;
+        // 🆕 添加语音标记（用于触发语音回复）
+        inputField.value = '🎤 ' + finalTranscript;
         // 触发输入事件，让输入框自动调整高度
         inputField.dispatchEvent(new Event('input'));
       }
@@ -3490,18 +4128,59 @@ function initVoiceRecognition() {
   };
 }
 
-// 切换录音状态
+// 切换录音状态（改为按住说话模式）
 function toggleVoiceInput() {
   if (!recognition) {
     alert('您的浏览器不支持语音识别，请使用 Chrome、Edge 或 Safari 浏览器');
     return;
   }
 
-  if (isRecording) {
-    stopRecording();
-  } else {
+  // 🆕 改为按住说话模式（不再 toggle）
+  if (!isRecording) {
     startRecording();
   }
+}
+
+// 🆕 添加停止录音并自动发送
+function stopRecordingAndSend() {
+  if (!recognition || !isRecording) return;
+
+  isRecording = false;
+
+  try {
+    recognition.stop();
+  } catch (e) {
+    console.error('[语音] 停止失败:', e.message);
+  }
+
+  const voiceBtn = document.getElementById('voiceBtn');
+  const inputField = document.getElementById('inputField');
+
+  if (voiceBtn) {
+    voiceBtn.classList.remove('recording');
+    voiceBtn.innerHTML = '<i data-lucide="mic" class="icon-sm"></i>';
+    if (window.lucide) lucide.createIcons();
+  }
+
+  if (inputField) {
+    inputField.placeholder = '输入消息...';
+    
+    // 🆕 自动发送消息
+    const message = inputField.value.trim();
+    if (message) {
+      console.log('[语音] 自动发送消息:', message);
+      // 触发发送按钮点击
+      const sendBtn = document.getElementById('sendBtn');
+      if (sendBtn) {
+        sendBtn.click();
+      }
+    }
+    
+    // 清除临时文本
+    inputField.removeAttribute('data-interim');
+  }
+
+  console.log('[语音] 停止录音并自动发送');
 }
 
 // 开始录音

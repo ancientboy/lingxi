@@ -33,6 +33,7 @@ dependencies:
   
   # 文件上传
   image_picker: ^1.0.4
+  file_picker: ^8.0.0  # 文档选择器
   mime_type: ^1.0.0
   flutter_image_compress: ^2.1.0  # 图片压缩
   
@@ -46,6 +47,9 @@ dependencies:
   # 录音（用于后端语音识别）
   record: ^5.1.2
   path_provider: ^2.1.1
+  
+  # 音频播放（用于 TTS）
+  audioplayers: ^5.2.1
 
   # 本地通知
   flutter_local_notifications: ^16.3.3

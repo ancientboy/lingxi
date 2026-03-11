@@ -13,14 +13,17 @@ import 'package:lingxicloud/services/api_service.dart';
 import 'package:lingxicloud/services/notification_service.dart';
 import 'package:lingxicloud/widgets/file_preview.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart' as file_picker;  // 🆕 文档选择器（使用别名避免冲突）
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/services.dart';
+import 'dart:math' show pow;  // 🆕 导入 pow 函数
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:audioplayers/audioplayers.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -62,7 +65,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   // 待发送的图片（改为 URL 模式）
   String? _pendingImageUrl;  // 改用 URL 而不是 base64
   String? _pendingImageName;
+  String? _pendingFileMimeType;  // 🆕 文件 MIME 类型
+  String? _pendingFileType;  // 🆕 文件类型（image 或 document）
+  int _pendingFileSize = 0;  // 🆕 文件大小
   List<Map<String, dynamic>> _sessions = [];
+  
+  // 🆕 用于记录正在加载标题的会话列表（按顺序）
+  final List<String> _loadingTitleSessions = [];
   String? _currentSessionKey;
   
   // 会话分组展开/收缩状态
@@ -452,50 +461,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           final sessions = data['payload']?['sessions'] as List?;
           if (sessions != null) {
             debugPrint('📋 收到 ${sessions.length} 个会话');
-            setState(() {
-              _sessions = sessions.map((s) {
-                final map = s is Map ? s as Map<String, dynamic> : {};
-                
-                // 🔧 优先使用服务器返回的 derivedTitle，然后是 label，最后才用本地逻辑
-                String title = '新对话';
-                
-                // 1. 优先使用 derivedTitle（从第一条用户消息派生）
-                if (map['derivedTitle'] != null && map['derivedTitle'].toString().isNotEmpty) {
-                  title = map['derivedTitle'].toString();
-                  if (title.length > 30) title = '${title.substring(0, 30)}...';
-                }
-                // 2. 使用用户设置的 label
-                else if (map['label'] != null && map['label'].toString().isNotEmpty) {
-                  title = map['label'].toString();
-                }
-                // 3. 使用 lastMessagePreview
-                else if (map['lastMessagePreview'] != null && map['lastMessagePreview'].toString().isNotEmpty) {
-                  title = map['lastMessagePreview'].toString();
-                  if (title.length > 30) title = '${title.substring(0, 30)}...';
-                }
-                // 4. 兼容旧逻辑
-                else if (map['title'] != null && map['title'].toString().isNotEmpty && map['title'].toString() != '新对话') {
-                  title = map['title'].toString();
-                }
-                
-                return {
-                  'key': (map['key'] ?? '').toString(),
-                  'title': title,
-                  'agentId': map['agentId'] ?? map['agent_id'] ?? 'lingxi',
-                  'updatedAt': map['updatedAt'],
-                  'lastMessage': map['lastMessagePreview'] ?? map['lastMessage'],
-                };
-              }).toList();
-              _sessions.sort((a, b) {
-                try {
-                  final timeA = a['updatedAt'] != null ? (a['updatedAt'] is int ? a['updatedAt'] as int : DateTime.tryParse(a['updatedAt'].toString())?.millisecondsSinceEpoch ?? 0) : 0;
-                  final timeB = b['updatedAt'] != null ? (b['updatedAt'] is int ? b['updatedAt'] as int : DateTime.tryParse(b['updatedAt'].toString())?.millisecondsSinceEpoch ?? 0) : 0;
-                  return timeB.compareTo(timeA);
-                } catch (e) {
-                  return 0;
-                }
-              });
-            });
+            
+            // 🆕 异步加载会话标题（和 Web 端保持一致）
+            _loadSessionTitles(sessions);
           }
           return;
         }
@@ -503,6 +471,52 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       // 处理历史消息响应
       if (data['type'] == 'res' && data['id']?.toString().contains('chat_history') == true) {
         debugPrint('📚 收到历史消息响应：ok=${data['ok']}');
+        
+        // 🆕 如果是用于加载会话标题的请求，尝试更新会话标题
+        if (data['ok'] == true && data['payload'] != null && !_isGenerating && _loadingTitleSessions.isNotEmpty) {
+          try {
+            final messages = data['payload']?['messages'] as List?;
+            if (messages != null && messages.isNotEmpty) {
+              final firstMessage = messages.first as Map<String, dynamic>?;
+              if (firstMessage != null && firstMessage['role'] == 'user') {
+                final content = _extractText(firstMessage) ?? '';
+                // 移除附件标记
+                final cleanContent = content.replaceAll(RegExp(r'\[附件:[^\]]+\]\s*'), '').trim();
+                
+                if (cleanContent.isNotEmpty) {
+                  final newTitle = cleanContent.length > 50 
+                      ? '${cleanContent.substring(0, 50)}...' 
+                      : cleanContent;
+                  
+                  // 🆕 从列表中取出对应的 sessionKey（按顺序）
+                  final sessionKey = _loadingTitleSessions.removeAt(0);
+                  
+                  // 更新对应的会话
+                  final index = _sessions.indexWhere((s) => s['key'] == sessionKey);
+                  if (index >= 0) {
+                    setState(() {
+                      _sessions[index]['title'] = newTitle;
+                      _sessions[index]['lastMessage'] = cleanContent.length > 100 
+                          ? '${cleanContent.substring(0, 100)}...' 
+                          : cleanContent;
+                    });
+                    
+                    debugPrint('✅ 自动更新会话标题: $sessionKey → $newTitle');
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            debugPrint('⚠️ 自动更新会话标题失败: $e');
+          }
+        }
+        
+        // 如果正在生成消息，不要替换当前消息
+        if (_isGenerating) {
+          debugPrint('⏳ 正在生成消息，跳过历史消息更新');
+          return;
+        }
+        
         if (data['ok'] == true && data['payload'] != null) {
           try {
             final messages = data['payload']?['messages'] as List? ?? data['payload']?['transcript'] as List?;
@@ -516,43 +530,130 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   // 使用消息自己的 agentId，如果没有则使用当前 Agent
                   final msgAgentId = map['agentId']?.toString() ?? map['agent_id']?.toString() ?? _currentAgent;
                   
+                  // 🚫 过滤掉工具调用结果和系统消息
+                  final role = map['role']?.toString() ?? 'assistant';
+                  if (role == 'toolResult' || role == 'system' || role == 'tool') {
+                    debugPrint('⏭️ 跳过工具/系统消息: $role');
+                    return null;  // 返回 null，稍后过滤掉
+                  }
+                  
+                  // 🚫 过滤掉包含内部标记的内容
+                  final content = _extractText(map) ?? map['content']?.toString() ?? '';
+                  if (content.contains('<<<EXTERNAL_UNTRUSTED_CONTENT') ||
+                      content.contains('<<<END_EXTERNAL_UNTRUSTED_CONTENT') ||
+                      content.contains('SECURITY NOTICE:') ||
+                      content.contains('EXTERNAL, UNTRUSTED source')) {
+                    debugPrint('⏭️ 跳过内部处理信息');
+                    return null;
+                  }
+                  
                   // 🔍 提取图片 URL（从 attachments 或 parts）
                   String? imageUrl;
+                  DocumentInfo? documentInfo;
                   final attachments = map['attachments'] as List? ?? map['parts'] as List?;
                   if (attachments != null && attachments.isNotEmpty) {
                     for (final att in attachments) {
-                      if (att is Map && (att['type'] == 'image' || att['type']?.toString().contains('image') == true)) {
-                        imageUrl = att['url']?.toString() ?? att['content']?.toString();
-                        if (imageUrl != null && imageUrl!.isNotEmpty) {
-                          // ✅ 问题3：转换本地路径为可访问的 URL
-                          if (imageUrl!.startsWith('/root/.openclaw/')) {
-                            // 本地路径 → 转换为文件服务器 URL
-                            final fileName = imageUrl.split('/').last;
-                            if (_userServerIp != null && _userServerPort != null) {
-                              imageUrl = 'http://$_userServerIp:$_userServerPort/files/$fileName?token=$_userServerToken';
-                              debugPrint('📷 转换图片 URL: $imageUrl');
-                            } else {
-                              // 使用主服务器的上传文件访问接口
-                              imageUrl = '${Constants.baseUrl}/api/upload/file/$fileName';
-                              debugPrint('📷 使用主服务器 URL: $imageUrl');
+                      if (att is Map) {
+                        final attType = att['type']?.toString() ?? '';
+                        final attMimeType = att['mimeType']?.toString() ?? '';
+                        
+                        // 🖼️ 图片附件
+                        if (attType == 'image' || attType.contains('image') || attMimeType.startsWith('image/')) {
+                          imageUrl = att['url']?.toString() ?? att['content']?.toString();
+                          if (imageUrl != null && imageUrl!.isNotEmpty) {
+                            // ✅ 问题3：转换本地路径为可访问的 URL
+                            if (imageUrl!.startsWith('/root/.openclaw/')) {
+                              // 本地路径 → 转换为文件服务器 URL
+                              final fileName = imageUrl.split('/').last;
+                              if (_userServerIp != null && _userServerPort != null) {
+                                imageUrl = 'http://$_userServerIp:$_userServerPort/files/$fileName?token=$_userServerToken';
+                                debugPrint('📷 转换图片 URL: $imageUrl');
+                              } else {
+                                // 使用主服务器的上传文件访问接口
+                                imageUrl = '${Constants.baseUrl}/api/upload/file/$fileName';
+                                debugPrint('📷 使用主服务器 URL: $imageUrl');
+                              }
                             }
+                            debugPrint('📷 找到历史图片: $imageUrl');
+                            break;
                           }
-                          debugPrint('📷 找到历史图片: $imageUrl');
-                          break;
                         }
+                        
+                        // 📄 文档附件
+                        if (attType == 'document' || (attMimeType.isNotEmpty && !attMimeType.startsWith('image/'))) {
+                          final docUrl = att['url']?.toString() ?? att['content']?.toString();
+                          if (docUrl != null && docUrl.isNotEmpty) {
+                            documentInfo = DocumentInfo(
+                              url: docUrl,
+                              mimeType: attMimeType.isNotEmpty ? attMimeType : 'application/octet-stream',
+                              filename: att['filename']?.toString() ?? 'document',
+                            );
+                            debugPrint('📄 找到历史文档: ${documentInfo.filename}');
+                            break;
+                          }
+                        }
+                      }
+                    }
+                  }
+                  
+                  // 🔧 方案 B：从消息文本中提取附件信息（双重保险）
+                  final textContent = _extractText(map) ?? '';
+                  if (imageUrl == null && documentInfo == null && textContent.isNotEmpty) {
+                    final attachmentRegex = RegExp(r'\[附件:(图片|文档):([^:]+):([^\]]+)\]');
+                    final match = attachmentRegex.firstMatch(textContent);
+                    
+                    if (match != null) {
+                      final type = match.group(1) ?? '';  // '图片' 或 '文档'
+                      final filename = match.group(2) ?? '';
+                      final url = match.group(3) ?? '';
+                      
+                      debugPrint('🔧 从文本中提取附件信息: type=$type, filename=$filename');
+                      
+                      if (type == '图片') {
+                        imageUrl = url;
+                        debugPrint('📷 提取到历史图片: $imageUrl');
+                      } else if (type == '文档') {
+                        // 🎯 根据文件扩展名判断 MIME 类型（支持所有格式）
+                        final ext = filename.split('.').last.toLowerCase();
+                        final mimeMap = {
+                          'pdf': 'application/pdf',
+                          'txt': 'text/plain',
+                          'md': 'text/markdown',
+                          'markdown': 'text/markdown',
+                          'html': 'text/html',
+                          'htm': 'text/html',
+                          'csv': 'text/csv',
+                          'json': 'application/json',
+                          // Office 文档（新格式）
+                          'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                          'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                          'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                          // Office 文档（旧格式）
+                          'doc': 'application/msword',
+                          'xls': 'application/vnd.ms-excel',
+                          'ppt': 'application/vnd.ms-powerpoint',
+                        };
+                        
+                        documentInfo = DocumentInfo(
+                          url: url,
+                          mimeType: mimeMap[ext] ?? 'application/octet-stream',
+                          filename: filename,
+                        );
+                        debugPrint('📄 提取到历史文档: ${documentInfo.filename}');
                       }
                     }
                   }
                   
                   return Message(
                     id: messageId,
-                    role: _toString(map['role'] ?? 'assistant'),
+                    role: role,
                     content: _extractText(map) ?? _toString(map['content']),
                     createdAt: createdAt,
                     agentId: msgAgentId,
                     imageUrl: imageUrl,  // 👈 添加图片 URL
+                    documentInfo: documentInfo,  // 🆕 添加文档信息
                   );
-                }).toList();
+                }).whereType<Message>().toList();  // 🚫 过滤掉 null 值（工具调用结果等）
               });
               _scrollToBottom();
             }
@@ -628,7 +729,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         
         if (state == 'delta') {
           final text = _extractText(payload['message']);
-          if (text != null && runId != null) {
+          final audioUrl = payload['audio_url']?.toString();  // 🆕 提取音频 URL
+          if (text != null && runId != null && runId.isNotEmpty) {
             setState(() {
               final existingIndex = _messages.indexWhere((m) => m.id == runId);
               if (existingIndex >= 0) {
@@ -638,6 +740,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   content: text,
                   createdAt: DateTime.now(),
                   agentId: _currentAgent,
+                  audioUrl: audioUrl,  // 🆕
                 );
               } else {
                 _messages.add(Message(
@@ -646,6 +749,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   content: text,
                   createdAt: DateTime.now(),
                   agentId: _currentAgent,
+                  audioUrl: audioUrl,  // 🆕
                 ));
               }
             });
@@ -924,7 +1028,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         debugPrint('🎤 识别结果: $text');
         
         if (text.isNotEmpty) {
-          _controller.text = text;
+          // 🆕 添加语音标记（触发语音回复）
+          _controller.text = '🎤 $text';
           _lastWords = text;  // 同步更新，避免延迟回调弹出提示
           // 自动发送
           _sendMessage();
@@ -957,6 +1062,123 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     }
   }
 
+  // 🆕 异步加载会话标题（和 Web 端保持一致）
+  Future<void> _loadSessionTitles(List<dynamic> sessions) async {
+    try {
+      final ws = WebSocketService();
+      if (!ws.isConnected) {
+        debugPrint('⚠️ WebSocket 未连接，无法加载会话标题');
+        return;
+      }
+      
+      // 🆕 用于存储加载的标题
+      final Map<String, String> loadedTitles = {};
+      
+      // 先显示基本会话列表
+      setState(() {
+        _sessions = sessions.map((s) {
+          final map = s is Map ? s as Map<String, dynamic> : {};
+          
+          String title = '未命名会话';
+          
+          // 优先使用已有的 label（如果不是默认值）
+          if (map['label'] != null && 
+              map['label'].toString().isNotEmpty && 
+              map['label'].toString() != '灵犀' &&
+              !map['label'].toString().contains('agent:') &&
+              !map['label'].toString().contains(RegExp(r'[0-9a-f]{8}-[0-9a-f]{4}'))) {
+            title = map['label'].toString();
+          } else if (map['title'] != null && 
+                     map['title'].toString().isNotEmpty && 
+                     map['title'].toString() != '新对话' &&
+                     !map['title'].toString().contains(RegExp(r'[0-9a-f]{8}-[0-9a-f]{4}'))) {
+            title = map['title'].toString();
+          }
+          // 🚫 不再使用 session key 的最后一部分（会导致显示 UUID）
+          
+          // 格式化相对时间
+          final timestamp = map['updatedAt'] != null 
+              ? (map['updatedAt'] is int 
+                  ? map['updatedAt'] as int 
+                  : DateTime.tryParse(map['updatedAt'].toString())?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch)
+              : DateTime.now().millisecondsSinceEpoch;
+          
+          return {
+            'key': (map['key'] ?? '').toString(),
+            'title': title,
+            'agentId': map['agentId'] ?? map['agent_id'] ?? 'lingxi',
+            'updatedAt': map['updatedAt'],
+            'timestamp': timestamp,
+            'relativeTime': _formatRelativeTime(timestamp),
+            'lastMessage': map['lastMessagePreview'] ?? map['lastMessage'] ?? '暂无消息',
+          };
+        }).toList();
+        
+        // 按时间倒序排列
+        _sessions.sort((a, b) {
+          final timeA = a['timestamp'] as int? ?? 0;
+          final timeB = b['timestamp'] as int? ?? 0;
+          return timeB.compareTo(timeA);
+        });
+      });
+      
+      // 🆕 为前 10 个会话同步加载第一条消息作为标题
+      final topSessions = _sessions.take(10).toList();
+      for (int i = 0; i < topSessions.length; i++) {
+        final session = topSessions[i];
+        final sessionKey = session['key'] as String?;
+        if (sessionKey == null) continue;
+        
+        // 如果标题已经是默认值，加载第一条消息
+        final currentTitle = session['title'] as String? ?? '';
+        if (currentTitle == '未命名会话' || 
+            currentTitle == '新对话' ||
+            currentTitle.contains('agent:') ||
+            currentTitle.contains(RegExp(r'[0-9a-f]{8}-[0-9a-f]{4}'))) {
+          
+          try {
+            // 🆕 记录正在加载的会话（按顺序）
+            _loadingTitleSessions.add(sessionKey);
+            
+            // 发送请求
+            ws.sendRequest('chat.history', {
+              'sessionKey': sessionKey,
+              'limit': 1,
+            });
+            
+            debugPrint('📝 请求加载会话标题: $sessionKey');
+            
+            // 等待一小段时间让响应到达
+            await Future.delayed(const Duration(milliseconds: 200));
+            
+          } catch (e) {
+            debugPrint('⚠️ 加载会话标题失败: $sessionKey, $e');
+          }
+        }
+      }
+      
+      debugPrint('✅ 会话标题加载完成');
+    } catch (e, stack) {
+      debugPrint('❌ _loadSessionTitles 异常: $e\nStack: $stack');
+    }
+  }
+  
+  // 🆕 格式化相对时间（和 Web 端保持一致）
+  String _formatRelativeTime(int timestamp) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final diff = now - timestamp;
+    
+    if (diff < 60000) return '刚刚';
+    if (diff < 3600000) return '${(diff / 60000).floor()} 分钟前';
+    if (diff < 86400000) return '${(diff / 3600000).floor()} 小时前';
+    if (diff < 172800000) return '昨天';
+    if (diff < 604800000) return '${(diff / 86400000).floor()} 天前';
+    
+    // 超过一周，显示绝对时间
+    final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
+    return '${date.month}月${date.day}日';
+  }
+  
   void _loadSessionsFromServer() {
     try {
       final ws = WebSocketService();
@@ -1053,23 +1275,82 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     }
   }
 
-  // 选择图片并上传到服务器
-  Future<void> _selectImage(XFile file) async {
+  // 选择文件并上传到服务器（支持图片和文档）
+  Future<void> _selectFile(file_picker.PlatformFile file) async {
     try {
-      // 1. 压缩图片（如果大于 200KB）
-      File imageFile = File(file.path);
-      int fileSize = await imageFile.length();
+      // 🆕 检查文件类型
+      final fileName = file.name;
+      final fileExtension = fileName.split('.').last.toLowerCase();
+      final fileSize = file.size;
       
-      if (fileSize > 200 * 1024) {
+      // 🎯 定义支持的文档类型
+      const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+      const docExtensions = [
+        'pdf', 'txt', 'md', 'html', 'csv', 'json',
+        // Office 文档（新格式）
+        'docx', 'xlsx', 'pptx',
+        // Office 文档（旧格式）
+        'doc', 'xls', 'ppt',
+      ];
+      
+      final isImage = imageExtensions.contains(fileExtension);
+      final isDocument = docExtensions.contains(fileExtension);
+      
+      if (!isImage && !isDocument) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('不支持的文件类型: .$fileExtension\n\n支持的格式：\n• 图片：JPG, PNG, GIF, WebP\n• 文档：PDF, TXT, MD, HTML, CSV, JSON'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        return;
+      }
+      
+      // 📏 检查文件大小
+      final maxSize = isDocument ? 5 * 1024 * 1024 : 10 * 1024 * 1024;  // 文档 5MB，图片 10MB
+      final maxSizeText = isDocument ? '5MB' : '10MB';
+      
+      if (fileSize > maxSize) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${isDocument ? '文档' : '图片'}大小不能超过 $maxSizeText\n\n当前文件大小：${(fileSize / 1024 / 1024).toStringAsFixed(2)}MB'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        return;
+      }
+      
+      // 🎨 显示上传中提示
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              const SizedBox(width: 12),
+              Text('正在上传${isDocument ? '文档' : '图片'}... ${(fileSize / 1024).toStringAsFixed(1)}KB'),
+            ],
+          ),
+          duration: const Duration(minutes: 1),
+        ),
+      );
+      
+      // 1. 图片压缩（仅图片）
+      File uploadFile = File(file.path!);
+      
+      if (isImage && fileSize > 200 * 1024) {
         debugPrint('🔄 图片大于 200KB，开始压缩: ${(fileSize / 1024).toStringAsFixed(1)}KB');
         
-        final compressedPath = file.path.replaceAll(
+        final compressedPath = file.path!.replaceAll(
           RegExp(r'\.[^.]+$'),
           '_compressed.jpg',
         );
         
         final compressedFile = await FlutterImageCompress.compressAndGetFile(
-          file.path,
+          file.path!,
           compressedPath,
           quality: 80,
           minWidth: 1024,
@@ -1077,9 +1358,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         );
         
         if (compressedFile != null) {
-          imageFile = File(compressedFile.path);
-          fileSize = await imageFile.length();
-          debugPrint('✅ 压缩完成: ${(fileSize / 1024).toStringAsFixed(1)}KB');
+          uploadFile = File(compressedFile.path);
+          final compressedSize = await uploadFile.length();
+          debugPrint('✅ 压缩完成: ${(compressedSize / 1024).toStringAsFixed(1)}KB');
         }
       }
       
@@ -1088,9 +1369,24 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       final request = http.MultipartRequest('POST', Uri.parse(apiUrl));
       
       // 👈 读取文件并明确指定 MIME 类型
-      final mimeType = imageFile.path.endsWith('.png') ? 'image/png' : 'image/jpeg';
-      final fileName = imageFile.path.split('/').last;
-      final fileBytes = await imageFile.readAsBytes();
+      String mimeType;
+      if (isDocument) {
+        // 文档 MIME 类型
+        final docMimeTypes = {
+          'pdf': 'application/pdf',
+          'txt': 'text/plain',
+          'md': 'text/markdown',
+          'html': 'text/html',
+          'csv': 'text/csv',
+          'json': 'application/json',
+        };
+        mimeType = docMimeTypes[fileExtension] ?? 'application/octet-stream';
+      } else {
+        // 图片 MIME 类型
+        mimeType = fileExtension == 'png' ? 'image/png' : 'image/jpeg';
+      }
+      
+      final fileBytes = await uploadFile.readAsBytes();
       
       request.files.add(
         http.MultipartFile.fromBytes(
@@ -1101,41 +1397,331 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         ),
       );
       
-      debugPrint('📤 上传图片: $fileName, MIME: $mimeType, 大小: ${(fileSize / 1024).toStringAsFixed(1)}KB');
+      debugPrint('📤 上传${isDocument ? '文档' : '图片'}: $fileName, MIME: $mimeType, 大小: ${(fileSize / 1024).toStringAsFixed(1)}KB');
       
       final response = await request.send();
       final responseText = await response.stream.bytesToString();
       
       debugPrint('📥 服务器响应: $responseText');
       
+      // 隐藏上传中提示
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      
       final responseData = jsonDecode(responseText);
       
       if (responseData['success'] == true) {
-        final imageUrl = responseData['url'] as String;
+        final fileUrl = responseData['url'] as String;
+        final returnedMimeType = responseData['mimeType'] as String?;
+        final returnedType = responseData['type'] as String?;
         
-        // 存储图片 URL（不再用 base64）
+        // 存储文件 URL
         setState(() {
-          _pendingImageUrl = imageUrl;
-          _pendingImageName = file.name;
+          _pendingImageUrl = fileUrl;
+          _pendingImageName = fileName;
+          // 🆕 存储文档信息
+          _pendingFileMimeType = returnedMimeType ?? mimeType;
+          _pendingFileType = returnedType ?? (isDocument ? 'document' : 'image');
         });
         
-        debugPrint('✅ 图片已上传: $imageUrl');
-        // ✅ 问题2：删除"图片已添加"提示
+        debugPrint('✅ ${isDocument ? '文档' : '图片'}已上传: $fileUrl');
+        
+        // 🎉 显示成功提示
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${isDocument ? '📄 文档' : '📷 图片'}已添加: $fileName'),
+            duration: const Duration(seconds: 2),
+            action: SnackBarAction(
+              label: '撤销',
+              onPressed: _clearPendingImage,
+            ),
+          ),
+        );
       } else {
         throw Exception(responseData['error'] ?? '上传失败');
       }
     } catch (e) {
-      debugPrint('❌ 图片处理失败: $e');
-      // ✅ 问题2：删除错误提示，或者只在真正失败时显示
+      // 隐藏上传中提示
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      
+      debugPrint('❌ 文件处理失败: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('上传失败: $e'),
+          duration: const Duration(seconds: 3),
+        ),
+      );
     }
   }
 
-  // 清除待发送的图片
+  // 清除待发送的文件（图片或文档）
   void _clearPendingImage() {
     setState(() {
       _pendingImageUrl = null;
       _pendingImageName = null;
+      _pendingFileMimeType = null;
+      _pendingFileType = null;
     });
+  }
+  
+  // 🎨 构建文件预览（图片或文档图标）
+  Widget _buildFilePreview(bool isDarkMode) {
+    if (_pendingFileType == 'document') {
+      // 🎨 文档预览：显示美观的卡片
+      return _buildDocumentCard();
+    } else {
+      // 图片预览：显示图片
+      return Image.network(
+        _pendingImageUrl!,
+        height: 80,
+        width: 80,
+        fit: BoxFit.cover,
+      );
+    }
+  }
+  
+  // 🎨 构建文档预览卡片
+  Widget _buildDocumentCard() {
+    final mimeType = _pendingFileMimeType ?? '';
+    final filename = _pendingImageName ?? 'document';
+    final fileSize = _pendingFileSize ?? 0;
+    
+    // 获取文档类型配置
+    final config = _getDocumentConfig(mimeType, filename);
+    
+    return Container(
+      width: 120,
+      height: 120,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: config['gradientColors'] as List<Color>,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          // 类型徽章
+          Positioned(
+            top: 8,
+            right: 8,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.95),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                config['type'] as String,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: config['accentColor'] as Color,
+                ),
+              ),
+            ),
+          ),
+          // 内容
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // 图标
+                Text(
+                  config['icon'] as String,
+                  style: const TextStyle(fontSize: 40),
+                ),
+                const SizedBox(height: 8),
+                // 文件名
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Text(
+                    filename.length > 20 ? '${filename.substring(0, 20)}...' : filename,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Colors.white,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                // 文件大小
+                if (fileSize > 0) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    _formatFileSize(fileSize),
+                    style: TextStyle(
+                      fontSize: 9,
+                      color: Colors.white.withOpacity(0.8),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  // 🎨 获取文档类型配置
+  Map<String, dynamic> _getDocumentConfig(String mimeType, String filename) {
+    final configs = {
+      'application/pdf': {
+        'type': 'PDF',
+        'icon': 'PDF',
+        'gradientColors': [const Color(0xFFFF5252), const Color(0xFFFF8A80)],
+        'accentColor': const Color(0xFFFF5252),
+      },
+      'text/markdown': {
+        'type': 'MD',
+        'icon': 'MD',
+        'gradientColors': [const Color(0xFF4CAF50), const Color(0xFF81C784)],
+        'accentColor': const Color(0xFF4CAF50),
+      },
+      'text/html': {
+        'type': 'HTML',
+        'icon': '<>',
+        'gradientColors': [const Color(0xFFFF9800), const Color(0xFFFFB74D)],
+        'accentColor': const Color(0xFFFF9800),
+      },
+      'text/csv': {
+        'type': 'CSV',
+        'icon': 'CSV',
+        'gradientColors': [const Color(0xFF2196F3), const Color(0xFF64B5F6)],
+        'accentColor': const Color(0xFF2196F3),
+      },
+      'application/json': {
+        'type': 'JSON',
+        'icon': '{ }',
+        'gradientColors': [const Color(0xFF9C27B0), const Color(0xFFBA68C8)],
+        'accentColor': const Color(0xFF9C27B0),
+      },
+      'text/plain': {
+        'type': 'TXT',
+        'icon': 'TXT',
+        'gradientColors': [const Color(0xFF757575), const Color(0xFF9E9E9E)],
+        'accentColor': const Color(0xFF757575),
+      },
+      // Office 文档（新格式）
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': {
+        'type': 'DOCX',
+        'icon': 'W',
+        'gradientColors': [const Color(0xFF2196F3), const Color(0xFF42A5F5)],
+        'accentColor': const Color(0xFF1565C0),
+      },
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': {
+        'type': 'XLSX',
+        'icon': 'X',
+        'gradientColors': [const Color(0xFF4CAF50), const Color(0xFF66BB6A)],
+        'accentColor': const Color(0xFF2E7D32),
+      },
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation': {
+        'type': 'PPTX',
+        'icon': 'P',
+        'gradientColors': [const Color(0xFFFF9800), const Color(0xFFFFA726)],
+        'accentColor': const Color(0xFFE65100),
+      },
+      // Office 文档（旧格式）
+      'application/msword': {
+        'type': 'DOC',
+        'icon': 'W',
+        'gradientColors': [const Color(0xFF2196F3), const Color(0xFF42A5F5)],
+        'accentColor': const Color(0xFF1565C0),
+      },
+      'application/vnd.ms-excel': {
+        'type': 'XLS',
+        'icon': 'X',
+        'gradientColors': [const Color(0xFF4CAF50), const Color(0xFF66BB6A)],
+        'accentColor': const Color(0xFF2E7D32),
+      },
+      'application/vnd.ms-powerpoint': {
+        'type': 'PPT',
+        'icon': 'P',
+        'gradientColors': [const Color(0xFFFF9800), const Color(0xFFFFA726)],
+        'accentColor': const Color(0xFFE65100),
+      },
+    };
+    
+    // 检查文件扩展名
+    if (filename.endsWith('.md')) {
+      return configs['text/markdown']!;
+    }
+    
+    return configs[mimeType] ?? {
+      'type': 'FILE',
+      'icon': '📎',
+      'gradientColors': [const Color(0xFF667eea), const Color(0xFF764ba2)],
+      'accentColor': const Color(0xFF667eea),
+    };
+  }
+  
+  // 📏 格式化文件大小
+  String _formatFileSize(int bytes) {
+    if (bytes == 0) return '0 B';
+    
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    final i = (bytes / k).toStringAsFixed(0).length ~/ 3;
+    final index = i.clamp(0, sizes.length - 1);
+    
+    return '${(bytes / pow(k, index)).toStringAsFixed(2)} ${sizes[index]}';
+  }
+  
+  // 📷 从 XFile（ImagePicker）创建 PlatformFile 并上传
+  Future<void> _selectImageFromXFile(XFile file) async {
+    final platformFile = file_picker.PlatformFile(
+      name: file.name,
+      size: await file.length(),
+      path: file.path,
+    );
+    await _selectFile(platformFile);
+  }
+  
+  // 🎨 根据文档类型获取图标
+  IconData _getDocumentIcon() {
+    final mimeType = _pendingFileMimeType ?? '';
+    
+    if (mimeType == 'application/pdf') {
+      return Icons.picture_as_pdf;
+    } else if (mimeType == 'text/markdown' || _pendingImageName?.endsWith('.md') == true) {
+      return Icons.description;
+    } else if (mimeType == 'text/html') {
+      return Icons.code;
+    } else if (mimeType == 'text/csv') {
+      return Icons.table_chart;
+    } else if (mimeType == 'application/json') {
+      return Icons.data_object;
+    } else {
+      return Icons.insert_drive_file;
+    }
+  }
+  
+  // 🎨 根据文档类型获取颜色
+  Color _getDocumentColor() {
+    final mimeType = _pendingFileMimeType ?? '';
+    
+    if (mimeType == 'application/pdf') {
+      return Colors.red.shade400;
+    } else if (mimeType == 'text/markdown' || _pendingImageName?.endsWith('.md') == true) {
+      return Colors.green.shade400;
+    } else if (mimeType == 'text/html') {
+      return Colors.orange.shade400;
+    } else if (mimeType == 'text/csv') {
+      return Colors.blue.shade400;
+    } else if (mimeType == 'application/json') {
+      return Colors.purple.shade400;
+    } else {
+      return Colors.grey.shade600;
+    }
   }
 
   /// 免费用户发送消息（HTTP API）
@@ -1153,12 +1739,31 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     // 清空输入框
     _controller.clear();
     
+    // 🎨 区分图片和文档
+    DocumentInfo? docInfo;
+    String? imageUrl;
+    
+    if (hasImage) {
+      if (_pendingFileType == 'document') {
+        // 文档类型：创建 DocumentInfo
+        docInfo = DocumentInfo(
+          url: _pendingImageUrl!,
+          mimeType: _pendingFileMimeType ?? 'application/octet-stream',
+          filename: _pendingImageName ?? 'document',
+        );
+      } else {
+        // 图片类型：设置 imageUrl
+        imageUrl = _pendingImageUrl;
+      }
+    }
+    
     // 构建用户消息
     final userMessage = Message(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       role: 'user',
       content: text,
-      imageUrl: hasImage ? _pendingImageUrl : null,
+      imageUrl: imageUrl,  // 仅图片
+      documentInfo: docInfo,  // 🆕 文档信息
       createdAt: DateTime.now(),
       agentId: 'lingxi',
     );
@@ -1295,12 +1900,31 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
     _controller.clear();
     
+    // 🎨 区分图片和文档
+    DocumentInfo? docInfo;
+    String? imageUrl;
+    
+    if (hasImage) {
+      if (_pendingFileType == 'document') {
+        // 文档类型：创建 DocumentInfo
+        docInfo = DocumentInfo(
+          url: _pendingImageUrl!,
+          mimeType: _pendingFileMimeType ?? 'application/octet-stream',
+          filename: _pendingImageName ?? 'document',
+        );
+      } else {
+        // 图片类型：设置 imageUrl
+        imageUrl = _pendingImageUrl;
+      }
+    }
+    
     // 构建用户消息
     final userMessage = Message(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       role: 'user',
       content: text,
-      imageUrl: hasImage ? _pendingImageUrl : null,  // 直接用 URL
+      imageUrl: imageUrl,  // 仅图片
+      documentInfo: docInfo,  // 🆕 文档信息
       createdAt: DateTime.now(),
       agentId: _currentAgent,
     );
@@ -1341,21 +1965,68 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       'deliver': false,
     };
     
-    // 如果有图片，添加 attachments（使用 URL 而不是 base64）
-    if (hasImage) {
+    // 如果有文件（图片或文档），添加 attachments
+    if (hasImage && _pendingImageUrl != null) {
+      final attachmentType = _pendingFileType ?? 'image';
+      final mimeType = _pendingFileMimeType ?? 'image/jpeg';
+      
       params['attachments'] = [
         {
-          'type': 'image',
-          'url': _pendingImageUrl,  // 使用 URL
-          'mimeType': 'image/jpeg',
+          'type': attachmentType,  // 'image' 或 'document'
+          'url': _pendingImageUrl,
+          'mimeType': mimeType,
+          'filename': _pendingImageName ?? 'attachment',
         }
       ];
-      debugPrint('📎 发送带图片的消息: $_pendingImageUrl');
+      debugPrint('📎 发送带${attachmentType == 'document' ? '文档' : '图片'}的消息: $_pendingImageUrl ($mimeType)');
     }
     
     debugPrint('📤 发送消息: sessionKey=$targetSessionKey, message=${text.substring(0, text.length > 50 ? 50 : text.length)}');
     debugPrint('📤 完整参数: $params');
     ws.sendRequest('chat.send', params);
+    
+    // 🆕 自动更新 session label（如果是第一条消息或有意义的消息）
+    if (_currentSessionKey != null && text.isNotEmpty) {
+      final currentSession = _sessions.firstWhere(
+        (s) => s['key'] == _currentSessionKey,
+        orElse: () => <String, dynamic>{},
+      );
+      
+      if (currentSession.isNotEmpty) {
+        final currentTitle = currentSession['title'] as String? ?? '';
+        
+        // 如果标题是默认值，更新为当前消息
+        if (currentTitle == '新对话' || 
+            currentTitle == '未命名会话' ||
+            currentTitle == '灵犀' ||
+            currentTitle.contains('agent:') ||
+            currentTitle.contains('chat_')) {
+          
+          // 移除附件标记
+          final cleanText = text.replaceAll(RegExp(r'\[附件:[^\]]+\]\s*'), '').trim();
+          final newTitle = cleanText.length > 50 
+              ? '${cleanText.substring(0, 50)}...' 
+              : cleanText;
+          
+          debugPrint('📝 更新 session label: $_currentSessionKey → $newTitle');
+          
+          // 发送更新请求
+          ws.sendRequest('sessions.update', {
+            'sessionKey': _currentSessionKey,
+            'label': newTitle,
+          });
+          
+          // 更新本地缓存
+          setState(() {
+            final index = _sessions.indexWhere((s) => s['key'] == _currentSessionKey);
+            if (index >= 0) {
+              _sessions[index]['title'] = newTitle;
+              _sessions[index]['label'] = newTitle;
+            }
+          });
+        }
+      }
+    }
     
     // 清除待发送的图片
     _clearPendingImage();
@@ -1902,6 +2573,30 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   Text('思考中...', style: TextStyle(color: textColor, fontSize: 13)),
                 ],
               ),
+            // 停止按钮
+            const SizedBox(height: 12),
+            GestureDetector(
+              onTap: _abortChat,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.red.withOpacity(0.3)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.stop, size: 16, color: Colors.red.shade400),
+                    const SizedBox(width: 4),
+                    Text(
+                      '停止生成',
+                      style: TextStyle(color: Colors.red.shade400, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -1922,25 +2617,20 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             margin: const EdgeInsets.only(bottom: 8),
             child: Row(
               children: [
-                // 图片预览
+                // 文件预览（图片或文档图标）
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                  child: Image.network(
-                    _pendingImageUrl!,
-                    height: 80,
-                    width: 80,
-                    fit: BoxFit.cover,
-                  ),
+                  child: _buildFilePreview(isDarkMode),
                 ),
                 const SizedBox(width: 8),
-                // 图片信息
+                // 文件信息
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        _pendingImageName ?? '图片',
+                        _pendingImageName ?? '文件',
                         style: TextStyle(
                           color: isDarkMode ? Colors.white70 : Colors.black54,
                           fontSize: 12,
@@ -1950,7 +2640,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '点击发送按钮上传',
+                        _pendingFileType == 'document' ? '点击发送按钮上传文档' : '点击发送按钮上传',
                         style: TextStyle(
                           color: isDarkMode ? Colors.white54 : Colors.black38,
                           fontSize: 11,
@@ -1980,7 +2670,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                 final picker = ImagePicker();
                 final XFile? file = await picker.pickImage(source: ImageSource.camera);
                 if (file != null) {
-                  _selectImage(file);
+                  await _selectImageFromXFile(file);
                 }
               },
             ),
@@ -2003,15 +2693,26 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                 onSubmitted: (_) => _sendMessage(),
               ),
             ),
-            // 右边：麦克风 + 上传文件（或发送按钮）
-            if (hasText || _pendingImageUrl != null)
+            // 右边：麦克风 + 上传文件（或发送/停止按钮）
+            if (_isGenerating)
+              // AI 正在生成时：显示停止按钮
+              IconButton(
+                icon: const Icon(
+                  Icons.stop,
+                  color: Colors.red,
+                  size: 28,
+                ),
+                onPressed: _abortChat,
+                tooltip: '停止生成',
+              )
+            else if (hasText || _pendingImageUrl != null)
               // 有文字或图片时：显示发送按钮（绿色箭头）
               IconButton(
                 icon: Icon(
                   Icons.send,
                   color: Constants.primaryColor,
                 ),
-                onPressed: _isGenerating ? _abortChat : _sendMessage,
+                onPressed: _sendMessage,
               )
             else
               // 没有文字时：显示麦克风 + 上传图标
@@ -2032,17 +2733,28 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                           }
                         : null,
                   ),
-                  // 上传文件按钮
+                  // 上传文件按钮（支持图片和文档）
                   IconButton(
                     icon: Icon(
                       Icons.attach_file,
                       color: isDarkMode ? const Color(0xFFECECF1) : Colors.grey.shade700,
                     ),
                     onPressed: () async {
-                      final picker = ImagePicker();
-                      final XFile? file = await picker.pickImage(source: ImageSource.gallery);
-                      if (file != null) {
-                        _selectImage(file);
+                      // 🆕 使用 FilePicker 支持图片和文档
+                      final result = await file_picker.FilePicker.platform.pickFiles(
+                        type: file_picker.FileType.custom,
+                        allowedExtensions: [
+                          // 图片
+                          'jpg', 'jpeg', 'png', 'gif', 'webp',
+                          // 文档
+                          'pdf', 'txt', 'md', 'html', 'csv', 'json',
+                        ],
+                        allowCompression: false,  // 禁用自动压缩
+                      );
+                      
+                      if (result != null && result.files.isNotEmpty) {
+                        final file = result.files.first;
+                        await _selectFile(file);
                       }
                     },
                   ),
@@ -2235,8 +2947,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           
           Divider(color: isDarkMode ? Colors.white10 : Colors.black12, height: 1),
           _buildToolItem(Icons.people_outline, _getTeamMenuTitle(), _getTeamMenuAction(), isDarkMode),
-          _buildToolItem(Icons.message_outlined, '飞书配置', () => _showComingSoon('飞书配置'), isDarkMode),
-          _buildToolItem(Icons.business_outlined, '企业微信', () => _showComingSoon('企业微信配置'), isDarkMode),
           
           Divider(color: isDarkMode ? Colors.white10 : Colors.black12, height: 1),
           _buildUserFooter(isDarkMode),
@@ -2344,11 +3054,18 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         ? (isActive ? Colors.white10 : Colors.transparent)
         : (isActive ? Colors.black.withOpacity(0.05) : Colors.transparent);
     final textColor = isDarkMode ? Colors.white : Colors.black87;
+    final subTextColor = isDarkMode ? Colors.white54 : Colors.black54;
     final iconColor = isDarkMode ? Colors.white54 : Colors.black45;
     
     // 获取会话的Agent图标
     final sessionAgentId = session['agentId']?.toString() ?? 'lingxi';
     final agentIcon = _agents[sessionAgentId]?['icon'] as IconData? ?? Icons.chat_outlined;
+    
+    // 🆕 获取标题、时间和预览
+    final title = session['title']?.toString() ?? '未命名会话';
+    final relativeTime = session['relativeTime']?.toString() ?? '';
+    final lastMessage = session['lastMessage']?.toString() ?? '暂无消息';
+    final preview = lastMessage.length > 40 ? '${lastMessage.substring(0, 40)}...' : lastMessage;
     
     return Container(
       margin: const EdgeInsets.only(bottom: 2),
@@ -2359,11 +3076,23 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       child: ListTile(
         dense: true,
         leading: Icon(agentIcon, color: iconColor, size: 18),
-        title: Text(
-          session['title']?.toString() ?? '新对话',
-          style: TextStyle(color: textColor, fontSize: 14),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: TextStyle(color: textColor, fontSize: 14),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              '$relativeTime · $preview',
+              style: TextStyle(color: subTextColor, fontSize: 11),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
         ),
         trailing: IconButton(
           icon: Icon(Icons.close, color: iconColor, size: 16),
@@ -2546,99 +3275,109 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     showModalBottomSheet(
       context: context,
       backgroundColor: bgColor,
+      isScrollControlled: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.7,
+      ),
       builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: Icon(Icons.bar_chart_outlined, color: textColor),
-              title: Text('使用量统计', style: TextStyle(color: textColor)),
-              onTap: () async {
-                Navigator.pop(context);
-                await _showUsageStatsDialog(appProvider);
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.people_outline, color: textColor),
-              title: Text('邀请列表', style: TextStyle(color: textColor)),
-              trailing: Text('${appProvider.user?.inviteCount ?? 0} 人', style: TextStyle(color: Colors.grey)),
-              onTap: () {
-                Navigator.pop(context);
-                _showInviteListDialog(appProvider);
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.star_outline, color: textColor),
-              title: Text('我的订阅', style: TextStyle(color: textColor)),
-              onTap: () async {
-                Navigator.pop(context);
-                Navigator.pop(context);
-                await Navigator.push(context, MaterialPageRoute(builder: (_) => const SubscriptionPage()));
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.build_outlined, color: textColor),
-              title: Text('LumeClaw', style: TextStyle(color: textColor)),
-              onTap: () async {
-                Navigator.pop(context);
-                Navigator.pop(context);
-                await Navigator.push(context, MaterialPageRoute(builder: (_) => const LumeClawPage()));
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.extension_outlined, color: textColor),
-              title: Text('技能库', style: TextStyle(color: textColor)),
-              onTap: () async {
-                Navigator.pop(context);
-                Navigator.pop(context);
-                await Navigator.push(context, MaterialPageRoute(builder: (_) => const SkillsPage()));
-              },
-            ),
-            const Divider(height: 1),
-            ListTile(
-              leading: Icon(Icons.lock_outline, color: textColor),
-              title: Text('修改密码', style: TextStyle(color: textColor)),
-              onTap: () {
-                Navigator.pop(context);
-                _showPasswordChangeDialog();
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.message_outlined, color: textColor),
-              title: Text('飞书配置', style: TextStyle(color: textColor)),
-              onTap: () {
-                Navigator.pop(context);
-                _showFeishuConfigDialog(isDarkMode);
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.info_outline, color: textColor),
-              title: Text('关于', style: TextStyle(color: textColor)),
-              onTap: () async {
-                Navigator.pop(context);
-                showAboutDialog(
-                  context: context,
-                  applicationName: Constants.appName,
-                  applicationVersion: Constants.appVersion,
-                );
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.logout, color: Colors.red),
-              title: const Text('退出登录', style: TextStyle(color: Colors.red)),
-              onTap: () async {
-                Navigator.pop(context);
-                Navigator.pop(context);
-                await appProvider.logout();
-                if (mounted) {
-                  Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (_) => const LoginPage()),
-                    (route) => false,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 常用功能
+              ListTile(
+                leading: Icon(Icons.bar_chart_outlined, color: textColor),
+                title: Text('使用量统计', style: TextStyle(color: textColor)),
+                onTap: () async {
+                  Navigator.pop(context);
+                  await _showUsageStatsDialog(appProvider);
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.people_outline, color: textColor),
+                title: Text('邀请列表', style: TextStyle(color: textColor)),
+                trailing: Text('${appProvider.user?.inviteCount ?? 0} 人', style: TextStyle(color: Colors.grey)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showInviteListDialog(appProvider);
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.star_outline, color: textColor),
+                title: Text('我的订阅', style: TextStyle(color: textColor)),
+                onTap: () async {
+                  Navigator.pop(context);
+                  Navigator.pop(context);
+                  await Navigator.push(context, MaterialPageRoute(builder: (_) => const SubscriptionPage()));
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.extension_outlined, color: textColor),
+                title: Text('技能库', style: TextStyle(color: textColor)),
+                onTap: () async {
+                  Navigator.pop(context);
+                  Navigator.pop(context);
+                  await Navigator.push(context, MaterialPageRoute(builder: (_) => const SkillsPage()));
+                },
+              ),
+              const Divider(height: 1),
+              // 高级功能
+              ListTile(
+                leading: Icon(Icons.build_outlined, color: textColor),
+                title: Text('LumeClaw', style: TextStyle(color: textColor)),
+                onTap: () async {
+                  Navigator.pop(context);
+                  Navigator.pop(context);
+                  await Navigator.push(context, MaterialPageRoute(builder: (_) => const LumeClawPage()));
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.lock_outline, color: textColor),
+                title: Text('修改密码', style: TextStyle(color: textColor)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showPasswordChangeDialog();
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.message_outlined, color: textColor),
+                title: Text('飞书配置', style: TextStyle(color: textColor)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showFeishuConfigDialog(isDarkMode);
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.info_outline, color: textColor),
+                title: Text('关于', style: TextStyle(color: textColor)),
+                onTap: () async {
+                  Navigator.pop(context);
+                  showAboutDialog(
+                    context: context,
+                    applicationName: Constants.appName,
+                    applicationVersion: Constants.appVersion,
                   );
-                }
-              },
-            ),
-          ],
+                },
+              ),
+              const Divider(height: 1),
+              // 退出登录（始终可见）
+              ListTile(
+                leading: Icon(Icons.logout, color: Colors.red),
+                title: const Text('退出登录', style: TextStyle(color: Colors.red)),
+                onTap: () async {
+                  Navigator.pop(context);
+                  Navigator.pop(context);
+                  await appProvider.logout();
+                  if (mounted) {
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (_) => const LoginPage()),
+                      (route) => false,
+                    );
+                  }
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -3593,46 +4332,139 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           Expanded(
             child: _messages.isEmpty
                 ? _buildWelcomeExamples(currentAgentInfo, isDarkMode)
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.only(bottom: 16),
-                    // ✅ 问题4：如果正在生成，添加一个额外的"思考中"消息
-                    itemCount: _messages.length + (_isGenerating ? 1 : 0),
-                    itemBuilder: (context, i) {
-                      try {
-                        // ✅ 如果是最后一条且正在生成，显示思考中的气泡框
-                        if (_isGenerating && i == _messages.length) {
-                          return _buildThinkingBubble(isDarkMode, currentAgentInfo);
-                        }
-                        
-                        // 安全获取 agentId，确保是 String 类型
-                        final msgAgentId = _messages[i].agentId;
-                        final safeAgentId = msgAgentId is String 
-                            ? msgAgentId 
-                            : msgAgentId != null 
-                                ? msgAgentId.toString() 
-                                : _currentAgent;
-                        
-                        return _MessageBubble(
-                          content: _messages[i].content,
-                          isUser: _messages[i].role == 'user',
-                          agentId: safeAgentId,
-                          agents: _agents,
-                          isDarkMode: isDarkMode,
-                          imageUrl: _messages[i].imageUrl,
-                          serverIp: _userServerIp,
-                          serverPort: _userServerPort,
-                          serverToken: _userServerToken,
-                        );
-                      } catch (e, stack) {
-                        debugPrint('❌ 构建 MessageBubble 失败: $e');
-                        debugPrint('Stack: $stack');
-                        return ListTile(
-                          title: Text('消息加载失败'),
-                          subtitle: Text(e.toString()),
-                        );
-                      }
-                    },
+                : Column(
+                    children: [
+                      // 刷新按钮栏
+                      if (_messages.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '${_messages.length} 条消息',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isDarkMode ? Colors.white54 : Colors.grey,
+                                ),
+                              ),
+                              Row(
+                                children: [
+                                  // 刷新按钮
+                                  TextButton.icon(
+                                    onPressed: _isGenerating ? null : () {
+                                      if (_currentSessionKey != null) {
+                                        _loadMessageHistory(_currentSessionKey!);
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                            content: Text('正在刷新消息...'),
+                                            duration: Duration(seconds: 1),
+                                          ),
+                                        );
+                                      } else {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                            content: Text('新对话暂无历史消息'),
+                                            duration: Duration(seconds: 1),
+                                          ),
+                                        );
+                                      }
+                                    },
+                                    icon: Icon(
+                                      Icons.refresh,
+                                      size: 16,
+                                      color: _isGenerating 
+                                        ? (isDarkMode ? Colors.white24 : Colors.grey.shade400)
+                                        : Constants.primaryColor,
+                                    ),
+                                    label: Text(
+                                      '刷新',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: _isGenerating 
+                                          ? (isDarkMode ? Colors.white24 : Colors.grey.shade400)
+                                          : Constants.primaryColor,
+                                      ),
+                                    ),
+                                  ),
+                                  // 清空按钮
+                                  if (!_isGenerating)
+                                    TextButton.icon(
+                                      onPressed: () {
+                                        showDialog(
+                                          context: context,
+                                          builder: (ctx) => AlertDialog(
+                                            title: const Text('清空对话'),
+                                            content: const Text('确定要清空当前对话吗？'),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(ctx),
+                                                child: const Text('取消'),
+                                              ),
+                                              TextButton(
+                                                onPressed: () {
+                                                  Navigator.pop(ctx);
+                                                  setState(() {
+                                                    _messages.clear();
+                                                  });
+                                                },
+                                                child: const Text('确定', style: TextStyle(color: Colors.red)),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                      icon: Icon(Icons.delete_outline, size: 16, color: Colors.red.shade400),
+                                      label: Text('清空', style: TextStyle(fontSize: 12, color: Colors.red.shade400)),
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      // 消息列表
+                      Expanded(
+                        child: ListView.builder(
+                          controller: _scrollController,
+                          padding: const EdgeInsets.only(bottom: 16),
+                          itemCount: _messages.length + (_isGenerating ? 1 : 0),
+                          itemBuilder: (context, i) {
+                            try {
+                              if (_isGenerating && i == _messages.length) {
+                                return _buildThinkingBubble(isDarkMode, currentAgentInfo);
+                              }
+                              
+                              final msgAgentId = _messages[i].agentId;
+                              final safeAgentId = msgAgentId is String 
+                                  ? msgAgentId 
+                                  : msgAgentId != null 
+                                      ? msgAgentId.toString() 
+                                      : _currentAgent;
+                              
+                              return _MessageBubble(
+                                content: _messages[i].content,
+                                isUser: _messages[i].role == 'user',
+                                agentId: safeAgentId,
+                                agents: _agents,
+                                isDarkMode: isDarkMode,
+                                imageUrl: _messages[i].imageUrl,
+                                audioUrl: _messages[i].audioUrl,
+                                documentInfo: _messages[i].documentInfo,  // 🆕 传递文档信息
+                                serverIp: _userServerIp,
+                                serverPort: _userServerPort,
+                                serverToken: _userServerToken,
+                              );
+                            } catch (e, stack) {
+                              debugPrint('❌ 构建 MessageBubble 失败: $e');
+                              return ListTile(
+                                title: const Text('消息加载失败'),
+                                subtitle: Text(e.toString()),
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                    ],
                   ),
           ),
           Container(
@@ -3788,6 +4620,8 @@ class _MessageBubble extends StatelessWidget {
   final Map<String, Map<String, dynamic>> agents;
   final bool isDarkMode;
   final String? imageUrl;
+  final String? audioUrl;
+  final DocumentInfo? documentInfo;  // 🆕 文档信息
   final String? serverIp;
   final int? serverPort;
   final String? serverToken;
@@ -3799,10 +4633,187 @@ class _MessageBubble extends StatelessWidget {
     required this.agents,
     this.isDarkMode = false,
     this.imageUrl,
+    this.audioUrl,
+    this.documentInfo,  // 🆕
     this.serverIp,
     this.serverPort,
     this.serverToken,
   });
+
+  // 提取音频文件路径
+  static List<String> extractAudioFiles(String text) {
+    final regex = RegExp(r'MEDIA:([^\s\n]+)');
+    return regex.allMatches(text).map((m) => m.group(1)!).toList();
+  }
+  
+  // 🆕 构建历史文档卡片
+  static Widget _buildHistoryDocumentCard(DocumentInfo doc, bool isDarkMode) {
+    final config = _getDocumentConfig(doc.mimeType, doc.filename);
+    
+    return Container(
+      width: 120,
+      height: 120,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: config['gradientColors'] as List<Color>,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          // 类型徽章
+          Positioned(
+            top: 8,
+            right: 8,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.95),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                config['type'] as String,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: config['accentColor'] as Color,
+                ),
+              ),
+            ),
+          ),
+          // 内容
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // 图标
+                Text(
+                  config['icon'] as String,
+                  style: const TextStyle(fontSize: 40),
+                ),
+                const SizedBox(height: 8),
+                // 文件名
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Text(
+                    doc.filename.length > 20 ? '${doc.filename.substring(0, 20)}...' : doc.filename,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Colors.white,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  // 🆕 获取文档类型配置
+  static Map<String, dynamic> _getDocumentConfig(String mimeType, String filename) {
+    final configs = {
+      'application/pdf': {
+        'type': 'PDF',
+        'icon': 'PDF',
+        'gradientColors': [const Color(0xFFFF5252), const Color(0xFFFF8A80)],
+        'accentColor': const Color(0xFFFF5252),
+      },
+      'text/markdown': {
+        'type': 'MD',
+        'icon': 'MD',
+        'gradientColors': [const Color(0xFF4CAF50), const Color(0xFF81C784)],
+        'accentColor': const Color(0xFF4CAF50),
+      },
+      'text/html': {
+        'type': 'HTML',
+        'icon': '<>',
+        'gradientColors': [const Color(0xFFFF9800), const Color(0xFFFFB74D)],
+        'accentColor': const Color(0xFFFF9800),
+      },
+      'text/csv': {
+        'type': 'CSV',
+        'icon': 'CSV',
+        'gradientColors': [const Color(0xFF2196F3), const Color(0xFF64B5F6)],
+        'accentColor': const Color(0xFF2196F3),
+      },
+      'application/json': {
+        'type': 'JSON',
+        'icon': '{ }',
+        'gradientColors': [const Color(0xFF9C27B0), const Color(0xFFBA68C8)],
+        'accentColor': const Color(0xFF9C27B0),
+      },
+      'text/plain': {
+        'type': 'TXT',
+        'icon': 'TXT',
+        'gradientColors': [const Color(0xFF757575), const Color(0xFF9E9E9E)],
+        'accentColor': const Color(0xFF757575),
+      },
+      // Office 文档（新格式）
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': {
+        'type': 'DOCX',
+        'icon': 'W',
+        'gradientColors': [const Color(0xFF2196F3), const Color(0xFF42A5F5)],
+        'accentColor': const Color(0xFF1565C0),
+      },
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': {
+        'type': 'XLSX',
+        'icon': 'X',
+        'gradientColors': [const Color(0xFF4CAF50), const Color(0xFF66BB6A)],
+        'accentColor': const Color(0xFF2E7D32),
+      },
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation': {
+        'type': 'PPTX',
+        'icon': 'P',
+        'gradientColors': [const Color(0xFFFF9800), const Color(0xFFFFA726)],
+        'accentColor': const Color(0xFFE65100),
+      },
+      // Office 文档（旧格式）
+      'application/msword': {
+        'type': 'DOC',
+        'icon': 'W',
+        'gradientColors': [const Color(0xFF2196F3), const Color(0xFF42A5F5)],
+        'accentColor': const Color(0xFF1565C0),
+      },
+      'application/vnd.ms-excel': {
+        'type': 'XLS',
+        'icon': 'X',
+        'gradientColors': [const Color(0xFF4CAF50), const Color(0xFF66BB6A)],
+        'accentColor': const Color(0xFF2E7D32),
+      },
+      'application/vnd.ms-powerpoint': {
+        'type': 'PPT',
+        'icon': 'P',
+        'gradientColors': [const Color(0xFFFF9800), const Color(0xFFFFA726)],
+        'accentColor': const Color(0xFFE65100),
+      },
+    };
+    
+    // 检查文件扩展名
+    if (filename.endsWith('.md')) {
+      return configs['text/markdown']!;
+    }
+    
+    return configs[mimeType] ?? {
+      'type': 'FILE',
+      'icon': '📎',
+      'gradientColors': [const Color(0xFF667eea), const Color(0xFF764ba2)],
+      'accentColor': const Color(0xFF667eea),
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -3843,6 +4854,12 @@ class _MessageBubble extends StatelessWidget {
         'url': match.group(2) ?? '',
       });
       displayContent = displayContent.replaceAll(match.group(0)!, '');
+    }
+    
+    // ✅ 提取音频文件
+    final audioFiles = extractAudioFiles(displayContent);
+    for (final audio in audioFiles) {
+      displayContent = displayContent.replaceAll('MEDIA:$audio', '');
     }
 
     return Align(
@@ -3894,6 +4911,10 @@ class _MessageBubble extends StatelessWidget {
                 ),
               ),
             if (imageUrl != null && imageUrl!.isNotEmpty) const SizedBox(height: 8),
+            // 🆕 显示用户上传的文档
+            if (documentInfo != null)
+              _buildHistoryDocumentCard(documentInfo!, isDarkMode),
+            if (documentInfo != null) const SizedBox(height: 8),
             // ✅ 显示 AI 生成的 markdown 图片
             for (final img in markdownImages)
               Padding(
@@ -3925,6 +4946,24 @@ class _MessageBubble extends StatelessWidget {
                   ),
                 ),
               ),
+            // ✅ 显示音频播放按钮
+            for (final audioPath in audioFiles)
+              _AudioPlayerWidget(
+                audioPath: audioPath,
+                serverIp: serverIp,
+                serverPort: serverPort,
+                serverToken: serverToken,
+                isDarkMode: isDarkMode,
+              ),
+            // 🆕 显示自动生成的语音（audioUrl）
+            if (audioUrl != null && audioUrl!.isNotEmpty)
+              _AudioPlayerWidget(
+                audioPath: audioUrl!,
+                serverIp: serverIp,
+                serverPort: serverPort,
+                serverToken: serverToken,
+                isDarkMode: isDarkMode,
+              ),
             // 文件预览
             if (!isUser && displayContent.isNotEmpty)
               FilePreview(
@@ -3942,6 +4981,297 @@ class _MessageBubble extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ✅ 音频播放组件
+class _AudioPlayerWidget extends StatefulWidget {
+  final String audioPath;
+  final String? serverIp;
+  final int? serverPort;
+  final String? serverToken;
+  final bool isDarkMode;
+
+  const _AudioPlayerWidget({
+    required this.audioPath,
+    this.serverIp,
+    this.serverPort,
+    this.serverToken,
+    this.isDarkMode = false,
+  });
+
+  @override
+  State<_AudioPlayerWidget> createState() => _AudioPlayerWidgetState();
+}
+
+class _AudioPlayerWidgetState extends State<_AudioPlayerWidget> {
+  bool _isPlaying = false;
+  bool _isLoading = false;
+  String? _error;
+  Duration _duration = Duration.zero;
+  Duration _position = Duration.zero;
+  
+  // 单例音频播放器
+  static final AudioPlayer _audioPlayer = AudioPlayer();
+  
+  // 格式化时间为 mm:ss
+  String _formatDuration(Duration duration) {
+    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+  
+  String get _audioUrl {
+    // 构建音频 URL
+    if (widget.audioPath.startsWith('http')) {
+      return widget.audioPath;
+    }
+    
+    // 如果有用户服务器信息，使用用户的 file-server (端口 9876)
+    if (widget.serverIp != null && widget.serverIp!.isNotEmpty) {
+      // 文件路径如 /tmp/openclaw/tts-xxx/voice.mp3 或 /root/.openclaw/tts-xxx/voice.mp3
+      final port = widget.serverPort ?? 9876;
+      final token = widget.serverToken ?? '';
+      debugPrint('🔊 使用用户服务器: ${widget.serverIp}:$port');
+      return 'http://${widget.serverIp}:$port/preview?path=${Uri.encodeComponent(widget.audioPath)}&token=$token';
+    }
+    
+    // 否则使用灵犀云后端的 TTS 代理 API（主服务器）
+    // 尝试多个可能的文件服务器
+    const backendIp = '120.55.192.144';
+    const backendPort = 3000;
+    
+    debugPrint('🔊 使用主服务器代理: $backendIp:$backendPort');
+    return 'http://$backendIp:$backendPort/api/files/tts?path=${Uri.encodeComponent(widget.audioPath)}';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    
+    // 监听播放完成
+    _audioPlayer.onPlayerComplete.listen((_) {
+      if (mounted) {
+        setState(() {
+          _isPlaying = false;
+          _position = Duration.zero;
+        });
+      }
+    });
+    
+    // 监听音频时长
+    _audioPlayer.onDurationChanged.listen((duration) {
+      if (mounted) {
+        setState(() => _duration = duration);
+      }
+    });
+    
+    // 监听播放进度
+    _audioPlayer.onPositionChanged.listen((position) {
+      if (mounted) {
+        setState(() => _position = position);
+      }
+    });
+    
+    // 监听播放错误
+    _audioPlayer.onLog.listen((msg) {
+      debugPrint('🔊 AudioPlayer log: $msg');
+    });
+  }
+
+  Future<void> _togglePlay() async {
+    if (_isPlaying) {
+      await _audioPlayer.stop();
+      setState(() => _isPlaying = false);
+    } else {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+      
+      try {
+        debugPrint('🔊 播放音频: $_audioUrl');
+        
+        // 设置音频源
+        await _audioPlayer.setSource(UrlSource(_audioUrl));
+        
+        // 播放
+        await _audioPlayer.resume();
+        
+        setState(() {
+          _isPlaying = true;
+          _isLoading = false;
+        });
+      } catch (e) {
+        debugPrint('❌ 播放失败: $e');
+        setState(() {
+          _isLoading = false;
+          _error = '播放失败: ${e.toString().split('\n').first}';
+          _isPlaying = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bgColor = widget.isDarkMode ? const Color(0xFF424454) : Colors.grey.shade200;
+    final iconColor = widget.isDarkMode ? const Color(0xFF10A37F) : Constants.primaryColor;
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 播放/停止按钮
+          GestureDetector(
+            onTap: _isLoading ? null : _togglePlay,
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: iconColor,
+                shape: BoxShape.circle,
+              ),
+              child: _isLoading
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Icon(
+                      _isPlaying ? Icons.stop : Icons.play_arrow,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // 音频信息和进度
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '语音消息',
+                        style: TextStyle(
+                          color: widget.isDarkMode ? const Color(0xFFECECF1) : Colors.black87,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    // 时间显示
+                    Text(
+                      '${_formatDuration(_position)} / ${_formatDuration(_duration)}',
+                      style: TextStyle(
+                        color: widget.isDarkMode ? Colors.white70 : Colors.black54,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+                // 进度条
+                if (_duration.inSeconds > 0)
+                  Container(
+                    height: 3,
+                    margin: const EdgeInsets.only(top: 4),
+                    decoration: BoxDecoration(
+                      color: widget.isDarkMode ? Colors.white24 : Colors.black12,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                    child: FractionallySizedBox(
+                      alignment: Alignment.centerLeft,
+                      widthFactor: _position.inMilliseconds / _duration.inMilliseconds,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: iconColor,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                  ),
+                // 错误信息
+                if (_error != null)
+                  Text(
+                    _error!,
+                    style: const TextStyle(color: Colors.red, fontSize: 10),
+                  ),
+              ],
+            ),
+          ),
+          if (_isPlaying) ...[
+            const SizedBox(width: 12),
+            // 播放动画
+            const SizedBox(
+              width: 24,
+              height: 16,
+              child: _AudioWaveAnimation(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// 音频波形动画
+class _AudioWaveAnimation extends StatefulWidget {
+  const _AudioWaveAnimation();
+
+  @override
+  State<_AudioWaveAnimation> createState() => _AudioWaveAnimationState();
+}
+
+class _AudioWaveAnimationState extends State<_AudioWaveAnimation>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 500),
+      vsync: this,
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: List.generate(3, (i) {
+            return Container(
+              width: 3,
+              height: 8 + (_controller.value * 8),
+              decoration: BoxDecoration(
+                color: Constants.primaryColor,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            );
+          }),
+        );
+      },
     );
   }
 }

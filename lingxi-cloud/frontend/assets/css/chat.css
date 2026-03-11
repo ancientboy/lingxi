@@ -1273,6 +1273,92 @@ html {
 }
 
 .image-preview-remove:hover {
+  background: rgba(0, 0, 0, 0.8);
+  transform: scale(1.1);
+}
+
+/* 文档信息覆盖层 */
+.file-info-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 12px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0));
+  color: white;
+  font-size: 11px;
+  white-space: pre-line;
+  text-align: center;
+  pointer-events: none;
+  border-radius: 0 0 12px 12px;
+}
+
+/* 文档预览卡片样式 */
+.document-preview-card {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #e5e5e5;
+  overflow: hidden;
+}
+
+.document-type-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: bold;
+  color: white;
+  text-transform: uppercase;
+}
+
+.document-type-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+.document-filename {
+  font-size: 11px;
+  color: #666;
+  text-align: center;
+  padding: 0 8px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 上传进度条 */
+.upload-progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.upload-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4CAF50, #8BC34A);
+  width: 0%;
+  transition: width 0.3s ease;
+}
+
+.image-preview-container.uploading .upload-progress-bar {
+  display: block;
+}
+
+.image-preview-remove:hover {
   background: rgba(239, 68, 68, 0.9);
   transform: scale(1.1);
 }

@@ -1,6 +1,20 @@
 /**
  * 一键部署路由 - 阿里云 ECS 创建 + OpenClaw 部署
- * 使用打包文件方式部署，配置与代码分离
+ * 
+ * 配置说明：
+ * - 镜像: lume-2026.3.8 (自定义镜像，ID: m-bp18vip9dw4jgn7mj474)
+ * - OpenClaw 版本: 2026.3.8
+ * - 核心技能: openclaw-skills (包含 144 个 SEO Skills + NoizAI 语音技能 + Agency-Agents 角色库)
+ * 
+ * 部署流程：
+ * 1. 创建阿里云 ECS 实例（使用自定义镜像）
+ * 2. 生成用户专属部署包
+ * 3. SSH 到实例，安装 OpenClaw + Skills
+ * 4. 配置 Gateway 和 Agent
+ * 5. 创建数据库记录
+ * 
+ * 晓琳 (noter) 新增技能：
+ * - web-content-fetcher (公众号文章抓取)
  */
 
 import { Router } from 'express';
@@ -28,7 +42,7 @@ const router = Router();
 // 从统一配置获取
 const SERVER_PASSWORD = config.userServer.password;
 const OPENCLAW_PORT = config.userServer.openclawPort;
-const OPENCLAW_VERSION = '2026.2.25';
+const OPENCLAW_VERSION = '2026.3.8';
 
 function generateToken() {
   return crypto.randomBytes(16).toString('hex');
@@ -294,7 +308,49 @@ async function quickGeneratePackage(userId, token, sessionId, releasesDir) {
         "allowInsecureAuth": true,
         "dangerouslyDisableDeviceAuth": true
       },
-      "auth": { "mode": "token", "token": token }
+      "auth": { "mode": "token", "token": token },
+      "http": {
+        "endpoints": {
+          "responses": {
+            "enabled": true,
+            "maxBodyBytes": 20971520,
+            "files": {
+              "allowUrl": true,
+              "allowedMimes": [
+                "application/pdf",
+                "text/plain",
+                "text/markdown",
+                "text/html",
+                "text/csv",
+                "application/json",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                "application/msword",
+                "application/vnd.ms-excel",
+                "application/vnd.ms-powerpoint"
+              ],
+              "maxBytes": 10485760,
+              "maxRedirects": 3,
+              "timeoutMs": 10000,
+              "maxChars": 2000000
+            },
+            "images": {
+              "allowUrl": true,
+              "allowedMimes": [
+                "image/jpeg",
+                "image/jpg",
+                "image/png",
+                "image/gif",
+                "image/webp"
+              ],
+              "maxBytes": 10485760,
+              "maxRedirects": 3,
+              "timeoutMs": 10000
+            }
+          }
+        }
+      }
     },
     "plugins": { "entries": {} }
   };
@@ -353,7 +409,10 @@ AUTHEOF
 # 位置2: agents/main/agent/auth-profiles.json (agent子目录)
 cp ~/.openclaw/agents/main/auth-profiles.json ~/.openclaw/agents/main/agent/auth-profiles.json
 
-echo "6️⃣ 启动 Gateway..."
+echo "6️⃣ 安装主要技能..."
+npm install -g openclaw-skills
+
+echo "7️⃣ 启动 Gateway..."
 cd ~/.openclaw
 nohup openclaw gateway > /var/log/openclaw.log 2>&1 &
 sleep 5
@@ -502,14 +561,13 @@ async function deployServerAsync(serverId, taskId, openclawToken, openclawSessio
     // 确保安全组规则完整（首次部署时检查）
     await ensureSecurityGroupRules(client);
     
-    // 优先使用自定义镜像（预装 Node.js 22 + OpenClaw）
-    const customImageId = process.env.ALIYUN_CUSTOM_IMAGE_ID;
-    const useCustomImage = !!customImageId;
+    // 使用自定义镜像（预装 Node.js 22 + OpenClaw）
+    const customImageId = 'm-bp18vip9dw4jgn7mj474'; // lume-2026.3.8
     
     const createRequest = new Ecs.CreateInstanceRequest({
       regionId: config.aliyun.region,
       instanceType: config.aliyun.instanceType,
-      imageId: useCustomImage ? customImageId : (process.env.ALIYUN_IMAGE_ID || 'ubuntu_22_04_x64_20G_alibase_20260119.vhd'),
+      imageId: customImageId,
       securityGroupId: process.env.ALIYUN_SECURITY_GROUP_ID,
       vSwitchId: process.env.ALIYUN_VSWITCH_ID,
       instanceName: `lingxi-${userName}`,
@@ -1200,8 +1258,23 @@ cd ${packageName}
 cp -r .openclaw ~/.openclaw
 
 cd ~/.openclaw
+# 停止所有旧进程
+pkill -f "openclaw" 2>/dev/null || true
+systemctl --user stop openclaw-gateway.service 2>/dev/null || true
+sleep 2
+
+# 使用 nohup 启动（避免 systemd 兼容性问题）
 nohup openclaw gateway > /var/log/openclaw.log 2>&1 &
-sleep 5
+
+# 等待服务就绪（最多 60 秒）
+for i in {1..30}; do
+    sleep 2
+    if ss -tlnp 2>/dev/null | grep -q ":18789"; then
+        echo "✅ OpenClaw 已启动"
+        break
+    fi
+    echo "等待服务启动... ($i/30)"
+done
 
 ss -tlnp | grep 18789
 `;

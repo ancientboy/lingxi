@@ -64,8 +64,8 @@ async function getUserGatewayConfig(userId) {
 }
 
 /**
- * 🆕 通过 HTTP responses API 发送带图片的消息
- * OpenClaw HTTP API 支持图片 URL，不需要转 base64
+ * 🆕 通过 HTTP responses API 发送带附件的消息（图片或文档）
+ * OpenClaw HTTP API 支持图片 URL 和文档 URL，不需要转 base64
  */
 async function sendImageMessageViaHTTP(params) {
   const { gatewayConfig, message, attachments, sessionKey, requestId } = params;
@@ -81,17 +81,52 @@ async function sendImageMessageViaHTTP(params) {
     });
   }
   
-  // 2. 添加图片（直接传 URL，OpenClaw 会自动下载）
+  // 2. 添加附件（图片或文档）
+  const allowedDocMimes = [
+    'application/pdf',      // PDF
+    'text/plain',           // 纯文本
+    'text/markdown',        // Markdown
+    'text/html',            // HTML
+    'text/csv',             // CSV
+    'application/json'      // JSON
+  ];
+  
+  let imageCount = 0;
+  let documentCount = 0;
+  
   for (const att of attachments) {
-    const imageUrl = att.url || att.content;
-    if (imageUrl && /^https?:\/\//.test(imageUrl)) {
+    const fileUrl = att.url || att.content;
+    if (!fileUrl || !/^https?:\/\//.test(fileUrl)) {
+      continue;
+    }
+    
+    const mimeType = att.mimeType || att.type || '';
+    
+    // 图片类型
+    if (mimeType.startsWith('image/')) {
       inputContent.push({
         type: 'input_image',
         source: {
           type: 'url',
-          url: imageUrl
+          url: fileUrl
         }
       });
+      imageCount++;
+      console.log(`   📷 添加图片: ${fileUrl}`);
+    }
+    // 文档类型
+    else if (allowedDocMimes.includes(mimeType)) {
+      inputContent.push({
+        type: 'input_file',
+        source: {
+          type: 'url',
+          url: fileUrl,
+          media_type: mimeType,
+          filename: att.filename || 'document'
+        }
+      });
+      documentCount++;
+      console.log(`   📄 添加文档: ${fileUrl} (${mimeType})`);
     }
   }
   
@@ -111,7 +146,8 @@ async function sendImageMessageViaHTTP(params) {
   
   console.log(`📤 [HTTP] 发送到 responses API: ${url}`);
   console.log(`   - agentId: ${agentId}`);
-  console.log(`   - 图片数量: ${attachments.length}`);
+  console.log(`   - 图片数量: ${imageCount}`);
+  console.log(`   - 文档数量: ${documentCount}`);
   console.log(`   - 请求体:`, JSON.stringify(body, null, 2));
   
   try {
@@ -140,6 +176,78 @@ async function sendImageMessageViaHTTP(params) {
 }
 
 /**
+ * 🆕 生成语音
+ */
+/**
+ * 智能判断是否需要生成语音
+ * @param {string} message - 回复文本
+ * @returns {boolean} - 是否需要生成语音
+ */
+function shouldGenerateTTS(message) {
+  if (!message || typeof message !== 'string') return false;
+  
+  // 1. 不包含代码块
+  if (message.includes('```')) {
+    console.log('⚠️ 包含代码块，跳过语音生成');
+    return false;
+  }
+  
+  // 2. 不包含文件路径（/path/to/file 或 C:\path\to\file）
+  if (/[\/\\]/.test(message) && message.match(/[\/\\]/g).length > 2) {
+    console.log('⚠️ 包含文件路径，跳过语音生成');
+    return false;
+  }
+  
+  // 3. 不包含命令行（$ command 或 > command）
+  if (/^\$\s|^>\s/m.test(message)) {
+    console.log('⚠️ 包含命令行，跳过语音生成');
+    return false;
+  }
+  
+  // 4. 长度适中（< 300 字）
+  if (message.length > 300) {
+    console.log(`⚠️ 消息过长 (${message.length} 字)，跳过语音生成`);
+    return false;
+  }
+  
+  // 5. 不包含过多技术符号（{}, (), [], ;, :）
+  const techSymbols = (message.match(/[{}()\[\];:]/g) || []).length;
+  if (techSymbols > 10) {
+    console.log(`⚠️ 技术符号过多 (${techSymbols} 个)，跳过语音生成`);
+    return false;
+  }
+  
+  // 6. 不包含 Markdown 标题（# ## ###）
+  if (/^#{1,3}\s/m.test(message)) {
+    console.log('⚠️ 包含 Markdown 标题，跳过语音生成');
+    return false;
+  }
+  
+  console.log(`✅ 适合生成语音 (${message.length} 字，${techSymbols} 个符号)`);
+  return true;
+}
+
+async function generateTTS(text) {
+  try {
+    const response = await fetch('http://localhost:3000/api/tts/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`TTS API 失败: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    return result.success ? result.audio_url : null;
+  } catch (error) {
+    console.error('❌ 生成语音失败:', error.message);
+    return null;
+  }
+}
+
+/**
  * WebSocket 升级处理函数
  */
 export function setupWebSocketProxy(app) {
@@ -149,6 +257,7 @@ export function setupWebSocketProxy(app) {
     let targetWs = null;
     let userId = null;
     const messageQueue = [];
+    let needsTTS = false; // 🆕 标记是否需要语音回复
     
     try {
       const token = req.query.token;
@@ -211,12 +320,59 @@ export function setupWebSocketProxy(app) {
 
           // 🔍 拦截 AI 响应中的图片 URL
           if (msg.type === 'event' && msg.event === 'chat') {
-            const text = msg.payload?.message || '';
-            if (text && text.includes('dashscope-result')) {
+            // 提取文本（兼容多种消息格式）
+            const rawMessage = msg.payload?.message;
+            let text = '';
+            
+            // 调试：打印完整的消息结构
+            if (needsTTS && msg.payload?.state === 'final') {
+              console.log(`🔍 [${userId?.substring(0, 8)}] 完整消息结构:`);
+              console.log(JSON.stringify(rawMessage, null, 2).substring(0, 500));
+            }
+            
+            // 尝试提取文本
+            if (typeof rawMessage === 'string') {
+              text = rawMessage;
+            } else if (rawMessage?.content) {
+              text = typeof rawMessage.content === 'string' 
+                ? rawMessage.content 
+                : rawMessage.content.text || '';
+            } else if (rawMessage?.text) {
+              text = rawMessage.text;
+            } else if (rawMessage?.parts && Array.isArray(rawMessage.parts)) {
+              // Anthropic 格式：{parts: [{text: "..."}]}
+              text = rawMessage.parts.map(p => p.text || '').join('');
+            }
+            
+            // 🔍 调试：打印收到的消息
+            if (needsTTS) {
+              console.log(`🔍 [${userId?.substring(0, 8)}] 收到 chat 事件:`);
+              console.log(`   - state: ${msg.payload?.state}`);
+              console.log(`   - text: ${text.substring(0, 100)}`);
+              console.log(`   - needsTTS: ${needsTTS}`);
+            }
+            
+            if (typeof text === 'string' && text.includes('dashscope-result')) {
               // 替换图片 URL（下载到本地）
               const modifiedText = await replaceImageUrls(text, userId);
               msg.payload.message = modifiedText;
               console.log(`🖼️ [${userId?.substring(0, 8)}] 已替换图片 URL`);
+            }
+            
+            // 🆕 自动生成语音（如果需要且内容适合）
+            if (needsTTS && text && typeof text === 'string' && text.length > 0) {
+              // 智能判断是否需要生成语音
+              if (shouldGenerateTTS(text)) {
+                console.log(`🔊 [${userId?.substring(0, 8)}] 自动生成语音...`);
+                const audioUrl = await generateTTS(text);
+                if (audioUrl) {
+                  msg.payload.audio_url = audioUrl;
+                  console.log(`✅ [${userId?.substring(0, 8)}] 语音已生成: ${audioUrl}`);
+                }
+              } else {
+                console.log(`⏭️ [${userId?.substring(0, 8)}] 跳过语音生成（内容不适合）`);
+              }
+              needsTTS = false; // 重置标记
             }
           }
 
@@ -227,7 +383,7 @@ export function setupWebSocketProxy(app) {
 
             for (let i = 0; i < messages.length; i++) {
               const msgText = messages[i].content || '';
-              if (msgText.includes('dashscope-result')) {
+              if (typeof msgText === 'string' && msgText.includes('dashscope-result')) {
                 // 替换历史图片 URL（基于文件名匹配）
                 messages[i].content = await replaceHistoryImageUrls(msgText, userId);
                 modified = true;
@@ -267,6 +423,13 @@ export function setupWebSocketProxy(app) {
               console.log(`💬 [${userId?.substring(0, 8)}] chat.send 检测到`);
               console.log(`   - message: ${(msg.params?.message || '').substring(0, 50)}`);
               console.log(`   - attachments: ${msg.params?.attachments?.length || 0} 个`);
+              
+              // 🆕 检测语音输入（消息以 "[语音]" 开头或包含音频标记）
+              const message = msg.params?.message || '';
+              if (message.includes('[语音]') || message.includes('🎤')) {
+                needsTTS = true;
+                console.log(`🎤 [${userId?.substring(0, 8)}] 检测到语音输入，启用 TTS 回复`);
+              }
               
               if (msg.params?.attachments?.length > 0) {
                 // 🆕 有图片 → 使用 HTTP responses API（支持 URL）

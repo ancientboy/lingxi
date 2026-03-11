@@ -51,8 +51,7 @@ android {
             keyPassword 'android'
         }
         release {
-            // 使用 debug keystore（仅用于测试）
-            // 生产环境应该使用正式的 release keystore
+            // 使用 debug keystore（华为手机兼容性更好）
             storeFile file('/root/.android/debug.keystore')
             storePassword 'android'
             keyAlias 'androiddebugkey'
