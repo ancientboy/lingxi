@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>灵犀云 - AI 团队</title>
+  <title>Lume - AI 团队</title>
   <script src="https://js.stripe.com/v3/"></script>
   <link rel="stylesheet" href="assets/css/chat.css?v=1772600190">
   <link rel="stylesheet" href="assets/css/dark.css" id="darkTheme" disabled>
@@ -119,12 +119,52 @@
             <i data-lucide="x" class="icon-sm"></i>
           </button>
         </div>
-        <div class="modal-body">
-          <div class="team-list" id="myTeamList"></div>
-          <div class="add-team-section">
-            <h4>添加成员</h4>
-            <div class="available-agents" id="availableAgents"></div>
+        
+        <!-- 标签页导航 -->
+        <div class="team-tabs">
+          <div class="team-tab active" onclick="switchTeamTab('my-team')">
+            <i data-lucide="users" class="icon-sm"></i>
+            <span>我的团队</span>
           </div>
+          <div class="team-tab" onclick="switchTeamTab('templates')">
+            <i data-lucide="layout-template" class="icon-sm"></i>
+            <span>模板库</span>
+          </div>
+        </div>
+        
+        <div class="modal-body">
+          <!-- 我的团队标签页 -->
+          <div class="team-tab-content" id="myTeamTab">
+            <div class="team-list" id="myTeamList"></div>
+            <div class="add-team-section">
+              <h4>添加成员</h4>
+              <div class="available-agents" id="availableAgents"></div>
+            </div>
+          </div>
+          
+          <!-- 模板库标签页 -->
+          <div class="team-tab-content" id="templatesTab" style="display:none;">
+            <div class="templates-grid" id="templatesGrid"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 模板详情弹窗 -->
+    <div class="modal-overlay" id="templateDetailModal">
+      <div class="modal template-detail-modal">
+        <div class="modal-header">
+          <h3 id="templateDetailTitle">模板详情</h3>
+          <button class="close-btn" onclick="closeTemplateDetailModal()">
+            <i data-lucide="x" class="icon-sm"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="template-detail-content" id="templateDetailContent"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeTemplateDetailModal()">取消</button>
+          <button class="btn btn-primary" id="applyTemplateBtn" onclick="confirmApplyTemplate()">应用此模板</button>
         </div>
       </div>
     </div>
@@ -1435,7 +1475,13 @@
     
     // 关于弹窗
     function showAbout() {
-      alert('灵犀云 v1.0\n\n你的 AI 团队，一键拥有');
+      const modal = document.createElement('div');
+      modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;';
+      modal.innerHTML = `<div style="background:white;border-radius:16px;padding:32px;max-width:320px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);"><h3 style="margin:0 0 16px;color:#10a37f;">Lume v1.0</h3><p style="margin:0 0 12px;color:#666;font-size:14px;">你的 AI 团队，一键拥有</p><p style="margin:16px 0 0;font-size:12px;color:#999;"><a href="https://beian.miit.gov.cn/" target="_blank" style="color:#666;">浙ICP备2026013667号-2A</a></p></div>`;
+      modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+      document.body.appendChild(modal);
+      return;
+      alert('Lume v1.0\n\n你的 AI 团队，一键拥有');
     }
     
     // ===== LumeClaw 维护模式 =====

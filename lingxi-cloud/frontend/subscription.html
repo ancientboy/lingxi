@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>我的订阅 - 灵犀云</title>
+  <title>我的订阅 - Lume</title>
   <link rel="stylesheet" href="assets/css/chat.css?v=1772456206">
   <link rel="stylesheet" href="assets/css/dark.css" id="darkTheme" disabled>
   <style>
@@ -135,7 +135,7 @@
           }
         } catch (e) { console.log('加载侧边栏组件失败:', e); }
       }
-      document.title = '我的订阅 - 灵犀云';
+      document.title = '我的订阅 - Lume';
     }
     async function loadSubscriptionData() {
       const token = localStorage.getItem('lingxi_token');
@@ -182,7 +182,7 @@
         if (subscriptionStatus === 'expired' || subscriptionStatus === 'not-started') { trialCard.classList.remove('hidden'); }
         else { trialCard.classList.add('hidden'); }
       } else {
-        currentSubscriptionContainer.innerHTML = '<div class="current-subscription"><h2><i data-lucide="credit-card" class="icon-sm icon-primary"></i>当前套餐</h2><div class="subscription-status"><div><div class="plan-name">免费体验版</div><div class="plan-price">0 元/月</div></div><div class="status-badge status-pending">未订阅</div></div><div class="info-item"><div class="info-label">积分余额</div><div class="info-value">0</div></div><p style="color: rgba(255,255,255,0.6); margin-top: 16px;">欢迎使用灵犀云！请开通订阅以享受更多功能。</p></div>';
+        currentSubscriptionContainer.innerHTML = '<div class="current-subscription"><h2><i data-lucide="credit-card" class="icon-sm icon-primary"></i>当前套餐</h2><div class="subscription-status"><div><div class="plan-name">免费体验版</div><div class="plan-price">0 元/月</div></div><div class="status-badge status-pending">未订阅</div></div><div class="info-item"><div class="info-label">积分余额</div><div class="info-value">0</div></div><p style="color: rgba(255,255,255,0.6); margin-top: 16px;">欢迎使用 Lume！请开通订阅以享受更多功能。</p></div>';
         trialCard.classList.remove('hidden');
       }
       renderPlansGrid(data.plans, data.subscription);

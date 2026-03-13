@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>灵犀云 - 一键拥有你的 AI 团队</title>
+  <title>Lume - 一键拥有你的 AI 团队</title>
   <meta name="version" content="2026.02.26.0350">
   <link rel="stylesheet" href="assets/css/chat.css">
   <link rel="stylesheet" href="assets/css/dark.css" id="darkTheme" disabled>
@@ -738,6 +738,9 @@
     </div>
     
     <div class="home-footer">
+      <p style="margin-bottom: 10px; font-size: 12px; color: #666;">
+        <a href="https://beian.miit.gov.cn/" target="_blank" style="color: #666;">浙ICP备2026013667号</a>
+      </p>
       <p>还没有邀请码？<a href="mailto:hi@lume.ai">联系我们</a></p>
     </div>
   </div>
@@ -2034,6 +2037,13 @@
     // 显示提示
     await sleep(200);
     hint.classList.add('show');
+    
+    // 添加备案信息
+    const beianEl = document.createElement('div');
+    beianEl.className = 'brand-intro-beian';
+    beianEl.style.cssText = 'position:absolute;bottom:20px;left:0;right:0;text-align:center;font-size:12px;z-index:1000;';
+    beianEl.innerHTML = '<a href="https://beian.miit.gov.cn/" target="_blank" style="color:rgba(255,255,255,0.8);text-decoration:none;pointer-events:auto;" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,0.8)'">浙 ICP 备 2026013667 号</a>';
+    overlay.appendChild(beianEl);
   }
 
   // 隐藏品牌故事

@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 class Constants {
   // API 配置
-  static const String baseUrl = 'http://120.55.192.144:3000';
+  static const String baseUrl = 'https://lumeword.cn';
   
   // WebSocket 配置
-  static const String websocketUrl = 'ws://120.55.192.144:3000/ws';
+  static const String websocketUrl = 'wss://lumeword.cn/api/ws';
   
   // 本地存储键
   static const String storageAccessToken = 'lingxi_token';

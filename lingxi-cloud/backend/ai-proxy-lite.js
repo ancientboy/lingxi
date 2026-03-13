@@ -5,11 +5,24 @@
  * 独立部署，只做一件事：转发请求 + Key 池轮询
  * 
  * 启动：node ai-proxy-lite.js --port 3001
+ * 
+ * API：
+ * - GET /health - 健康检查
+ * - GET /api/keys - 获取所有 Key 配置
+ * - POST /api/keys/:provider - 添加 Key
+ * - DELETE /api/keys/:provider/:index - 删除 Key
+ * - PUT /api/keys/:provider/:index/toggle - 启用/禁用 Key
  */
 
 import http from 'http';
 import https from 'https';
 import { URL } from 'url';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // ============ 配置 ============
 
@@ -17,54 +30,172 @@ const PORT = process.env.PROXY_LITE_PORT || process.argv.includes('--port')
   ? process.argv[process.argv.indexOf('--port') + 1] 
   : 3001;
 
-const API_KEYS = {
-  aliyun: (process.env.DASHSCOPE_API_KEY || '').split(',').map(k => k.trim()).filter(Boolean),
-  zhipu: (process.env.ZHIPU_API_KEY || '').split(',').map(k => k.trim()).filter(Boolean)
-};
+const ADMIN_TOKEN = process.env.PROXY_ADMIN_TOKEN || 'lingxi-admin-2026';
 
-const PROVIDERS = {
+// 配置文件路径
+const CONFIG_FILE = join(__dirname, 'data/proxy-keys.json');
+
+// 确保数据目录存在
+const DATA_DIR = join(__dirname, 'data');
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+// 默认配置
+const DEFAULT_CONFIG = {
   aliyun: {
-    name: '阿里云',
+    name: '阿里云百炼',
     baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-    keys: API_KEYS.aliyun.map((key, i) => ({ key, index: i, enabled: true, usage: 0 })),
-    currentIndex: 0
+    keys: []
   },
   zhipu: {
-    name: '智谱',
+    name: '智谱 AI',
     baseUrl: 'https://open.bigmodel.cn/api/coding/paas/v4',
-    keys: API_KEYS.zhipu.map((key, i) => ({ key, index: i, enabled: true, usage: 0 })),
-    currentIndex: 0
+    keys: []
+  },
+  dmxapi: {
+    name: 'DMXAPI（免费）',
+    baseUrl: 'https://www.dmxapi.cn/v1',
+    keys: []
   }
 };
 
+// 加载配置
+function loadConfig() {
+  try {
+    if (fs.existsSync(CONFIG_FILE)) {
+      const data = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+      // 合并默认配置
+      for (const [id, config] of Object.entries(DEFAULT_CONFIG)) {
+        if (!data[id]) {
+          data[id] = config;
+        } else {
+          data[id] = { ...config, ...data[id] };
+        }
+      }
+      return data;
+    }
+  } catch (e) {
+    console.error('加载配置失败:', e.message);
+  }
+  
+  // 从环境变量初始化
+  const config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+  
+  // 从环境变量读取 Key（逗号分隔）
+  if (process.env.DASHSCOPE_API_KEY) {
+    config.aliyun.keys = process.env.DASHSCOPE_API_KEY.split(',').map((key, i) => ({
+      key: key.trim(),
+      index: i,
+      enabled: true,
+      usage: 0,
+      addedAt: new Date().toISOString()
+    }));
+  }
+  if (process.env.ZHIPU_API_KEY) {
+    config.zhipu.keys = process.env.ZHIPU_API_KEY.split(',').map((key, i) => ({
+      key: key.trim(),
+      index: i,
+      enabled: true,
+      usage: 0,
+      addedAt: new Date().toISOString()
+    }));
+  }
+  if (process.env.DMXAPI_API_KEY) {
+    config.dmxapi.keys = process.env.DMXAPI_API_KEY.split(',').map((key, i) => ({
+      key: key.trim(),
+      index: i,
+      enabled: true,
+      usage: 0,
+      addedAt: new Date().toISOString()
+    }));
+  }
+  
+  // 从环境变量读取自定义 baseUrl（可选）
+  if (process.env.ALIYUN_BASE_URL) {
+    config.aliyun.baseUrl = process.env.ALIYUN_BASE_URL;
+  }
+  if (process.env.ZHIPU_BASE_URL) {
+    config.zhipu.baseUrl = process.env.ZHIPU_BASE_URL;
+  }
+  if (process.env.DMXAPI_BASE_URL) {
+    config.dmxapi.baseUrl = process.env.DMXAPI_BASE_URL;
+  }
+  
+  return config;
+}
+
+// 保存配置
+function saveConfig() {
+  try {
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(PROVIDERS, null, 2));
+    return true;
+  } catch (e) {
+    console.error('保存配置失败:', e.message);
+    return false;
+  }
+}
+
+// 初始化配置
+const PROVIDERS = loadConfig();
+
+// 轮询索引
+const roundRobinIndex = {};
+
 // ============ 轮询 ============
 
-function getNextKey(provider) {
+function getNextKey(providerId) {
+  const provider = PROVIDERS[providerId];
+  if (!provider) return null;
+  
   const enabled = provider.keys.filter(k => k.enabled);
   if (!enabled.length) return null;
-  provider.currentIndex = (provider.currentIndex + 1) % enabled.length;
-  const key = enabled[provider.currentIndex];
-  key.usage++;
+  
+  if (!roundRobinIndex[providerId]) roundRobinIndex[providerId] = 0;
+  roundRobinIndex[providerId] = (roundRobinIndex[providerId] + 1) % enabled.length;
+  
+  const key = enabled[roundRobinIndex[providerId]];
+  key.usage = (key.usage || 0) + 1;
+  
+  // 异步保存
+  saveConfig();
+  
   return key.key;
 }
 
 // ============ 代理请求 ============
 
-async function proxyRequest(provider, req, res) {
-  const apiKey = getNextKey(provider);
+async function proxyRequest(providerId, req, res) {
+  const provider = PROVIDERS[providerId];
+  if (!provider) {
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ error: '未知的供应商' }));
+  }
+  
+  const apiKey = getNextKey(providerId);
   if (!apiKey) {
     res.writeHead(503, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ error: '没有可用的 API Key' }));
   }
 
-  const url = new URL(provider.baseUrl + req.url.replace(/^\/(aliyun|zhipu)/, ''));
+  const baseUrl = provider.baseUrl;
+  let targetPath = req.url.replace(/^\/(aliyun|zhipu|dmxapi)/, '');
+  // 智谱和 DMXAPI 需要去掉 /v1（baseUrl 已包含 /v1 或 /v4）
+  if (providerId === 'zhipu' || providerId === 'dmxapi') {
+    targetPath = targetPath.replace('/v1/', '/');
+  }
+  const url = new URL(baseUrl + targetPath); console.log('[代理调试] 请求 URL:', url.toString());
+  
+  const httpModule = url.protocol === 'https:' ? https : http;
   
   const options = {
     hostname: url.hostname,
-    port: url.port || 443,
+    port: url.port || (url.protocol === 'https:' ? 443 : 80),
     path: url.pathname + url.search,
     method: req.method,
     headers: {
+      'Accept': 'application/json',
+      'User-Agent': 'openclaw-gateway/1.0',
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${apiKey}`
     }
@@ -74,12 +205,13 @@ async function proxyRequest(provider, req, res) {
   let body = '';
   for await (const chunk of req) body += chunk;
 
-  const proxyReq = https.request(options, (proxyRes) => {
+  const proxyReq = httpModule.request(options, (proxyRes) => {
     // 流式响应
-    res.writeHead(proxyRes.statusCode, {
+    const headers = {
       'Content-Type': proxyRes.headers['content-type'] || 'application/json',
       'Cache-Control': proxyRes.headers['cache-control'] || 'no-cache'
-    });
+    };
+    res.writeHead(proxyRes.statusCode, headers);
     proxyRes.pipe(res);
   });
 
@@ -93,10 +225,183 @@ async function proxyRequest(provider, req, res) {
   proxyReq.end();
 }
 
+// ============ 管理接口 ============
+
+function parseBody(req) {
+  return new Promise((resolve) => {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', () => {
+      try {
+        resolve(body ? JSON.parse(body) : {});
+      } catch {
+        resolve({});
+      }
+    });
+  });
+}
+
+function checkAuth(req) {
+  const token = req.headers['x-admin-token'] || req.headers['authorization']?.replace('Bearer ', '');
+  return token === ADMIN_TOKEN;
+}
+
+async function handleAdminApi(req, res, path) {
+  // GET /api/keys - 获取所有 Key
+  if (path === '/api/keys' && req.method === 'GET') {
+    const result = {};
+    for (const [id, provider] of Object.entries(PROVIDERS)) {
+      result[id] = {
+        name: provider.name,
+        baseUrl: provider.baseUrl,
+        keys: provider.keys.map(k => ({
+          index: k.index,
+          keyPreview: k.key.substring(0, 8) + '****' + k.key.substring(k.key.length - 4),
+          enabled: k.enabled,
+          usage: k.usage || 0,
+          addedAt: k.addedAt
+        }))
+      };
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ success: true, providers: result }));
+  }
+  
+  // 需要认证的接口
+  if (!checkAuth(req)) {
+    res.writeHead(401, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ error: '未授权' }));
+  }
+  
+  // POST /api/keys/:provider - 添加 Key
+  const addMatch = path.match(/^\/api\/keys\/(\w+)$/);
+  if (addMatch && req.method === 'POST') {
+    const providerId = addMatch[1];
+    const provider = PROVIDERS[providerId];
+    if (!provider) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: '未知的供应商' }));
+    }
+    
+    const body = await parseBody(req);
+    if (!body.key) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: '缺少 API Key' }));
+    }
+    
+    // 检查是否已存在
+    if (provider.keys.some(k => k.key === body.key)) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: '该 Key 已存在' }));
+    }
+    
+    const newKey = {
+      key: body.key,
+      index: provider.keys.length,
+      enabled: true,
+      usage: 0,
+      addedAt: new Date().toISOString()
+    };
+    provider.keys.push(newKey);
+    saveConfig();
+    
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ success: true, message: 'Key 添加成功', index: newKey.index }));
+  }
+  
+  // DELETE /api/keys/:provider/:index - 删除 Key
+  const deleteMatch = path.match(/^\/api\/keys\/(\w+)\/(\d+)$/);
+  if (deleteMatch && req.method === 'DELETE') {
+    const providerId = deleteMatch[1];
+    const index = parseInt(deleteMatch[2]);
+    const provider = PROVIDERS[providerId];
+    
+    if (!provider) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: '未知的供应商' }));
+    }
+    
+    if (index < 0 || index >= provider.keys.length) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Key 不存在' }));
+    }
+    
+    provider.keys.splice(index, 1);
+    // 重新编号
+    provider.keys.forEach((k, i) => k.index = i);
+    saveConfig();
+    
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ success: true, message: 'Key 删除成功' }));
+  }
+  
+  // PUT /api/keys/:provider/:index/toggle - 启用/禁用 Key
+  const toggleMatch = path.match(/^\/api\/keys\/(\w+)\/(\d+)\/toggle$/);
+  if (toggleMatch && req.method === 'PUT') {
+    const providerId = toggleMatch[1];
+    const index = parseInt(toggleMatch[2]);
+    const provider = PROVIDERS[providerId];
+    
+    if (!provider) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: '未知的供应商' }));
+    }
+    
+    if (index < 0 || index >= provider.keys.length) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Key 不存在' }));
+    }
+    
+    const body = await parseBody(req);
+    provider.keys[index].enabled = body.enabled !== undefined ? body.enabled : !provider.keys[index].enabled;
+    saveConfig();
+    
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ 
+      success: true, 
+      message: provider.keys[index].enabled ? 'Key 已启用' : 'Key 已禁用',
+      enabled: provider.keys[index].enabled
+    }));
+  }
+  
+  // PUT /api/keys/:provider/:index/reset - 重置使用量
+  const resetMatch = path.match(/^\/api\/keys\/(\w+)\/(\d+)\/reset$/);
+  if (resetMatch && req.method === 'PUT') {
+    const providerId = resetMatch[1];
+    const index = parseInt(resetMatch[2]);
+    const provider = PROVIDERS[providerId];
+    
+    if (!provider || index < 0 || index >= provider.keys.length) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Key 不存在' }));
+    }
+    
+    provider.keys[index].usage = 0;
+    saveConfig();
+    
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ success: true, message: '使用量已重置' }));
+  }
+  
+  res.writeHead(404, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ error: 'Not found' }));
+}
+
 // ============ HTTP 服务 ============
 
 const server = http.createServer(async (req, res) => {
-  const path = req.url.split('?')[0];
+  const url = new URL(req.url, `http://localhost:${PORT}`);
+  const path = url.pathname;
+
+  // CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Admin-Token');
+  
+  if (req.method === 'OPTIONS') {
+    res.writeHead(200);
+    return res.end();
+  }
 
   // 健康检查
   if (path === '/health') {
@@ -111,19 +416,27 @@ const server = http.createServer(async (req, res) => {
         name: p.name,
         totalKeys: p.keys.length,
         enabledKeys: p.keys.filter(k => k.enabled).length,
-        totalUsage: p.keys.reduce((s, k) => s + k.usage, 0)
+        totalUsage: p.keys.reduce((s, k) => s + (k.usage || 0), 0)
       };
     }
     res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify(status));
   }
 
+  // 管理接口
+  if (path.startsWith('/api/keys')) {
+    return handleAdminApi(req, res, path);
+  }
+
   // 路由到对应供应商
   if (path.startsWith('/aliyun')) {
-    return proxyRequest(PROVIDERS.aliyun, req, res);
+    return proxyRequest('aliyun', req, res);
   }
   if (path.startsWith('/zhipu')) {
-    return proxyRequest(PROVIDERS.zhipu, req, res);
+    return proxyRequest('zhipu', req, res);
+  }
+  if (path.startsWith('/dmxapi')) {
+    return proxyRequest('dmxapi', req, res);
   }
 
   // 未知路径
@@ -134,6 +447,7 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log(`🚀 AI 轻代理已启动: http://localhost:${PORT}`);
   console.log(`   健康检查: http://localhost:${PORT}/health`);
-  console.log(`   阿里云 Key: ${PROVIDERS.aliyun.keys.length} 个`);
-  console.log(`   智谱 Key: ${PROVIDERS.zhipu.keys.length} 个`);
+  for (const [id, p] of Object.entries(PROVIDERS)) {
+    console.log(`   ${p.name} Key: ${p.keys.length} 个`);
+  }
 });

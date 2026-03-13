@@ -82,6 +82,7 @@ async function sendImageMessageViaHTTP(params) {
   }
   
   // 2. 添加附件（图片或文档）
+  // 🆕 同时保存原始 URL 映射，用于历史消息转换
   const allowedDocMimes = [
     'application/pdf',      // PDF
     'text/plain',           // 纯文本
@@ -133,7 +134,7 @@ async function sendImageMessageViaHTTP(params) {
   // 3. 提取 agentId
   const agentId = sessionKey?.split(':').pop() || 'main';
   
-  // 4. 构建 responses API 请求（路径不带 basePath）
+  // 4. 构建 responses API 请求
   const url = `${gatewayConfig.httpUrl}/v1/responses`;
   const body = {
     model: `agent:${agentId}`,
@@ -148,7 +149,6 @@ async function sendImageMessageViaHTTP(params) {
   console.log(`   - agentId: ${agentId}`);
   console.log(`   - 图片数量: ${imageCount}`);
   console.log(`   - 文档数量: ${documentCount}`);
-  console.log(`   - 请求体:`, JSON.stringify(body, null, 2));
   
   try {
     const response = await fetch(url, {
@@ -551,5 +551,51 @@ export function setupWebSocketProxy(app) {
     }
   });
 }
+
+/**
+ * 媒体文件代理路由
+ * 用于访问 OpenClaw 存储的图片/文档
+ * 
+ * 格式：GET /api/media/inbound/:filename
+ * 代理到：http://用户服务器IP/media/inbound/:filename (nginx)
+ */
+router.get('/media/inbound/:filename', async (req, res) => {
+  try {
+    const { filename } = req.params;
+    const userId = req.query.user_id || req.headers['x-user-id'];
+    
+    if (!userId) {
+      return res.status(401).json({ error: '未授权访问' });
+    }
+    
+    // 获取用户的 Gateway 配置
+    const gatewayConfig = await getUserGatewayConfig(userId);
+    const userServerIP = gatewayConfig.httpUrl?.replace('http://', '').split(':')[0] || '120.26.33.181';
+    
+    // 构建媒体文件 URL（通过 nginx 访问）
+    const mediaUrl = `http://${userServerIP}/media/inbound/${filename}`;
+    console.log(`📷 代理媒体文件: ${mediaUrl}`);
+    
+    // 代理请求
+    const response = await fetch(mediaUrl);
+    if (!response.ok) {
+      return res.status(response.status).json({ error: '文件不存在' });
+    }
+    
+    // 获取 Content-Type
+    const contentType = response.headers.get('content-type');
+    if (contentType) {
+      res.setHeader('Content-Type', contentType);
+    }
+    
+    // 流式传输文件内容
+    const buffer = await response.arrayBuffer();
+    res.send(Buffer.from(buffer));
+    
+  } catch (error) {
+    console.error('媒体文件代理错误:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 export default router;

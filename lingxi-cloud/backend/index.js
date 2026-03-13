@@ -43,6 +43,27 @@ app.use(express.static(join(__dirname, '../frontend'), {
   }
 }));
 
+// 托管管理后台静态文件
+app.use('/admin', express.static(join(__dirname, '../admin-frontend/dist'), {
+  setHeaders: (res, path) => {
+    if (path.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    }
+  }
+}));
+
+// 管理后台 SPA 路由回退
+app.get('/admin/*', (req, res) => {
+  res.sendFile(join(__dirname, '../admin-frontend/dist/index.html'));
+});
+
+// 📱 托管 APK 下载文件
+app.use('/downloads', express.static(join(__dirname, './downloads'), {
+  setHeaders: (res) => {
+    res.setHeader('Content-Disposition', 'attachment');
+  }
+}));
+
 // ============ 路由 ============
 
 // 健康检查
@@ -76,6 +97,10 @@ app.use('/api/instance', instanceRoutes);
 import agentRoutes from './routes/agents.js';
 app.use('/api/agents', agentRoutes);
 
+// 团队管理
+import teamRoutes from './routes/team.js';
+app.use('/api/team', teamRoutes);
+
 // Skills 管理
 import skillsRoutes from './routes/skills.js';
 app.use('/api/skills', skillsRoutes);
@@ -96,9 +121,9 @@ app.use('/api/wecom', wecomRoutes);
 import chatRoutes from './routes/chat.js';
 app.use('/api/chat', chatRoutes);
 
-// 管理接口（生成邀请码等）
-import adminRoutes from './routes/admin.js';
-app.use('/api/admin', adminRoutes);
+// 管理后台 API（新版，替代旧 admin.js）
+import adminPanelRoutes from './routes/admin/index.js';
+app.use('/api/admin', adminPanelRoutes);
 
 // Gateway 代理（安全获取连接信息）
 import gatewayRoutes from './routes/gateway.js';
@@ -195,3 +220,7 @@ const server = app.listen(PORT, "0.0.0.0", () => {
 
 export default app;
 
+
+// TTS 路由
+import ttsRouter from './routes/tts.js';
+app.use('/api/tts', ttsRouter);

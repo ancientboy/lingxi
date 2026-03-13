@@ -130,22 +130,6 @@ class SideMenu extends StatelessWidget {
                 },
               ),
               _MenuItem(
-                icon: Icons.message_outlined,
-                title: '飞书配置',
-                onTap: () {
-                  Navigator.of(context).pop();
-                  _showComingSoon(context, '飞书配置');
-                },
-              ),
-              _MenuItem(
-                icon: Icons.business_outlined,
-                title: '企业微信',
-                onTap: () {
-                  Navigator.of(context).pop();
-                  _showComingSoon(context, '企业微信配置');
-                },
-              ),
-              _MenuItem(
                 icon: Icons.segment_outlined,
                 title: '技能库',
                 onTap: () {
@@ -708,61 +692,87 @@ class _SessionsDialogState extends State<_SessionsDialog> {
         subtitle: const Text('开始新的对话'),
         onTap: () {
           Navigator.pop(context);
-          // 创建新会话逻辑
           _createNewSession();
         },
       ),
     );
 
+    // 今天 - 默认收缩
     if (grouped[SessionGroup.today]?.isNotEmpty == true) {
       children.add(
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Text(
+        ExpansionTile(
+          initiallyExpanded: false,
+          leading: Icon(Icons.today, color: Constants.primaryColor, size: 20),
+          title: Text(
             '今天',
             style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Constants.textPrimaryColor,
+            ),
+          ),
+          trailing: Text(
+            '${grouped[SessionGroup.today]!.length}',
+            style: TextStyle(
               fontSize: 12,
-              fontWeight: FontWeight.bold,
               color: Constants.textSecondaryColor,
             ),
           ),
+          children: _buildSessionTiles(grouped[SessionGroup.today]!),
         ),
       );
-      children.addAll(_buildSessionTiles(grouped[SessionGroup.today]!));
     }
 
+    // 最近7天 - 默认收缩
     if (grouped[SessionGroup.last7Days]?.isNotEmpty == true) {
       children.add(
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Text(
+        ExpansionTile(
+          initiallyExpanded: false,
+          leading: Icon(Icons.date_range, color: Constants.textSecondaryColor, size: 20),
+          title: Text(
             '最近7天',
             style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: Constants.textSecondaryColor,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Constants.textPrimaryColor,
             ),
           ),
-        ),
-      );
-      children.addAll(_buildSessionTiles(grouped[SessionGroup.last7Days]!));
-    }
-
-    if (grouped[SessionGroup.previous]?.isNotEmpty == true) {
-      children.add(
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Text(
-            '更早',
+          trailing: Text(
+            '${grouped[SessionGroup.last7Days]!.length}',
             style: TextStyle(
               fontSize: 12,
-              fontWeight: FontWeight.bold,
               color: Constants.textSecondaryColor,
             ),
           ),
+          children: _buildSessionTiles(grouped[SessionGroup.last7Days]!),
         ),
       );
-      children.addAll(_buildSessionTiles(grouped[SessionGroup.previous]!));
+    }
+
+    // 更早 - 默认收缩
+    if (grouped[SessionGroup.previous]?.isNotEmpty == true) {
+      children.add(
+        ExpansionTile(
+          initiallyExpanded: false,
+          leading: Icon(Icons.history, color: Constants.textSecondaryColor, size: 20),
+          title: Text(
+            '更早',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Constants.textPrimaryColor,
+            ),
+          ),
+          trailing: Text(
+            '${grouped[SessionGroup.previous]!.length}',
+            style: TextStyle(
+              fontSize: 12,
+              color: Constants.textSecondaryColor,
+            ),
+          ),
+          children: _buildSessionTiles(grouped[SessionGroup.previous]!),
+        ),
+      );
     }
 
     return ListView.builder(
@@ -780,13 +790,22 @@ class _SessionsDialogState extends State<_SessionsDialog> {
           : null;
       final timeStr = _formatSessionTime(updatedAt);
 
+      // 🆕 和 Web 端保持一致：优先使用 title/label，否则显示"新对话"
+      final title = session['title'] ?? session['label'] ?? '新对话';
+      
+      // 🆕 清理附件标记（如果有）
+      String cleanTitle = title;
+      final attachmentRegex = RegExp(r'\[附件:[^\]]+\]');
+      cleanTitle = cleanTitle.replaceAll(attachmentRegex, '').trim();
+      if (cleanTitle.isEmpty) cleanTitle = '新对话';
+
       return ListTile(
         leading: Icon(
           Icons.chat_bubble_outline,
           color: Constants.textSecondaryColor,
         ),
         title: Text(
-          session['title'] ?? '无标题',
+          cleanTitle,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),

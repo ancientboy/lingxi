@@ -367,6 +367,21 @@
       "author": "OpenClaw",
       "agent": "noter",
       "displayOrder": 5
+    },
+    {
+      "id": "web-content-fetcher",
+      "name": "网页内容获取",
+      "shortDesc": "支持公众号文章抓取！",
+      "fullDesc": "支持公众号文章、Cloudflare 保护网站的网页内容抓取，返回 Markdown 格式",
+      "icon": "🌐",
+      "installCommand": "clawhub install web-content-fetcher",
+      "features": ["公众号专用", "Playwright", "Markdown 输出"],
+      "example": "帮我抓取这篇文章 https://mp.weixin.qq.com/s/xxxxx",
+      "tags": ["web", "fetch", "markdown", "wechat"],
+      "version": "1.0.0",
+      "author": "Boss",
+      "agent": "noter",
+      "displayOrder": 6
     }
   ],
   "media": [

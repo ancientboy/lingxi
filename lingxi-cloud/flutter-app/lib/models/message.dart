@@ -44,9 +44,13 @@ class Message {
       }
     }
 
+    // 🆕 清理内容中的附件标记
+    String rawContent = json['content']?.toString() ?? '';
+    String cleanContent = rawContent.replaceAll(RegExp(r'\[附件:[^\]]+\]\s*'), '').trim();
+    
     return Message(
       id: json['id']?.toString() ?? '',
-      content: json['content']?.toString() ?? '',
+      content: cleanContent,
       role: json['role']?.toString() ?? 'user',
       createdAt: _parseDateTime(json['created_at'] ?? json['createdAt']),
       agentId: json['agent_id']?.toString() ?? json['agentId']?.toString(),

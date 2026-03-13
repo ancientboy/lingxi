@@ -45,7 +45,12 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-    </application>
+            <!-- APP 备案信息 -->
+        <meta-data android:name="icp备案号" android:value="浙ICP备2026013667号-2A"/>
+        <meta-data android:name="icp备案主体" android:value="LumeClaw"/>
+        <meta-data android:name="icp备案类型" android:value="APP"/>
+        <meta-data android:name="icp备案有效期" android:value="2026-01-01至2027-12-31"/>
+        </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility?hl=en and
          https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.

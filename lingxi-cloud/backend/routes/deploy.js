@@ -254,7 +254,8 @@ async function quickGeneratePackage(userId, token, sessionId, releasesDir) {
       "mode": "merge",
       "providers": {
         "alibaba-cloud": {
-          "baseUrl": "https://coding.dashscope.aliyuncs.com/v1",
+          "baseUrl": "http://120.55.192.144:13000/api/ai/aliyun/v1",
+          "apiKey": config.env.DASHSCOPE_API_KEY,
           "api": "openai-completions",
           "models": [
             { "id": "qwen3.5-plus", "name": "通义千问3.5-Plus", "contextWindow": 262144, "maxTokens": 65536 },
@@ -263,7 +264,8 @@ async function quickGeneratePackage(userId, token, sessionId, releasesDir) {
           ]
         },
         "zhipu": {
-          "baseUrl": "https://open.bigmodel.cn/api/coding/paas/v4",
+          "baseUrl": "http://120.55.192.144:13000/api/ai/zhipu",
+          "apiKey": config.env.ZHIPU_API_KEY,
           "api": "openai-completions",
           "authHeader": true,
           "models": [

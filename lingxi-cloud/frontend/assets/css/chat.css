@@ -2313,3 +2313,713 @@ html {
   font-weight: 600;
   color: #15803d;
 }
+
+/* ===== 团队管理弹窗（改造版） ===== */
+
+/* 标签页导航 */
+.team-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  padding: 0 16px;
+  background: #f9fafb;
+}
+
+.team-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.team-tab:hover {
+  color: #374151;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.team-tab.active {
+  color: #10a37f;
+  border-bottom-color: #10a37f;
+}
+
+.team-tab i {
+  width: 16px;
+  height: 16px;
+}
+
+/* 标签页内容 */
+.team-tab-content {
+  padding: 16px;
+}
+
+/* 模板网格 */
+.templates-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.template-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.template-card:hover {
+  border-color: #10a37f;
+  box-shadow: 0 4px 12px rgba(16, 163, 127, 0.1);
+  transform: translateY(-2px);
+}
+
+.template-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.template-card-icon {
+  font-size: 28px;
+}
+
+.template-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.template-card-desc {
+  font-size: 13px;
+  color: #6b7280;
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+
+.template-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.template-card-members {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.template-card-category {
+  padding: 2px 8px;
+  background: #f3f4f6;
+  border-radius: 10px;
+  font-size: 11px;
+  color: #6b7280;
+}
+
+/* 模板详情弹窗 */
+.template-detail-modal {
+  max-width: 600px;
+}
+
+.template-detail-content {
+  min-height: 200px;
+}
+
+.template-detail-desc {
+  font-size: 14px;
+  color: #6b7280;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.template-detail-members {
+  margin-bottom: 20px;
+}
+
+.template-detail-members h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 12px;
+}
+
+.template-member-list {
+  display: grid;
+  gap: 8px;
+}
+
+.template-member-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.template-member-emoji {
+  font-size: 24px;
+}
+
+.template-member-info {
+  flex: 1;
+}
+
+.template-member-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #111827;
+  margin-bottom: 2px;
+}
+
+.template-member-role {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.template-member-triggers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.template-trigger-tag {
+  font-size: 10px;
+  padding: 2px 6px;
+  background: #e5e7eb;
+  border-radius: 6px;
+  color: #6b7280;
+}
+
+.template-member-badge {
+  font-size: 10px;
+  padding: 2px 8px;
+  background: rgba(16, 163, 127, 0.1);
+  color: #10a37f;
+  border-radius: 6px;
+}
+
+/* 模态框底部按钮 */
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.btn {
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.btn-primary {
+  background: #10a37f;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #0d8a6a;
+}
+
+.btn-secondary {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.btn-secondary:hover {
+  background: #d1d5db;
+}
+
+/* 团队成员样式优化 */
+.team-member {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.team-member-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.team-member-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #10a37f 0%, #059669 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+
+.team-member-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #111827;
+}
+
+.team-member-role {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+.team-badge {
+  font-size: 11px;
+  padding: 4px 10px;
+  background: rgba(16, 163, 127, 0.1);
+  color: #10a37f;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+.remove-btn {
+  font-size: 12px;
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid #ef4444;
+  color: #ef4444;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.remove-btn:hover {
+  background: #ef4444;
+  color: white;
+}
+
+/* 添加成员区域 */
+.add-team-section {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.add-team-section h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 12px;
+}
+
+.available-agents {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.agent-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.agent-chip:hover {
+  border-color: #10a37f;
+  background: rgba(16, 163, 127, 0.05);
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .templates-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .team-tabs {
+    padding: 0 12px;
+  }
+  
+  .team-tab {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+}
+
+/* 模板卡片样式补充 */
+.template-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.template-card-icon {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.template-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.template-detail-desc {
+  font-size: 14px;
+  color: #6b7280;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e5e7eb;
+  line-height: 1.6;
+}
+
+.template-detail-members h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 12px;
+}
+
+.template-member-emoji {
+  font-size: 28px;
+  width: 40px;
+  text-align: center;
+}
+
+.template-member-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #111827;
+  margin-bottom: 2px;
+}
+
+.template-member-role {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.template-member-triggers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.template-trigger-tag {
+  font-size: 10px;
+  padding: 2px 6px;
+  background: #e5e7eb;
+  border-radius: 6px;
+  color: #6b7280;
+}
+
+.template-member-badge {
+  font-size: 10px;
+  padding: 2px 8px;
+  background: rgba(16, 163, 127, 0.1);
+  color: #10a37f;
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+/* 动画 */
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOut {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+/* 团队成员头像优化 */
+.team-member-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #10a37f 0%, #059669 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  flex-shrink: 0;
+}
+
+.team-member-avatar svg {
+  width: 24px;
+  height: 24px;
+  color: white;
+}
+
+.team-member-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.team-member-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 2px;
+}
+
+.team-member-role {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.team-member {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  margin-bottom: 8px;
+  transition: all 0.2s;
+}
+
+.team-member:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* 模板卡片优化 */
+.template-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.template-card:hover {
+  border-color: #10a37f;
+  box-shadow: 0 4px 16px rgba(16, 163, 127, 0.12);
+  transform: translateY(-2px);
+}
+
+.template-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.template-card-header .icon-lg {
+  width: 32px;
+  height: 32px;
+  color: #10a37f;
+}
+
+.template-card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.template-card-desc {
+  font-size: 13px;
+  color: #6b7280;
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+
+.template-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.template-card-members {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.template-card-members .icon-sm {
+  width: 14px;
+  height: 14px;
+}
+
+.template-card-category {
+  padding: 2px 8px;
+  background: #f3f4f6;
+  border-radius: 10px;
+  font-size: 11px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+/* 模板详情优化 */
+.template-detail-members h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 12px;
+}
+
+.template-member-list {
+  display: grid;
+  gap: 8px;
+}
+
+.template-member-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+}
+
+.template-member-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #10a37f 0%, #059669 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.template-member-icon svg {
+  width: 22px;
+  height: 22px;
+  color: white;
+}
+
+.template-member-info {
+  flex: 1;
+}
+
+.template-member-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 2px;
+}
+
+.template-member-role {
+  font-size: 12px;
+  color: #6b7280;
+  margin-bottom: 4px;
+}
+
+.template-member-triggers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.template-trigger-tag {
+  font-size: 10px;
+  padding: 2px 6px;
+  background: #e5e7eb;
+  border-radius: 6px;
+  color: #6b7280;
+}
+
+.template-member-badge {
+  font-size: 10px;
+  padding: 2px 8px;
+  background: rgba(16, 163, 127, 0.1);
+  color: #10a37f;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+/* 团队徽章优化 */
+.team-badge {
+  font-size: 11px;
+  padding: 4px 12px;
+  background: rgba(16, 163, 127, 0.1);
+  color: #10a37f;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+/* 移除按钮优化 */
+.remove-btn {
+  font-size: 12px;
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid #ef4444;
+  color: #ef4444;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 500;
+}
+
+.remove-btn:hover {
+  background: #ef4444;
+  color: white;
+}
+
+/* 响应式优化 */
+@media (max-width: 768px) {
+  .team-member-avatar {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .team-member-avatar svg {
+    width: 20px;
+    height: 20px;
+  }
+  
+  .template-member-icon {
+    width: 36px;
+    height: 36px;
+  }
+  
+  .template-member-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+}

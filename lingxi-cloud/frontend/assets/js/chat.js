@@ -338,6 +338,7 @@ async function init() {
 
 let requestId = 1;
 let connectNonce = null;
+let statusDot = null;  // WebSocket 状态指示器（全局变量）
 
 // WebSocket 连接
 
@@ -350,7 +351,7 @@ function connectWebSocket() {
     console.warn('⚠️ connectionStatus 元素未找到，跳过 WebSocket 状态更新');
     return;
   }
-  const statusDot = statusEl.querySelector('.status-dot');
+  statusDot = statusEl.querySelector('.status-dot');
   if (!statusDot) {
     console.warn('⚠️ status-dot 元素未找到，跳过 WebSocket 状态更新');
     return;
@@ -1339,9 +1340,9 @@ async function sendMessage() {
           ws.send(JSON.stringify({
             type: 'req',
             id: `update-label-${Date.now()}`,
-            method: 'sessions.update',
+            method: 'sessions.patch',
             params: {
-              sessionKey: currentSessionKey,
+              key: currentSessionKey,
               label: newLabel
             }
           }));
@@ -1624,15 +1625,22 @@ function renderHistory(messages) {
     
     // 🔧 方案 B：从消息文本中提取附件信息（双重保险）
     if (!imageUrl && !documentInfo && content) {
+      // 格式1：前端发送格式 [附件:图片:filename:url]
       const attachmentRegex = /\[附件:(图片|文档):([^:]+):([^\]]+)\]/;
-      const match = content.match(attachmentRegex);
+      let match = content.match(attachmentRegex);
+      
+      // 格式2：OpenClaw 存储格式 [media attached: path (type) | url]
+      // 例如: [media attached: /path/to/file.jpg (image/jpeg) | http://example.com/file.jpg]
+      const mediaAttachedRegex = /\[media attached:\s*([^\|]+?)\s*(?:\(([^)]+)\))?\s*\|\s*([^\]]+)\]/;
+      const mediaMatch = content.match(mediaAttachedRegex);
       
       if (match) {
+        // 前端格式
         const type = match[1];  // '图片' 或 '文档'
         const filename = match[2];
         const url = match[3];
         
-        console.log('🔧 从文本中提取附件信息:', { type, filename, url });
+        console.log('🔧 从文本中提取附件信息(前端格式):', { type, filename, url });
         
         // 清理消息文本，移除附件标记
         const cleanContent = content.replace(attachmentRegex, '').trim();
@@ -1670,6 +1678,48 @@ function renderHistory(messages) {
             fileSize: 0
           };
           console.log('📄 提取到历史文档:', documentInfo);
+        }
+      } else if (mediaMatch) {
+        // OpenClay 格式
+        const path = mediaMatch[1].trim();
+        const mimeType = mediaMatch[2] ? mediaMatch[2].trim() : '';
+        const url = mediaMatch[3].trim();
+        
+        // 从路径提取文件名
+        const filename = path.split('/').pop();
+        
+        console.log('🔧 从文本中提取附件信息(OpenClay格式):', { path, mimeType, url, filename });
+        
+        // 清理消息文本，移除附件标记
+        const cleanContent = content.replace(mediaAttachedRegex, '').trim();
+        content = cleanContent;  // 更新 content
+        
+        // 🔧 将本地路径转换为代理 URL
+        // /root/.openclaw/media/inbound/xxx.webp → /api/media/inbound/xxx.webp
+        let proxyUrl = url;
+        if (url.startsWith('/root/.openclaw/media/')) {
+          const relativePath = url.replace('/root/.openclaw/media/', '');
+          proxyUrl = `/api/media/${relativePath}?user_id=${currentUserId || ''}`;
+          console.log('🔧 转换本地路径为代理 URL:', proxyUrl);
+        }
+        
+        // 判断是图片还是文档
+        if (mimeType.startsWith('image/')) {
+          imageUrl = proxyUrl;
+          console.log('📷 提取到历史图片(OpenClay格式):', imageUrl);
+        } else if (mimeType.startsWith('video/')) {
+          // 视频也当作图片处理（显示预览）
+          imageUrl = proxyUrl;
+          console.log('🎬 提取到历史视频(OpenClay格式):', imageUrl);
+        } else {
+          // 其他类型当作文档处理
+          documentInfo = {
+            url: proxyUrl,
+            mimeType: mimeType || 'application/octet-stream',
+            filename: filename,
+            fileSize: 0
+          };
+          console.log('📄 提取到历史文档(OpenClay格式):', documentInfo);
         }
       }
     }
@@ -2257,7 +2307,7 @@ function addMessage(role, content, name) {
       // 📷 带图片的消息
       bubbleContent = `
         <div class="message-image">
-          <img src="${content.image}" alt="上传的图片" style="max-width: 100%; border-radius: 8px; margin-bottom: 8px; cursor: zoom-in;" onclick="showImagePreview('${content.image}', '上传的图片')">
+          <img src="${content.image}" alt="上传的图片" style="width: 120px; height: 120px; object-fit: cover; border-radius: 8px; margin-bottom: 8px; cursor: pointer;" loading="lazy" onclick="window.open('${content.image}', '_blank')">
         </div>
         ${content.text ? `<div>${escapeHtml(content.text)}</div>` : ''}
       `;
@@ -2405,7 +2455,9 @@ function renderMyTeam() {
     return `
       <div class="team-member">
         <div class="team-member-info">
-          <div class="team-member-avatar">${agentIcon(agent)}</div>
+          <div class="team-member-avatar">
+            <i data-lucide="${agent.icon || 'bot'}" class="icon icon-lg icon-primary"></i>
+          </div>
           <div>
             <div class="team-member-name">${agent.name}</div>
             <div class="team-member-role">${agent.desc}</div>
@@ -2422,11 +2474,14 @@ function renderMyTeam() {
   // 如果用户没有团队，显示提示
   if (!user?.agents || user.agents.length === 0) {
     container.innerHTML += `
-      <div style="text-align:center;padding:16px;color:rgba(255,255,255,0.5);font-size:13px;margin-top:12px;border-top:1px solid rgba(255,255,255,0.1);">
+      <div style="text-align:center;padding:16px;color:#6b7280;font-size:13px;margin-top:12px;border-top:1px solid #e5e7eb;">
         💡 你还没有领取完整团队<br>邀请好友获得积分后即可领取
       </div>
     `;
   }
+  
+  // 重新渲染图标
+  if (window.lucide) lucide.createIcons();
 }
 
 // 渲染可添加的成员
@@ -2543,6 +2598,243 @@ async function removeAgent(agentId) {
     user.agents = oldAgents;
     alert('网络错误：' + e.message);
   }
+}
+
+// ===== 团队管理（改造版） =====
+
+// 切换标签页
+function switchTeamTab(tabId) {
+  // 更新标签页状态
+  document.querySelectorAll('.team-tab').forEach(tab => {
+    tab.classList.remove('active');
+  });
+  event.currentTarget.classList.add('active');
+  
+  // 切换内容
+  document.getElementById('myTeamTab').style.display = tabId === 'my-team' ? 'block' : 'none';
+  document.getElementById('templatesTab').style.display = tabId === 'templates' ? 'block' : 'none';
+  
+  // 如果切换到模板库，加载模板
+  if (tabId === 'templates') {
+    loadTemplates();
+  }
+}
+
+// 加载团队模板
+let templates = [];
+let selectedTemplate = null;
+
+async function loadTemplates() {
+  const container = document.getElementById('templatesGrid');
+  if (!container) return;
+  
+  container.innerHTML = '<div style="text-align:center;padding:20px;color:#6b7280;">加载中...</div>';
+  
+  try {
+    const res = await fetch(`${API_BASE}/api/team/templates`);
+    const data = await res.json();
+    
+    if (data.success) {
+      templates = data.templates;
+      renderTemplates();
+    } else {
+      container.innerHTML = '<div style="text-align:center;padding:20px;color:#ef4444;">加载失败</div>';
+    }
+  } catch (e) {
+    console.error('加载模板失败:', e);
+    container.innerHTML = '<div style="text-align:center;padding:20px;color:#ef4444;">网络错误</div>';
+  }
+}
+
+// 渲染模板列表
+function renderTemplates() {
+  const container = document.getElementById('templatesGrid');
+  if (!container) return;
+  
+  const iconMap = {
+    'software-dev': 'layers',
+    'content-marketing': 'megaphone',
+    'lingxi-team': 'zap'
+  };
+  
+  container.innerHTML = templates.map(template => `
+    <div class="template-card" onclick="showTemplateDetail('${template.templateId}')">
+      <div class="template-card-header">
+        <i data-lucide="${iconMap[template.templateId] || 'users'}" class="icon-lg icon-primary"></i>
+        <div class="template-card-title">${template.templateName}</div>
+      </div>
+      <div class="template-card-desc">${template.description}</div>
+      <div class="template-card-meta">
+        <span class="template-card-members"><i data-lucide="users" class="icon-sm"></i> ${template.memberCount} 人</span>
+        <span class="template-card-category">${template.category === 'development' ? '开发' : template.category === 'marketing' ? '营销' : '助手'}</span>
+      </div>
+    </div>
+  `).join('');
+  
+  // 重新渲染图标
+  if (window.lucide) lucide.createIcons();
+}
+
+// 显示模板详情
+async function showTemplateDetail(templateId) {
+  try {
+    const res = await fetch(`${API_BASE}/api/team/templates/${templateId}`);
+    const data = await res.json();
+    
+    if (data.success) {
+      selectedTemplate = data.template;
+      renderTemplateDetail(data.template);
+      document.getElementById('templateDetailModal').classList.add('show');
+    }
+  } catch (e) {
+    console.error('加载模板详情失败:', e);
+    alert('加载模板详情失败');
+  }
+}
+
+// 渲染模板详情
+function renderTemplateDetail(template) {
+  const container = document.getElementById('templateDetailContent');
+  document.getElementById('templateDetailTitle').textContent = template.templateName;
+  
+  const iconMap = {
+    'lingxi': 'zap',
+    'pm': 'target',
+    'architect': 'layers',
+    'frontend': 'monitor',
+    'backend': 'server',
+    'qa': 'check-circle',
+    'copywriter': 'pen-tool',
+    'designer': 'palette',
+    'seo': 'trending-up',
+    'social': 'share-2',
+    'coder': 'code',
+    'ops': 'bar-chart-2',
+    'inventor': 'lightbulb',
+    'noter': 'book-open',
+    'media': 'image',
+    'smart': 'home'
+  };
+  
+  container.innerHTML = `
+    <div class="template-detail-desc">
+      ${template.description}
+    </div>
+    <div class="template-detail-members">
+      <h4>团队成员 (${template.members.length}人)</h4>
+      <div class="template-member-list">
+        ${template.members.map(member => `
+          <div class="template-member-item">
+            <div class="template-member-icon">
+              <i data-lucide="${member.icon || iconMap[member.id] || 'bot'}" class="icon icon-lg icon-primary"></i>
+            </div>
+            <div class="template-member-info">
+              <div class="template-member-name">${member.name}</div>
+              <div class="template-member-role">${member.role || member.desc || ''}</div>
+              ${member.triggers && member.triggers.length > 0 ? `
+                <div class="template-member-triggers">
+                  ${member.triggers.slice(0, 3).map(t => `<span class="template-trigger-tag">${t}</span>`).join('')}
+                </div>
+              ` : ''}
+            </div>
+            ${member.isDefault ? '<span class="template-member-badge">队长</span>' : ''}
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+  
+  // 重新渲染图标
+  if (window.lucide) lucide.createIcons();
+}
+
+// 关闭模板详情弹窗
+function closeTemplateDetailModal() {
+  document.getElementById('templateDetailModal').classList.remove('show');
+  selectedTemplate = null;
+}
+
+// 确认应用模板
+async function confirmApplyTemplate() {
+  if (!selectedTemplate || !user) {
+    alert('请先选择模板');
+    return;
+  }
+  
+  const btn = document.getElementById('applyTemplateBtn');
+  btn.disabled = true;
+  btn.textContent = '应用中...';
+  
+  try {
+    const res = await fetch(`${API_BASE}/api/team/${user.id}/apply-template/${selectedTemplate.templateId}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('lingxi_token')}`
+      }
+    });
+    
+    const data = await res.json();
+    
+    if (data.success) {
+      // 更新本地用户信息
+      user.team = data.team;
+      user.agents = data.team.members.map(m => m.id);
+      localStorage.setItem('lingxi_user', JSON.stringify(user));
+      
+      // 关闭弹窗
+      closeTemplateDetailModal();
+      closeTeamModal();
+      
+      // 刷新界面
+      renderMyTeam();
+      renderAvailableAgents();
+      renderTeamTags();
+      
+      // 显示成功提示
+      showToast('success', `✅ 已应用模板：${selectedTemplate.templateName}`);
+      
+      console.log('✅ 模板应用成功:', selectedTemplate.templateId);
+    } else {
+      alert('应用失败: ' + (data.error || '未知错误'));
+    }
+  } catch (e) {
+    console.error('应用模板失败:', e);
+    alert('网络错误：' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '应用此模板';
+  }
+}
+
+// 显示 Toast 提示
+function showToast(type, message) {
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.textContent = message;
+  toast.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    color: white;
+    font-size: 14px;
+    z-index: 10000;
+    animation: slideIn 0.3s ease;
+  `;
+  
+  if (type === 'success') {
+    toast.style.background = '#10a37f';
+  } else if (type === 'error') {
+    toast.style.background = '#ef4444';
+  }
+  
+  document.body.appendChild(toast);
+  
+  setTimeout(() => {
+    toast.style.animation = 'slideOut 0.3s ease';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
 }
 
 // ===== 会话列表 =====

@@ -107,12 +107,7 @@ function getFileIcon(type) {
  * 生成文件预览 URL
  */
 function getFileUrl(filePath, options = {}) {
-  const { serverIp, port = 9876, token } = options;
-  
-  if (!serverIp) {
-    console.warn('⚠️  未提供服务器 IP，无法生成文件 URL');
-    return '';
-  }
+  const { token } = options;
   
   // 提取相对路径
   let cleanPath = filePath;
@@ -130,12 +125,14 @@ function getFileUrl(filePath, options = {}) {
     cleanPath = cleanPath.replace('./', '');
   }
   
-  // 使用 /preview 端点
-  let url = `http://${serverIp}:${port}/preview?path=${encodeURIComponent(cleanPath)}`;
+  // 使用 /api/files/preview 端点（通过后端代理）
+  const baseUrl = window.location.origin;
+  let url = `${baseUrl}/api/files/preview?path=${encodeURIComponent(cleanPath)}`;
   
-  // 如果有 token，添加到 URL 参数
-  if (token) {
-    url += `&token=${encodeURIComponent(token)}`;
+  // 优先使用传入的 token，否则从 localStorage 获取
+  const actualToken = token || localStorage.getItem('lingxi_token');
+  if (actualToken) {
+    url += `&token=${encodeURIComponent(actualToken)}`;
   }
   
   return url;
@@ -493,21 +490,188 @@ function processMessage(text, options = {}) {
 }
 
 /**
- * 处理消息（完整版）- 同时处理 Markdown 图片和文件路径
+ * 提取音频文件路径
+ * 支持 MEDIA:/path/to/audio.mp3 格式
+ */
+function extractAudioFiles(text) {
+  const audioFiles = [];
+  const pattern = /MEDIA:([^\s\n]+)/g;
+  
+  let match;
+  while ((match = pattern.exec(text)) !== null) {
+    audioFiles.push(match[1]);
+  }
+  
+  return audioFiles;
+}
+
+/**
+ * 格式化时间为 mm:ss
+ */
+function formatDuration(seconds) {
+  if (!seconds || isNaN(seconds)) return '00:00';
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
+
+/**
+ * 渲染音频播放器
+ */
+function renderAudioPlayers(audioFiles, options = {}) {
+  if (!audioFiles || audioFiles.length === 0) {
+    return '';
+  }
+  
+  let html = '<div class="audio-players">';
+  
+  audioFiles.forEach((audioPath, index) => {
+    // 构建音频 URL
+    let audioUrl = '';
+    
+    // 简化：所有 TTS 文件都通过主服务器代理
+    // 后端会自动处理本地/远程文件的获取逻辑
+    const backendIp = 'lumeword.cn';
+    const backendPort = 3000;
+    
+    // 如果有用户服务器信息，传递 userId 帮助后端快速定位
+    const userIdParam = options.userId ? `&userId=${encodeURIComponent(options.userId)}` : '';
+    audioUrl = `http://${backendIp}:${backendPort}/api/files/tts?path=${encodeURIComponent(audioPath)}${userIdParam}`;
+    // 不在页面加载时打印日志，只在点击播放时打印
+    
+    const playerId = `audio-player-${index}-${Date.now()}`;
+    
+    html += `
+      <div class="audio-player" style="margin: 8px 0; padding: 12px; background: ${options.isDarkMode ? '#424454' : '#f3f4f6'}; border-radius: 20px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <button id="${playerId}-play" onclick="toggleAudioPlay('${playerId}', '${audioUrl}')" 
+            style="width: 36px; height: 36px; border-radius: 50%; border: none; background: #10A37F; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+            <svg id="${playerId}-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="white">
+              <path d="M8 5v14l11-7z"/>
+            </svg>
+          </button>
+          <div style="flex: 1; min-width: 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <span style="font-size: 14px; font-weight: 500; color: ${options.isDarkMode ? '#ECECF1' : '#1f2937'};">语音消息</span>
+              <span id="${playerId}-time" style="font-size: 11px; color: ${options.isDarkMode ? 'rgba(255,255,255,0.7)' : '#6b7280'};">00:00 / 00:00</span>
+            </div>
+            <div style="height: 3px; background: ${options.isDarkMode ? 'rgba(255,255,255,0.24)' : 'rgba(0,0,0,0.12)'}; border-radius: 2px; overflow: hidden;">
+              <div id="${playerId}-progress" style="height: 100%; width: 0%; background: #10A37F; transition: width 0.1s;"></div>
+            </div>
+          </div>
+        </div>
+        <audio id="${playerId}-audio" preload="metadata" onloadedmetadata="updateAudioDuration('${playerId}')" 
+          ontimeupdate="updateAudioProgress('${playerId}')" onended="resetAudioPlay('${playerId}')">
+          您的浏览器不支持音频播放
+        </audio>
+      </div>
+    `;
+  });
+  
+  html += '</div>';
+  return html;
+}
+
+// 全局音频播放器控制
+window.toggleAudioPlay = function(playerId, audioUrl) {
+  const audio = document.getElementById(`${playerId}-audio`);
+  const playBtn = document.getElementById(`${playerId}-play`);
+  const icon = document.getElementById(`${playerId}-icon`);
+  
+  if (!audio) {
+    console.error('找不到 audio 元素:', playerId);
+    return;
+  }
+  
+  console.log('🎵 播放音频:', audioUrl);
+  
+  // 设置音频源（必须在播放前设置）
+  if (!audio.src || audio.src !== audioUrl) {
+    audio.src = audioUrl;
+    audio.load();
+  }
+  
+  audio.addEventListener('error', function(e) {
+    console.error('❌ 音频加载错误:', e);
+  }, { once: true });
+  
+  audio.play().then(() => {
+    console.log('✅ 开始播放');
+    // 更新图标为暂停
+    icon.innerHTML = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
+    playBtn.style.background = '#10A37F';
+  }).catch(err => {
+    console.error('❌ 播放失败:', err);
+  });
+};
+
+window.resetAudioPlay = function(playerId) {
+  const icon = document.getElementById(`${playerId}-icon`);
+  const playBtn = document.getElementById(`${playerId}-play`);
+  if (icon) icon.innerHTML = '<path d="M8 5v14l11-7z"/>';
+  if (playBtn) playBtn.style.background = '#10A37F';
+};
+
+window.updateAudioDuration = function(playerId) {
+  const audio = document.getElementById(`${playerId}-audio`);
+  const timeEl = document.getElementById(`${playerId}-time`);
+  if (audio && timeEl && audio.duration) {
+    const duration = formatDuration(audio.duration);
+    const current = formatDuration(audio.currentTime);
+    timeEl.textContent = `${current} / ${duration}`;
+  }
+};
+
+window.updateAudioProgress = function(playerId) {
+  const audio = document.getElementById(`${playerId}-audio`);
+  const timeEl = document.getElementById(`${playerId}-time`);
+  const progressEl = document.getElementById(`${playerId}-progress`);
+  
+  if (audio && timeEl && progressEl) {
+    const duration = audio.duration || 0;
+    const current = audio.currentTime || 0;
+    
+    // 更新时间显示
+    const durationStr = formatDuration(duration);
+    const currentStr = formatDuration(current);
+    timeEl.textContent = `${currentStr} / ${durationStr}`;
+    
+    // 更新进度条
+    const percent = duration > 0 ? (current / duration) * 100 : 0;
+    progressEl.style.width = `${percent}%`;
+  }
+};
+
+/**
+ * 处理消息（完整版）- 同时处理 Markdown 图片、音频文件和文件路径
  */
 function processMessageFull(text, options = {}) {
-  if (!text) return { text: '', filesHtml: '', imagesHtml: '' };
+  if (!text) return { text: '', filesHtml: '', imagesHtml: '', audioHtml: '' };
   
   // 1. 先处理 Markdown 图片
   const { text: textAfterImages, imagesHtml } = parseMarkdownImages(text, options);
   
-  // 2. 再处理文件路径
-  const { text: cleanText, filesHtml } = processMessage(textAfterImages, options);
+  // 2. 处理音频文件
+  const audioFiles = extractAudioFiles(textAfterImages);
+  let textAfterAudio = textAfterImages;
+  audioFiles.forEach(audioPath => {
+    textAfterAudio = textAfterAudio.replace(`MEDIA:${audioPath}`, '').trim();
+  });
+  // 从 options 中获取 userId，如果没有则从全局 user 对象获取
+  const audioOptions = { ...options };
+  if (!audioOptions.userId && typeof window !== 'undefined' && window.user) {
+    audioOptions.userId = window.user.id;
+  }
+  const audioHtml = renderAudioPlayers(audioFiles, audioOptions);
+  
+  // 3. 再处理文件路径
+  const { text: cleanText, filesHtml } = processMessage(textAfterAudio, options);
   
   return {
     text: cleanText,
     filesHtml,
-    imagesHtml
+    imagesHtml,
+    audioHtml
   };
 }
 

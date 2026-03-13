@@ -3352,11 +3352,17 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                 title: Text('关于', style: TextStyle(color: textColor)),
                 onTap: () async {
                   Navigator.pop(context);
-                  showAboutDialog(
-                    context: context,
-                    applicationName: Constants.appName,
-                    applicationVersion: Constants.appVersion,
-                  );
+                    showAboutDialog(
+                      context: context,
+                      applicationName: Constants.appName,
+                      applicationVersion: Constants.appVersion,
+                      children: [
+                        const SizedBox(height: 16),
+                        const Text("浙ICP备2026013667号-2A", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        const SizedBox(height: 8),
+                        const Text("你的 AI 团队，一键拥有", style: TextStyle(fontSize: 14, color: Colors.black54)),
+                      ],
+                    );
                 },
               ),
               const Divider(height: 1),
@@ -5039,7 +5045,7 @@ class _AudioPlayerWidgetState extends State<_AudioPlayerWidget> {
     
     // 否则使用灵犀云后端的 TTS 代理 API（主服务器）
     // 尝试多个可能的文件服务器
-    const backendIp = '120.55.192.144';
+    const backendIp = 'lumeword.cn';
     const backendPort = 3000;
     
     debugPrint('🔊 使用主服务器代理: $backendIp:$backendPort');
