@@ -69,7 +69,7 @@ router.post('/image', upload.single('file'), async (req, res) => {
     
     // 方式1: multipart/form-data 上传（推荐）
     if (req.file) {
-      const fileUrl = `http://120.55.192.144:3000/uploads/${req.file.filename}`;
+      const fileUrl = `https://lumeword.cn/uploads/${req.file.filename}`;  // 相对路径，避免 Mixed Content
       const isDocument = !req.file.mimetype.startsWith('image/');
       const emoji = isDocument ? '📄' : '📷';
       
@@ -109,7 +109,7 @@ router.post('/image', upload.single('file'), async (req, res) => {
     await fs.writeFile(filepath, Buffer.from(base64Data, 'base64'));
     
     // 返回可访问的 URL
-    const imageUrl = `http://120.55.192.144:3000/uploads/${filename}`;
+    const imageUrl = `https://lumeword.cn/uploads/${filename}`;  // 相对路径，避免 Mixed Content
     const isDocument = !mimeType.startsWith('image/');
     const emoji = isDocument ? '📄' : '📷';
     

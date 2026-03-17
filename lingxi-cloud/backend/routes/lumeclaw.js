@@ -86,11 +86,11 @@ router.post('/chat', async (req, res) => {
     let lumeclawUrl;
     if (user.server?.type === 'dedicated' && user.server?.ip) {
       // 独立服务器 - 直接 HTTP 调用
-      lumeclawUrl = `http://${user.server.ip}:13001`;
+      lumeclawUrl = `http://${user.server.ip}:13000`;
       console.log(`📡 转发到独立服务器: ${lumeclawUrl}`);
     } else {
       // 共享服务器 - 本地调用
-      lumeclawUrl = 'http://localhost:13001';
+      lumeclawUrl = 'http://localhost:13000';
       console.log(`📡 本地调用 LumeClaw`);
     }
 

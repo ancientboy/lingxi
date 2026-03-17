@@ -20,7 +20,7 @@ const __dirname = path.dirname(__filename);
 // ============ 后端轻代理池 ============
 
 // 轻代理地址列表（按优先级排序）
-const BACKEND_PROXIES = (process.env.AI_BACKEND_PROXIES || 'http://localhost:3001')
+const BACKEND_PROXIES = (process.env.AI_BACKEND_PROXIES || 'http://localhost:13000')
   .split(',')
   .map(u => u.trim())
   .filter(u => u.length > 0);

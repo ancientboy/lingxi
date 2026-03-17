@@ -3,6 +3,8 @@
  * 
  * 解决 HTTPS 页面无法连接 ws:// 的问题
  * 前端连接 wss://lumeword.com/api/ws → 后端代理到用户服务器
+ * 
+ * 🔧 2026-03-17: 添加超时机制，防止连接泄漏导致服务器崩溃
  */
 
 import { Router } from 'express';
@@ -15,6 +17,11 @@ import { replaceImageUrls, replaceHistoryImageUrls } from '../utils/image-downlo
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'lingxi-cloud-secret-key-2026';
+
+// ⏱️ 超时配置（防止连接泄漏）
+const WS_CONNECT_TIMEOUT = 15000;    // WebSocket 连接超时：15秒
+const HTTP_REQUEST_TIMEOUT = 60000;  // HTTP 请求超时：60秒
+const IDLE_TIMEOUT = 300000;         // 空闲超时：5分钟无活动则断开
 
 // MVP 模式配置
 const MVP_MODE = process.env.MVP_MODE === 'true' || true;
@@ -150,6 +157,13 @@ async function sendImageMessageViaHTTP(params) {
   console.log(`   - 图片数量: ${imageCount}`);
   console.log(`   - 文档数量: ${documentCount}`);
   
+  // ⏱️ 使用 AbortController 实现超时
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+    console.log(`⏱️ [HTTP] 请求超时，已取消`);
+  }, HTTP_REQUEST_TIMEOUT);
+  
   try {
     const response = await fetch(url, {
       method: 'POST',
@@ -157,8 +171,11 @@ async function sendImageMessageViaHTTP(params) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${gatewayConfig.token}`
       },
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
+      signal: controller.signal
     });
+    
+    clearTimeout(timeoutId);  // 清除超时定时器
     
     if (!response.ok) {
       const errorText = await response.text();
@@ -170,6 +187,13 @@ async function sendImageMessageViaHTTP(params) {
     
     return result;
   } catch (error) {
+    clearTimeout(timeoutId);  // 确保清除定时器
+    
+    // 区分超时错误和其他错误
+    if (error.name === 'AbortError') {
+      throw new Error('请求超时，请稍后重试');
+    }
+    
     console.error(`❌ [HTTP] responses API 失败:`, error.message);
     throw error;
   }
@@ -258,6 +282,43 @@ export function setupWebSocketProxy(app) {
     let userId = null;
     const messageQueue = [];
     let needsTTS = false; // 🆕 标记是否需要语音回复
+    let connectTimer = null;  // ⏱️ 连接超时定时器
+    let idleTimer = null;     // ⏱️ 空闲超时定时器
+    
+    // ⏱️ 清理所有定时器和连接
+    const cleanup = () => {
+      if (connectTimer) {
+        clearTimeout(connectTimer);
+        connectTimer = null;
+      }
+      if (idleTimer) {
+        clearTimeout(idleTimer);
+        idleTimer = null;
+      }
+      if (targetWs) {
+        try {
+          if (targetWs.readyState === WebSocket.OPEN || targetWs.readyState === WebSocket.CONNECTING) {
+            targetWs.close(1000, 'cleanup');
+          }
+        } catch (e) {
+          // 忽略关闭错误
+        }
+        targetWs = null;
+      }
+    };
+    
+    // ⏱️ 重置空闲定时器
+    const resetIdleTimer = () => {
+      if (idleTimer) clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => {
+        console.log(`⏱️ [${userId?.substring(0, 8)}] 连接空闲超时，自动断开`);
+        cleanup();
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'error', error: '连接超时，请重新连接' }));
+          ws.close(1000, 'idle timeout');
+        }
+      }, IDLE_TIMEOUT);
+    };
     
     try {
       const token = req.query.token;
@@ -302,7 +363,28 @@ export function setupWebSocketProxy(app) {
         }
       });
       
+      // ⏱️ 设置连接超时
+      connectTimer = setTimeout(() => {
+        if (targetWs && targetWs.readyState === WebSocket.CONNECTING) {
+          console.error(`⏱️ [${userId?.substring(0, 8)}] 连接 Gateway 超时`);
+          cleanup();
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'error', error: '服务器连接超时，请稍后重试' }));
+            ws.close(1001, 'connect timeout');
+          }
+        }
+      }, WS_CONNECT_TIMEOUT);
+      
+      // ⏱️ 启动空闲定时器
+      resetIdleTimer();
+      
       targetWs.on('open', () => {
+        // ⏱️ 清除连接超时定时器
+        if (connectTimer) {
+          clearTimeout(connectTimer);
+          connectTimer = null;
+        }
+        
         console.log(`✅ [${userId.substring(0, 8)}] 已连接到 Gateway（透传模式）`);
         
         // 透传模式：不发送 connect，让前端自己发送
@@ -314,6 +396,9 @@ export function setupWebSocketProxy(app) {
       });
       
       targetWs.on('message', async (data) => {
+        // ⏱️ 收到消息，重置空闲定时器
+        resetIdleTimer();
+        
         try {
           const msgStr = data.toString();
           const msg = JSON.parse(msgStr);
@@ -409,6 +494,9 @@ export function setupWebSocketProxy(app) {
       });
       
       ws.on('message', async (data) => {
+        // ⏱️ 收到客户端消息，重置空闲定时器
+        resetIdleTimer();
+        
         try {
           const msgStr = data.toString();
           let msg;
@@ -512,7 +600,8 @@ export function setupWebSocketProxy(app) {
       });
       
       targetWs.on('close', (code, reason) => {
-        console.log(`🔌 [${userId.substring(0, 8)}] 目标 Gateway 已断开: ${code}`);
+        console.log(`🔌 [${userId?.substring(0, 8)}] 目标 Gateway 已断开: ${code}`);
+        cleanup();
         if (ws.readyState === WebSocket.OPEN) {
           const validCode = (code >= 1000 && code < 5000) ? code : 1000;
           ws.close(validCode, (reason && typeof reason === 'string') ? reason : '');
@@ -520,30 +609,27 @@ export function setupWebSocketProxy(app) {
       });
       
       ws.on('close', (code, reason) => {
-        console.log(`🔌 [${userId.substring(0, 8)}] 客户端已断开: ${code}`);
-        if (targetWs && targetWs.readyState === WebSocket.OPEN) {
-          if (code && code >= 1000 && code <= 1015) {
-            targetWs.close(code, (reason && typeof reason === 'string') ? reason : '');
-          } else {
-            targetWs.close(1000, (reason && typeof reason === 'string') ? reason : '');
-          }
-        }
+        console.log(`🔌 [${userId?.substring(0, 8)}] 客户端已断开: ${code}`);
+        cleanup();
       });
       
       targetWs.on('error', (error) => {
-        console.error(`❌ [${userId.substring(0, 8)}] 目标 Gateway 错误:`, error.message);
+        console.error(`❌ [${userId?.substring(0, 8)}] 目标 Gateway 错误:`, error.message);
+        cleanup();
         if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'error', error: 'Gateway 连接失败' }));
+          ws.send(JSON.stringify({ type: 'error', error: 'Gateway 连接失败: ' + error.message }));
           ws.close(1011, 'Gateway error');
         }
       });
       
       ws.on('error', (error) => {
-        console.error(`❌ [${userId.substring(0, 8)}] 客户端 WebSocket 错误:`, error.message);
+        console.error(`❌ [${userId?.substring(0, 8)}] 客户端 WebSocket 错误:`, error.message);
+        cleanup();
       });
       
     } catch (error) {
       console.error('WebSocket 代理错误:', error);
+      cleanup();
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'error', error: error.message }));
         ws.close();

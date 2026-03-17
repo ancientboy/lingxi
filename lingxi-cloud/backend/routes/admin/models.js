@@ -170,7 +170,7 @@ router.put('/config', authMiddleware, adminMiddleware, (req, res) => {
 router.get('/providers', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     // 从轻代理获取状态
-    const proxyUrlList = (process.env.AI_BACKEND_PROXIES || 'http://localhost:3001').split(',');
+    const proxyUrlList = (process.env.AI_BACKEND_PROXIES || 'http://localhost:13000').split(',');
     const proxyUrl = proxyUrlList[0].trim();
     
     const providers = [];
@@ -257,7 +257,7 @@ router.get('/providers', authMiddleware, adminMiddleware, async (req, res) => {
 // ============ 供应商 Key 管理 ============
 
 // 代理到轻代理（取第一个地址）
-const PROXY_LITE_URLS = (process.env.AI_BACKEND_PROXIES || 'http://localhost:3001').split(',');
+const PROXY_LITE_URLS = (process.env.AI_BACKEND_PROXIES || 'http://localhost:13000').split(',');
 const PROXY_LITE_URL = PROXY_LITE_URLS[0].trim();
 
 // 获取所有供应商 Key
@@ -407,7 +407,7 @@ router.post('/providers/:provider/test', authMiddleware, adminMiddleware, async 
       url = config.getUrl();
       headers['Authorization'] = `Bearer ${config.apiKey}`;
     } else {
-      const proxyUrls = (process.env.AI_BACKEND_PROXIES || 'http://localhost:3001').split(',');
+      const proxyUrls = (process.env.AI_BACKEND_PROXIES || 'http://localhost:13000').split(',');
       url = config.getUrl(proxyUrls[0].trim());
     }
     

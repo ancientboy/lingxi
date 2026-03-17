@@ -20,7 +20,8 @@ const CLAWHUB_API_BASE = process.env.CLAWHUB_API_BASE || 'https://hub.openclaw.i
 
 // 本地技能库路径
 const LIBRARY_PATH = join(__dirname, 'library.json');
-const USER_LIBRARY_PATH = join(process.env.HOME, '.openclaw', 'workspace', 'lingxi-cloud', 'backend', 'skills', 'library.json');
+const HOME_DIR = process.env.HOME || process.env.USERPROFILE || '/root';
+const USER_LIBRARY_PATH = join(HOME_DIR, '.openclaw', 'workspace', 'lingxi-cloud', 'backend', 'skills', 'library.json');
 
 // Agent 配置
 const AGENTS = {
@@ -75,9 +76,9 @@ const AGENTS = {
 export async function isSkillInstalled(skillId, userId = null) {
   let skillPath;
   if (userId) {
-    skillPath = join(process.env.HOME, '.openclaw', 'users', userId, 'skills', skillId);
+    skillPath = join(process.env.HOME || "/root", '.openclaw', 'users', userId, 'skills', skillId);
   } else {
-    skillPath = join(process.env.HOME, '.openclaw', 'skills', skillId);
+    skillPath = join(process.env.HOME || "/root", '.openclaw', 'skills', skillId);
   }
   
   try {
@@ -199,8 +200,8 @@ export async function installGlobalSkill(skillId, userId = null) {
   try {
     // 确定安装路径
     const targetSkillsDir = userId 
-      ? join(process.env.HOME, '.openclaw', 'users', userId, 'skills')
-      : join(process.env.HOME, '.openclaw', 'skills');
+      ? join(process.env.HOME || "/root", '.openclaw', 'users', userId, 'skills')
+      : join(process.env.HOME || "/root", '.openclaw', 'skills');
     
     console.log(`📦 安装路径: ${targetSkillsDir}`);
     

@@ -2,7 +2,7 @@
  * 一键部署路由 - 阿里云 ECS 创建 + OpenClaw 部署
  * 
  * 配置说明：
- * - 镜像: lume-2026.3.8 (自定义镜像，ID: m-bp18vip9dw4jgn7mj474)
+ * - 镜像: lingxi-cloud-user-v3 (自定义镜像，ID: m-bp188n2ksvk7yhphorgp)
  * - OpenClaw 版本: 2026.3.8
  * - 核心技能: openclaw-skills (包含 144 个 SEO Skills + NoizAI 语音技能 + Agency-Agents 角色库)
  * 
@@ -339,6 +339,7 @@ async function quickGeneratePackage(userId, token, sessionId, releasesDir) {
             },
             "images": {
               "allowUrl": true,
+              "urlAllowlist": ["*"],
               "allowedMimes": [
                 "image/jpeg",
                 "image/jpg",
@@ -564,7 +565,7 @@ async function deployServerAsync(serverId, taskId, openclawToken, openclawSessio
     await ensureSecurityGroupRules(client);
     
     // 使用自定义镜像（预装 Node.js 22 + OpenClaw）
-    const customImageId = 'm-bp18vip9dw4jgn7mj474'; // lume-2026.3.8
+    const customImageId = 'm-bp188n2ksvk7yhphorgp'; // lingxi-cloud-user-v3
     
     const createRequest = new Ecs.CreateInstanceRequest({
       regionId: config.aliyun.region,

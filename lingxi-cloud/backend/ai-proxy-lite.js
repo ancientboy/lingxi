@@ -4,7 +4,7 @@
  * 
  * 独立部署，只做一件事：转发请求 + Key 池轮询
  * 
- * 启动：node ai-proxy-lite.js --port 3001
+ * 启动：node ai-proxy-lite.js --port 13000
  * 
  * API：
  * - GET /health - 健康检查
@@ -26,9 +26,10 @@ const __dirname = dirname(__filename);
 
 // ============ 配置 ============
 
-const PORT = process.env.PROXY_LITE_PORT || process.argv.includes('--port') 
+const HOST = process.env.PROXY_LITE_HOST || '0.0.0.0';
+const PORT = process.env.PROXY_LITE_PORT || (process.argv.includes('--port') 
   ? process.argv[process.argv.indexOf('--port') + 1] 
-  : 3001;
+  : 13000);
 
 const ADMIN_TOKEN = process.env.PROXY_ADMIN_TOKEN || 'lingxi-admin-2026';
 
@@ -45,7 +46,7 @@ if (!fs.existsSync(DATA_DIR)) {
 const DEFAULT_CONFIG = {
   aliyun: {
     name: '阿里云百炼',
-    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    baseUrl: 'https://coding.dashscope.aliyuncs.com/v1',
     keys: []
   },
   zhipu: {
@@ -179,9 +180,9 @@ async function proxyRequest(providerId, req, res) {
   }
 
   const baseUrl = provider.baseUrl;
-  let targetPath = req.url.replace(/^\/(aliyun|zhipu|dmxapi)/, '');
+  let targetPath = req.url.replace(/^\/(api\/ai\/)?(aliyun|zhipu|dmxapi)/, '');
   // 智谱和 DMXAPI 需要去掉 /v1（baseUrl 已包含 /v1 或 /v4）
-  if (providerId === 'zhipu' || providerId === 'dmxapi') {
+  if (providerId === 'aliyun' || providerId === 'zhipu' || providerId === 'dmxapi') {
     targetPath = targetPath.replace('/v1/', '/');
   }
   const url = new URL(baseUrl + targetPath); console.log('[代理调试] 请求 URL:', url.toString());
@@ -189,6 +190,7 @@ async function proxyRequest(providerId, req, res) {
   const httpModule = url.protocol === 'https:' ? https : http;
   
   const options = {
+    timeout: 120000,  // 2分钟超时
     hostname: url.hostname,
     port: url.port || (url.protocol === 'https:' ? 443 : 80),
     path: url.pathname + url.search,
@@ -429,13 +431,13 @@ const server = http.createServer(async (req, res) => {
   }
 
   // 路由到对应供应商
-  if (path.startsWith('/aliyun')) {
+  if (path.startsWith('/api/ai/aliyun')) {
     return proxyRequest('aliyun', req, res);
   }
-  if (path.startsWith('/zhipu')) {
+  if (path.startsWith('/api/ai/zhipu')) {
     return proxyRequest('zhipu', req, res);
   }
-  if (path.startsWith('/dmxapi')) {
+  if (path.startsWith('/api/ai/dmxapi')) {
     return proxyRequest('dmxapi', req, res);
   }
 
@@ -444,7 +446,7 @@ const server = http.createServer(async (req, res) => {
   res.end(JSON.stringify({ error: 'Not found' }));
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 AI 轻代理已启动: http://localhost:${PORT}`);
   console.log(`   健康检查: http://localhost:${PORT}/health`);
   for (const [id, p] of Object.entries(PROVIDERS)) {

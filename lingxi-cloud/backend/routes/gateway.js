@@ -77,7 +77,7 @@ router.get('/connect-info', async (req, res) => {
       session: userServer.openclawSession,
       token: token,  // JWT token，用于 WebSocket 代理验证
       gatewayToken: userServer.openclawToken,  // OpenClaw token，用于 connect 消息
-      sessionPrefix: `user_${user.id.substring(0, 8)}`,
+      sessionPrefix: `agent:main:user_${user.id.substring(0, 8)}`,
       server: {
         ip: userServer.ip,
         port: userServer.openclawPort,
@@ -99,7 +99,7 @@ router.get('/connect-info', async (req, res) => {
       session: SHARED_GATEWAY.session,
       token: token,  // JWT token，用于 WebSocket 代理验证
       gatewayToken: SHARED_GATEWAY.token,  // OpenClaw token，用于 connect 消息
-      sessionPrefix: `user_${user.id.substring(0, 8)}`,
+      sessionPrefix: `agent:main:user_${user.id.substring(0, 8)}`,
       server: null
     });
   } else {

@@ -79,6 +79,20 @@ export const config = {
   
   // 运行模式
   mvpMode: process.env.MVP_MODE === 'true',
+  
+  // 邮箱配置
+  email: {
+    // SendGrid（国际）
+    sendgridApiKey: process.env.SENDGRID_API_KEY || '',
+    fromEmail: process.env.FROM_EMAIL || 'noreply@lumeword.cn',
+    
+    // SMTP（国内推荐）
+    smtpHost: process.env.SMTP_HOST || 'smtp.qq.com',
+    smtpPort: parseInt(process.env.SMTP_PORT || '465'),
+    smtpUser: process.env.SMTP_USER || '',
+    smtpPass: process.env.SMTP_PASS || '',
+    fromName: process.env.FROM_NAME || 'LumeClaw',
+  },
 };
 
 export default config;

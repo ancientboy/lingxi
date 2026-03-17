@@ -310,9 +310,17 @@ async function init() {
   }
 
   // 使用用户ID生成主会话key
-  SESSION_KEY = `${SESSION_PREFIX}:main`;
-  currentSessionKey = SESSION_KEY;
-  console.log('🔑 会话 Key:', currentSessionKey);
+  SESSION_KEY = SESSION_PREFIX;  // 格式：agent:main:user_xxx
+
+  // 🆕 从 localStorage 恢复上次会话（如果存在）
+  const savedSessionKey = localStorage.getItem('currentSessionKey');
+  if (savedSessionKey && savedSessionKey.startsWith(SESSION_PREFIX)) {
+    currentSessionKey = savedSessionKey;
+    console.log('🔄 从 localStorage 恢复会话:', currentSessionKey);
+  } else {
+    currentSessionKey = SESSION_KEY;
+    console.log('🔑 初始化主会话:', currentSessionKey);
+  }
 
   renderTeamTags();
   connectWebSocket();
@@ -368,11 +376,24 @@ function connectWebSocket() {
 
     ws.onopen = () => {
       console.log('WebSocket 已连接，等待 750ms 后发送 connect...');
-
+      
+      // 🆕 标记为重连
+      const isReconnect = ws.isReconnect || false;
 
       // OpenClaw 要求等待 750ms 后再发送 connect
       setTimeout(() => {
         sendConnect();
+        
+        // 🆕 重连后加载会话列表，但不切换当前会话
+        if (isReconnect) {
+          console.log('🔄 重连完成，保持当前会话:', currentSessionKey);
+          // 延迟加载会话列表用于显示，不改变 currentSessionKey
+          setTimeout(() => {
+            if (typeof loadSessions === 'function') {
+              loadSessions();
+            }
+          }, 1000);
+        }
       }, 750);
     };
 
@@ -405,6 +426,9 @@ function connectWebSocket() {
 // 发送 connect 请求
 function sendConnect() {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  
+  // 🆕 标记为重连完成
+  if (ws) ws.isReconnect = true;
 
   const params = {
     minProtocol: 3,
@@ -1953,6 +1977,20 @@ async function loadSessions() {
 
       window.sessions = allSessions;
       console.log('✅ 加载了', allSessions.length, '个会话（原始:', res.payload.sessions.length, '）');
+      
+      // 🆕 默认加载最新会话（按时间排序后的第一个）
+      if (allSessions.length > 0) {
+        const latestSession = allSessions[0];  // 已经按时间排序，第一个是最新的
+        currentSessionKey = latestSession.key;
+        console.log('📋 默认加载最新会话:', currentSessionKey);
+        // 加载该会话的历史消息
+        loadChatHistory();
+      } else {
+        // 没有会话，使用主会话
+        currentSessionKey = SESSION_KEY;
+        console.log('🔑 无历史会话，使用主会话:', currentSessionKey);
+      }
+      
       renderSessionList();
       // 更新侧边栏会话列表
       console.log('🔍 检查 loadSidebarSessions:', typeof loadSidebarSessions);
@@ -2424,13 +2462,13 @@ function logout() {
 // ═══════════════════════════════════════════════════════════════
 // 👥 Agent 模块
 // ═══════════════════════════════════════════════════════════════
-function showMyTeam() {
+async function showMyTeam() {
   const dropdown = document.getElementById('userDropdown');
   if (dropdown) dropdown.classList.remove('show');
   const userMenu = document.getElementById('sidebarUserMenu');
   if (userMenu) userMenu.classList.remove('show');
   renderMyTeam();
-  renderAvailableAgents();
+  await renderAvailableAgents();
   document.getElementById('teamModal').classList.add('show');
 }
 
@@ -2441,16 +2479,28 @@ function closeTeamModal() {
 
 // 渲染我的团队
 function renderMyTeam() {
-  let myAgents = user?.agents || [];
-  if (myAgents.length === 0) {
+  // 优先使用 user.team.members（包含完整信息），回退到 user.agents
+  let myAgents = [];
+  let agentDetails = {};
+  
+  if (user?.team?.members && user.team.members.length > 0) {
+    // 使用团队配置中的完整成员信息
+    myAgents = user.team.members.map(m => m.id);
+    agentDetails = Object.fromEntries(user.team.members.map(m => [m.id, m]));
+  } else if (user?.agents && user.agents.length > 0) {
+    // 回退到旧格式
+    myAgents = user.agents;
+  } else {
     myAgents = ['lingxi'];
   }
+  
   const container = document.getElementById('myTeamList');
   if (!container) return;
 
   container.innerHTML = myAgents.map(agentId => {
-    const agent = AGENT_INFO[agentId] || { icon: 'bot', name: agentId, desc: 'AI 助手', scene: '通用', skills: '' };
-    const isRequired = agentId === 'lingxi';
+    // 优先使用团队配置中的信息，其次 AGENT_INFO，最后默认值
+    const agent = agentDetails[agentId] || AGENT_INFO[agentId] || { icon: 'bot', name: agentId, desc: 'AI 助手' };
+    const isRequired = agentId === 'lingxi' || agent.isDefault;
 
     return `
       <div class="team-member">
@@ -2459,8 +2509,8 @@ function renderMyTeam() {
             <i data-lucide="${agent.icon || 'bot'}" class="icon icon-lg icon-primary"></i>
           </div>
           <div>
-            <div class="team-member-name">${agent.name}</div>
-            <div class="team-member-role">${agent.desc}</div>
+            <div class="team-member-name">${agent.name || agentId}</div>
+            <div class="team-member-role">${agent.desc || agent.role || 'AI 助手'}</div>
           </div>
         </div>
         ${isRequired ?
@@ -2485,28 +2535,62 @@ function renderMyTeam() {
 }
 
 // 渲染可添加的成员
-function renderAvailableAgents() {
-  const myAgents = user?.agents || ['lingxi'];
+async function renderAvailableAgents() {
   const container = document.getElementById('availableAgents');
-  if (!container) return;  // 元素不存在时跳过
+  if (!container) return;
 
-  const available = Object.keys(AGENT_INFO).filter(id => !myAgents.includes(id));
+  // 获取当前团队成员 ID
+  const myAgents = user?.team?.members ? user.team.members.map(m => m.id) : (user?.agents || ['lingxi']);
+  
+  let available = [];
+  
+  // 如果有团队模板，从模板中获取可添加的成员
+  if (user?.team?.templateId) {
+    try {
+      const res = await fetch(`${API_BASE}/api/team/templates/${user.team.templateId}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('lingxi_token')}` }
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.template) {
+          // 从模板成员中过滤掉已添加的
+          available = data.template.members
+            .filter(m => !myAgents.includes(m.id))
+            .map(m => ({
+              id: m.id,
+              name: m.name,
+              icon: m.icon,
+              desc: m.desc
+            }));
+        }
+      }
+    } catch (e) {
+      console.error('获取模板成员失败:', e);
+    }
+  }
+  
+  // 如果没有模板或模板中没有可添加的，使用 AGENT_INFO 作为回退
+  if (available.length === 0) {
+    available = Object.keys(AGENT_INFO).filter(id => !myAgents.includes(id)).map(id => ({
+      id,
+      name: AGENT_INFO[id].name,
+      icon: AGENT_INFO[id].icon,
+      desc: AGENT_INFO[id].desc
+    }));
+  }
 
   if (available.length === 0) {
     container.innerHTML = '<p style="color:rgba(255,255,255,0.4);font-size:13px;">已添加全部成员</p>';
     return;
   }
 
-  container.innerHTML = available.map(agentId => {
-    const agent = AGENT_INFO[agentId];
-    return `
-      <div class="agent-chip" onclick="addAgent('${agentId}')" title="${agent.scene} · ${agent.skills}">
-        ${agentIcon(agent, 'sm')}
-        <span>${agent.name}</span>
-        <span style="font-size:10px;color:#6e6e80;margin-left:4px;">${agent.scene}</span>
-      </div>
-    `;
-  }).join('');
+  container.innerHTML = available.map(agent => `
+    <div class="agent-chip" onclick="addAgent('${agent.id}')" title="${agent.desc || ''}">
+      ${agentIcon(agent, 'sm')}
+      <span>${agent.name}</span>
+    </div>
+  `).join('');
 
   // 重新渲染 Lucide 图标
   if (window.lucide) lucide.createIcons();
@@ -2516,86 +2600,130 @@ function renderAvailableAgents() {
 async function addAgent(agentId) {
   if (!user) return;
 
-  const myAgents = user.agents || ['lingxi'];
-  if (myAgents.includes(agentId)) return;
+  // 检查是否已存在
+  const currentMembers = user?.team?.members || [];
+  if (currentMembers.some(m => m.id === agentId)) {
+    console.log('成员已存在:', agentId);
+    return;
+  }
 
-  myAgents.push(agentId);
-  user.agents = myAgents;
+  // 优先从当前团队模板获取成员信息，其次从 AGENT_INFO 获取
+  let memberInfo = null;
+  
+  // 1. 从当前团队模板中查找
+  if (user?.team?.templateId) {
+    try {
+      const res = await fetch(`${API_BASE}/api/team/templates/${user.team.templateId}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('lingxi_token')}` }
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.template) {
+          memberInfo = data.template.members.find(m => m.id === agentId);
+        }
+      }
+    } catch (e) {
+      console.error('获取模板信息失败:', e);
+    }
+  }
+  
+  // 2. 如果模板中没有，从 AGENT_INFO 获取
+  if (!memberInfo) {
+    memberInfo = AGENT_INFO[agentId];
+  }
+  
+  // 3. 如果都没有，使用默认值
+  if (!memberInfo) {
+    memberInfo = { id: agentId, name: agentId, icon: 'bot', desc: 'AI 助手' };
+  }
+  
+  const newMember = {
+    id: agentId,
+    name: memberInfo.name,
+    icon: memberInfo.icon,
+    role: memberInfo.desc || memberInfo.role,
+    desc: memberInfo.desc || memberInfo.role,
+    triggers: memberInfo.triggers || [agentId]
+  };
 
-  // 保存到服务器
   try {
-    const res = await fetch(`${API_BASE}/api/agents/user/${user.id}`, {
+    const res = await fetch(`${API_BASE}/api/team/${user.id}/members`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${localStorage.getItem('lingxi_token')}`
       },
-      body: JSON.stringify({ agents: myAgents })
+      body: JSON.stringify(newMember)
     });
 
     const data = await res.json();
 
     if (res.ok && data.success) {
+      // 更新本地 user 对象
+      user.team = data.team;
+      user.agents = data.team.members.map(m => m.id);
       localStorage.setItem('lingxi_user', JSON.stringify(user));
+      
       renderMyTeam();
-      renderAvailableAgents();
+      await renderAvailableAgents();
       renderTeamTags();
+      initAgentDropdown();
       console.log('✅ 成员添加成功:', agentId);
     } else {
-      // 回滚
-      user.agents = user.agents.filter(id => id !== agentId);
-      alert('添加失败: ' + (data.error || '未知错误'));
+      alert('添加失败：' + (data.error || '未知错误'));
     }
   } catch (e) {
-    // 回滚
-    user.agents = user.agents.filter(id => id !== agentId);
+    console.error('添加成员失败:', e);
     alert('网络错误：' + e.message);
   }
 }
 
+
 // 移除成员
 async function removeAgent(agentId) {
-  if (!user) return;
-  if (agentId === 'lingxi') return; // 队长不能移除
+  if (!user || !user?.team?.members) return;
 
-  const myAgents = user.agents || ['lingxi'];
-  const newAgents = myAgents.filter(id => id !== agentId);
-
-  if (newAgents.length === 0) {
-    alert('至少保留一个团队成员');
+  // 不允许删除默认成员（灵犀）
+  const member = user.team.members.find(m => m.id === agentId);
+  if (!member) {
+    alert('成员不存在');
+    return;
+  }
+  
+  if (member.isDefault) {
+    alert('不能删除默认成员');
     return;
   }
 
-  const oldAgents = [...user.agents];
-  user.agents = newAgents;
+  if (!confirm(`确定要移除 ${member.name} 吗？`)) return;
 
-  // 保存到服务器
   try {
-    const res = await fetch(`${API_BASE}/api/agents/user/${user.id}`, {
-      method: 'POST',
+    const res = await fetch(`${API_BASE}/api/team/${user.id}/members/${agentId}`, {
+      method: 'DELETE',
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': `Bearer ${localStorage.getItem('lingxi_token')}`
-      },
-      body: JSON.stringify({ agents: newAgents })
+      }
     });
 
     const data = await res.json();
 
     if (res.ok && data.success) {
+      // 更新本地 user 对象
+      user.team = data.team;
+      user.agents = data.team.members.map(m => m.id);
       localStorage.setItem('lingxi_user', JSON.stringify(user));
+      
       renderMyTeam();
-      renderAvailableAgents();
+      await renderAvailableAgents();
       renderTeamTags();
+      initAgentDropdown();
       console.log('✅ 成员移除成功:', agentId);
     } else {
-      // 回滚
-      user.agents = oldAgents;
-      alert('移除失败: ' + (data.error || '未知错误'));
+      alert('移除失败：' + (data.error || '未知错误'));
     }
   } catch (e) {
-    // 回滚
-    user.agents = oldAgents;
+    console.error('移除成员失败:', e);
     alert('网络错误：' + e.message);
   }
 }
@@ -2776,6 +2904,9 @@ async function confirmApplyTemplate() {
     const data = await res.json();
     
     if (data.success) {
+      // 保存模板名称（在关闭弹窗前）
+      const templateName = selectedTemplate?.templateName || '团队模板';
+      const templateId = selectedTemplate?.templateId;
       // 更新本地用户信息
       user.team = data.team;
       user.agents = data.team.members.map(m => m.id);
@@ -2787,18 +2918,21 @@ async function confirmApplyTemplate() {
       
       // 刷新界面
       renderMyTeam();
-      renderAvailableAgents();
+      await renderAvailableAgents();
       renderTeamTags();
+      initAgentDropdown();  // ✅ 刷新顶部 agent 下拉列表
       
       // 显示成功提示
-      showToast('success', `✅ 已应用模板：${selectedTemplate.templateName}`);
+      showToast('success', `✅ 已应用模板：${templateName}`);
       
-      console.log('✅ 模板应用成功:', selectedTemplate.templateId);
+      console.log('✅ 模板应用成功:', templateId);
     } else {
       alert('应用失败: ' + (data.error || '未知错误'));
     }
   } catch (e) {
     console.error('应用模板失败:', e);
+    console.error('异常堆栈:', e.stack);
+    console.error('selectedTemplate:', selectedTemplate);
     alert('网络错误：' + e.message);
   } finally {
     btn.disabled = false;
@@ -3130,7 +3264,7 @@ try {
 const ALL_AGENTS = Object.fromEntries(
   Object.keys(AGENT_INFO).map(id => {
     const info = AGENT_INFO[id];
-    return [id, { id, name: info.name, icon: info.icon, desc: info.scene }];
+    return [id, { id, name: info.name, icon: info.icon, desc: info.desc }];
   })
 );
 
@@ -3366,7 +3500,21 @@ function renderAgentDropdown() {
   const dropdown = document.getElementById('agentDropdown');
   if (!dropdown) return;
 
-  const agents = userAgentList.map(id => ALL_AGENTS[id]).filter(Boolean);
+  // 优先使用 user.team.members（包含完整信息）
+  let agents = [];
+  if (user?.team?.members && user.team.members.length > 0) {
+    agents = user.team.members.map(m => ({
+      id: m.id,
+      name: m.name,
+      icon: m.icon,
+      desc: m.desc
+    }));
+  } else {
+    // 回退到 userAgentList
+    agents = userAgentList.map(id => {
+      return ALL_AGENTS[id] || AGENT_INFO[id] || { id, name: id, icon: 'bot', desc: 'AI 助手' };
+    });
+  }
 
   if (agents.length === 0) {
     dropdown.innerHTML = '<div style="padding: 20px; text-align: center; color: #6e6e80;">暂无团队成员</div>';
@@ -4139,15 +4287,27 @@ window.installSkill = installSkill;
 
 // 初始化时渲染 agent 下拉
 function initAgentDropdown() {
-  console.log('🎯 initAgentDropdown 调用, user:', user);
-  // 使用已加载的 user 变量
-  if (user?.agents && user.agents.length > 0) {
-    userAgentList = user.agents;
-    // 设置当前 agent 为用户的第一个（或 lingxi）
+  console.log('🎯 initAgentDropdown 调用，user:', user);
+  
+  // 优先使用 user.team.members
+  if (user?.team?.members && user.team.members.length > 0) {
+    userAgentList = user.team.members.map(m => m.id);
     currentAgentId = userAgentList.includes('lingxi') ? 'lingxi' : userAgentList[0];
-
-    // 更新显示
-    const agent = ALL_AGENTS[currentAgentId];
+    
+    const currentMember = user.team.members.find(m => m.id === currentAgentId);
+    const agent = currentMember || ALL_AGENTS[currentAgentId] || AGENT_INFO[currentAgentId];
+    if (agent) {
+      const iconEl = document.getElementById('currentAgentIcon');
+      if (iconEl) {
+        iconEl.setAttribute('data-lucide', agent.icon || 'bot');
+        if (window.lucide) lucide.createIcons();
+      }
+    }
+  } else if (user?.agents && user.agents.length > 0) {
+    userAgentList = user.agents;
+    currentAgentId = userAgentList.includes('lingxi') ? 'lingxi' : userAgentList[0];
+    
+    const agent = ALL_AGENTS[currentAgentId] || AGENT_INFO[currentAgentId];
     if (agent) {
       const iconEl = document.getElementById('currentAgentIcon');
       if (iconEl) {
@@ -4156,7 +4316,8 @@ function initAgentDropdown() {
       }
     }
   }
-  console.log('🎯 userAgentList:', userAgentList, 'ALL_AGENTS:', Object.keys(ALL_AGENTS));
+  
+  console.log('🎯 userAgentList:', userAgentList);
   renderAgentDropdown();
 }
 

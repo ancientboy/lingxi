@@ -10,7 +10,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const dataDir = join(__dirname, '..', 'data');
-const dbPath = join(dataDir, 'db.json');
+let dbPath = join(dataDir, 'db.json');
 
 // 数据库结构
 const defaultDB = {
@@ -276,7 +276,7 @@ export async function getPointsInfo(userId) {
 
 // ============ 用户操作 ============
 
-export async function createUser(inviteCode, nickname = null, password = null, invitedBy = null) {
+export async function createUser(inviteCode, nickname = null, password = null, invitedBy = null, email = null) {
   const db = await getDB();
   const id = randomUUID();
   
@@ -290,6 +290,8 @@ export async function createUser(inviteCode, nickname = null, password = null, i
     id,
     inviteCode,
     nickname,
+    email,               // 邮箱（可选）
+    emailVerified: !!email,  // 邮箱是否已验证
     passwordHash,
     userInviteCode,        // 用户专属邀请码
     invitedBy,             // 被谁邀请的（用户ID）
@@ -358,6 +360,11 @@ export async function getUser(id) {
 export async function getUserByInviteCode(inviteCode) {
   const db = await getDB();
   return db.users.find(u => u.inviteCode === inviteCode);
+}
+
+export async function getUserByEmail(email) {
+  const db = await getDB();
+  return db.users.find(u => u.email === email);
 }
 
 export async function updateUserInstance(userId, instanceId, status = 'ready') {

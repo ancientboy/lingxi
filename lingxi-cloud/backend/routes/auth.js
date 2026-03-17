@@ -1,10 +1,64 @@
 import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import { config } from '../config/index.js';
-import { getInviteCode, createUser, getUserByInviteCode, updateLastLogin, verifyPassword, getUserByUserInviteCode } from '../utils/db.js';
+import { getInviteCode, createUser, getUserByInviteCode, updateLastLogin, verifyPassword, getUserByUserInviteCode, getUserByEmail } from '../utils/db.js';
+import { sendVerificationCode, verifyCode } from '../services/email-service.js';
 
 const router = Router();
 const JWT_SECRET = config.security.jwtSecret;
+
+// ============ 邮箱验证码功能 ============
+
+// 发送验证码
+router.post('/send-code', async (req, res) => {
+  try {
+    const { email, type = 'register' } = req.body;
+
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: '请输入有效的邮箱地址' });
+    }
+
+    // 检查邮箱是否已注册（仅注册时需要）
+    if (type === 'register') {
+      const existingUser = await getUserByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({ error: '该邮箱已注册，请直接登录' });
+      }
+    }
+
+    await sendVerificationCode(email, type);
+    res.json({ success: true, message: '验证码已发送，请检查邮箱' });
+  } catch (error) {
+    console.error('发送验证码失败:', error);
+    res.status(500).json({ 
+      error: '发送失败',
+      message: error.message.includes('SendGrid') ? '邮箱服务配置错误，请联系管理员' : error.message 
+    });
+  }
+});
+
+// 验证验证码
+router.post('/verify-code', async (req, res) => {
+  try {
+    const { email, code } = req.body;
+
+    if (!email || !code) {
+      return res.status(400).json({ error: '请提供邮箱和验证码' });
+    }
+
+    const result = await verifyCode(email, code);
+    
+    if (result.success) {
+      res.json({ success: true, message: '验证成功' });
+    } else {
+      res.status(400).json({ error: result.error });
+    }
+  } catch (error) {
+    console.error('验证验证码失败:', error);
+    res.status(500).json({ error: '验证失败' });
+  }
+});
+
 async function getInviteCodeInfo(code) {
   // 先检查是否是系统邀请码
   const systemCode = await getInviteCode(code);
@@ -21,41 +75,68 @@ async function getInviteCodeInfo(code) {
   return null;
 }
 
-// 注册（带密码）
 router.post('/register', async (req, res) => {
   try {
-    const { inviteCode, nickname, password } = req.body;
+    const { inviteCode, nickname, password, email, code } = req.body;
     
-    if (!inviteCode) {
-      return res.status(400).json({ error: '请提供邀请码' });
+    // 必填检查
+    if (!nickname || nickname.trim().length < 2) {
+      return res.status(400).json({ error: '昵称至少 2 个字符' });
     }
     
-    // 检查邀请码类型（系统邀请码或用户专属邀请码）
-    const codeInfo = await getInviteCodeInfo(inviteCode);
-    
-    if (!codeInfo) {
-      return res.status(400).json({ error: '邀请码无效' });
+    if (!password || password.length < 6) {
+      return res.status(400).json({ error: '密码至少 6 位' });
     }
     
-    // 系统邀请码已使用的检查
-    if (codeInfo.type === 'system' && codeInfo.code.used) {
-      const existingUser = await getUserByInviteCode(inviteCode);
-      if (existingUser) {
-        return res.status(400).json({ error: '该邀请码已注册，请直接登录' });
-      } else {
-        return res.status(400).json({ error: '邀请码已被使用' });
+    // 邮箱必填
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: '请输入有效的邮箱地址' });
+    }
+    
+    // 验证码必填
+    if (!code) {
+      return res.status(400).json({ error: '请填写邮箱验证码' });
+    }
+    
+    // 验证邮箱验证码
+    const verifyResult = await verifyCode(email, code);
+    if (!verifyResult.success) {
+      return res.status(400).json({ error: verifyResult.error });
+    }
+    
+    // 检查邮箱是否已注册
+    const existingUserByEmail = await getUserByEmail(email);
+    if (existingUserByEmail) {
+      return res.status(400).json({ error: '该邮箱已注册，请直接登录' });
+    }
+    
+    // 邀请码可选处理
+    let inviterId = null;
+    if (inviteCode && inviteCode.trim()) {
+      const codeInfo = await getInviteCodeInfo(inviteCode);
+      
+      if (!codeInfo) {
+        return res.status(400).json({ error: '邀请码无效' });
+      }
+      
+      // 系统邀请码已使用的检查
+      if (codeInfo.type === 'system' && codeInfo.code.used) {
+        const existingUser = await getUserByInviteCode(inviteCode);
+        if (existingUser) {
+          return res.status(400).json({ error: '该邀请码已注册，请直接登录' });
+        } else {
+          return res.status(400).json({ error: '邀请码已被使用' });
+        }
+      }
+      
+      // 获取邀请者 ID
+      if (codeInfo.type === 'user') {
+        inviterId = codeInfo.inviterId;
       }
     }
     
-    // 用户专属邀请码需要生成一个系统邀请码用于记录
-    let systemInviteCode = inviteCode;
-    if (codeInfo.type === 'user') {
-      // 用户邀请码注册时，生成一个虚拟的系统邀请码标记
-      systemInviteCode = `USER-INVITE-${Date.now()}`;
-    }
-    
-    // 创建新用户（带密码），传入邀请者ID
-    const user = await createUser(systemInviteCode, nickname, password, codeInfo.inviterId);
+    // 创建新用户（带密码），传入邀请者 ID 和邮箱
+    const user = await createUser('DIRECT-' + Date.now(), nickname, password, inviterId, email);
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '30d' });
     
     res.json({
@@ -64,10 +145,12 @@ router.post('/register', async (req, res) => {
       user: {
         id: user.id,
         nickname: user.nickname,
+        email: user.email,
         instanceId: user.instanceId,
         instanceStatus: user.instanceStatus,
         agents: user.agents || [],
-        userInviteCode: user.userInviteCode,  // 返回用户专属邀请码
+        userInviteCode: user.userInviteCode,
+        emailVerified: user.emailVerified,
         // 新用户默认免费订阅
         subscription: {
           plan: 'free',
@@ -82,22 +165,34 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// 登录（用昵称+密码）
+// 登录（支持邮箱或昵称 + 密码）
 router.post('/login', async (req, res) => {
   try {
-    const { nickname, password } = req.body;
+    let { nickname, password, email } = req.body;
     
-    if (!nickname || !password) {
-      return res.status(400).json({ error: '请提供用户名和密码' });
+    if (!password) {
+      return res.status(400).json({ error: '请提供密码' });
     }
     
-    // 按昵称查找用户
+    // 支持邮箱或昵称登录
+    let user;
     const { getDB } = await import('../utils/db.js');
     const db = await getDB();
-    const user = db.users.find(u => u.nickname === nickname);
     
-    if (!user) {
-      return res.status(400).json({ error: '用户不存在' });
+    if (email) {
+      // 邮箱登录
+      user = db.users.find(u => u.email === email);
+      if (!user) {
+        return res.status(400).json({ error: '该邮箱未注册' });
+      }
+    } else if (nickname) {
+      // 昵称登录
+      user = db.users.find(u => u.nickname === nickname);
+      if (!user) {
+        return res.status(400).json({ error: '用户不存在' });
+      }
+    } else {
+      return res.status(400).json({ error: '请提供邮箱或昵称' });
     }
     
     // 验证密码

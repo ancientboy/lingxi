@@ -688,8 +688,8 @@
         <form id="loginForm" onsubmit="handleLogin(event)">
           <div class="home-error" id="loginError"></div>
           <div class="home-form-group">
-            <label>昵称</label>
-            <input type="text" id="loginName" placeholder="输入昵称" required>
+            <label>邮箱或昵称</label>
+            <input type="text" id="loginName" placeholder="输入邮箱或昵称" required>
           </div>
           <div class="home-form-group">
             <label>密码</label>
@@ -702,16 +702,27 @@
         <form id="registerForm" class="home-hidden" onsubmit="handleRegister(event)">
           <div class="home-error" id="registerError"></div>
           <div class="home-form-group">
-            <label>邀请码</label>
-            <input type="text" id="registerCode" placeholder="输入邀请码" required>
+            <label>邀请码（可选）</label>
+            <input type="text" id="registerCode" placeholder="有邀请码？输入在这里（可选）">
           </div>
           <div class="home-form-group">
-            <label>昵称</label>
+            <label>邮箱或昵称</label>
             <input type="text" id="registerName" placeholder="你的昵称" required>
           </div>
           <div class="home-form-group">
             <label>密码</label>
             <input type="password" id="registerPassword" placeholder="设置密码（至少6位）" required minlength="6">
+          </div>
+          <div class="home-form-group">
+            <label>邮箱 <span style="color: #ff4444;">*</span></label>
+            <div style="display: flex; gap: 8px;">
+              <input type="email" id="registerEmail" placeholder="your@email.com" required style="flex: 1;" onblur="validateEmailFormat()" oninput="clearEmailError()">
+              <button type="button" id="sendCodeBtn" onclick="sendVerificationCode()" style="padding: 10px 16px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;">发送验证码</button>
+            </div>
+          </div>
+          <div class="home-form-group" id="verifyCodeGroup">
+            <label>验证码</label>
+            <input type="text" id="verifyCode" placeholder="输入 6 位验证码" maxlength="6">
           </div>
           <button type="submit" class="home-btn" id="registerBtn">注册</button>
         </form>
@@ -1622,7 +1633,7 @@
     // 登录
     async function handleLogin(e) {
       e.preventDefault();
-      const nickname = document.getElementById('loginName').value.trim();
+      const loginInput = document.getElementById('loginName').value.trim();
       const password = document.getElementById('loginPassword').value;
       const btn = document.getElementById('loginBtn');
       const error = document.getElementById('loginError');
@@ -1631,11 +1642,20 @@
       btn.textContent = '登录中...';
       error.classList.remove('show');
       
+      // 判断是邮箱还是昵称
+      const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginInput);
+      const loginData = { password };
+      if (isEmail) {
+        loginData.email = loginInput;
+      } else {
+        loginData.nickname = loginInput;
+      }
+      
       try {
         const res = await fetch(`${API_BASE}/api/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nickname, password })
+          body: JSON.stringify(loginData)
         });
         
         const data = await res.json();
@@ -1665,14 +1685,124 @@
       btn.textContent = '登录';
     }
     
+    // 邮箱格式验证
+    function validateEmailFormat() {
+      const email = document.getElementById('registerEmail').value.trim();
+      const error = document.getElementById('registerError');
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      
+      if (email && !emailRegex.test(email)) {
+        error.textContent = '邮箱格式不正确，请输入有效的邮箱地址';
+        error.classList.add('show');
+        return false;
+      }
+      return true;
+    }
+    
+    function clearEmailError() {
+      const error = document.getElementById('registerError');
+      if (error.textContent.includes('邮箱')) {
+        error.classList.remove('show');
+      }
+    }
+    
+    // 发送验证码
+    let countdown = 0;
+    async function sendVerificationCode() {
+      // 先验证邮箱格式
+      if (!validateEmailFormat()) {
+        return;
+      }
+      const email = document.getElementById('registerEmail').value.trim();
+      const btn = document.getElementById('sendCodeBtn');
+      const error = document.getElementById('registerError');
+      
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        error.textContent = '请输入有效的邮箱地址';
+        error.classList.add('show');
+        return;
+      }
+      
+      // 检查倒计时
+      if (countdown > 0) {
+        return;
+      }
+      
+      btn.disabled = true;
+      btn.textContent = '发送中...';
+      error.classList.remove('show');
+      
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/send-code`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, type: 'register' })
+        });
+        
+        const data = await res.json();
+        
+        if (res.ok && data.success) {
+          // 显示验证码输入框
+          
+          
+          
+          // 开始倒计时
+          countdown = 60;
+          btn.textContent = `${countdown}秒后重发`;
+          const timer = setInterval(() => {
+            countdown--;
+            if (countdown <= 0) {
+              clearInterval(timer);
+              btn.disabled = false;
+              btn.textContent = '重新发送';
+            } else {
+              btn.textContent = `${countdown}秒后重发`;
+            }
+          }, 1000);
+          
+          alert('验证码已发送，请检查邮箱！');
+        } else {
+          error.textContent = data.error || '发送失败';
+          error.classList.add('show');
+          btn.disabled = false;
+          btn.textContent = '发送验证码';
+        }
+      } catch (err) {
+        error.textContent = '网络错误，请重试';
+        error.classList.add('show');
+        btn.disabled = false;
+        btn.textContent = '发送验证码';
+      }
+    }
+    
     // 注册
     async function handleRegister(e) {
       e.preventDefault();
       const inviteCode = document.getElementById('registerCode').value.trim();
       const nickname = document.getElementById('registerName').value.trim();
       const password = document.getElementById('registerPassword').value;
+      const email = document.getElementById('registerEmail').value.trim();
+      const code = document.getElementById('verifyCode').value.trim();
       const btn = document.getElementById('registerBtn');
       const error = document.getElementById('registerError');
+      
+      // 最终验证邮箱格式
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        error.textContent = '请输入有效的邮箱地址';
+        error.classList.add('show');
+        btn.disabled = false;
+        btn.textContent = '注册';
+        return;
+      }
+      
+      // 如果填写了邮箱，必须验证
+      if (email && !code) {
+        error.textContent = '请填写邮箱验证码';
+        error.classList.add('show');
+        btn.disabled = false;
+        btn.textContent = '注册';
+        return;
+      }
       
       btn.disabled = true;
       btn.textContent = '注册中...';
@@ -1682,7 +1812,7 @@
         const res = await fetch(`${API_BASE}/api/auth/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ inviteCode, nickname, password })
+          body: JSON.stringify({ inviteCode, nickname, password, email: email || undefined, code: code || undefined })
         });
         
         const data = await res.json();
@@ -2042,7 +2172,7 @@
     const beianEl = document.createElement('div');
     beianEl.className = 'brand-intro-beian';
     beianEl.style.cssText = 'position:absolute;bottom:20px;left:0;right:0;text-align:center;font-size:12px;z-index:1000;';
-    beianEl.innerHTML = '<a href="https://beian.miit.gov.cn/" target="_blank" style="color:rgba(255,255,255,0.8);text-decoration:none;pointer-events:auto;" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,0.8)'">浙 ICP 备 2026013667 号</a>';
+    beianEl.innerHTML = '<a href="https://beian.miit.gov.cn/" target="_blank" style="color:rgba(255,255,255,0.8);text-decoration:none;pointer-events:auto;">浙 ICP 备 2026013667 号</a>';
     overlay.appendChild(beianEl);
   }
 

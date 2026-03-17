@@ -5,6 +5,8 @@
  * - 用户团队配置存储
  * - 团队模板管理
  * - 团队 CRUD 操作
+ * 
+ * ✅ 配置合并策略：切换团队时保留用户自定义的模型、工作区等配置
  */
 
 import express from 'express';
@@ -26,8 +28,8 @@ const TEAM_TEMPLATES = [
       { id: 'lingxi', name: '灵犀', icon: 'zap', role: '队长', desc: '团队调度', triggers: ['灵犀', '队长'], isDefault: true },
       { id: 'pm', name: '产品经理', icon: 'target', role: '需求分析', desc: '需求分析、产品规划', triggers: ['需求', '产品', '功能', 'PRD'] },
       { id: 'architect', name: '架构师', icon: 'layers', role: '架构设计', desc: '技术选型、架构设计', triggers: ['架构', '技术选型', '系统设计'] },
-      { id: 'frontend', name: '前端工程师', icon: 'monitor', role: '前端开发', desc: 'UI实现、前端开发', triggers: ['前端', 'UI', '页面', 'Vue', 'React'] },
-      { id: 'backend', name: '后端工程师', icon: 'server', role: '后端开发', desc: 'API开发、数据库设计', triggers: ['后端', 'API', '数据库', '服务'] },
+      { id: 'frontend', name: '前端工程师', icon: 'monitor', role: '前端开发', desc: 'UI 实现、前端开发', triggers: ['前端', 'UI', '页面', 'Vue', 'React'] },
+      { id: 'backend', name: '后端工程师', icon: 'server', role: '后端开发', desc: 'API 开发、数据库设计', triggers: ['后端', 'API', '数据库', '服务'] },
       { id: 'qa', name: '测试工程师', icon: 'check-circle', role: '质量保障', desc: '测试用例、质量保障', triggers: ['测试', 'QA', 'bug', '质量'] }
     ]
   },
@@ -40,7 +42,7 @@ const TEAM_TEMPLATES = [
       { id: 'lingxi', name: '灵犀', icon: 'zap', role: '队长', desc: '团队调度', triggers: ['灵犀', '队长'], isDefault: true },
       { id: 'copywriter', name: '文案策划', icon: 'pen-tool', role: '文案撰写', desc: '营销文案、公众号文章', triggers: ['文案', '写作', '软文', '稿件'] },
       { id: 'designer', name: '视觉设计', icon: 'palette', role: '视觉设计', desc: '海报设计、配图制作', triggers: ['设计', '海报', '图片', '视觉'] },
-      { id: 'seo', name: 'SEO专员', icon: 'trending-up', role: 'SEO优化', desc: '关键词优化、流量分析', triggers: ['SEO', '关键词', '排名', '流量'] },
+      { id: 'seo', name: 'SEO 专员', icon: 'trending-up', role: 'SEO 优化', desc: '关键词优化、流量分析', triggers: ['SEO', '关键词', '排名', '流量'] },
       { id: 'social', name: '社媒运营', icon: 'share-2', role: '社媒运营', desc: '微博/抖音/小红书运营', triggers: ['社媒', '微博', '抖音', '小红书'] }
     ]
   },
@@ -62,102 +64,8 @@ const TEAM_TEMPLATES = [
   }
 ];
 
-// ============ API 路由 ============
+// ============ Agent SOUL 模板 ============
 
-/**
- * 获取团队模板列表
- */
-router.get('/templates', (req, res) => {
-  success(res, {
-    templates: TEAM_TEMPLATES.map(t => ({
-      templateId: t.templateId,
-      templateName: t.templateName,
-      description: t.description,
-      category: t.category,
-      memberCount: t.members.length
-    }))
-  });
-});
-
-/**
- * 获取特定模板详情
- */
-router.get('/templates/:templateId', (req, res) => {
-  const template = TEAM_TEMPLATES.find(t => t.templateId === req.params.templateId);
-  
-  if (!template) {
-    return errors.notFound(res, '模板');
-  }
-  
-  success(res, { template });
-});
-
-/**
- * 获取用户团队配置
- */
-router.get('/:userId', authAndCheckOwnership, async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const db = await getDB();
-    
-    const user = db.users.find(u => u.id === userId);
-    if (!user) {
-      return errors.notFound(res, '用户');
-    }
-    
-    // 返回用户的团队配置（如果没有则返回默认）
-    const team = user.team || {
-      teamId: 'default',
-      teamName: '我的团队',
-      members: TEAM_TEMPLATES.find(t => t.templateId === 'lingxi-team').members.slice(0, 3)
-    };
-    
-    success(res, { team });
-  } catch (error) {
-    console.error('获取团队配置失败:', error);
-    errors.serverError(res, error.message);
-  }
-});
-
-/**
- * 更新用户团队配置
- */
-router.put('/:userId', authAndCheckOwnership, async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const { team } = req.body;
-    
-    if (!team) {
-      return errors.badRequest(res, 'team 是必需的');
-    }
-    
-    const db = await getDB();
-    const user = db.users.find(u => u.id === userId);
-    
-    if (!user) {
-      return errors.notFound(res, '用户');
-    }
-    
-    // 更新团队配置
-    user.team = {
-      ...team,
-      updatedAt: new Date().toISOString()
-    };
-    
-    await saveDB(db);
-    
-    console.log(`✅ 已更新用户 ${userId} 的团队配置: ${team.teamName} (${team.members?.length || 0}人)`);
-    
-    success(res, { team: user.team });
-  } catch (error) {
-    console.error('更新团队配置失败:', error);
-    errors.serverError(res, error.message);
-  }
-});
-
-/**
- * Agent SOUL 模板
- */
 const AGENT_SOUL_TEMPLATES = {
   lingxi: `# 灵犀 ⚡
 
@@ -310,15 +218,28 @@ const AGENT_SOUL_TEMPLATES = {
 `
 };
 
+// ============ 核心功能 ============
+
 /**
  * 同步团队配置到用户服务器
- * ✅ 完整流程：更新配置 + 创建 SOUL.md + 创建工作区
+ * ✅ 配置合并策略：保留用户自定义的模型、工作区等配置
+ * ✅ 支持新增成员时自动创建 SOUL.md 和独立工作区
+ * 
+ * @param {Object} server - 服务器信息 {ip, ...}
+ * @param {Array} teamMembers - 团队成员数组 [{id, name, model?, workspace?}, ...]
+ * @param {Object} options - 可选参数 {forceCreateSoul: false}
  */
-async function syncAgentsToServer(server, agents) {
+async function syncAgentsToServer(server, teamMembers, options = {}) {
   const { sshExec } = await import('../utils/ssh.js');
   const { ip } = server;
+  const { forceCreateSoul = false } = options;
   
-  // Agent 信息映射
+  // 兼容旧调用方式：如果传入的是字符串数组，转换为对象数组
+  if (typeof teamMembers[0] === 'string') {
+    teamMembers = teamMembers.map(id => ({ id, name: id }));
+  }
+  
+  // Agent 基础信息映射（默认值）
   const AGENT_INFO = {
     lingxi: { id: 'main', name: '灵犀', agentDir: '~/.openclaw/agents/main/agent', workspace: '~/.openclaw/workspace' },
     coder: { id: 'coder', name: '云溪', agentDir: '~/.openclaw/agents/coder/agent', workspace: '~/.openclaw/workspace-coder' },
@@ -330,12 +251,6 @@ async function syncAgentsToServer(server, agents) {
     smart: { id: 'smart', name: '智家', agentDir: '~/.openclaw/agents/smart/agent', workspace: '~/.openclaw/workspace-smart' }
   };
   
-  // 准备 SOUL.md 模板（转义）
-  const soulTemplatesEscaped = {};
-  for (const [id, soul] of Object.entries(AGENT_SOUL_TEMPLATES)) {
-    soulTemplatesEscaped[id] = soul.replace(/`/g, '\\`').replace(/\$/g, '\\$');
-  }
-  
   // 通过 SSH 完整同步
   const commands = `
 set -e
@@ -346,7 +261,7 @@ echo "=== 开始同步团队配置 ==="
 cp ~/.openclaw/openclaw.json ~/.openclaw/openclaw.json.bak.$(date +%s) 2>/dev/null || true
 cp ~/.openclaw/openclaw.json ~/.openclaw/openclaw.json.bak 2>/dev/null || true
 
-# 2. 更新 openclaw.json
+# 2. 更新 openclaw.json（合并策略）
 node -e '
 const fs = require("fs");
 const configPath = process.env.HOME + "/.openclaw/openclaw.json";
@@ -356,81 +271,120 @@ const oldAgents = config.agents || {};
 const oldDefaults = oldAgents.defaults || { model: { primary: "alibaba-cloud/qwen3.5-plus" }, workspace: "~/.openclaw/workspace" };
 const oldList = oldAgents.list || [];
 
-const newAgentIds = ${JSON.stringify(agents)};
+// 新团队成员配置（来自数据库）
+const newTeamMembers = ${JSON.stringify(teamMembers)};
 const agentInfo = ${JSON.stringify(AGENT_INFO)};
 
+// 构建旧配置映射（用于合并）
 const oldAgentMap = {};
 oldList.forEach(agent => { oldAgentMap[agent.id] = agent; });
 
-const newAgentList = newAgentIds.map(agentId => {
-  const info = agentInfo[agentId];
+// 构建新配置列表
+const newAgentList = newTeamMembers.map(member => {
+  const agentId = member.id;
+  const isLingxi = agentId === "lingxi";
+  const configId = isLingxi ? "main" : agentId;
+  const info = agentInfo[agentId] || {};
   
-  if (agentId === "lingxi") {
-    const existing = oldAgentMap["main"];
-    return {
-      id: "main",
-      default: true,
-      name: "灵犀",
-      workspace: existing?.workspace || "~/.openclaw/workspace",
-      agentDir: existing?.agentDir || "~/.openclaw/agents/main/agent",
-      subagents: { allowAgents: newAgentIds.filter(a => a !== "lingxi") },
-      ...(existing?.model ? { model: existing.model } : {})
-    };
-  }
+  // 查找旧配置
+  const existing = oldAgentMap[configId] || oldAgentMap[agentId];
   
-  const agentIdForConfig = info?.id || agentId;
-  const existing = oldAgentMap[agentIdForConfig];
+  // 合并策略：用户自定义配置 > 新成员配置 > 默认值
+  const mergedConfig = {
+    id: configId,
+    default: isLingxi ? true : (existing?.default || false),
+    name: member.name || info.name || agentId,
+    
+    // ✅ 保留用户选择的模型（如果存在）
+    ...(existing?.model ? { model: existing.model } : {}),
+    ...(member.model ? { model: member.model } : {}),
+    
+    // ✅ 保留用户自定义的工作区（如果存在）
+    workspace: existing?.workspace || member.workspace || info.workspace || "~/.openclaw/workspace-" + agentId,
+    
+    // ✅ 保留 agentDir（如果存在）
+    agentDir: existing?.agentDir || info.agentDir || "~/.openclaw/agents/" + configId + "/agent",
+    
+    // ✅ 保留 subagents 配置（灵犀专属）
+    ...(isLingxi || existing?.subagents ? {
+      subagents: {
+        allowAgents: newTeamMembers.map(m => m.id).filter(id => id !== "lingxi")
+      }
+    } : {}),
+    
+    // ✅ 保留其他所有用户自定义字段（如 thinking, tools 等）
+    ...Object.keys(existing || {}).reduce((acc, key) => {
+      if (!["id", "default", "name", "model", "workspace", "agentDir", "subagents"].includes(key)) {
+        acc[key] = existing[key];
+      }
+      return acc;
+    }, {})
+  };
   
   if (existing) {
-    console.log("保留已有配置: " + agentId);
-    return existing;
+    console.log("✅ 保留已有配置：" + configId + (member.model ? " (模型：" + member.model + ")" : ""));
+  } else {
+    console.log("➕ 创建新配置：" + configId);
   }
   
-  console.log("创建新配置: " + agentId);
-  return {
-    id: agentIdForConfig,
-    name: info?.name || agentId,
-    workspace: info?.workspace || "~/.openclaw/workspace-" + agentId,
-    agentDir: info?.agentDir || "~/.openclaw/agents/" + agentId + "/agent"
-  };
+  return mergedConfig;
 });
 
-config.agents = { ...oldAgents, defaults: oldDefaults, list: newAgentList };
+// 找出被移除的 agent（保留配置但不激活）
+const removedAgents = oldList.filter(agent => {
+  const agentId = agent.id === "main" ? "lingxi" : agent.id;
+  return !newTeamMembers.some(m => m.id === agentId);
+});
+
+if (removedAgents.length > 0) {
+  console.log("⚠️ 以下成员被移除（配置已保留）: " + removedAgents.map(a => a.name || a.id).join(", "));
+}
+
+// 更新配置
+config.agents = {
+  ...oldAgents,
+  defaults: oldDefaults,
+  list: newAgentList
+};
+
 fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-console.log("✅ openclaw.json 已更新");
+console.log("✅ openclaw.json 已更新，共 " + newAgentList.length + " 个成员");
 '
 
-# 3. 为新 Agent 创建 SOUL.md 和工作区
-${agents.map(agentId => {
+# 3. 为新成员创建 SOUL.md 和工作区
+${teamMembers.map(member => {
+  const agentId = member.id;
   if (agentId === 'lingxi') return '';
   const info = AGENT_INFO[agentId];
   const soul = AGENT_SOUL_TEMPLATES[agentId];
   if (!info || !soul) return '';
   
+  const forceFlag = forceCreateSoul ? '-f' : '! -f';
+  
   return `
 # ${info.name}
 AGENT_DIR="${info.agentDir}"
-WORKSPACE="${info.workspace}"
+WORKSPACE="${info.workspace || '~/.openclaw/workspace-' + agentId}"
 
 # 创建 Agent 目录
 mkdir -p "$AGENT_DIR"
 mkdir -p "$WORKSPACE"
 
-# 检查 SOUL.md 是否存在
-if [ ! -f "$AGENT_DIR/SOUL.md" ]; then
+# 检查 SOUL.md 是否存在（forceCreateSoul 时强制创建）
+if [ ${forceFlag} "$AGENT_DIR/SOUL.md" ]; then
   echo "创建 ${info.name} 的 SOUL.md"
   cat > "$AGENT_DIR/SOUL.md" << 'SOULEOF'
 ${soul}
 SOULEOF
   echo "✅ ${info.name} 的 SOUL.md 已创建"
 else
-  echo "✅ ${info.name} 的 SOUL.md 已存在"
+  echo "✅ ${info.name} 的 SOUL.md 已存在（跳过）"
 fi
 `;
 }).join('\n')}
 
 # 4. 重启 Gateway
-echo "重启 OpenClaw Gateway..."
+echo "🔄 重启 OpenClaw Gateway..."
 pkill -f "openclaw gateway" 2>/dev/null || true
 sleep 2
 cd ~/.openclaw && nohup openclaw gateway > /var/log/openclaw.log 2>&1 &
@@ -443,8 +397,102 @@ echo "=== ✅ 团队配置同步完成 ==="
   return stdout;
 }
 
+// ============ API 路由 ============
+
+/**
+ * 获取团队模板列表
+ */
+router.get('/templates', (req, res) => {
+  success(res, {
+    templates: TEAM_TEMPLATES.map(t => ({
+      templateId: t.templateId,
+      templateName: t.templateName,
+      description: t.description,
+      category: t.category,
+      memberCount: t.members.length
+    }))
+  });
+});
+
+/**
+ * 获取特定模板详情
+ */
+router.get('/templates/:templateId', (req, res) => {
+  const template = TEAM_TEMPLATES.find(t => t.templateId === req.params.templateId);
+  
+  if (!template) {
+    return errors.notFound(res, '模板');
+  }
+  
+  success(res, { template });
+});
+
+/**
+ * 获取用户团队配置
+ */
+router.get('/:userId', authAndCheckOwnership, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const db = await getDB();
+    
+    const user = db.users.find(u => u.id === userId);
+    if (!user) {
+      return errors.notFound(res, '用户');
+    }
+    
+    // 返回用户的团队配置（如果没有则返回默认）
+    const team = user.team || {
+      teamId: 'default',
+      teamName: '我的团队',
+      members: TEAM_TEMPLATES.find(t => t.templateId === 'lingxi-team').members.slice(0, 3)
+    };
+    
+    success(res, { team });
+  } catch (error) {
+    console.error('获取团队配置失败:', error);
+    errors.serverError(res, error.message);
+  }
+});
+
+/**
+ * 更新用户团队配置
+ */
+router.put('/:userId', authAndCheckOwnership, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { team } = req.body;
+    
+    if (!team) {
+      return errors.badRequest(res, 'team 是必需的');
+    }
+    
+    const db = await getDB();
+    const user = db.users.find(u => u.id === userId);
+    
+    if (!user) {
+      return errors.notFound(res, '用户');
+    }
+    
+    // 更新团队配置
+    user.team = {
+      ...team,
+      updatedAt: new Date().toISOString()
+    };
+    
+    await saveDB(db);
+    
+    console.log(`✅ 已更新用户 ${userId} 的团队配置：${team.teamName} (${team.members?.length || 0}人)`);
+    
+    success(res, { team: user.team });
+  } catch (error) {
+    console.error('更新团队配置失败:', error);
+    errors.serverError(res, error.message);
+  }
+});
+
 /**
  * 应用模板到用户团队
+ * ✅ 配置合并：保留用户自定义的模型配置
  */
 router.post('/:userId/apply-template/:templateId', authAndCheckOwnership, async (req, res) => {
   try {
@@ -462,23 +510,37 @@ router.post('/:userId/apply-template/:templateId', authAndCheckOwnership, async 
       return errors.notFound(res, '用户');
     }
     
-    // 应用模板
+    // 保留用户为每个成员自定义的配置（模型、工作区等）
+    const oldMembers = user.team?.members || [];
+    const oldMemberMap = {};
+    oldMembers.forEach(m => {
+      if (m.model || m.workspace) {
+        oldMemberMap[m.id] = m;
+      }
+    });
+    
+    // 应用模板，合并用户自定义配置
+    const newMembers = template.members.map(m => ({
+      ...m,
+      ...(oldMemberMap[m.id] || {})
+    }));
+    
     user.team = {
       teamId: templateId,
       teamName: template.templateName,
-      members: template.members,
+      members: newMembers,
       templateId: templateId,
       appliedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
     
     // 同时更新 user.agents（兼容旧代码）
-    user.agents = template.members.map(m => m.id);
+    user.agents = newMembers.map(m => m.id);
     user.agentsUpdatedAt = new Date().toISOString();
     
     await saveDB(db);
     
-    console.log(`✅ 已为用户 ${userId} 应用模板: ${template.templateName}`);
+    console.log(`✅ 已为用户 ${userId} 应用模板：${template.templateName}（保留 ${Object.keys(oldMemberMap).length} 个成员的自定义配置）`);
     
     // 同步到用户服务器（如果有）
     const server = db.userServers?.find(s => s.userId === userId && s.status === 'running');
@@ -486,22 +548,35 @@ router.post('/:userId/apply-template/:templateId', authAndCheckOwnership, async 
     
     if (server && server.ip) {
       try {
-        await syncAgentsToServer(server, user.agents);
+        await syncAgentsToServer(server, newMembers);
         syncResult = { success: true, message: '配置已同步到服务器' };
-        console.log(`✅ 已同步到远程服务器: ${server.ip}`);
+        console.log(`✅ 已同步到远程服务器：${server.ip}`);
       } catch (syncErr) {
         syncResult = { success: false, error: syncErr.message };
-        console.log(`⚠️ 同步失败: ${syncErr.message}`);
+        console.log(`⚠️ 同步失败：${syncErr.message}`);
       }
     }
     
-    success(res, { 
+    const responseData = { 
       team: user.team,
       agents: user.agents,
       sync: syncResult
-    });
+    };
+    
+    console.log('📤 返回给前端的数据:', JSON.stringify({
+      teamId: responseData.team?.teamId,
+      memberCount: responseData.team?.members?.length,
+      members: responseData.team?.members?.map(m => m.id),
+      agents: responseData.agents
+    }, null, 2));
+    
+    success(res, responseData);
   } catch (error) {
     console.error('应用模板失败:', error);
+    console.error('错误堆栈:', error.stack);
+    console.error('templateId:', templateId);
+    console.error('userId:', userId);
+    console.error('template:', template);
     errors.serverError(res, error.message);
   }
 });
@@ -561,7 +636,7 @@ router.post('/:userId/members', authAndCheckOwnership, async (req, res) => {
     
     await saveDB(db);
     
-    console.log(`✅ 已为用户 ${userId} 添加成员: ${newMember.name}`);
+    console.log(`✅ 已为用户 ${userId} 添加成员：${newMember.name}`);
     
     // 同步到用户服务器（如果有）
     const server = db.userServers?.find(s => s.userId === userId && s.status === 'running');
@@ -569,13 +644,12 @@ router.post('/:userId/members', authAndCheckOwnership, async (req, res) => {
     
     if (server && server.ip) {
       try {
-        const agents = user.team.members.map(m => m.id);
-        await syncAgentsToServer(server, agents);
+        await syncAgentsToServer(server, user.team.members);
         syncResult = { success: true, message: '配置已同步到服务器' };
-        console.log(`✅ 已同步到远程服务器: ${server.ip}`);
+        console.log(`✅ 已同步到远程服务器：${server.ip}`);
       } catch (syncErr) {
         syncResult = { success: false, error: syncErr.message };
-        console.log(`⚠️ 同步失败: ${syncErr.message}`);
+        console.log(`⚠️ 同步失败：${syncErr.message}`);
       }
     }
     
@@ -624,7 +698,7 @@ router.delete('/:userId/members/:memberId', authAndCheckOwnership, async (req, r
     
     await saveDB(db);
     
-    console.log(`✅ 已为用户 ${userId} 删除成员: ${removedMember.name}`);
+    console.log(`✅ 已为用户 ${userId} 删除成员：${removedMember.name}`);
     
     // 同步到用户服务器（如果有）
     const server = db.userServers?.find(s => s.userId === userId && s.status === 'running');
@@ -632,13 +706,12 @@ router.delete('/:userId/members/:memberId', authAndCheckOwnership, async (req, r
     
     if (server && server.ip) {
       try {
-        const agents = user.team.members.map(m => m.id);
-        await syncAgentsToServer(server, agents);
+        await syncAgentsToServer(server, user.team.members);
         syncResult = { success: true, message: '配置已同步到服务器' };
-        console.log(`✅ 已同步到远程服务器: ${server.ip}`);
+        console.log(`✅ 已同步到远程服务器：${server.ip}`);
       } catch (syncErr) {
         syncResult = { success: false, error: syncErr.message };
-        console.log(`⚠️ 同步失败: ${syncErr.message}`);
+        console.log(`⚠️ 同步失败：${syncErr.message}`);
       }
     }
     
@@ -685,7 +758,7 @@ router.put('/:userId/members/:memberId', authAndCheckOwnership, async (req, res)
     
     await saveDB(db);
     
-    console.log(`✅ 已为用户 ${userId} 更新成员: ${memberId}`);
+    console.log(`✅ 已为用户 ${userId} 更新成员：${memberId}`);
     
     // 同步到用户服务器（如果有）
     const server = db.userServers?.find(s => s.userId === userId && s.status === 'running');
@@ -693,13 +766,12 @@ router.put('/:userId/members/:memberId', authAndCheckOwnership, async (req, res)
     
     if (server && server.ip) {
       try {
-        const agents = user.team.members.map(m => m.id);
-        await syncAgentsToServer(server, agents);
+        await syncAgentsToServer(server, user.team.members);
         syncResult = { success: true, message: '配置已同步到服务器' };
-        console.log(`✅ 已同步到远程服务器: ${server.ip}`);
+        console.log(`✅ 已同步到远程服务器：${server.ip}`);
       } catch (syncErr) {
         syncResult = { success: false, error: syncErr.message };
-        console.log(`⚠️ 同步失败: ${syncErr.message}`);
+        console.log(`⚠️ 同步失败：${syncErr.message}`);
       }
     }
     
@@ -712,4 +784,4 @@ router.put('/:userId/members/:memberId', authAndCheckOwnership, async (req, res)
 
 export default router;
 
-console.log('✅ lume 团队管理 API 已加载');
+console.log('✅ lume 团队管理 API 已加载（支持配置合并）');

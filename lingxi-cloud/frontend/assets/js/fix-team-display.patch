@@ -1,0 +1,143 @@
+// 这个文件包含需要替换的函数
+
+// 1. renderMyTeam - 使用 user.team.members
+function renderMyTeam() {
+  let myAgents = [];
+  let agentDetails = {};
+  
+  if (user?.team?.members && user.team.members.length > 0) {
+    myAgents = user.team.members.map(m => m.id);
+    agentDetails = Object.fromEntries(user.team.members.map(m => [m.id, m]));
+  } else if (user?.agents && user.agents.length > 0) {
+    myAgents = user.agents;
+  } else {
+    myAgents = ['lingxi'];
+  }
+  
+  const container = document.getElementById('myTeamList');
+  if (!container) return;
+
+  container.innerHTML = myAgents.map(agentId => {
+    const agent = agentDetails[agentId] || AGENT_INFO[agentId] || { icon: 'bot', name: agentId, desc: 'AI 助手' };
+    const isRequired = agentId === 'lingxi' || agent.isDefault;
+
+    return `
+      <div class="team-member">
+        <div class="team-member-info">
+          <div class="team-member-avatar">
+            <i data-lucide="${agent.icon || 'bot'}" class="icon icon-lg icon-primary"></i>
+          </div>
+          <div>
+            <div class="team-member-name">${agent.name || agentId}</div>
+            <div class="team-member-role">${agent.desc || agent.role || 'AI 助手'}</div>
+          </div>
+        </div>
+        ${isRequired ?
+          '<span class="team-badge">队长</span>' :
+          `<button class="remove-btn" onclick="removeAgent('${agentId}')">移除</button>`
+        }
+      </div>
+    `;
+  }).join('');
+  
+  if (window.lucide) lucide.createIcons();
+}
+
+// 2. renderAvailableAgents - 使用 AGENT_INFO 过滤
+function renderAvailableAgents() {
+  const container = document.getElementById('availableAgents');
+  if (!container) return;
+
+  const myAgents = user?.team?.members ? user.team.members.map(m => m.id) : (user?.agents || ['lingxi']);
+  
+  const available = Object.keys(AGENT_INFO).filter(id => !myAgents.includes(id)).map(id => ({
+    id,
+    name: AGENT_INFO[id].name,
+    icon: AGENT_INFO[id].icon,
+    desc: AGENT_INFO[id].desc
+  }));
+
+  if (available.length === 0) {
+    container.innerHTML = '<p style="color:rgba(255,255,255,0.4);font-size:13px;">已添加全部成员</p>';
+    return;
+  }
+
+  container.innerHTML = available.map(agent => `
+    <div class="agent-chip" onclick="addAgent('${agent.id}')" title="${agent.desc || ''}">
+      ${agentIcon(agent, 'sm')}
+      <span>${agent.name}</span>
+    </div>
+  `).join('');
+
+  if (window.lucide) lucide.createIcons();
+}
+
+// 3. renderAgentDropdown - 使用 user.team.members
+function renderAgentDropdown() {
+  const dropdown = document.getElementById('agentDropdown');
+  if (!dropdown) return;
+
+  let agents = [];
+  if (user?.team?.members && user.team.members.length > 0) {
+    agents = user.team.members.map(m => ({
+      id: m.id,
+      name: m.name,
+      icon: m.icon,
+      desc: m.desc
+    }));
+  } else {
+    agents = userAgentList.map(id => {
+      return ALL_AGENTS[id] || AGENT_INFO[id] || { id, name: id, icon: 'bot', desc: 'AI 助手' };
+    });
+  }
+
+  if (agents.length === 0) {
+    dropdown.innerHTML = '<div style="padding: 20px; text-align: center; color: #6e6e80;">暂无团队成员</div>';
+    return;
+  }
+
+  dropdown.innerHTML = agents.map(agent => `
+    <div class="agent-dropdown-item ${agent.id === currentAgentId ? 'active' : ''}"
+         onclick="switchAgent('${agent.id}')">
+      <span class="emoji">${agentIcon(agent)}</span>
+      <div class="info">
+        <h4>${agent.name}</h4>
+        <p>${agent.desc}</p>
+      </div>
+    </div>
+  `).join('');
+
+  if (window.lucide) lucide.createIcons();
+}
+
+// 4. initAgentDropdown - 优先使用 user.team.members
+function initAgentDropdown() {
+  if (user?.team?.members && user.team.members.length > 0) {
+    userAgentList = user.team.members.map(m => m.id);
+    currentAgentId = userAgentList.includes('lingxi') ? 'lingxi' : userAgentList[0];
+    
+    const currentMember = user.team.members.find(m => m.id === currentAgentId);
+    const agent = currentMember || ALL_AGENTS[currentAgentId] || AGENT_INFO[currentAgentId];
+    if (agent) {
+      const iconEl = document.getElementById('currentAgentIcon');
+      if (iconEl) {
+        iconEl.setAttribute('data-lucide', agent.icon || 'bot');
+        if (window.lucide) lucide.createIcons();
+      }
+    }
+  } else if (user?.agents && user.agents.length > 0) {
+    userAgentList = user.agents;
+    currentAgentId = userAgentList.includes('lingxi') ? 'lingxi' : userAgentList[0];
+    
+    const agent = ALL_AGENTS[currentAgentId] || AGENT_INFO[currentAgentId];
+    if (agent) {
+      const iconEl = document.getElementById('currentAgentIcon');
+      if (iconEl) {
+        iconEl.setAttribute('data-lucide', agent.icon || 'bot');
+        if (window.lucide) lucide.createIcons();
+      }
+    }
+  }
+  
+  renderAgentDropdown();
+}
