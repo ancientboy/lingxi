@@ -208,7 +208,8 @@ function recordUsage(userId, provider, usage) {
 // 更新 db.json 中的用户使用量
 // ============ 代理请求（转发到后端轻代理） ============
 
-async function proxyRequest(provider, req, res) {
+async function proxyRequest(provider, req, res, retryCount = 0) {
+  const MAX_RETRIES = 1;  // 最多重试 1 次
   const userId = getUserId(req);
   const startTime = Date.now();
   const isStream = req.body?.stream === true;
@@ -251,7 +252,8 @@ async function proxyRequest(provider, req, res) {
     
     const fetchOptions = {
       method: req.method,
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(120000)  // 🔧 2分钟超时，防止无限等待
     };
     
     if (req.method !== 'GET' && req.body) {
@@ -332,11 +334,23 @@ async function proxyRequest(provider, req, res) {
     const duration = Date.now() - startTime;
     markProxyError(backendProxy);
     
-    console.error(`[AI-Proxy] 请求失败:`, error.message);
-    res.status(500).json({
-      error: error.message,
-      _proxy: { backend: backendProxy, duration, userId }
-    });
+    const isTimeout = error.name === 'TimeoutError' || error.name === 'AbortError' || (error.message && error.message.includes('timeout'));
+    const isConnError = error.code === 'ECONNRESET' || error.code === 'ECONNREFUSED' || (error.message && error.message.includes('ECONNRESET'));
+    
+    // Auto-retry: timeout or connection error, switch proxy and retry once
+    if ((isTimeout || isConnError) && retryCount < MAX_RETRIES && !res.headersSent) {
+      console.warn('[AI-Proxy] Retry #' + (retryCount + 1) + ' (' + error.message + '), switching proxy...');
+      return proxyRequest(provider, req, res, retryCount + 1);
+    }
+    
+    console.error('[AI-Proxy] Final failure (retried ' + retryCount + 'x):', error.message);
+    if (!res.headersSent) {
+      res.status(isTimeout ? 504 : 500).json({
+        error: isTimeout ? '模型响应超时，已重试仍失败，请稍后再试' : error.message,
+        code: isTimeout ? 'GATEWAY_TIMEOUT' : 'PROXY_ERROR',
+        _proxy: { backend: backendProxy, duration, userId, retries: retryCount }
+      });
+    }
   }
 }
 

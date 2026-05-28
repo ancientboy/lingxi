@@ -183,16 +183,27 @@ router.post('/login', async (req, res) => {
       // 邮箱登录
       user = db.users.find(u => u.email === email);
       if (!user) {
-        return res.status(400).json({ error: '该邮箱未注册' });
+        return res.status(400).json({ 
+          error: '该邮箱未注册',
+          friendlyMessage: '该邮箱尚未注册，要不要先注册一个账号？',
+          suggestion: 'register'
+        });
       }
     } else if (nickname) {
       // 昵称登录
       user = db.users.find(u => u.nickname === nickname);
       if (!user) {
-        return res.status(400).json({ error: '用户不存在' });
+        return res.status(400).json({ 
+          error: '用户不存在',
+          friendlyMessage: '找不到这个用户，是不是账号输错了？',
+          suggestion: 'check_input'
+        });
       }
     } else {
-      return res.status(400).json({ error: '请提供邮箱或昵称' });
+      return res.status(400).json({ 
+        error: '请提供邮箱或昵称',
+        friendlyMessage: '请输入邮箱或昵称进行登录'
+      });
     }
     
     // 验证密码
@@ -224,7 +235,7 @@ router.post('/login', async (req, res) => {
         userInviteCode: user.userInviteCode,  // 返回用户专属邀请码
         inviteCount: user.inviteCount || 0,    // 邀请人数
         points: user.points || 0,              // 积分
-        canClaimTeam: (user.points || 0) >= 5000,
+        canClaimTeam: (user.subscription && user.subscription.plan !== 'free' && user.subscription.status === 'active') || (user.points || 0) >= 5000,
         // 订阅信息
         subscription: user.subscription || {
           plan: 'free',
@@ -284,9 +295,19 @@ router.get('/me', async (req, res) => {
       }
     }
     
-    // 计算是否可以领取团队
+    // 计算是否可以领取团队（订阅用户 或 累计消耗 >= 5000 积分）
     const points = user.points || 0;
-    const canClaimTeam = points >= 5000;
+    const totalSpent = user.totalSpent || 0;
+    
+    // 检查订阅状态（兼容有无 status 字段的情况）
+    const isSubscribed = user.subscription && 
+                         user.subscription.plan && 
+                         user.subscription.plan !== 'free' && 
+                         (user.subscription.status === 'active' || 
+                          !user.subscription.endDate || 
+                          new Date(user.subscription.endDate) > new Date());
+    
+    const canClaimTeam = isSubscribed || totalSpent >= 5000;
     
     res.json({
       id: user.id,
@@ -473,7 +494,6 @@ router.post('/claim-team', async (req, res) => {
         success: true,
         message: '🎉 恭喜！成功领取 AI 团队',
         agents: selectedAgents,
-        points: result.balance,
         // 直接返回访问地址
         openclawUrl: deployData.openclawUrl,
         status: 'ready'
@@ -485,7 +505,6 @@ router.post('/claim-team', async (req, res) => {
       success: true,
       message: '🎉 部署已启动，正在为你创建专属服务器...',
       agents: selectedAgents,
-      points: result.balance,
       // 需要轮询的部署任务
       taskId: deployData.taskId,
       serverId: deployData.serverId,

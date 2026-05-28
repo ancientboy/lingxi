@@ -32,7 +32,7 @@ const AGENTS_CONFIG = {
     },
     "inventor": {
       "name": "紫萱",
-      "model": "zhipu/glm-5",
+      "model": "zhipu/glm-5.1",
       "persona": "你是紫萱，天马行空的发明家。擅长创意生成、产品创新、用户体验设计。",
       "enabled": true
     },
@@ -50,7 +50,7 @@ const AGENTS_CONFIG = {
     },
     "media": {
       "name": "音韵",
-      "model": "zhipu/glm-5",
+      "model": "zhipu/glm-5.1",
       "persona": "你是音韵，多媒体处理专家。擅长音视频处理、格式转换、媒体分析。",
       "enabled": true
     },
@@ -137,6 +137,7 @@ function generateOpenClawConfig(token, session) {
           "api": "openai-completions",
           "authHeader": true,
           "models": [
+            { "id": "glm-5.1", "name": "GLM-5.1", "input": ["text", "image"], "contextWindow": 200000, "maxTokens": 8192 },
             { "id": "glm-5", "name": "GLM-5", "input": ["text", "image"], "contextWindow": 200000, "maxTokens": 8192 },
             { "id": "glm-4-air", "name": "GLM-4-Air", "input": ["text", "image"], "contextWindow": 128000, "maxTokens": 4096 }
           ]

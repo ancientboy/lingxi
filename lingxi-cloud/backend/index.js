@@ -174,9 +174,17 @@ app.use('/api/speech', speechRoutes);
 import filesRoutes from './routes/files.js';
 app.use('/api/files', filesRoutes);
 
+// 文件下载（安全下载，不暴露 IP）
+import downloadsRoutes from './routes/downloads.js';
+app.use('/api/downloads', downloadsRoutes);
+
 // LumeClaw 维护 Agent
 import lumeclawRoutes from './routes/lumeclaw.js';
 app.use('/api/lumeclaw', lumeclawRoutes);
+
+// Agent 办公区
+import agentWorkspaceRoutes from './routes/agent-workspace.js';
+app.use('/api/agent-workspace', agentWorkspaceRoutes);
 
 // 托管上传的图片
 import { fileURLToPath as fileURLToPath2 } from 'url';
@@ -224,3 +232,7 @@ export default app;
 // TTS 路由
 import ttsRouter from './routes/tts.js';
 app.use('/api/tts', ttsRouter);
+
+// 服务器健康检查定时任务（每 5 分钟）
+import { startHealthCheckScheduler } from './utils/health-check.js';
+startHealthCheckScheduler();

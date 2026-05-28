@@ -1044,15 +1044,30 @@
               const btn = document.getElementById('claimTeamBtn');
               const hint = document.getElementById('claimTeamHint');
               
+              // 检查订阅状态
+              const isSubscribed = user.subscription && 
+                                   user.subscription.plan !== 'free' && 
+                                   user.subscription.status === 'active';
+              
               if (canClaim) {
                 btn.disabled = false;
                 btn.style.background = '#10a37f';
-                hint.textContent = '点击领取您的 AI 团队';
+                hint.textContent = isSubscribed ? 
+                  '✅ 订阅用户，点击领取您的 AI 团队' : 
+                  '点击领取您的 AI 团队';
               } else {
                 btn.disabled = true;
                 btn.style.background = '#d9d9e3';
-                const need = 100 - (user.points || 0);
-                hint.textContent = `还需 ${need} 积分才能领取，邀请好友快速获取积分~`;
+                // 根据订阅状态显示不同提示
+                if (isSubscribed) {
+                  hint.textContent = '订阅已生效，请直接领取团队';
+                } else {
+                  const needPoints = 5000 - (user.points || 0);
+                  const need = 100 - (user.points || 0);
+                  hint.textContent = needPoints > 0 ? 
+                    `还需 ${needPoints} 积分或开通订阅才能领取，邀请好友快速获取积分~` : 
+                    `还需开通订阅或累积消耗积分，邀请好友快速获取积分~`;
+                }
               }
             }
           } else {
@@ -1673,7 +1688,8 @@
             location.reload();
           }
         } else {
-          error.textContent = data.error || '登录失败';
+          // 🔧 优先使用友好提示
+          error.textContent = data.friendlyMessage || data.error || '登录失败';
           error.classList.add('show');
         }
       } catch (err) {

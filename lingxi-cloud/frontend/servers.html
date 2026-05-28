@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>设备管理 - 灵犀云</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #f5f1eb; min-height: 100vh; }
+
+    .top-bar { position: fixed; top: 0; left: 0; right: 0; height: 44px; background: rgba(255,255,255,0.94); backdrop-filter: blur(12px); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; z-index: 200; border-bottom: 1px solid rgba(0,0,0,0.05); }
+    .top-bar h1 { font-size: 15px; font-weight: 700; color: #2d3748; }
+    .top-bar-left { display: flex; align-items: center; gap: 8px; }
+    .back-link { display: flex; align-items: center; gap: 3px; padding: 4px 10px; border: 1px solid #ddd; border-radius: 6px; color: #666; font-size: 12px; text-decoration: none; }
+    .back-link:hover { background: #f5f5f5; color: #333; }
+
+    .container { max-width: 800px; margin: 60px auto 40px; padding: 0 16px; }
+
+    .section { margin-bottom: 24px; }
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .section-title { font-size: 18px; font-weight: 700; color: #2d3748; }
+    .section-desc { font-size: 13px; color: #888; margin-top: 4px; }
+
+    .btn { padding: 8px 16px; border: none; border-radius: 8px; font-size: 13px; cursor: pointer; font-weight: 500; transition: all 0.2s; }
+    .btn-primary { background: #667eea; color: white; }
+    .btn-primary:hover { background: #5a6fd6; }
+    .btn-outline { background: white; color: #667eea; border: 1px solid #667eea; }
+    .btn-outline:hover { background: #f0eeff; }
+    .btn-danger { background: white; color: #f5576c; border: 1px solid #f5576c; }
+    .btn-danger:hover { background: #fff5f5; }
+    .btn-sm { padding: 4px 10px; font-size: 11px; }
+    .btn-check { background: white; color: #43e97b; border: 1px solid #43e97b; }
+    .btn-check:hover { background: #f0fff5; }
+
+    /* Server Card */
+    .server-card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); border: 2px solid transparent; transition: all 0.2s; }
+    .server-card.active { border-color: #667eea; box-shadow: 0 2px 12px rgba(102,126,234,0.15); }
+    .server-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+
+    .server-top { display: flex; align-items: center; justify-content: space-between; }
+    .server-info { display: flex; align-items: center; gap: 12px; }
+    .server-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; background: #f0eeff; }
+    .server-card.active .server-icon { background: #667eea22; }
+    .server-name { font-size: 15px; font-weight: 600; color: #2d3748; }
+    .server-ip { font-size: 12px; color: #888; margin-top: 2px; font-family: monospace; }
+    .server-desc { font-size: 11px; color: #aaa; margin-top: 2px; }
+
+    .server-status { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .status-dot.running { background: #43e97b; box-shadow: 0 0 6px rgba(67,233,123,0.4); }
+    .status-dot.offline { background: #f5576c; }
+    .status-dot.pending { background: #fbbf24; animation: pulse 1.5s infinite; }
+    .status-dot.unhealthy { background: #fb923c; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    .server-actions { display: flex; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; }
+    .active-badge { font-size: 10px; background: #667eea; color: white; padding: 2px 8px; border-radius: 4px; font-weight: 600; }
+
+    .last-check { font-size: 10px; color: #bbb; margin-top: 8px; }
+
+    /* Empty state */
+    .empty-state { text-align: center; padding: 60px 20px; color: #bbb; }
+    .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+    .empty-state .title { font-size: 16px; color: #888; margin-bottom: 4px; }
+    .empty-state .desc { font-size: 13px; }
+
+    /* Modal */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); z-index: 500; justify-content: center; align-items: center; }
+    .modal-overlay.active { display: flex; }
+    .modal { background: white; border-radius: 16px; padding: 24px; max-width: 440px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.2); animation: modal-in 0.3s ease-out; }
+    @keyframes modal-in { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
+    .modal h2 { font-size: 18px; font-weight: 700; color: #2d3748; margin-bottom: 20px; }
+    .modal-close { position: absolute; top: 12px; right: 14px; width: 28px; height: 28px; border: none; background: #f5f5f5; border-radius: 50%; cursor: pointer; font-size: 14px; color: #888; display: flex; align-items: center; justify-content: center; }
+    .form-group { margin-bottom: 14px; }
+    .form-label { display: block; font-size: 12px; font-weight: 600; color: #555; margin-bottom: 4px; }
+    .form-input { width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; outline: none; transition: border-color 0.2s; }
+    .form-input:focus { border-color: #667eea; }
+    .form-hint { font-size: 11px; color: #aaa; margin-top: 2px; }
+    .form-row { display: flex; gap: 12px; }
+    .form-row .form-group { flex: 1; }
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+
+    .toast { position: fixed; top: 52px; right: 12px; padding: 8px 16px; background: white; border-radius: 8px; font-size: 13px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); z-index: 600; animation: toast-in 0.3s; }
+    @keyframes toast-in { from{transform:translateX(40px);opacity:0} to{transform:translateX(0);opacity:1} }
+  </style>
+</head>
+<body>
+
+<div class="top-bar">
+  <div class="top-bar-left">
+    <a href="agent-workspace.html" class="back-link">← 返回办公区</a>
+    <h1>🖥️ 设备管理</h1>
+  </div>
+  <button class="btn btn-check btn-sm" onclick="checkAll()">🔄 全部检查</button>
+</div>
+
+<div class="container">
+  <div class="section">
+    <div class="section-header">
+      <div>
+        <div class="section-title">我的设备</div>
+        <div class="section-desc">管理你的 OpenClaw 智能体服务器</div>
+      </div>
+      <button class="btn btn-primary" onclick="showAddModal()">+ 添加设备</button>
+    </div>
+    <div id="serverList"></div>
+  </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal-overlay" id="serverModal">
+  <div class="modal" style="position:relative">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <h2 id="modalTitle">添加设备</h2>
+    <input type="hidden" id="editServerId">
+    <div class="form-group">
+      <label class="form-label">设备名称</label>
+      <input class="form-input" id="fName" placeholder="例：主力服务器、项目A、测试环境">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">IP 地址 *</label>
+        <input class="form-input" id="fIp" placeholder="192.168.1.100" required>
+      </div>
+      <div class="form-group" style="max-width:120px">
+        <label class="form-label">端口</label>
+        <input class="form-input" id="fPort" value="18789" type="number">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">OpenClaw Token</label>
+      <input class="form-input" id="fToken" placeholder="Gateway 控制令牌">
+      <div class="form-hint">在 OpenClaw 配置文件的 control.token 中找到</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Session ID</label>
+      <input class="form-input" id="fSession" placeholder="控制面板 URL 中的路径部分">
+      <div class="form-hint">例如 ControlUI URL http://ip:18789/<b>8eb2a992</b>/ 中的 8eb2a992</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">备注</label>
+      <input class="form-input" id="fDesc" placeholder="可选，描述用途">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveServer()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// Get userId from URL params, localStorage, or cookie
+function getUserId() {
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('userId')) return urlParams.get('userId');
+  // index.html 登录时存的是 lingxi_user 和 lingxi_token
+  try { const u = JSON.parse(localStorage.getItem('lingxi_user') || '{}'); if (u.id) return u.id; } catch(e) {}
+  try { const u = JSON.parse(localStorage.getItem('user') || '{}'); if (u.id) return u.id; } catch(e) {}
+  if (localStorage.getItem('userId')) return localStorage.getItem('userId');
+  // 最后尝试用 token 调后端 API 获取
+  return '';
+}
+let userId = getUserId();
+console.log('[servers.html] userId:', userId, '| lingxi_user:', localStorage.getItem('lingxi_user')?.slice(0, 80));
+
+if (!userId) {
+  // 尝试用 token 从后端获取 userId
+  const token = localStorage.getItem('lingxi_token');
+  if (token) {
+    fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(user => {
+        if (user && user.id) {
+          // 找到了，存起来并加载
+          localStorage.setItem('lingxi_user', JSON.stringify(user));
+          userId = user.id;
+          loadServers();
+        } else {
+          document.getElementById('serverList').innerHTML = '<div class="empty-state"><div class="icon">🔒</div><div class="title">请先登录</div><div class="desc"><a href="/" style="color:#667eea">前往登录</a></div></div>';
+        }
+      })
+      .catch(() => {
+        document.getElementById('serverList').innerHTML = '<div class="empty-state"><div class="icon">🔒</div><div class="title">请先登录</div><div class="desc"><a href="/" style="color:#667eea">前往登录</a></div></div>';
+      });
+  } else {
+    document.getElementById('serverList').innerHTML = '<div class="empty-state"><div class="icon">🔒</div><div class="title">请先登录</div><div class="desc"><a href="/" style="color:#667eea">前往登录</a></div></div>';
+  }
+}
+
+const API = '/api/servers';
+let servers = [];
+let activeServerId = null;
+
+async function loadServers() {
+  if (!userId) return;
+  try {
+    const resp = await fetch(`${API}/${userId}`);
+    const data = await resp.json();
+    servers = data.servers || [];
+    activeServerId = data.activeServerId;
+    renderServers();
+  } catch (err) {
+    console.error('加载设备失败:', err);
+  }
+}
+
+function renderServers() {
+  const el = document.getElementById('serverList');
+  
+  if (servers.length === 0) {
+    el.innerHTML = '<div class="empty-state"><div class="icon">🖥️</div><div class="title">还没有设备</div><div class="desc">点击「添加设备」连接你的 OpenClaw 服务器</div></div>';
+    return;
+  }
+  
+  el.innerHTML = servers.map(s => {
+    const isActive = s.id === activeServerId;
+    const statusText = { running: '在线', offline: '离线', pending: '检查中', unhealthy: '异常' };
+    const statusClass = s.status || 'pending';
+    const lastCheck = s.lastCheck ? new Date(s.lastCheck).toLocaleString('zh-CN') : '未检查';
+    
+    return `<div class="server-card ${isActive ? 'active' : ''}">
+      <div class="server-top">
+        <div class="server-info">
+          <div class="server-icon">${isActive ? '🟢' : '🖥️'}</div>
+          <div>
+            <div class="server-name">${s.name || '未命名'} ${isActive ? '<span class="active-badge">活跃</span>' : ''}</div>
+            <div class="server-ip">${s.ip}:${s.openclawPort || 18789}</div>
+            ${s.description ? `<div class="server-desc">${s.description}</div>` : ''}
+          </div>
+        </div>
+        <div class="server-status">
+          <span class="status-dot ${statusClass}"></span>
+          ${statusText[statusClass] || statusClass}
+        </div>
+      </div>
+      <div class="server-actions">
+        <button class="btn btn-sm btn-outline" onclick="checkServer('${s.id}')">🔍 检查</button>
+        ${!isActive ? `<button class="btn btn-sm btn-primary" onclick="activateServer('${s.id}')">⚡ 切换</button>` : ''}
+        <button class="btn btn-sm btn-outline" onclick="editServer('${s.id}')">✏️ 编辑</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteServer('${s.id}')">🗑️ 删除</button>
+      </div>
+      <div class="last-check">最后检查: ${lastCheck}</div>
+    </div>`;
+  }).join('');
+}
+
+async function checkServer(serverId) {
+  showToast('🔍 正在检查...');
+  try {
+    const resp = await fetch(`${API}/${userId}/${serverId}/check`, { method: 'POST' });
+    const data = await resp.json();
+    showToast(data.healthy ? '✅ 设备在线' : '❌ 设备离线');
+    loadServers();
+  } catch (err) {
+    showToast('❌ 检查失败');
+  }
+}
+
+async function checkAll() {
+  showToast('🔍 正在检查所有设备...');
+  try {
+    const resp = await fetch(`${API}/${userId}/check-all`, { method: 'POST' });
+    const data = await resp.json();
+    const online = data.results?.filter(r => r.healthy).length || 0;
+    const total = data.results?.length || 0;
+    showToast(`✅ 检查完成: ${online}/${total} 在线`);
+    loadServers();
+  } catch (err) {
+    showToast('❌ 检查失败');
+  }
+}
+
+async function activateServer(serverId) {
+  try {
+    const resp = await fetch(`${API}/${userId}/${serverId}/activate`, { method: 'POST' });
+    const data = await resp.json();
+    showToast(data.message);
+    loadServers();
+    // 通知聊天页面刷新（postMessage + localStorage 双通道）
+    localStorage.setItem('device_switched_at', Date.now().toString());
+    try {
+      const chatWindow = window.opener || window.parent;
+      if (chatWindow && chatWindow !== window) {
+        chatWindow.postMessage({ type: 'device-switched', serverId }, '*');
+      }
+    } catch(e) {}
+  } catch (err) {
+    showToast('❌ 切换失败');
+  }
+}
+
+function showAddModal() {
+  document.getElementById('modalTitle').textContent = '添加设备';
+  document.getElementById('editServerId').value = '';
+  document.getElementById('fName').value = '';
+  document.getElementById('fIp').value = '';
+  document.getElementById('fPort').value = '18789';
+  document.getElementById('fToken').value = '';
+  document.getElementById('fSession').value = '';
+  document.getElementById('fDesc').value = '';
+  document.getElementById('serverModal').classList.add('active');
+}
+
+function editServer(serverId) {
+  const s = servers.find(x => x.id === serverId);
+  if (!s) return;
+  document.getElementById('modalTitle').textContent = '编辑设备';
+  document.getElementById('editServerId').value = s.id;
+  document.getElementById('fName').value = s.name || '';
+  document.getElementById('fIp').value = s.ip || '';
+  document.getElementById('fPort').value = s.openclawPort || 18789;
+  document.getElementById('fToken').value = s.openclawToken || '';
+  document.getElementById('fSession').value = s.openclawSession || '';
+  document.getElementById('fDesc').value = s.description || '';
+  document.getElementById('serverModal').classList.add('active');
+}
+
+function closeModal() {
+  document.getElementById('serverModal').classList.remove('active');
+}
+
+async function saveServer() {
+  const editId = document.getElementById('editServerId').value;
+  const body = {
+    name: document.getElementById('fName').value,
+    ip: document.getElementById('fIp').value,
+    openclawPort: parseInt(document.getElementById('fPort').value) || 18789,
+    openclawToken: document.getElementById('fToken').value,
+    openclawSession: document.getElementById('fSession').value,
+    description: document.getElementById('fDesc').value
+  };
+  
+  if (!body.ip) { showToast('⚠️ IP 地址必填'); return; }
+  
+  try {
+    let resp;
+    if (editId) {
+      resp = await fetch(`${API}/${userId}/${editId}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    } else {
+      resp = await fetch(`${API}/${userId}`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    }
+    const data = await resp.json();
+    if (resp.ok) {
+      showToast(editId ? '✅ 设备已更新' : '✅ 设备已添加');
+      closeModal();
+      loadServers();
+    } else {
+      showToast('⚠️ ' + (data.error || '操作失败'));
+    }
+  } catch (err) {
+    showToast('❌ 保存失败');
+  }
+}
+
+async function deleteServer(serverId) {
+  const s = servers.find(x => x.id === serverId);
+  if (!s) return;
+  if (!confirm(`确定删除「${s.name || s.ip}」？`)) return;
+  
+  try {
+    const resp = await fetch(`${API}/${userId}/${serverId}`, { method: 'DELETE' });
+    if (resp.ok) {
+      showToast('✅ 设备已删除');
+      loadServers();
+    }
+  } catch (err) {
+    showToast('❌ 删除失败');
+  }
+}
+
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 2500);
+}
+
+// Click overlay to close modal
+document.getElementById('serverModal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+document.addEventListener('DOMContentLoaded', loadServers);
+</script>
+</body>
+</html>

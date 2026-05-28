@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>工作流集成测试 - 灵犀云</title>
+  <link rel="stylesheet" href="components/workflow-inline.css">
+  <script src="components/workflow-inline.js"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f7fa;
+      padding: 20px;
+      margin: 0;
+    }
+    
+    .chat-container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+    }
+    
+    .chat-header {
+      background: #f9fafb;
+      color: #1f2937;
+      padding: 20px;
+      text-align: center;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    
+    .chat-header h1 {
+      margin: 0;
+      font-size: 20px;
+    }
+    
+    .chat-messages {
+      padding: 20px;
+      min-height: 400px;
+      max-height: 600px;
+      overflow-y: auto;
+    }
+    
+    .message {
+      margin-bottom: 20px;
+      animation: slideIn 0.3s ease;
+    }
+    
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .message.user {
+      text-align: right;
+    }
+    
+    .message.user .message-bubble {
+      background: #10a37f;
+      color: white;
+      display: inline-block;
+      padding: 12px 16px;
+      border-radius: 12px;
+      max-width: 80%;
+    }
+    
+    .message.assistant .message-bubble {
+      background: #f3f4f6;
+      color: #333;
+      padding: 12px 16px;
+      border-radius: 12px;
+      display: inline-block;
+      max-width: 80%;
+    }
+    
+    .test-controls {
+      padding: 20px;
+      background: #f9fafb;
+      border-top: 1px solid #e5e7eb;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    
+    .test-button {
+      background: white;
+      color: #1f2937;
+      border: 1px solid #d1d5db;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+    
+    .test-button:hover {
+      background: #f9fafb;
+      border-color: #9ca3af;
+    }
+  </style>
+</head>
+<body>
+  <div class="chat-container">
+    <div class="chat-header">
+      <h1>📋 工作流集成测试</h1>
+      <p style="margin: 8px 0 0 0; opacity: 0.9; font-size: 14px;">测试对话框内的工作流展示效果</p>
+    </div>
+    
+    <div class="chat-messages" id="chatMessages">
+      <!-- 消息会动态添加到这里 -->
+    </div>
+    
+    <div class="test-controls">
+      <button class="test-button" onclick="testContentWorkflow()">📝 测试内容创作流程</button>
+      <button class="test-button" onclick="testDevWorkflow()">💻 测试开发流程</button>
+      <button class="test-button" onclick="testAnalysisWorkflow()">📊 测试数据分析流程</button>
+      <button class="test-button" onclick="clearChat()">🗑️ 清空对话</button>
+    </div>
+  </div>
+  
+  <script>
+    const workflowComponent = new WorkflowProgressComponent();
+    
+    // 添加用户消息
+    function addUserMessage(text) {
+      const container = document.getElementById('chatMessages');
+      const messageHtml = `
+        <div class="message user">
+          <div class="message-bubble">
+            ${text}
+          </div>
+        </div>
+      `;
+      container.insertAdjacentHTML('beforeend', messageHtml);
+      container.scrollTop = container.scrollHeight;
+    }
+    
+    // 添加助手消息
+    function addAssistantMessage(text) {
+      const container = document.getElementById('chatMessages');
+      const messageHtml = `
+        <div class="message assistant">
+          <div class="message-bubble">
+            ${text}
+          </div>
+        </div>
+      `;
+      container.insertAdjacentHTML('beforeend', messageHtml);
+      container.scrollTop = container.scrollHeight;
+    }
+    
+    // 添加工作流开始卡片
+    function addWorkflowStartCard(data) {
+      const container = document.getElementById('chatMessages');
+      const html = workflowComponent.renderStart(data);
+      container.insertAdjacentHTML('beforeend', `<div class="message assistant">${html}</div>`);
+      container.scrollTop = container.scrollHeight;
+    }
+    
+    // 更新工作流步骤
+    function updateWorkflowStep(stepData, isComplete) {
+      const script = workflowComponent.renderStepUpdate(stepData, isComplete);
+      const container = document.getElementById('chatMessages');
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = script;
+      container.appendChild(tempDiv);
+      container.scrollTop = container.scrollHeight;
+    }
+    
+    // 添加工作流完成卡片
+    function addWorkflowCompleteCard(data) {
+      const container = document.getElementById('chatMessages');
+      const html = workflowComponent.renderComplete(data);
+      container.insertAdjacentHTML('beforeend', `<div class="message assistant">${html}</div>`);
+      container.scrollTop = container.scrollHeight;
+    }
+    
+    // 测试内容创作流程
+    function testContentWorkflow() {
+      addUserMessage('用内容创作流程，写一篇关于 AI Agent 发展趋势的公众号文章');
+      
+      setTimeout(() => {
+        addAssistantMessage('📋 启动「内容创作流程」');
+        
+        setTimeout(() => {
+          addWorkflowStartCard({
+            workflowId: 'content-standard',
+            workflowName: '内容创作流程',
+            mode: 'multi-agent',
+            task: '写一篇关于 AI Agent 发展趋势的公众号文章',
+            startTime: new Date().toISOString()
+          });
+          
+          // 模拟步骤执行
+          simulateSteps(5, () => {
+            addWorkflowCompleteCard({
+              workflowName: '内容创作流程',
+              stepCount: 5,
+              duration: 35000,
+              results: [
+                { output: 'outline.md' },
+                { output: 'draft.md (2800 字)' },
+                { output: 'revised.md' },
+                { output: 'media/ (3 张配图)' },
+                { output: 'published/' }
+              ]
+            });
+          });
+        }, 500);
+      }, 500);
+    }
+    
+    // 测试开发流程
+    function testDevWorkflow() {
+      addUserMessage('用标准开发流程，开发个用户登录功能');
+      
+      setTimeout(() => {
+        addAssistantMessage('📋 启动「标准开发流程」');
+        
+        setTimeout(() => {
+          addWorkflowStartCard({
+            workflowId: 'dev-standard',
+            workflowName: '标准开发流程',
+            mode: 'multi-agent',
+            task: '开发用户登录功能',
+            startTime: new Date().toISOString()
+          });
+          
+          // 模拟 6 个步骤
+          simulateSteps(6, () => {
+            addWorkflowCompleteCard({
+              workflowName: '标准开发流程',
+              stepCount: 6,
+              duration: 45000,
+              results: [
+                { output: 'requirements.md' },
+                { output: 'design.md' },
+                { output: 'code/login/' },
+                { output: 'review.md' },
+                { output: 'docs/login-guide.md' },
+                { output: 'analytics/login-events.js' }
+              ]
+            });
+          });
+        }, 500);
+      }, 500);
+    }
+    
+    // 测试数据分析流程
+    function testAnalysisWorkflow() {
+      addUserMessage('用数据分析流程，分析一下最近的用户增长情况');
+      
+      setTimeout(() => {
+        addAssistantMessage('📋 启动「数据分析流程」');
+        
+        setTimeout(() => {
+          addWorkflowStartCard({
+            workflowId: 'data-analysis',
+            workflowName: '数据分析流程',
+            mode: 'multi-agent',
+            task: '分析最近的用户增长情况',
+            startTime: new Date().toISOString()
+          });
+          
+          simulateSteps(5, () => {
+            addWorkflowCompleteCard({
+              workflowName: '数据分析流程',
+              stepCount: 5,
+              duration: 25000,
+              results: [
+                { output: 'data/' },
+                { output: 'cleaned_data/' },
+                { output: 'analysis.md' },
+                { output: 'charts/' },
+                { output: 'report.md' }
+              ]
+            });
+          });
+        }, 500);
+      }, 500);
+    }
+    
+    // 模拟步骤执行
+    function simulateSteps(totalSteps, onComplete) {
+      let currentStep = 1;
+      
+      const interval = setInterval(() => {
+        if (currentStep <= totalSteps) {
+          updateWorkflowStep({
+            stepIndex: currentStep,
+            totalSteps: totalSteps,
+            stepName: `步骤 ${currentStep}`,
+            agent: 'coder',
+            isComplete: true
+          }, true);
+          
+          currentStep++;
+        } else {
+          clearInterval(interval);
+          setTimeout(onComplete, 1000);
+        }
+      }, 1500);
+    }
+    
+    // 清空对话
+    function clearChat() {
+      document.getElementById('chatMessages').innerHTML = '';
+    }
+    
+    // 初始化
+    addAssistantMessage('👋 欢迎使用工作流集成测试！\n\n点击上方按钮测试不同的工作流，查看对话框内的展示效果。');
+  </script>
+</body>
+</html>

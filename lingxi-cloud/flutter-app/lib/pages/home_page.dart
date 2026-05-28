@@ -7,6 +7,7 @@ import 'package:lingxicloud/pages/subscription_page.dart';
 import 'package:lingxicloud/pages/skills_page.dart';
 import 'package:lingxicloud/pages/settings_page.dart';
 import 'package:lingxicloud/pages/login_page.dart';
+import 'package:lingxicloud/pages/team_intro_page.dart';
 import 'dart:async';
 
 class HomePage extends StatefulWidget {
@@ -17,6 +18,66 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  
+  // 🔧 判断是否可以领取团队（订阅用户 或 积分 >= 5000）
+  bool _canClaimTeam(dynamic user) {
+    if (user == null) return false;
+    
+    // 检查订阅状态
+    final subscription = user.subscription as Map<String, dynamic>?;
+    final isSubscribed = subscription != null && 
+                         subscription['plan'] != null && 
+                         subscription['plan'] != 'free' && 
+                         (subscription['status'] == 'active' || 
+                          (subscription['endDate'] != null && 
+                           DateTime.parse(subscription['endDate']).isAfter(DateTime.now())));
+    
+    // 检查积分
+    final points = (user.points as num?)?.toInt() ?? 0;
+    final hasEnoughPoints = points >= 5000;
+    
+    return isSubscribed || hasEnoughPoints;
+  }
+  
+  // 🔧 获取按钮文本
+  String _getClaimButtonText(dynamic user) {
+    final subscription = user?.subscription as Map<String, dynamic>?;
+    final isSubscribed = subscription != null && 
+                         subscription['plan'] != null && 
+                         subscription['plan'] != 'free';
+    
+    if (isSubscribed) {
+      return '领取 AI 团队（订阅用户）';
+    } else {
+      final points = (user?.points as num?)?.toInt() ?? 0;
+      if (points >= 5000) {
+        return '领取 AI 团队（消耗积分）';
+      } else {
+        return '领取 AI 团队（需 5000 积分）';
+      }
+    }
+  }
+  
+  // 🔧 获取提示文本
+  String _getClaimButtonHint(dynamic user) {
+    final subscription = user?.subscription as Map<String, dynamic>?;
+    final isSubscribed = subscription != null && 
+                         subscription['plan'] != null && 
+                         subscription['plan'] != 'free';
+    
+    if (isSubscribed) {
+      return '✅ 订阅已生效，请点击领取';
+    } else {
+      final points = (user?.points as num?)?.toInt() ?? 0;
+      final need = 5000 - points;
+      if (need > 0) {
+        return '💡 还需 $need 积分或开通订阅才能领取';
+      } else {
+        return '💡 积分不足，邀请好友获取更多积分';
+      }
+    }
+  }
+  
   @override
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(
@@ -163,8 +224,22 @@ class _HomePageState extends State<HomePage> {
                   width: double.infinity,
                   height: 50,
                   child: ElevatedButton(
-                    onPressed: (user?.points ?? 0) >= 100
-                        ? () => appProvider.claimTeam()
+                    onPressed: _canClaimTeam(user)
+                        ? () async {
+                            // 跳转到团队引导页，显示完整部署进度
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => TeamIntroPage(
+                                  onComplete: () {
+                                    Navigator.pop(context); // 关闭引导页
+                                    // 刷新用户信息
+                                    appProvider.refreshUser();
+                                  },
+                                ),
+                              ),
+                            );
+                          }
                         : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Constants.primaryColor,
@@ -172,21 +247,21 @@ class _HomePageState extends State<HomePage> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     child: Text(
-                      '领取 AI 团队（消耗 100 积分）',
+                      _getClaimButtonText(user),
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: (user?.points ?? 0) >= 100 ? Colors.white : Colors.grey,
+                        color: _canClaimTeam(user) ? Colors.white : Colors.grey,
                       ),
                     ),
                   ),
                 ),
               
-              if (!hasTeam && (user?.points ?? 0) < 100)
+              if (!hasTeam && !_canClaimTeam(user))
                 Padding(
                   padding: const EdgeInsets.only(top: 12),
                   child: Text(
-                    '💡 积分不足，邀请好友获取更多积分',
+                    _getClaimButtonHint(user),
                     style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
                   ),
                 ),

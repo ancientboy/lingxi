@@ -3564,19 +3564,32 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     final appProvider = Provider.of<AppProvider>(context, listen: false);
     final user = appProvider.user;
     
-    // 免费用户点击显示AI团队介绍
-    final plan = user?.subscription?['plan'] ?? 'free';
-    if (plan == 'free') {
+    // 🔧 检查是否可以领取（订阅用户 或 积分 >= 5000）
+    final subscription = user?.subscription as Map<String, dynamic>?;
+    final isSubscribed = subscription != null && 
+                         subscription['plan'] != null && 
+                         subscription['plan'] != 'free' && 
+                         (subscription['status'] == 'active' || 
+                          (subscription['endDate'] != null && 
+                           DateTime.parse(subscription['endDate']).isAfter(DateTime.now())));
+    final points = (user?.points as num?)?.toInt() ?? 0;
+    final canClaim = isSubscribed || points >= 5000;
+    
+    // 不能领取的用户（免费且积分不足）显示 AI 团队介绍
+    if (!canClaim) {
       return () => _showAITeamIntroDialog(appProvider);
     }
     
-    // 订阅用户根据是否有团队显示不同内容
+    // 可以领取的用户，根据是否有团队显示不同内容
     if (user?.agents.isEmpty ?? true) {
+      // 没有团队，显示 AI 团队介绍对话框（可以领取）
       return () => _showAITeamIntroDialog(appProvider);
     }
     
+    // 已有团队，显示团队信息
     return () => _showTeamDialog();
   }
+
 
   // 显示AI团队介绍对话框
   void _showAITeamIntroDialog(AppProvider appProvider) {
@@ -3654,9 +3667,30 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  '升级订阅后即可领取完整的 AI 团队，每个 Agent 都有独特的技能和专长：',
-                  style: TextStyle(fontSize: 14),
+                // 🔧 根据用户类型显示不同提示
+                Builder(
+                  builder: (context) {
+                    final user = appProvider.user;
+                    final subscription = user?.subscription as Map<String, dynamic>?;
+                    final isSubscribed = subscription != null && 
+                                         subscription['plan'] != null && 
+                                         subscription['plan'] != 'free' && 
+                                         (subscription['status'] == 'active' || 
+                                          (subscription['endDate'] != null && 
+                                           DateTime.parse(subscription['endDate']).isAfter(DateTime.now())));
+                    final points = (user?.points as num?)?.toInt() ?? 0;
+                    final canClaim = isSubscribed || points >= 5000;
+                    
+                    String hint;
+                    if (canClaim) {
+                      hint = '您已满足领取条件，点击下方按钮即可领取完整的 AI 团队：';
+                    } else {
+                      final need = 5000 - points;
+                      hint = '订阅用户或累计消耗 ≥5000 积分即可领取，每个 Agent 都有独特的技能和专长：\n（当前积分：$points，还需 $need 积分或开通订阅）';
+                    }
+                    
+                    return Text(hint, style: const TextStyle(fontSize: 14));
+                  },
                 ),
                 const SizedBox(height: 16),
                 ...allAgents.entries.map((entry) {
@@ -3694,11 +3728,46 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               child: const Text('取消'),
             ),
             ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('请先订阅后领取 AI 团队')),
-                );
+              onPressed: () async {
+                // 🔧 检查是否可以领取
+                final user = appProvider.user;
+                final subscription = user?.subscription as Map<String, dynamic>?;
+                final isSubscribed = subscription != null && 
+                                     subscription['plan'] != null && 
+                                     subscription['plan'] != 'free' && 
+                                     (subscription['status'] == 'active' || 
+                                      (subscription['endDate'] != null && 
+                                       DateTime.parse(subscription['endDate']).isAfter(DateTime.now())));
+                final points = (user?.points as num?)?.toInt() ?? 0;
+                final canClaim = isSubscribed || points >= 5000;
+                
+                if (!canClaim) {
+                  // 不能领取，提示需要订阅或积分
+                  final need = 5000 - points;
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('💡 还需 ${need} 积分或开通订阅才能领取')),
+                  );
+                } else {
+                  // 可以领取，调用 API
+                  Navigator.pop(context);
+                  try {
+                    final success = await appProvider.claimTeam();
+                    if (success) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('🎉 成功领取 AI 团队！')),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('领取失败，请重试')),
+                      );
+                    }
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('领取失败：$e')),
+                    );
+                  }
+                }
               },
               style: ElevatedButton.styleFrom(backgroundColor: Constants.primaryColor),
               child: const Text('领取'),

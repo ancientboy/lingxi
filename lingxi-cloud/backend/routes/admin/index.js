@@ -9,6 +9,7 @@ import modelsRoutes from './models.js';
 import dashboardRoutes from './dashboard.js';
 import inviteCodesRoutes from './invite-codes.js';
 import serversRoutes from './servers.js';
+import proxyStatsRoutes from './proxy-stats.js';
 
 const router = Router();
 
@@ -29,5 +30,8 @@ router.use('/invite-codes', inviteCodesRoutes);
 
 // 服务器管理
 router.use('/servers', serversRoutes);
+
+// 代理统计
+router.use('/proxy-stats', proxyStatsRoutes);
 
 export default router;

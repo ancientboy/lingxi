@@ -8,6 +8,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:lingxicloud/utils/constants.dart';
 import 'package:mime_type/mime_type.dart';
+import 'package:dio/dio.dart';
 import 'package:http_parser/http_parser.dart';
 
 class AppProvider with ChangeNotifier {
@@ -78,7 +79,8 @@ class AppProvider with ChangeNotifier {
 
       final data = response.data;
       if (data['success'] != true) {
-        _error = data['error'] ?? '登录失败';
+        // 🔧 优先使用友好提示
+        _error = data['friendlyMessage'] ?? data['error'] ?? '登录失败';
         notifyListeners();
         return false;
       }
@@ -93,24 +95,41 @@ class AppProvider with ChangeNotifier {
       _user = user;
       notifyListeners();
       return true;
+    } on DioException catch (e) {
+      // 🔧 从 Dio 异常中提取友好提示
+      if (e.response?.data != null) {
+        final data = e.response!.data;
+        _error = data['friendlyMessage'] ?? data['error'] ?? '网络错误，请稍后重试';
+      } else {
+        _error = '网络错误，请检查网络连接';
+      }
+      notifyListeners();
+      return false;
     } catch (e) {
-      _error = e.toString();
+      _error = '网络错误，请稍后重试';
       notifyListeners();
       return false;
     }
   }
 
   // 注册
-  Future<bool> register(String inviteCode, String nickname, String password) async {
+  Future<bool> register(String inviteCode, String nickname, String password, String email, String code) async {
     try {
       final response = await ApiService().post(
         '/api/auth/register',
-        data: {'inviteCode': inviteCode, 'nickname': nickname, 'password': password},
+        data: {
+          'inviteCode': inviteCode,
+          'nickname': nickname,
+          'password': password,
+          'email': email,
+          'code': code,
+        },
       );
 
       final data = response.data;
       if (data['success'] != true) {
-        _error = data['error'] ?? '注册失败';
+        // 🔧 优先使用友好提示
+        _error = data['friendlyMessage'] ?? data['error'] ?? '注册失败';
         notifyListeners();
         return false;
       }
@@ -125,8 +144,18 @@ class AppProvider with ChangeNotifier {
       _user = user;
       notifyListeners();
       return true;
+    } on DioException catch (e) {
+      // 🔧 从 Dio 异常中提取友好提示
+      if (e.response?.data != null) {
+        final data = e.response!.data;
+        _error = data['friendlyMessage'] ?? data['error'] ?? '网络错误，请稍后重试';
+      } else {
+        _error = '网络错误，请检查网络连接';
+      }
+      notifyListeners();
+      return false;
     } catch (e) {
-      _error = e.toString();
+      _error = '网络错误，请稍后重试';
       notifyListeners();
       return false;
     }
@@ -185,7 +214,7 @@ class AppProvider with ChangeNotifier {
         _user = await _loadUser();
       }
       notifyListeners();
-      return success;
+      return success ?? false;
     } catch (e) {
       _error = e.toString();
       notifyListeners();

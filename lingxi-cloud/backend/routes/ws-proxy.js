@@ -14,17 +14,18 @@ import WebSocket from 'ws';
 import expressWs from 'express-ws';
 import crypto from 'crypto';
 import { replaceImageUrls, replaceHistoryImageUrls } from '../utils/image-downloader.js';
+import { getActiveServer } from '../utils/activeServer.js';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'lingxi-cloud-secret-key-2026';
 
 // ⏱️ 超时配置（防止连接泄漏）
 const WS_CONNECT_TIMEOUT = 15000;    // WebSocket 连接超时：15秒
-const HTTP_REQUEST_TIMEOUT = 60000;  // HTTP 请求超时：60秒
+const HTTP_REQUEST_TIMEOUT = 180000;  // HTTP 请求超时：180秒（大模型长对话需要更久）
 const IDLE_TIMEOUT = 300000;         // 空闲超时：5分钟无活动则断开
 
-// MVP 模式配置
-const MVP_MODE = process.env.MVP_MODE === 'true' || true;
+// MVP 模式配置 - ❌ 已禁用，防止用户连接到本地 OpenClaw
+const MVP_MODE = process.env.MVP_MODE === 'true' && false;  // 强制禁用
 const SHARED_GATEWAY = {
   url: process.env.OPENCLAW_URL || 'http://localhost:18789',
   token: process.env.MVP_OPENCLAW_TOKEN || process.env.OPENCLAW_TOKEN || '6f3719a52fa12799fea8e4a06655703f',
@@ -43,30 +44,25 @@ async function getUserGatewayConfig(userId) {
     return null;
   }
   
-  const userServer = db.userServers?.find(s => s.userId === user.id);
+  const userServer = getActiveServer(db, user.id);
   
   console.log("🔍 userServer:", userServer?.ip, userServer?.status);
+  
+  // 🔒 只有运行中的独立服务器才能连接
   if (userServer && userServer.status === 'running' && userServer.ip) {
     const httpUrl = `http://${userServer.ip === "120.55.192.144" ? "localhost" : userServer.ip}:${userServer.openclawPort}`;
     return {
       wsUrl: `ws://${userServer.ip === "120.55.192.144" ? "localhost" : userServer.ip}:${userServer.openclawPort}`,
-      httpUrl: httpUrl,  // 👈 新增 HTTP URL
+      httpUrl: httpUrl,
       basePath: userServer.openclawSession,
       session: userServer.openclawSession,
       token: userServer.openclawToken,
       sessionPrefix: `user_${user.id.substring(0, 8)}`
     };
-  } else if (MVP_MODE) {
-    return {
-      wsUrl: `ws://localhost:18789`,
-      httpUrl: `http://localhost:18789`,  // 👈 新增 HTTP URL
-      basePath: SHARED_GATEWAY.session,
-      session: SHARED_GATEWAY.session,
-      token: SHARED_GATEWAY.token,
-      sessionPrefix: `user_${user.id.substring(0, 8)}`
-    };
   }
   
+  // ❌ 没有运行中的服务器 → 拒绝连接（防止连接到本地 OpenClaw）
+  console.log("⚠️ 用户没有运行中的服务器，拒绝 WebSocket 连接:", userId);
   return null;
 }
 
@@ -563,8 +559,33 @@ export function setupWebSocketProxy(app) {
                   }
                   return;  // 不通过 WebSocket 转发
                 } catch (httpError) {
+                  const isTimeout = httpError.message && (httpError.message.includes('超时') || httpError.message.includes('timeout'));
+                  
+                  // 🔧 超时自动重试 1 次
+                  if (isTimeout) {
+                    console.warn('[WS] HTTP 超时，自动重试 1 次...');
+                    try {
+                      const retryResult = await sendImageMessageViaHTTP({
+                        gatewayConfig: gatewayConfig,
+                        message: msg.params?.message || '',
+                        attachments: msg.params.attachments,
+                        sessionKey: msg.params?.sessionKey,
+                        requestId: msg.id
+                      });
+                      const retryText = retryResult?.output?.[0]?.content?.[0]?.text || '图片处理完成';
+                      if (ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ type: 'res', id: msg.id, ok: true, payload: { text: retryText, done: true } }));
+                        ws.send(JSON.stringify({ type: 'event', event: 'chat', payload: { message: retryText, sessionKey: msg.params?.sessionKey, state: 'final', done: true } }));
+                      }
+                      return;
+                    } catch (retryErr) {
+                      console.error('[WS] 重试也失败:', retryErr.message);
+                      // Fall through to error response
+                    }
+                  }
+                  
                   // HTTP 失败 → 返回错误
-                  console.error(`❌ [${userId?.substring(0, 8)}] HTTP 发送失败:`, httpError.message);
+                  console.error('[WS] HTTP 发送最终失败:', httpError.message);
                   if (ws.readyState === WebSocket.OPEN) {
                     ws.send(JSON.stringify({
                       type: 'res',

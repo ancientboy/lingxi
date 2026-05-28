@@ -161,6 +161,7 @@ router.post('/:userId/subscribe', authMiddleware, adminMiddleware, async (req, r
     user.subscription = {
       plan,
       planName: config.name,
+      status: 'active',  // ✅ 添加状态字段
       startDate: today.toISOString().split('T')[0],
       endDate: endDate.toISOString().split('T')[0],
       grantedBy: req.adminUser.id,

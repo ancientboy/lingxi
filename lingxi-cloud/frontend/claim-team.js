@@ -151,6 +151,15 @@ async function confirmClaimTeam() {
         openclawUrl: data.openclawUrl
       }));
       
+      // 🔧 清除旧的会话缓存（避免显示本地测试的 sessions）
+      if (typeof clearAllSessions === 'function') {
+        clearAllSessions();
+      } else {
+        // 如果 clearAllSessions 还未加载，直接清除 localStorage
+        localStorage.removeItem('lingxi_deleted_sessions');
+        localStorage.removeItem('lingxi_last_session_key');
+      }
+      
       closeClaimTeamModal();
       closeProgressModal();
       
@@ -226,6 +235,10 @@ async function pollDeployStatus(taskId, agents) {
           agents: agents,
           openclawUrl: result.openclawUrl
         }));
+        
+        // 🔧 清除旧的会话缓存（避免显示本地测试的 sessions）
+        localStorage.removeItem('lingxi_deleted_sessions');
+        localStorage.removeItem('lingxi_last_session_key');
         
         closeClaimTeamModal();
         closeProgressModal();

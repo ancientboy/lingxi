@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent 办公区 - 灵犀云</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏢</text></svg>">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: #f5f1eb;
+      overflow-x: hidden;
+      min-height: 100vh;
+    }
+
+    /* ===== Top Bar ===== */
+    .top-bar {
+      position: fixed; top: 0; left: 0; right: 0; height: 44px;
+      background: rgba(255,255,255,0.88); backdrop-filter: blur(12px);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 16px; z-index: 200;
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+    }
+    .top-bar h1 { font-size: 15px; font-weight: 700; color: #2d3748; }
+    .top-bar-left { display: flex; align-items: center; gap: 8px; }
+    .back-link {
+      display: flex; align-items: center; gap: 3px; padding: 4px 10px;
+      border: 1px solid #ddd; border-radius: 6px; color: #666;
+      font-size: 12px; text-decoration: none; transition: all 0.2s;
+    }
+    .back-link:hover { background: #f5f5f5; color: #333; }
+    .refresh-btn {
+      padding: 4px 10px; border: 1px solid #ddd; border-radius: 6px;
+      background: none; color: #666; font-size: 12px; cursor: pointer;
+    }
+    .refresh-btn:hover { background: #f5f5f5; }
+
+    /* ===== Room Wrapper ===== */
+    .room-wrapper {
+      margin-top: 44px;
+      width: 100%;
+      min-height: calc(100vh - 44px);
+      position: relative;
+      overflow: visible;
+    }
+
+    /* ===== Room SVG Background (Layer 0) ===== */
+    .room-bg {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ===== Perspective Desk Container ===== */
+    .perspective-container {
+      position: relative;
+      width: 100%;
+      padding: 20px 0 60px;
+    }
+
+    .desk-rows {
+      position: relative;
+      width: 72%;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    /* ===== Desk Row ===== */
+    .desk-row {
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+      margin-bottom: 18px;
+    }
+
+    /* Row depth - back rows smaller and dimmer */
+    /* Row depth - back rows slightly smaller */
+    .desk-row.row-2 .desk,
+    .desk-row.row-3 .desk {
+      transform: scale(0.94);
+    }
+
+    /* ===== Break Area Row ===== */
+    .break-row {
+      display: flex; justify-content: center; gap: 24px;
+      margin-bottom: 14px;
+    }
+    .break-obj {
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
+      opacity: 0.85;
+    }
+    .break-obj svg {
+      filter: drop-shadow(0 3px 6px rgba(0,0,0,0.12));
+      transition: transform 0.2s;
+    }
+    .break-obj:hover svg { transform: translateY(-2px); }
+    .break-lbl { font-size: 7px; color: rgba(0,0,0,0.4); font-weight: 500; }
+
+    /* ===== Single Desk (3D thickness) ===== */
+    .desk {
+      position: relative;
+      width: 220px;
+      height: 200px;
+      cursor: pointer;
+      transition: transform 0.3s;
+    }
+    .desk:hover {
+      transform: scale(1.04);
+    }
+
+    /* --- Desk: top surface with 3D --- */
+    .desk-surface {
+      position: absolute;
+      bottom: 34px; left: 8px; right: 8px;
+      height: 10px;
+      background: linear-gradient(90deg, #c4905f, #d4a574 40%, #dbb68a 60%, #c4905f);
+      border-radius: 2px 2px 0 0;
+      box-shadow:
+        0 2px 0 #a07040,
+        0 3px 8px rgba(80,50,20,0.15),
+        0 6px 16px rgba(0,0,0,0.08);
+      transform: translateZ(0);
+    }
+    .desk-surface::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, rgba(255,255,255,0.15), rgba(255,255,255,0.25), rgba(255,255,255,0.1));
+      border-radius: 2px 2px 0 0;
+    }
+
+    /* --- Desk: front face (thickness) --- */
+    .desk-front {
+      position: absolute;
+      bottom: 10px; left: 12px; right: 12px;
+      height: 26px;
+      background: linear-gradient(180deg, #b87e48, #a06830);
+      border-radius: 0 0 3px 3px;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+    }
+    .desk-front::before {
+      content: '';
+      position: absolute;
+      top: 4px; left: 20%; right: 20%; bottom: 4px;
+      border: 1px solid rgba(0,0,0,0.06);
+      border-radius: 2px;
+    }
+
+    /* --- Desk legs with thickness --- */
+    .desk-leg {
+      position: absolute; bottom: 0;
+      width: 6px; height: 34px;
+      background: linear-gradient(90deg, #9a6028, #a86e3c, #9a6028);
+      border-radius: 0 0 2px 2px;
+      box-shadow: 1px 0 0 rgba(0,0,0,0.08);
+    }
+    .desk-leg.l { left: 16px; }
+    .desk-leg.r { right: 16px; }
+    .desk-leg::after {
+      content: '';
+      position: absolute; bottom: 0; left: -1px; right: -1px; height: 3px;
+      background: #786040;
+      border-radius: 0 0 2px 2px;
+    }
+
+    /* ===== Chair body (seat + pole + base+casters) — behind character ===== */
+    .chair-body {
+      position: absolute;
+      bottom: -32px; left: 50%; transform: translateX(-50%);
+      width: 56px; height: 62px;
+      z-index: 3;
+    }
+    .chair-body svg { width: 100%; height: 100%; }
+
+    /* ===== Chair BACK — frontmost, covers character body ===== */
+    .chair-back {
+      position: absolute;
+      bottom: -6px; left: 50%; transform: translateX(-50%);
+      width: 52px; height: 28px;
+      background: linear-gradient(180deg, #5e5e5e, #4a4a4a);
+      border-radius: 8px 8px 3px 3px;
+      z-index: 8;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 3px 6px rgba(0,0,0,0.1);
+    }
+    .chair-back::before {
+      content: '';
+      position: absolute; top: 3px; left: 5px; right: 5px; bottom: 4px;
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 5px 5px 2px 2px;
+    }
+
+    /* ===== Agent Character — BEHIND the chair back ===== */
+    .agent-char {
+      position: absolute;
+      bottom: 8px; left: 50%; transform: translateX(-50%);
+      width: 58px; height: 60px; z-index: 5;
+      cursor: pointer;
+    }
+    .agent-char svg { width: 100%; height: 100%; }
+
+    /* Character ground shadow */
+    .agent-char::after {
+      content: '';
+      position: absolute;
+      bottom: -6px; left: 50%; transform: translateX(-50%);
+      width: 36px; height: 8px;
+      background: radial-gradient(ellipse, rgba(0,0,0,0.15) 0%, transparent 70%);
+      border-radius: 50%;
+    }
+
+    .agent-char.anim-idle { animation: sit-breathe 3s ease-in-out infinite; }
+    @keyframes sit-breathe { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(-2px)} }
+
+    .agent-char.anim-working { animation: sit-type 0.7s ease-in-out infinite; }
+    @keyframes sit-type { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(-1px)} }
+
+    .agent-char.anim-queued { animation: sit-sway 2.5s ease-in-out infinite; }
+    @keyframes sit-sway { 0%,100%{transform:translateX(-50%) rotate(0)} 25%{transform:translateX(-50%) rotate(1.5deg)} 75%{transform:translateX(-50%) rotate(-1.5deg)} }
+
+    .agent-char.anim-error { animation: sit-shake 0.5s ease-in-out; }
+    @keyframes sit-shake { 0%,100%{transform:translateX(-50%) translateX(0)} 25%{transform:translateX(-50%) translateX(-3px)} 75%{transform:translateX(-50%) translateX(3px)} }
+
+    .desk.status-offline .agent-char { filter: grayscale(0.8) brightness(0.6); }
+    .agent-char:hover { transform: translateX(-50%) translateY(-3px); transition: transform 0.2s; }
+
+    /* ===== Thought Bubble — just above monitor ===== */
+    .thought-bubble {
+      position: absolute;
+      bottom: 100px; left: 50%; transform: translateX(-50%);
+      background: rgba(255,255,255,0.95);
+      border-radius: 10px;
+      padding: 4px 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      font-size: 6px;
+      white-space: nowrap;
+      z-index: 30;
+      pointer-events: none;
+      min-width: 60px;
+      text-align: center;
+    }
+    .thought-bubble::after {
+      content: '';
+      position: absolute;
+      bottom: -7px; left: 50%; transform: translateX(-50%);
+      width: 6px; height: 6px;
+      background: rgba(255,255,255,0.95);
+      border-radius: 50%;
+    }
+    .thought-bubble::before {
+      content: '';
+      position: absolute;
+      bottom: -13px; left: 50%; transform: translateX(-50%);
+      width: 4px; height: 4px;
+      background: rgba(255,255,255,0.95);
+      border-radius: 50%;
+    }
+    .thought-bubble.error-bubble {
+      border: 1px solid #f5576c;
+      background: rgba(255,245,245,0.95);
+    }
+    .tb-emoji { font-size: 7px; }
+    .tb-title { font-size: 5.5px; color: #2d3748; font-weight: 600; margin-top: 1px; }
+    .tb-step { font-size: 4.5px; color: #888; margin-top: 1px; }
+    .tb-bar { height: 2px; background: rgba(0,0,0,0.06); border-radius: 1px; margin-top: 2px; overflow: hidden; }
+    .tb-fill { height: 100%; border-radius: 1px; transition: width 1s ease-out; }
+    .tb-pct { font-size: 4px; color: #aaa; text-align: right; margin-top: 1px; }
+
+    /* ===== Monitor (3D thickness) ===== */
+    .monitor {
+      position: absolute; bottom: 42px; right: 12px; z-index: 6;
+    }
+    .monitor-frame {
+      width: 74px; height: 46px;
+      background: linear-gradient(135deg, #3a3f4b, #2d323e);
+      border-radius: 4px;
+      border: 3px solid #4a4f5a;
+      padding: 3px; position: relative;
+      box-shadow:
+        1px 1px 0 #222,
+        2px 2px 0 #1a1a1a,
+        0 0 12px rgba(100,180,255,0.06);
+    }
+    .monitor-frame::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 1px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 4px 4px 0 0;
+    }
+    .monitor-screen {
+      width: 100%; height: 100%;
+      background: #1a202c; border-radius: 2px;
+      overflow: hidden;
+      display: flex; flex-direction: column; justify-content: center; padding: 3px;
+      position: relative;
+    }
+    .scr-line { height: 2px; background: rgba(100,255,150,0.12); margin-bottom: 1.5px; border-radius: 1px; }
+    .scr-line:nth-child(2n) { width: 70%; }
+    .scr-line:nth-child(3n) { background: rgba(100,180,255,0.1); width: 55%; }
+    .scr-cursor { display: inline-block; width: 2px; height: 2px; background: rgba(100,255,150,0.7); animation: blink-c 1s step-end infinite; }
+    @keyframes blink-c { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    .screen-task {
+      position: absolute; inset: 2px;
+      background: rgba(15,20,30,0.95);
+      display: flex; flex-direction: column;
+      padding: 4px 5px;
+      border-radius: 1px;
+    }
+    .screen-task-header {
+      display: flex; align-items: center; gap: 3px;
+      margin-bottom: 3px; padding-bottom: 2px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .screen-task-dot { width: 4px; height: 4px; border-radius: 50%; }
+    .screen-task-title {
+      font-size: 5px; color: #ccc; font-weight: 600;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      max-width: 52px;
+    }
+    .screen-task-step { font-size: 4px; color: #888; margin-bottom: 2px; }
+    .screen-task-bar { height: 2px; background: rgba(255,255,255,0.08); border-radius: 1px; overflow: hidden; margin-bottom: 2px; }
+    .screen-task-fill { height: 100%; border-radius: 1px; transition: width 1s ease-out; }
+    .screen-task-pct { font-size: 3.5px; color: #666; text-align: right; }
+
+    .screen-idle {
+      position: absolute; inset: 2px;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 2px;
+    }
+    .screen-idle-time { font-size: 8px; color: rgba(255,255,255,0.25); font-weight: 300; font-variant-numeric: tabular-nums; }
+    .screen-idle-date { font-size: 3.5px; color: rgba(255,255,255,0.12); }
+
+    .desk.status-working .monitor-frame { box-shadow: 0 0 14px rgba(100,180,255,0.18), 1px 1px 0 #222, 2px 2px 0 #1a1a1a; }
+    .desk.status-idle .monitor-screen { background: #1e2535; }
+    .desk.status-offline .monitor-screen { background: #111; }
+
+    .monitor-neck {
+      width: 8px; height: 5px;
+      background: linear-gradient(90deg, #3a3a3a, #4a4a4a, #3a3a3a);
+      margin: 0 auto;
+    }
+    .monitor-base {
+      width: 26px; height: 3px;
+      background: linear-gradient(180deg, #4a4a4a, #3a3a3a);
+      margin: 0 auto; border-radius: 1px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+    }
+
+    /* ===== Desk Items ===== */
+    .d-item { position: absolute; z-index: 4; font-size: 13px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.1)); }
+    .d-item.coffee { bottom: 44px; left: 14px; }
+    .d-item.plant { bottom: 44px; left: 38px; }
+    .d-item.paper { bottom: 44px; right: 8px; font-size: 11px; }
+
+    .steam-wrap { position: absolute; top: -6px; left: 50%; transform: translateX(-50%); display: flex; gap: 1px; }
+    .stm { width: 1px; background: rgba(200,200,200,0.3); animation: stm-up 2s ease-out infinite; }
+    .stm:nth-child(1) { height: 5px; }
+    .stm:nth-child(2) { height: 7px; animation-delay: 0.4s; }
+    .stm:nth-child(3) { height: 4px; animation-delay: 0.9s; }
+    @keyframes stm-up { 0%{transform:translateY(0);opacity:0.4} 100%{transform:translateY(-8px) scaleX(1.5);opacity:0} }
+
+    /* ===== Work FX ===== */
+    .work-fx {
+      position: absolute; bottom: 56px; left: 50%; transform: translateX(-50%);
+      width: 50px; height: 25px; pointer-events: none; z-index: 7;
+    }
+    .fx-p { position: absolute; font-size: 7px; opacity: 0; animation: fx-up 2.5s ease-out infinite; }
+    @keyframes fx-up { 0%{transform:translateY(0) scale(1);opacity:0.6} 100%{transform:translateY(-22px) scale(0.3);opacity:0} }
+
+    /* ===== Nameplate ===== */
+    .nameplate {
+      position: absolute;
+      bottom: 38px; left: 6px;
+      z-index: 10;
+      display: flex; align-items: center; gap: 4px;
+      background: linear-gradient(145deg, #ffffff, #f8f6f3);
+      padding: 3px 7px 3px 3px;
+      border-radius: 3px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.03);
+      border: 1px solid #e8e2da;
+    }
+    .nameplate-avatar {
+      width: 16px; height: 16px; border-radius: 2px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px; color: #fff; font-weight: 700;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+    .nameplate-text { display: flex; flex-direction: column; gap: 0.5px; }
+    .nameplate-name { font-size: 7px; font-weight: 700; color: #2d3748; line-height: 1; }
+    .nameplate-role { font-size: 5px; color: #999; line-height: 1; }
+
+    /* ===== Bottom Panels ===== */
+    .bottom-panels {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      display: grid; grid-template-columns: 1fr 1fr;
+      background: rgba(255,255,255,0.92); backdrop-filter: blur(12px);
+      border-top: 1px solid rgba(0,0,0,0.06);
+      max-height: 200px; z-index: 100;
+      transform: translateY(calc(100% - 36px));
+      transition: transform 0.3s ease;
+    }
+    .bottom-panels.open { transform: translateY(0); }
+
+    .panel-handle {
+      position: absolute; top: -24px; left: 50%; transform: translateX(-50%);
+      padding: 4px 16px; background: rgba(255,255,255,0.92);
+      border-radius: 8px 8px 0 0; cursor: pointer;
+      font-size: 11px; color: #888; border: 1px solid rgba(0,0,0,0.06);
+      border-bottom: none;
+      display: flex; align-items: center; gap: 4px;
+    }
+
+    .panel { padding: 8px 0; overflow-y: auto; max-height: 164px; }
+    .panel:first-child { border-right: 1px solid rgba(0,0,0,0.05); }
+    .panel-hd {
+      padding: 0 12px 6px; font-size: 12px; font-weight: 600; color: #2d3748;
+      border-bottom: 1px solid #f0f0f0;
+      display: flex; align-items: center; gap: 5px;
+    }
+
+    .panel::-webkit-scrollbar { width: 3px; }
+    .panel::-webkit-scrollbar-thumb { background: #ddd; border-radius: 2px; }
+
+    .t-row { padding: 6px 12px; border-bottom: 1px solid #f8f8f8; font-size: 11px; }
+    .t-row:hover { background: #fafafa; }
+    .t-top { display: flex; align-items: center; gap: 4px; font-weight: 500; margin-bottom: 3px; }
+    .t-id { color: #bbb; font-size: 10px; }
+    .t-agent { font-size: 10px; padding: 0 5px; border-radius: 6px; }
+    .t-step { color: #999; font-size: 10px; margin-bottom: 3px; }
+    .t-bar { height: 3px; background: #f0f0f0; border-radius: 2px; overflow: hidden; }
+    .t-fill { height: 100%; border-radius: 2px; transition: width 1s ease-out; }
+
+    .l-row { display: flex; align-items: flex-start; gap: 5px; padding: 3px 12px; font-size: 11px; }
+    .l-row:hover { background: #fafafa; }
+    .l-time { color: #bbb; font-size: 9px; min-width: 32px; }
+    .l-icon { font-size: 11px; min-width: 12px; }
+    .l-agent { font-weight: 600; font-size: 10px; min-width: 20px; }
+    .l-msg { color: #888; font-size: 10px; }
+
+    .empty-msg { text-align: center; padding: 20px; color: #ccc; font-size: 12px; }
+
+    /* ===== Toast ===== */
+    .toast-box { position: fixed; top: 52px; right: 12px; z-index: 300; display: flex; flex-direction: column; gap: 4px; }
+    .toast {
+      padding: 6px 12px; background: #fff; border: 1px solid #eee; border-radius: 8px;
+      font-size: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      animation: t-in 0.3s ease-out;
+    }
+    .toast.out { animation: t-out 0.3s ease-in forwards; }
+    @keyframes t-in { from{transform:translateX(50px);opacity:0} to{transform:translateX(0);opacity:1} }
+    @keyframes t-out { from{transform:translateX(0);opacity:1} to{transform:translateX(50px);opacity:0} }
+
+    /* ===== Responsive ===== */
+    @media (max-width: 768px) {
+      .desk-rows { width: 92%; }
+      .desk { width: 170px; height: 190px; }
+      .monitor-frame { width: 58px; height: 36px; }
+      .desk-row { gap: 16px; }
+    }
+
+    /* ===== Agent Modal ===== */
+    .modal-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.4);
+      backdrop-filter: blur(4px);
+      z-index: 500;
+      justify-content: center; align-items: center;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal-card {
+      background: white;
+      border-radius: 16px;
+      padding: 28px 24px;
+      max-width: 380px; width: 90%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+      position: relative;
+      animation: modal-in 0.3s ease-out;
+    }
+    @keyframes modal-in { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
+    .modal-close {
+      position: absolute; top: 12px; right: 14px;
+      width: 28px; height: 28px;
+      border: none; background: #f5f5f5; border-radius: 50%;
+      cursor: pointer; font-size: 14px; color: #888;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s;
+    }
+    .modal-close:hover { background: #eee; color: #333; }
+    .modal-avatar {
+      width: 100px; height: 100px;
+      margin: 0 auto 16px;
+      border-radius: 20px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 48px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    }
+    .modal-avatar svg { width: 90px; height: 90px; }
+    .modal-name {
+      text-align: center; font-size: 22px; font-weight: 700; color: #2d3748;
+    }
+    .modal-role {
+      text-align: center; font-size: 13px; color: #888; margin-top: 4px;
+    }
+    .modal-status {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      margin-top: 12px; font-size: 13px; color: #666;
+    }
+    .modal-status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+    }
+    .modal-task {
+      margin-top: 16px; padding: 12px; background: #f8f9fa;
+      border-radius: 10px;
+    }
+    .modal-task-title { font-size: 13px; font-weight: 600; color: #2d3748; }
+    .modal-task-step { font-size: 11px; color: #888; margin-top: 4px; }
+    .modal-task-bar { height: 6px; background: #e8e8e8; border-radius: 3px; overflow: hidden; margin-top: 8px; }
+    .modal-task-fill { height: 100%; border-radius: 3px; transition: width 1s ease-out; }
+    .modal-task-pct { font-size: 11px; color: #aaa; text-align: right; margin-top: 4px; }
+    .modal-empty { text-align: center; color: #bbb; font-size: 13px; margin-top: 12px; }
+  </style>
+</head>
+<body>
+
+<div class="top-bar">
+  <div class="top-bar-left">
+    <a href="chat.html" class="back-link">← 返回对话</a>
+    <a href="servers.html" class="back-link">🖥️ 设备</a>
+    <h1>🏢 Agent 办公区</h1>
+  </div>
+  <button class="refresh-btn" onclick="refreshData()">🔄 刷新</button>
+</div>
+
+<div class="room-wrapper">
+
+  <!-- ONE-POINT PERSPECTIVE SVG BACKGROUND -->
+  <!-- Room background removed -->
+
+  <!-- Desk layer -->
+  <div class="perspective-container">
+    <div class="desk-rows" id="deskRows"></div>
+  </div>
+</div>
+
+<!-- Bottom Panels -->
+<div class="bottom-panels" id="bottomPanels">
+  <div class="panel-handle" onclick="togglePanel()">
+    <span id="panelArrow">▲</span> 📋 任务 &amp; 📜 日志
+  </div>
+  <div class="panel" id="tasksPanel"></div>
+  <div class="panel" id="logsPanel"></div>
+</div>
+
+<div class="toast-box" id="toastBox"></div>
+
+<!-- Agent Modal -->
+<div class="modal-overlay" id="agentModal">
+  <div class="modal-card">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-avatar" id="modalAvatar"></div>
+    <div class="modal-name" id="modalName"></div>
+    <div class="modal-role" id="modalRole"></div>
+    <div class="modal-status" id="modalStatus"></div>
+    <div id="modalStats"></div>
+    <div id="modalTask"></div>
+  </div>
+</div>
+
+<script>
+const AGENTS = [
+  { id:'captain', name:'灵犀', emoji:'⚡', role:'队长', color:'#667eea', gradient:['#667eea','#764ba2'], hair:'purple-cape', items:{coffee:true,plant:'🌵',paper:false} },
+  { id:'coder', name:'云溪', emoji:'💻', role:'代码', color:'#4facfe', gradient:['#4facfe','#00f2fe'], hair:'blue-twin', items:{coffee:true,plant:'🌿',paper:true} },
+  { id:'operator', name:'若曦', emoji:'📊', role:'运营', color:'#43e97b', gradient:['#43e97b','#38f9d7'], hair:'green-ponytail', items:{coffee:false,plant:'🌱',paper:true} },
+  { id:'inventor', name:'紫萱', emoji:'💡', role:'创意', color:'#fa709a', gradient:['#fa709a','#fee140'], hair:'pink-short', items:{coffee:true,plant:'🌸',paper:true} },
+  { id:'pm', name:'梓萱', emoji:'🎯', role:'产品', color:'#f5576c', gradient:['#f5576c','#ff6b6b'], hair:'red-neat', items:{coffee:true,plant:'🎍',paper:true} },
+  { id:'notes', name:'晓琳', emoji:'📝', role:'笔记', color:'#b07d6a', gradient:['#c79081','#dab49d'], hair:'brown-long', items:{coffee:false,plant:'📚',paper:true} },
+  { id:'media', name:'音韵', emoji:'🎨', role:'多媒体', color:'#a18cd1', gradient:['#a18cd1','#fbc2eb'], hair:'purple-headphones', items:{coffee:true,plant:'🌺',paper:false} },
+  { id:'auto', name:'智家', emoji:'🏠', role:'自动化', color:'#89b4c4', gradient:['#89b4c4','#a8d8ea'], hair:'cyan-bun', items:{coffee:false,plant:'🌻',paper:true} }
+];
+
+const SL = { idle:'空闲', working:'工作中', queued:'排队中', error:'错误', offline:'离线' };
+
+function avatar(a) {
+  const g = a.gradient;
+  const hairStyles = {
+    'purple-cape': `<path d="M28 30 Q28 18 45 14 Q62 18 62 30 L60 36 Q45 24 30 36 Z" fill="${g[1]}" opacity="0.85"/><path d="M30 62 Q28 58 26 62 L24 76 Q34 80 45 80 Q56 80 66 76 L64 62 Q62 58 60 62" fill="${g[0]}" opacity="0.3"/>`,
+    'blue-twin': `<path d="M28 30 Q28 18 45 14 Q62 18 62 30 L60 34 Q45 24 30 34 Z" fill="${g[1]}" opacity="0.8"/><path d="M28 34 Q22 38 20 58 L24 56 Q24 40 30 36 Z" fill="${g[1]}" opacity="0.6"/><path d="M62 34 Q68 38 70 58 L66 56 Q66 40 60 36 Z" fill="${g[1]}" opacity="0.6"/><circle cx="22" cy="40" r="2" fill="#fff" opacity="0.5"/><circle cx="68" cy="40" r="2" fill="#fff" opacity="0.5"/>`,
+    'green-ponytail': `<path d="M28 30 Q28 18 45 14 Q62 18 62 30 L60 36 Q45 24 30 36 Z" fill="${g[1]}" opacity="0.8"/><path d="M62 36 Q70 40 68 62 L64 60 Q66 44 60 38 Z" fill="${g[1]}" opacity="0.55"/><ellipse cx="63" cy="38" rx="3" ry="2" fill="#43e97b" opacity="0.6"/>`,
+    'pink-short': `<path d="M30 30 Q30 18 45 14 Q60 18 60 30 L58 34 Q45 26 32 34 Z" fill="${g[1]}" opacity="0.8"/><path d="M35 22 Q38 18 42 22" stroke="${g[0]}" stroke-width="0.8" fill="none" opacity="0.3"/><path d="M48 20 Q52 16 55 20" stroke="${g[0]}" stroke-width="0.8" fill="none" opacity="0.3"/>`,
+    'red-neat': `<path d="M30 30 Q30 18 45 14 Q60 18 60 30 L58 34 Q45 26 32 34 Z" fill="${g[1]}" opacity="0.82"/><path d="M34 24 L38 20" stroke="${g[0]}" stroke-width="0.5" fill="none" opacity="0.25"/><path d="M50 22 L54 18" stroke="${g[0]}" stroke-width="0.5" fill="none" opacity="0.25"/>`,
+    'brown-long': `<path d="M28 30 Q28 18 45 14 Q62 18 62 30 L60 36 Q45 24 30 36 Z" fill="${g[1]}" opacity="0.75"/><path d="M28 34 Q24 38 22 60 L26 58 Q26 42 30 36 Z" fill="${g[1]}" opacity="0.45"/><path d="M62 34 Q66 38 68 60 L64 58 Q64 42 60 36 Z" fill="${g[1]}" opacity="0.45"/><path d="M24 48 Q26 46 28 48" stroke="${g[0]}" stroke-width="0.5" fill="none" opacity="0.2"/><path d="M62 46 Q64 44 66 46" stroke="${g[0]}" stroke-width="0.5" fill="none" opacity="0.2"/>`,
+    'purple-headphones': `<path d="M30 30 Q30 18 45 14 Q60 18 60 30 L58 34 Q45 26 32 34 Z" fill="${g[1]}" opacity="0.7"/><path d="M26 38 Q26 20 45 18 Q64 20 64 38" fill="none" stroke="#777" stroke-width="2.5" opacity="0.6"/><rect x="22" y="34" width="7" height="10" rx="3" fill="#888" opacity="0.55"/><rect x="23" y="36" width="5" height="6" rx="2" fill="#a18cd1" opacity="0.4"/><rect x="61" y="34" width="7" height="10" rx="3" fill="#888" opacity="0.55"/><rect x="62" y="36" width="5" height="6" rx="2" fill="#a18cd1" opacity="0.4"/>`,
+    'cyan-bun': `<path d="M32 30 Q32 18 45 14 Q58 18 58 30 L56 34 Q45 26 34 34 Z" fill="${g[1]}" opacity="0.8"/><circle cx="45" cy="12" r="7" fill="${g[1]}" opacity="0.65"/><circle cx="45" cy="12" r="4" fill="${g[0]}" opacity="0.3"/><line x1="38" y1="8" x2="52" y2="14" stroke="#d4895a" stroke-width="1.2" opacity="0.5" stroke-linecap="round"/>`
+  };
+  const hairSVG = hairStyles[a.hair] || hairStyles['purple-cape'];
+  return `<svg viewBox="0 0 90 90" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="bd-${a.id}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="${g[0]}"/><stop offset="100%" stop-color="${g[1]}"/></linearGradient></defs><ellipse cx="45" cy="80" rx="20" ry="8" fill="url(#bd-${a.id})" opacity="0.4"/><rect x="28" y="58" width="34" height="22" rx="10" fill="url(#bd-${a.id})" opacity="0.7"/><rect x="40" y="52" width="10" height="10" rx="4" fill="#f5deb3" opacity="0.9"/><circle cx="45" cy="36" r="17" fill="#f5deb3" opacity="0.95"/><ellipse cx="27" cy="38" rx="4" ry="5" fill="#f0d5a8" opacity="0.6"/><ellipse cx="63" cy="38" rx="4" ry="5" fill="#f0d5a8" opacity="0.6"/>${hairSVG}<path d="M28 64 Q20 68 16 72" stroke="url(#bd-${a.id})" stroke-width="5" fill="none" opacity="0.4" stroke-linecap="round"/><path d="M62 64 Q70 68 74 72" stroke="url(#bd-${a.id})" stroke-width="5" fill="none" opacity="0.4" stroke-linecap="round"/></svg>`;
+}
+
+function buildThoughtBubble(a, s) {
+  const st = s.status, t = s.task;
+  if (st === 'offline') return '';
+  if (st === 'idle') {
+    const msgs = ['💭 发呆中...', '☕ 休息一下', '🎵 哼歌中~', '👀 看窗外'];
+    const msg = msgs[Math.abs(a.id.charCodeAt(0) + new Date().getMinutes()) % msgs.length];
+    return `<div class="thought-bubble"><span class="tb-emoji">${msg}</span></div>`;
+  }
+  if (st === 'queued') return `<div class="thought-bubble"><span class="tb-emoji">⏳ 排队等待中...</span></div>`;
+  if (st === 'error') return `<div class="thought-bubble error-bubble"><span class="tb-emoji">❌ 出错了！</span></div>`;
+  if (st === 'working' && t) {
+    return `<div class="thought-bubble"><div class="tb-title">📋 ${t.title}</div><div class="tb-step">⏳ ${t.step}/${t.totalSteps} ${t.stepName}</div><div class="tb-bar"><div class="tb-fill" style="width:${t.progress}%;background:linear-gradient(90deg,${a.gradient[0]},${a.gradient[1]})"></div></div><div class="tb-pct">${t.progress}%</div></div>`;
+  }
+  return `<div class="thought-bubble"><span class="tb-emoji">💭 ...</span></div>`;
+}
+
+let S = {}, logs = [];
+
+function initState() {
+  const ss = ['idle','working','idle','working','idle','queued','error','idle'];
+  AGENTS.forEach((a,i) => { S[a.id] = { status: ss[i], task: null }; });
+  S['coder'].task = { id:'#43', title:'优化数据库查询', step:1, totalSteps:3, stepName:'分析慢查询', progress:20 };
+  S['inventor'].task = { id:'#42', title:'写AI趋势文章', step:2, totalSteps:5, stepName:'撰写初稿', progress:40 };
+}
+
+function renderDesks() {
+  const el = document.getElementById('deskRows');
+  let h = '';
+  for (let row = 0; row < 4; row++) {
+    if (row === 2) {
+      h += `<div class="break-row">
+        <div class="break-obj"><svg width="50" height="55" viewBox="0 0 50 55"><rect x="8" y="8" width="34" height="30" rx="3" fill="#666" opacity="0.5"/><rect x="6" y="4" width="38" height="6" rx="2" fill="#777" opacity="0.45"/><rect x="14" y="13" width="14" height="6" rx="1" fill="#1a3a2a" opacity="0.5"/><text x="21" y="18" font-size="3" fill="#4facfe" text-anchor="middle" opacity="0.7">READY</text><circle cx="34" cy="15" r="2" fill="#43e97b" opacity="0.5"/><rect x="18" y="28" width="14" height="2" rx="1" fill="#888" opacity="0.35"/><rect x="21" y="24" width="8" height="6" rx="1" fill="#fff" opacity="0.45"/><rect x="5" y="38" width="40" height="3" rx="1" fill="#d4a574" opacity="0.4"/><rect x="5" y="41" width="40" height="12" rx="1" fill="#c9956a" opacity="0.3"/></svg><span class="break-lbl">☕ 咖啡机</span></div>
+        <div class="break-obj"><svg width="40" height="55" viewBox="0 0 40 55"><rect x="6" y="18" width="28" height="25" rx="2" fill="#e0e0e0" opacity="0.35"/><path d="M10 5 L9 18 L31 18 L30 5 Q20 1 10 5" fill="#cce5ff" opacity="0.35"/><rect x="12" y="8" width="16" height="7" rx="1" fill="#aad4ff" opacity="0.2"><animate attributeName="height" values="7;5;7" dur="8s" repeatCount="indefinite"/></rect><rect x="14" y="28" width="4" height="6" rx="1" fill="#4facfe" opacity="0.35"/><rect x="22" y="28" width="4" height="6" rx="1" fill="#f5576c" opacity="0.3"/><rect x="4" y="43" width="32" height="3" rx="1" fill="#d4a574" opacity="0.35"/></svg><span class="break-lbl">💧 饮水机</span></div>
+        <div class="break-obj"><svg width="40" height="55" viewBox="0 0 40 55"><rect x="4" y="20" width="32" height="25" rx="2" fill="#fff" opacity="0.4"/><text x="20" y="34" text-anchor="middle" font-size="5" fill="#bbb" opacity="0.5">SNACKS</text><text x="20" y="42" text-anchor="middle" font-size="7" opacity="0.35">🍪 🍫</text><rect x="4" y="15" width="32" height="7" rx="1" fill="#ffd93d" opacity="0.25"/><text x="20" y="21" text-anchor="middle" font-size="3" fill="#b0a060" opacity="0.5">OPEN</text></svg><span class="break-lbl">🍪 零食柜</span></div>
+      </div>`;
+    }
+    h += `<div class="desk-row row-${row}">`;
+    for (let col = 0; col < 2; col++) {
+      const idx = row * 2 + col;
+      if (idx >= AGENTS.length) break;
+      const a = AGENTS[idx], s = S[a.id], st = s.status, t = s.task, it = a.items;
+      h += `<div class="desk status-${st}">
+        <div class="nameplate"><div class="nameplate-avatar" style="background:${a.color}">${a.emoji}</div><div class="nameplate-text"><span class="nameplate-name">${a.name}</span><span class="nameplate-role">${a.role}</span></div></div>
+        <div class="agent-char anim-${st}" onclick="openModal('${a.id}')">${avatar(a)}</div>
+        ${buildThoughtBubble(a, s)}
+        ${st==='working'?`<div class="work-fx"><span class="fx-p" style="left:15%;animation-delay:0s">${a.emoji}</span><span class="fx-p" style="left:45%;animation-delay:0.7s">✨</span><span class="fx-p" style="left:75%;animation-delay:1.4s">⚡</span></div>`:''}
+        <div class="chair-body"><svg viewBox="0 0 56 62" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="chSeat" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#686868"/><stop offset="100%" stop-color="#525252"/></linearGradient></defs><rect x="4" y="0" width="48" height="9" rx="3" fill="url(#chSeat)"/><rect x="26" y="9" width="4" height="18" rx="1" fill="#6a6a6a"/><ellipse cx="28" cy="29" rx="5" ry="2" fill="#777"/><line x1="28" y1="29" x2="6" y2="44" stroke="#6a6a6a" stroke-width="2.5" stroke-linecap="round"/><line x1="28" y1="29" x2="50" y2="44" stroke="#6a6a6a" stroke-width="2.5" stroke-linecap="round"/><line x1="28" y1="29" x2="28" y2="48" stroke="#6a6a6a" stroke-width="2.5" stroke-linecap="round"/><line x1="28" y1="29" x2="15" y2="47" stroke="#6a6a6a" stroke-width="2" stroke-linecap="round"/><line x1="28" y1="29" x2="41" y2="47" stroke="#6a6a6a" stroke-width="2" stroke-linecap="round"/><circle cx="6" cy="45" r="3" fill="#4a4a4a" stroke="#333" stroke-width="0.8"/><circle cx="50" cy="45" r="3" fill="#4a4a4a" stroke="#333" stroke-width="0.8"/><circle cx="28" cy="49" r="3" fill="#4a4a4a" stroke="#333" stroke-width="0.8"/><circle cx="15" cy="48" r="3" fill="#4a4a4a" stroke="#333" stroke-width="0.8"/><circle cx="41" cy="48" r="3" fill="#4a4a4a" stroke="#333" stroke-width="0.8"/></svg></div>
+        <div class="chair-back"></div>
+        <div class="desk-surface"></div><div class="desk-front"></div><div class="desk-leg l"></div><div class="desk-leg r"></div>
+        <div class="monitor"><div class="monitor-frame"><div class="monitor-screen">${t?`<div class="screen-task"><div class="screen-task-header"><div class="screen-task-dot" style="background:${a.color}"></div><div class="screen-task-title">${t.title}</div></div><div class="screen-task-step">⏳ ${t.step}/${t.totalSteps} ${t.stepName}</div><div class="screen-task-bar"><div class="screen-task-fill" style="width:${t.progress}%;background:linear-gradient(90deg,${a.gradient[0]},${a.gradient[1]})"></div></div><div class="screen-task-pct">${t.progress}%</div></div>`:`<div class="screen-idle"><div class="screen-idle-time" id="scrTime-${a.id}">${new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})}</div><div class="screen-idle-date">${new Date().toLocaleDateString('zh-CN',{month:'short',day:'numeric',weekday:'short'})}</div><div class="scr-line" style="width:60%;margin-top:3px"></div><div class="scr-line" style="width:40%"></div></div>`}</div></div><div class="monitor-neck"></div><div class="monitor-base"></div></div>
+        ${it.coffee?`<div class="d-item coffee">☕<div class="steam-wrap"><div class="stm"></div><div class="stm"></div><div class="stm"></div></div></div>`:''}
+        ${it.plant?`<div class="d-item plant">${it.plant}</div>`:''}
+        ${it.paper?`<div class="d-item paper">📄</div>`:''}
+      </div>`;
+    }
+    h += '</div>';
+  }
+  el.innerHTML = h;
+}
+
+function renderTasks() {
+  const p = document.getElementById('tasksPanel');
+  const tasks = AGENTS.map(a=>({a,s:S[a.id]})).filter(({s})=>s.status==='working'&&s.task).map(({a,s})=>({a,t:s.task}));
+  if (!tasks.length) { p.innerHTML='<div class="empty-msg">☕ 暂无任务</div>'; return; }
+  p.innerHTML = tasks.map(({a,t})=>`<div class="t-row"><div class="t-top">📋 <span class="t-id">${t.id}</span> ${t.title} <span class="t-agent" style="background:${a.color}15;color:${a.color}">${a.emoji}${a.name}</span></div><div class="t-step">⏳ ${t.step}/${t.totalSteps} ${t.stepName}</div><div class="t-bar"><div class="t-fill" style="width:${t.progress}%;background:linear-gradient(90deg,${a.gradient[0]},${a.gradient[1]})"></div></div></div>`).join('');
+}
+
+function renderLogs() {
+  const p = document.getElementById('logsPanel');
+  if (!logs.length) { p.innerHTML='<div class="empty-msg">📝 暂无记录</div>'; return; }
+  p.innerHTML = logs.slice(-20).reverse().map(l=>`<div class="l-row"><span class="l-time">${l.time}</span><span class="l-icon">${l.icon}</span><span class="l-agent" style="color:${l.ac}">${l.an}</span><span class="l-msg">${l.m}</span></div>`).join('');
+}
+
+function render() { renderDesks(); renderTasks(); renderLogs(); }
+
+function pick(a) { return a[Math.floor(Math.random()*a.length)]; }
+function addLog(id,type,msg) {
+  const a=AGENTS.find(x=>x.id===id);
+  const ic={start:'🚀',progress:'⏳',complete:'✅',error:'❌',dispatch:'⚡'};
+  logs.push({time:new Date().toTimeString().slice(0,5),type,icon:ic[type]||'•',an:a?a.name:'系统',ac:a?a.color:'#999',m:msg});
+  if(logs.length>50)logs=logs.slice(-50);
+}
+
+function simulate() {
+  const a=pick(AGENTS), s=S[a.id], old=s.status;
+  const tr={idle:['working','idle','idle'],working:['working','working','idle','queued'],queued:['working','queued'],error:['idle','working','error'],offline:['idle']};
+  const ns=pick(tr[old]||['idle']);
+  s.status=ns;
+  if(ns==='working'){
+    if(!s.task){
+      const ts=[{title:'分析用户行为数据',stepName:'数据清洗',total:3},{title:'编写自动化测试',stepName:'用例设计',total:4},{title:'优化页面加载',stepName:'性能分析',total:3},{title:'生成周报摘要',stepName:'数据汇总',total:4},{title:'设计新功能原型',stepName:'需求分析',total:5},{title:'翻译技术文档',stepName:'术语整理',total:3}];
+      const t=pick(ts);s.task={id:`#${Math.floor(Math.random()*100)}`,title:t.title,step:1,totalSteps:t.total,stepName:t.stepName,progress:Math.floor(Math.random()*30)+5};
+    } else {
+      s.task.progress=Math.min(100,s.task.progress+Math.floor(Math.random()*20)+5);
+      s.task.step=Math.min(s.task.totalSteps,s.task.step+(Math.random()>0.6?1:0));
+      const sn=['数据收集','分析处理','生成报告','审核校验','完成交付'];
+      s.task.stepName=sn[s.task.step-1]||'处理中';
+    }
+    if(old!=='working')addLog(a.id,'start',`开始${s.task.title}`);
+    else addLog(a.id,'progress',`${s.task.stepName}·${s.task.progress}%`);
+  } else if(ns==='idle'&&old==='working'){
+    if(s.task){addLog(a.id,'complete',`完成 ${s.task.title}`);s.task=null;}
+  } else if(ns==='error'){addLog(a.id,'error','任务异常，等待重试...');}
+  else if(ns==='queued'){addLog(a.id,'progress','排队等待...');}
+  render();
+}
+
+function initLogs() {
+  const now=Date.now();
+  [{a:'coder',t:'start',m:'开始优化数据库查询...',o:4},{a:'inventor',t:'complete',m:'完成选题策划',o:5},{a:'captain',t:'dispatch',m:'派发任务给紫萱',o:6},{a:'notes',t:'error',m:'翻译超时，重试中...',o:7},{a:'coder',t:'complete',m:'完成代码重构',o:8},{a:'inventor',t:'start',m:'开始撰写AI文章',o:9},{a:'operator',t:'complete',m:'完成数据周报',o:11},{a:'captain',t:'dispatch',m:'调度全局队列',o:12},{a:'media',t:'start',m:'开始设计封面',o:15},{a:'media',t:'complete',m:'封面图完成',o:16}]
+  .forEach(l=>{const time=new Date(now-l.o*60000);const ag=AGENTS.find(x=>x.id===l.a);const ic={start:'🚀',progress:'⏳',complete:'✅',error:'❌',dispatch:'⚡'};logs.push({time:time.toTimeString().slice(0,5),type:l.t,icon:ic[l.t],an:ag.name,ac:ag.color,m:l.m});});
+}
+
+function showToast(m){const c=document.getElementById('toastBox'),t=document.createElement('div');t.className='toast';t.textContent=m;c.appendChild(t);setTimeout(()=>{t.classList.add('out');setTimeout(()=>t.remove(),300)},2500);}
+function refreshData(){showToast('🔄 刷新中...');render();}
+function togglePanel(){const p=document.getElementById('bottomPanels');p.classList.toggle('open');document.getElementById('panelArrow').textContent=p.classList.contains('open')?'▼':'▲';}
+
+// ===== FRONT VIEW Avatar for Modal =====
+function avatarFront(a) {
+  const g = a.gradient;
+  const hairFront = {
+    'purple-cape': `<path d="M28 30 Q28 16 45 12 Q62 16 62 30 L60 32 Q45 22 30 32 Z" fill="${g[1]}" opacity="0.85"/><path d="M30 30 Q28 34 30 38" stroke="${g[1]}" stroke-width="2" fill="none" opacity="0.5"/><path d="M60 30 Q62 34 60 38" stroke="${g[1]}" stroke-width="2" fill="none" opacity="0.5"/>`,
+    'blue-twin': `<path d="M28 30 Q28 16 45 12 Q62 16 62 30 L60 32 Q45 22 30 32 Z" fill="${g[1]}" opacity="0.8"/><path d="M28 34 Q22 38 20 58 L24 56 Q24 40 30 36 Z" fill="${g[1]}" opacity="0.6"/><path d="M62 34 Q68 38 70 58 L66 56 Q66 40 60 36 Z" fill="${g[1]}" opacity="0.6"/><circle cx="22" cy="40" r="2" fill="#fff" opacity="0.5"/><circle cx="68" cy="40" r="2" fill="#fff" opacity="0.5"/>`,
+    'green-ponytail': `<path d="M28 30 Q28 16 45 12 Q62 16 62 30 L60 32 Q45 22 30 32 Z" fill="${g[1]}" opacity="0.8"/><path d="M62 36 Q70 40 68 62 L64 60 Q66 44 60 38 Z" fill="${g[1]}" opacity="0.55"/><ellipse cx="63" cy="38" rx="3" ry="2" fill="#43e97b" opacity="0.6"/>`,
+    'pink-short': `<path d="M30 30 Q30 16 45 12 Q60 16 60 30 L58 32 Q45 24 32 32 Z" fill="${g[1]}" opacity="0.8"/><path d="M35 22 Q38 18 42 22" stroke="${g[0]}" stroke-width="0.8" fill="none" opacity="0.3"/><path d="M48 20 Q52 16 55 20" stroke="${g[0]}" stroke-width="0.8" fill="none" opacity="0.3"/>`,
+    'red-neat': `<path d="M30 30 Q30 16 45 12 Q60 16 60 30 L58 32 Q45 24 32 32 Z" fill="${g[1]}" opacity="0.82"/>`,
+    'brown-long': `<path d="M28 30 Q28 16 45 12 Q62 16 62 30 L60 32 Q45 22 30 32 Z" fill="${g[1]}" opacity="0.75"/><path d="M28 34 Q24 38 22 60 L26 58 Q26 42 30 36 Z" fill="${g[1]}" opacity="0.45"/><path d="M62 34 Q66 38 68 60 L64 58 Q64 42 60 36 Z" fill="${g[1]}" opacity="0.45"/>`,
+    'purple-headphones': `<path d="M30 30 Q30 16 45 12 Q60 16 60 30 L58 32 Q45 24 32 32 Z" fill="${g[1]}" opacity="0.7"/><path d="M26 38 Q26 20 45 18 Q64 20 64 38" fill="none" stroke="#777" stroke-width="2.5" opacity="0.6"/><rect x="22" y="34" width="7" height="10" rx="3" fill="#888" opacity="0.55"/><rect x="23" y="36" width="5" height="6" rx="2" fill="#a18cd1" opacity="0.4"/><rect x="61" y="34" width="7" height="10" rx="3" fill="#888" opacity="0.55"/><rect x="62" y="36" width="5" height="6" rx="2" fill="#a18cd1" opacity="0.4"/>`,
+    'cyan-bun': `<path d="M32 30 Q32 16 45 12 Q58 16 58 30 L56 32 Q45 24 34 32 Z" fill="${g[1]}" opacity="0.8"/><circle cx="45" cy="10" r="7" fill="${g[1]}" opacity="0.65"/><circle cx="45" cy="10" r="4" fill="${g[0]}" opacity="0.3"/><line x1="38" y1="6" x2="52" y2="12" stroke="#d4895a" stroke-width="1.2" opacity="0.5" stroke-linecap="round"/>`
+  };
+  return `<svg viewBox="0 0 90 90" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="bfd-${a.id}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="${g[0]}"/><stop offset="100%" stop-color="${g[1]}"/></linearGradient></defs><ellipse cx="45" cy="80" rx="20" ry="8" fill="url(#bfd-${a.id})" opacity="0.4"/><rect x="28" y="58" width="34" height="22" rx="10" fill="url(#bfd-${a.id})" opacity="0.7"/><rect x="40" y="52" width="10" height="10" rx="4" fill="#f5deb3" opacity="0.9"/><circle cx="45" cy="36" r="17" fill="#f5deb3" opacity="0.95"/><ellipse cx="27" cy="38" rx="4" ry="5" fill="#f0d5a8" opacity="0.6"/><ellipse cx="63" cy="38" rx="4" ry="5" fill="#f0d5a8" opacity="0.6"/>${hairFront[a.hair]||hairFront['purple-cape']}<ellipse cx="37" cy="36" rx="3.5" ry="4" fill="#3a2518" opacity="0.7"/><ellipse cx="53" cy="36" rx="3.5" ry="4" fill="#3a2518" opacity="0.7"/><circle cx="37" cy="35" r="1.5" fill="#fff" opacity="0.6"/><circle cx="53" cy="35" r="1.5" fill="#fff" opacity="0.6"/><path d="M41 44 Q45 48 49 44" stroke="#c49060" stroke-width="1.2" fill="none" opacity="0.5" stroke-linecap="round"/><ellipse cx="33" cy="42" rx="5" ry="3" fill="#f5b8b8" opacity="0.25"/><ellipse cx="57" cy="42" rx="5" ry="3" fill="#f5b8b8" opacity="0.25"/><path d="M28 64 Q20 68 16 72" stroke="url(#bfd-${a.id})" stroke-width="5" fill="none" opacity="0.4" stroke-linecap="round"/><path d="M62 64 Q70 68 74 72" stroke="url(#bfd-${a.id})" stroke-width="5" fill="none" opacity="0.4" stroke-linecap="round"/></svg>`;
+}
+
+// ===== Modal =====
+function openModal(agentId) {
+  const a = AGENTS.find(x => x.id === agentId);
+  if (!a) return;
+  const s = S[a.id];
+  const st = s.status, t = s.task;
+
+  document.getElementById('modalAvatar').style.background = `linear-gradient(135deg, ${a.gradient[0]}22, ${a.gradient[1]}22)`;
+  document.getElementById('modalAvatar').innerHTML = avatarFront(a);
+  document.getElementById('modalName').textContent = `${a.emoji} ${a.name}`;
+  document.getElementById('modalRole').textContent = a.role + ' · Agent';
+
+  const statusColors = {idle:'#94a3b8',working:'#43e97b',queued:'#fbbf24',error:'#f5576c',offline:'#888'};
+  const statusNames = {idle:'空闲',working:'工作中',queued:'排队中',error:'异常',offline:'离线'};
+  document.getElementById('modalStatus').innerHTML = `<span class="modal-status-dot" style="background:${statusColors[st]||'#888'}"></span> ${statusNames[st]||st}`;
+
+  // Fetch fresh stats from API
+  const userId = getUserId();
+  fetch('/api/agent-workspace/status' + (userId ? '?userId=' + userId : ''))
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      const apiAgent = data?.agents?.find(ag => ag.id === agentId);
+      if (apiAgent?.stats) {
+        const statsDiv = document.getElementById('modalStats');
+        if (statsDiv) {
+          statsDiv.innerHTML = `<div style="display:flex;gap:16px;justify-content:center;margin-top:12px;font-size:11px;color:#888">
+            <div>✅ 已完成 <b style="color:#2d3748">${apiAgent.stats.tasksCompleted}</b> 任务</div>
+            <div>📅 今日 <b style="color:#2d3748">${apiAgent.stats.tasksToday}</b> 任务</div>
+            <div>⏱️ 平均响应 <b style="color:#2d3748">${apiAgent.stats.avgResponseTime}</b></div>
+          </div>`;
+        }
+      }
+    }).catch(() => {});
+
+  let taskHtml = '';
+  if (st === 'working' && t) {
+    taskHtml = `<div class="modal-task"><div class="modal-task-title">📋 ${t.title}</div><div class="modal-task-step">⏳ 步骤 ${t.step}/${t.totalSteps} · ${t.stepName}</div><div class="modal-task-bar"><div class="modal-task-fill" style="width:${t.progress}%;background:linear-gradient(90deg,${a.gradient[0]},${a.gradient[1]})"></div></div><div class="modal-task-pct">${t.progress}%</div></div>`;
+  } else if (st === 'idle') {
+    taskHtml = `<div class="modal-empty">☕ 当前没有任务，休息一下~</div>`;
+  } else if (st === 'queued') {
+    taskHtml = `<div class="modal-empty">⏳ 排队等待分配任务...</div>`;
+  } else if (st === 'error') {
+    taskHtml = `<div class="modal-empty">❌ 任务异常，等待重试</div>`;
+  } else if (st === 'offline') {
+    taskHtml = `<div class="modal-empty">😴 当前离线</div>`;
+  }
+  document.getElementById('modalTask').innerHTML = taskHtml;
+  document.getElementById('agentModal').classList.add('active');
+}
+
+function closeModal() {
+  document.getElementById('agentModal').classList.remove('active');
+}
+
+// Close modal on overlay click
+document.addEventListener('click', function(e) {
+  if (e.target.classList.contains('modal-overlay')) closeModal();
+});
+// Close on Escape
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeModal();
+});
+
+function init(){
+  initState();initLogs();render();
+  // Try to load real data from API
+  fetchRealStatus();
+  setInterval(simulate,5000);
+  setInterval(fetchRealStatus,30000); // Refresh real data every 30s
+  setInterval(()=>{const a=pick(AGENTS.filter(x=>S[x.id].status==='idle'));if(a){addLog('captain','dispatch',`${a.name} 待命中`);renderLogs();}},12000);
+}
+
+// ===== Fetch real agent status from API =====
+function getUserId() {
+  // Try to get userId from URL params, localStorage, or cookie
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('userId')) return urlParams.get('userId');
+  try { const u = JSON.parse(localStorage.getItem('lingxi_user') || '{}'); if (u.id) return u.id; } catch(e) {}
+  try { const u = JSON.parse(localStorage.getItem('user') || '{}'); if (u.id) return u.id; } catch(e) {}
+  const match = document.cookie.match(/userId=([^;]+)/);
+  if (match) return match[1];
+  return null;
+}
+
+async function fetchRealStatus() {
+  const userId = getUserId();
+  try {
+    const url = '/api/agent-workspace/status' + (userId ? '?userId=' + userId : '');
+    const resp = await fetch(url);
+    if (!resp.ok) return;
+    const data = await resp.json();
+    
+    if (data.agents && data.source === 'openclaw') {
+      // Real data from OpenClaw — update states
+      let changed = false;
+      for (const apiAgent of data.agents) {
+        const agentDef = AGENTS.find(a => a.id === apiAgent.id);
+        if (!agentDef) continue;
+        const s = S[agentDef.id];
+        if (!s) continue;
+        
+        const newStatus = apiAgent.status;
+        if (s.status !== newStatus) {
+          if (newStatus === 'working' && s.status !== 'working') {
+            addLog(agentDef.id, 'start', apiAgent.currentTask ? `开始${apiAgent.currentTask.title}` : '开始新任务');
+          } else if (newStatus === 'idle' && s.status === 'working') {
+            addLog(agentDef.id, 'complete', '完成任务');
+          } else if (newStatus === 'error') {
+            addLog(agentDef.id, 'error', '任务异常');
+          }
+          s.status = newStatus;
+          changed = true;
+        }
+        
+        // Update task from API
+        if (apiAgent.currentTask) {
+          s.task = apiAgent.currentTask;
+          changed = true;
+        } else if (newStatus !== 'working') {
+          s.task = null;
+        }
+      }
+      
+      if (changed) render();
+    }
+  } catch(err) {
+    // Silent fail — mock simulation continues
+  }
+}
+document.addEventListener('DOMContentLoaded',init);
+</script>
+</body>
+</html>

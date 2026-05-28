@@ -29,6 +29,48 @@ let SESSION_PREFIX = null;
 let SESSION_KEY = null;  // 用户主会话（根据用户ID生成）
 let currentSessionKey = null;  // 当前活动会话
 
+// 监听设备切换事件（从 servers.html postMessage 发出）
+window.addEventListener('message', (event) => {
+  if (event.data?.type === 'device-switched') {
+    console.log('🖥️ 检测到设备切换（postMessage），重新加载...');
+    if (ws) { try { ws.onclose = null; ws.close(); } catch(e) {} }
+    setTimeout(() => location.reload(), 300);
+  }
+});
+
+// 跨 tab 监听 storage 变化
+window.addEventListener('storage', (event) => {
+  if (event.key === 'device_switched_at' && event.newValue) {
+    console.log('🖥️ 检测到设备切换（storage），重新加载...');
+    if (ws) { try { ws.onclose = null; ws.close(); } catch(e) {} }
+    setTimeout(() => location.reload(), 300);
+  }
+});
+
+// 🖥️ 同一 tab 返回时检测设备切换（pageshow/visibilitychange）
+// 用户在同一 tab 中从 servers.html 返回时触发
+let _lastDeviceSwitchHandled = localStorage.getItem('device_switched_at') || '0';
+window.addEventListener('pageshow', () => {
+  const current = localStorage.getItem('device_switched_at') || '0';
+  if (current !== _lastDeviceSwitchHandled) {
+    _lastDeviceSwitchHandled = current;
+    console.log('🖥️ 检测到设备切换（pageshow），重新加载...');
+    if (ws) { try { ws.onclose = null; ws.close(); } catch(e) {} }
+    setTimeout(() => location.reload(), 300);
+  }
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    const current = localStorage.getItem('device_switched_at') || '0';
+    if (current !== _lastDeviceSwitchHandled) {
+      _lastDeviceSwitchHandled = current;
+      console.log('🖥️ 检测到设备切换（visibilitychange），重新加载...');
+      if (ws) { try { ws.onclose = null; ws.close(); } catch(e) {} }
+      setTimeout(() => location.reload(), 300);
+    }
+  }
+});
+
 const AGENT_INFO = {
   lingxi: {
     icon: 'zap',
@@ -432,7 +474,7 @@ function sendConnect() {
 
   const params = {
     minProtocol: 3,
-    maxProtocol: 3,
+    maxProtocol: 99,
     client: {
       id: 'openclaw-control-ui',  // 使用 control-ui 获得完整 operator 权限
       version: '1.0.0',
@@ -473,10 +515,22 @@ function handleWebSocketMessage(data) {
   if (data.type === 'res' && data.ok && data.payload?.type === 'hello-ok') {
     const statusDot = statusEl?.querySelector('.status-dot');
     if (statusDot) statusDot.className = 'status-dot connected';  // 绿色
-    console.log('✅ 认证成功');
-    // 加载会话列表和历史
-    loadSessions();
-    loadChatHistory();
+    
+    // 🔧 检测是否是重连（已有会话数据）
+    const isReconnect = window.sessions && window.sessions.length > 0;
+    
+    if (isReconnect) {
+      console.log('🔄 重连成功，保留现有消息');
+      // 重连时不重新加载历史，只更新会话列表（不触发 loadChatHistory）
+      renderSessionList();
+      if (typeof loadSidebarSessions === 'function') {
+        loadSidebarSessions();
+      }
+    } else {
+      console.log('✅ 首次连接，加载会话和历史');
+      // 首次连接：正常加载会话列表和历史
+      loadSessions();
+    }
     return;
   }
 
@@ -527,6 +581,39 @@ function handleWebSocketMessage(data) {
     currentRunId = null;
     updateSendButton();
     addMessage('assistant', '❌ ' + errorMsg, '系统');
+    return;
+  }
+
+  // 🔧 工作流事件
+  if (data.type === 'event' && data.event === 'workflow') {
+    const payload = data.payload || {};
+    console.log('📋 收到工作流事件:', payload.type, payload);
+    
+    // 根据工作流事件类型渲染不同的卡片
+    if (payload.type === 'start') {
+      addMessage('assistant', {
+        type: 'workflow_start',
+        workflow: payload
+      }, '灵犀');
+    } else if (payload.type === 'progress') {
+      addMessage('assistant', {
+        type: 'workflow_progress',
+        stepIndex: payload.stepIndex,
+        stepName: payload.stepName,
+        agent: payload.agent,
+        isComplete: payload.isComplete
+      }, '灵犀');
+    } else if (payload.type === 'complete') {
+      addMessage('assistant', {
+        type: 'workflow_complete',
+        workflow: payload
+      }, '灵犀');
+    } else if (payload.type === 'error') {
+      addMessage('assistant', {
+        type: 'workflow_error',
+        error: payload.error
+      }, '灵犀');
+    }
     return;
   }
 
@@ -1448,18 +1535,18 @@ function abortChat() {
 // ═══════════════════════════════════════════════════════════════
 // 📝 会话模块
 // ═══════════════════════════════════════════════════════════════
-async function loadChatHistory() {
-  console.log('📚 loadChatHistory 开始, currentSessionKey:', currentSessionKey);
+async function loadChatHistory(appendOnly = false) {
+  console.log('📚 loadChatHistory 开始, currentSessionKey:', currentSessionKey, '追加模式:', appendOnly);
 
   if (!ws || ws.readyState !== WebSocket.OPEN) {
     console.log('⚠️ WebSocket 未连接，无法加载历史');
-    renderHistory([]);
+    if (!appendOnly) renderHistory([]);
     return;
   }
 
   if (!currentSessionKey) {
     console.log('⚠️ currentSessionKey 未设置，跳过加载历史');
-    renderHistory([]);
+    if (!appendOnly) renderHistory([]);
     return;
   }
 
@@ -1523,11 +1610,17 @@ async function loadChatHistory() {
 }
 
 // 渲染历史消息
-function renderHistory(messages) {
+// 🔧 新增 appendOnly 参数：true=只追加（重连时使用），false=清空后重新渲染（默认）
+function renderHistory(messages, appendOnly = false) {
   const container = document.getElementById('messages');
 
   // 如果没有消息，显示欢迎界面（带当前 Agent 的示例）
   if (!messages || messages.length === 0) {
+    // 🔧 如果是追加模式且已有消息，不清空
+    if (appendOnly && container.children.length > 0) {
+      return; // 保留现有消息
+    }
+    
     const agentInfo = AGENT_INFO[currentAgentId] || AGENT_INFO['lingxi'];
     const examplesHtml = (agentInfo?.examples || []).map(ex => `
       <div class="welcome-example" onclick="sendWelcomeExample('${ex.text.replace(/'/g, "\\'").replace(/\n/g, '\\n')}')">
@@ -1552,7 +1645,26 @@ function renderHistory(messages) {
     return;
   }
 
-  // 清空容器
+  // 🔧 追加模式：只添加新消息，不清空现有内容
+  if (appendOnly) {
+    // 获取现有消息的 ID 集合，避免重复
+    const existingIds = new Set();
+    container.querySelectorAll('.message').forEach(el => {
+      const msgId = el.dataset?.messageId;
+      if (msgId) existingIds.add(msgId);
+    });
+    
+    // 只渲染新消息
+    const newMessages = messages.filter(msg => !existingIds.has(msg.id));
+    console.log(`📝 追加模式：收到${messages.length}条消息，其中${newMessages.length}条是新消息`);
+    
+    for (const msg of newMessages) {
+      renderSingleMessage(msg);
+    }
+    return;
+  }
+
+  // 默认模式：清空容器后重新渲染
   container.innerHTML = '';
 
   // 渲染历史消息
@@ -1815,6 +1927,14 @@ function addDeletedSession(key) {
 }
 function isSessionDeleted(key) {
   return getDeletedSessions().includes(key);
+}
+
+// 🔧 清除所有本地会话缓存（用于用户首次领取团队后）
+function clearAllSessions() {
+  window.sessions = [];
+  localStorage.removeItem(DELETED_SESSIONS_KEY);
+  localStorage.removeItem('lingxi_last_session_key');
+  console.log('✅ 已清除所有本地会话缓存');
 }
 
 // 加载会话列表
@@ -2315,10 +2435,14 @@ function addMessage(role, content, name) {
     ? '<div class="avatar user-avatar"><i data-lucide="user" class="icon-sm"></i></div>'
     : `<div class="avatar">${agentIcon(currentAgent, 'sm')}</div>`;
 
-  // 处理消息内容（支持图片、文档、音频和文件）
+  // 处理消息内容（支持图片、文档、音频、文件和工作流）
   let bubbleContent = '';
   if (typeof content === 'object') {
-    if (content.audio) {
+    // 🔧 工作流消息类型
+    if (content.workflow || content.type?.startsWith('workflow')) {
+      bubbleContent = renderWorkflowMessage(content);
+    }
+    else if (content.audio) {
       // 🎵 音频消息
       bubbleContent = `
         <div class="audio-player" style="margin: 8px 0;">
@@ -2413,6 +2537,154 @@ function addTyping() {
 function removeTyping() {
   const el = document.getElementById('typing-indicator');
   if (el) el.remove();
+}
+
+// 🔧 渲染工作流消息
+function renderWorkflowMessage(content) {
+  // 工作流数据结构
+  const workflow = content.workflow || content;
+  const type = content.type || 'workflow_start';
+  
+  // 根据类型渲染不同的卡片
+  if (type === 'workflow_start' || !type) {
+    return renderWorkflowStartCard(workflow);
+  } else if (type === 'workflow_progress') {
+    return renderWorkflowProgressCard(workflow);
+  } else if (type === 'workflow_complete') {
+    return renderWorkflowCompleteCard(workflow);
+  } else if (type === 'workflow_error') {
+    return renderWorkflowErrorCard(workflow);
+  }
+  
+  return renderWorkflowStartCard(workflow);
+}
+
+// 渲染工作流开始卡片 - 清爽简洁版
+function renderWorkflowStartCard(data) {
+  const modeLabels = {
+    'single-agent': '单 Agent',
+    'multi-agent': '多 Agent',
+    'hybrid': '混合'
+  };
+  
+  const stepsHtml = (data.steps || []).map((step, index) => `
+    <div style="display:flex;align-items:center;padding:8px 0;border-bottom:1px solid #f3f4f6;">
+      <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#f3f4f6;color:#6b7280;font-size:12px;font-weight:500;margin-right:12px;">${index + 1}</span>
+      <div style="flex:1;">
+        <div style="font-size:14px;color:#1f2937;margin-bottom:2px;">${step.name || `步骤${index + 1}`}</div>
+        ${step.agent ? `<div style="font-size:12px;color:#9ca3af;">🤖 ${step.agent}</div>` : ''}
+      </div>
+    </div>
+  `).join('');
+  
+  return `
+    <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin:12px 0;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:18px;">📋</span>
+          <span style="font-size:15px;font-weight:600;color:#1f2937;">${data.workflowName || '工作流'}</span>
+        </div>
+        <span style="font-size:12px;color:#6b7280;background:#f3f4f6;padding:4px 10px;border-radius:12px;">${modeLabels[data.mode] || '执行中'}</span>
+      </div>
+      
+      ${data.task ? `<div style="font-size:13px;color:#6b7280;margin-bottom:12px;padding:10px;background:#f9fafb;border-radius:6px;">任务：${data.task}</div>` : ''}
+      
+      <div style="margin-bottom:12px;">
+        ${stepsHtml}
+      </div>
+      
+      <div style="display:flex;align-items:center;gap:6px;padding-top:12px;border-top:1px solid #f3f4f6;">
+        <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#10a37f;animation:pulse 1.5s infinite;"></span>
+        <span style="font-size:13px;color:#6b7280;">执行中...</span>
+      </div>
+    </div>
+    <style>
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.4; }
+      }
+    </style>
+  `;
+}
+
+// 渲染工作流进度更新卡片 - 清爽简洁版
+function renderWorkflowProgressCard(data) {
+  const stepIndex = data.stepIndex || 0;
+  const stepName = data.stepName || `步骤${stepIndex + 1}`;
+  const agent = data.agent || '';
+  const isComplete = data.isComplete || false;
+  
+  return `
+    <div style="padding:10px 12px;margin:8px 0;background:#f9fafb;border-left:3px solid ${isComplete ? '#10a37f' : '#3b82f6'};border-radius:4px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:14px;">${isComplete ? '✅' : '⏳'}</span>
+        <span style="font-size:13px;color:${isComplete ? '#10a37f' : '#3b82f6'};font-weight:500;">
+          ${isComplete ? '完成：' : '执行中：'}${stepName}
+        </span>
+        ${agent ? `<span style="font-size:12px;color:#9ca3af;margin-left:auto;">🤖 ${agent}</span>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+// 渲染工作流完成卡片 - 清爽简洁版
+function renderWorkflowCompleteCard(data) {
+  const deliverables = data.deliverables || [];
+  const duration = data.duration || '';
+  const steps = data.steps || [];
+  const completedSteps = steps.filter(s => s.completed).length;
+  
+  const deliverablesHtml = deliverables.length > 0 ? `
+    <div style="margin-top:12px;padding:10px;background:#f9fafb;border-radius:6px;">
+      <div style="font-size:13px;color:#6b7280;margin-bottom:8px;font-weight:500;">📦 交付物</div>
+      ${deliverables.map(d => `
+        <div style="font-size:12px;color:#374151;margin:4px 0;display:flex;align-items:center;gap:6px;">
+          <span>📄</span>
+          <span>${d}</span>
+        </div>
+      `).join('')}
+    </div>
+  ` : '';
+  
+  return `
+    <div style="background:#ffffff;border:1px solid #10a37f;border-radius:8px;padding:16px;margin:12px 0;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+        <span style="font-size:24px;">🎉</span>
+        <div>
+          <div style="font-size:16px;font-weight:600;color:#1f2937;">完成！</div>
+          <div style="font-size:12px;color:#6b7280;">${data.workflowName || '工作流'} 执行成功</div>
+        </div>
+      </div>
+      
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px;">
+        <div style="background:#f9fafb;padding:10px;border-radius:6px;">
+          <div style="font-size:11px;color:#9ca3af;">步骤</div>
+          <div style="font-size:16px;font-weight:600;color:#1f2937;">${completedSteps}/${steps.length}</div>
+        </div>
+        <div style="background:#f9fafb;padding:10px;border-radius:6px;">
+          <div style="font-size:11px;color:#9ca3af;">耗时</div>
+          <div style="font-size:16px;font-weight:600;color:#1f2937;">${duration || '-'}</div>
+        </div>
+      </div>
+      
+      ${deliverablesHtml}
+    </div>
+  `;
+}
+
+// 渲染工作流错误卡片 - 清爽简洁版
+function renderWorkflowErrorCard(data) {
+  return `
+    <div style="background:#ffffff;border:1px solid #ef4444;border-radius:8px;padding:16px;margin:12px 0;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:20px;">❌</span>
+        <div>
+          <div style="font-size:15px;font-weight:600;color:#1f2937;margin-bottom:4px;">工作流执行失败</div>
+          <div style="font-size:13px;color:#6b7280;">${data.error || '未知错误'}</div>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 // 清空聊天

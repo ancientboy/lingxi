@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:lingxicloud/utils/constants.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   static final ApiService _instance = ApiService._internal();
@@ -33,6 +34,20 @@ class ApiService {
   void clearAuthToken() {
     _token = null;
     _dio.options.headers.remove('Authorization');
+  }
+  
+  // 清除所有认证信息（用于注册后重新登录）
+  Future<void> clearAuth() async {
+    _token = null;
+    _dio.options.headers.remove('Authorization');
+    
+    // 清除 SharedPreferences 中的 token
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('lingxi_token');
+    } catch (e) {
+      debugPrint('清除本地 token 失败：$e');
+    }
   }
 
   // GET 请求

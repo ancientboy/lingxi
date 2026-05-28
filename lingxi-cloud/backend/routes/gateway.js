@@ -1,19 +1,15 @@
 import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import { getDB } from '../utils/db.js';
+import { getActiveServer } from '../utils/activeServer.js';
 
 const router = Router();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'lingxi-cloud-secret-key-2026';
 
-// MVP 模式：默认关闭
-const MVP_MODE = process.env.MVP_MODE === 'true' || true; // 临时强制启用 MVP 模式
-
-const SHARED_GATEWAY = {
-  url: process.env.OPENCLAW_URL || 'http://localhost:18789',
-  token: process.env.MVP_OPENCLAW_TOKEN || process.env.OPENCLAW_TOKEN || '6f3719a52fa12799fea8e4a06655703f',
-  session: process.env.MVP_OPENCLAW_SESSION || process.env.OPENCLAW_SESSION || 'c308f1f0'
-};
+// 生产模式：所有用户都应该有独立服务器
+// 没有服务器的用户走免费 API 对话，不使用共享 Gateway
+const SHARED_GATEWAY = null; // 已废弃
 
 router.get('/ws-info', (req, res) => {
   const host = req.get('host') || 'localhost:3000';
@@ -49,18 +45,20 @@ router.get('/connect-info', async (req, res) => {
     return res.status(401).json({ error: '用户不存在' });
   }
   
-  // 🔒 生产模式：检查用户是否有团队
-  if (!MVP_MODE) {
-    if (!user.agents || user.agents.length === 0) {
-      return res.status(403).json({ 
-        error: '请先领取 AI 团队',
-        needTeam: true 
-      });
-    }
+  // 检查用户是否有团队（不管是否订阅）
+  const hasAgents = user.agents && user.agents.length > 0;
+  
+  if (!hasAgents) {
+    // 没有团队 → 免费 API 对话模式
+    return res.status(403).json({ 
+      mode: 'free',
+      message: '请先领取 AI 团队以使用完整功能',
+      needTeam: true
+    });
   }
   
-  // 查找用户的独立服务器
-  const userServer = db.userServers?.find(s => s.userId === user.id);
+  // 有团队，查找活跃服务器
+  const userServer = getActiveServer(db, user.id);
   
   // 🔧 修复：使用后端 WebSocket 代理，而不是直接连接用户服务器
   // 前端连接 wss://lumeword.com/api/ws，后端代理到用户服务器
@@ -91,22 +89,11 @@ router.get('/connect-info', async (req, res) => {
       needServer: true,
       status: 'creating'
     });
-  } else if (MVP_MODE) {
-    // MVP 模式：使用共享实例
-    res.json({
-      mode: 'shared',
-      wsUrl: wsUrl,
-      session: SHARED_GATEWAY.session,
-      token: token,  // JWT token，用于 WebSocket 代理验证
-      gatewayToken: SHARED_GATEWAY.token,  // OpenClaw token，用于 connect 消息
-      sessionPrefix: `agent:main:user_${user.id.substring(0, 8)}`,
-      server: null
-    });
   } else {
-    // 生产模式且无独立服务器：返回错误
+    // 有团队但没有服务器（异常情况）
     return res.status(403).json({ 
-      error: '您还没有专属服务器，请联系管理员',
-      needServer: true 
+      error: '服务器未就绪，请稍候重试',
+      needServer: true
     });
   }
 });
@@ -135,7 +122,7 @@ router.post('/proxy', async (req, res) => {
     return res.status(401).json({ error: '用户不存在' });
   }
   
-  const userServer = db.userServers?.find(s => s.userId === user.id && s.status === 'running');
+  const userServer = getActiveServer(db, user.id);
   
   let gatewayUrl, gatewayToken, gatewaySession;
   

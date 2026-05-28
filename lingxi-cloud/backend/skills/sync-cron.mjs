@@ -17,7 +17,7 @@ const CLAWHUB_API_BASE = process.env.CLAWHUB_API_BASE || 'https://hub.openclaw.i
 
 // 本地技能库路径
 const LIBRARY_PATH = join(__dirname, 'library.json');
-const USER_LIBRARY_PATH = join(process.env.HOME, '.openclaw', 'workspace', 'lingxi-cloud', 'backend', 'skills', 'library.json');
+const USER_LIBRARY_PATH = join(process.env.HOME || '/root', '.openclaw', 'workspace', 'lingxi-cloud', 'backend', 'skills', 'library.json');
 
 /**
  * 技能评分标准

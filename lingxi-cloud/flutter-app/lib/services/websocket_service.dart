@@ -86,7 +86,15 @@ class WebSocketService {
       final response = await apiService.get('/api/gateway/connect-info');
       final data = response.data;
       
-      debugPrint('🔌 Gateway 响应: $data');
+      debugPrint('🔌 Gateway 响应：$data (statusCode=${response.statusCode})');
+      
+      // 检查是否返回 403（没有团队/服务器）
+      if (response.statusCode == 403) {
+        debugPrint('📋 用户没有团队，使用免费 API 对话模式');
+        _isConnecting = false;
+        _notifyListeners({'type': 'status', 'status': 'free_mode', 'message': data['message'] ?? '请先领取 AI 团队'});
+        return;
+      }
       
       if (data != null && data['wsUrl'] != null) {
         _wsUrl = data['wsUrl'];
