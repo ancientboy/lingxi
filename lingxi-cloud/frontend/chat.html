@@ -25,7 +25,7 @@
       align-items: center;
       gap: 8px;
     }
-    
+
     .nav-link {
       font-size: 14px;
       font-weight: 500;
@@ -33,11 +33,11 @@
       border-radius: 8px;
       transition: all 0.2s;
     }
-    
+
     .nav-link:hover {
       background: #f3f4f6;
     }
-    
+
     .nav-link.active {
       background: rgba(16, 163, 127, 0.1);
       color: #10a37f;
@@ -49,7 +49,7 @@
         align-items: center;
         gap: 16px;
       }
-      
+
       #connectionStatus {
         display: flex;
         align-items: center;
@@ -122,7 +122,7 @@
             <i data-lucide="x" class="icon-sm"></i>
           </button>
         </div>
-        
+
         <!-- 标签页导航 -->
         <div class="team-tabs">
           <div class="team-tab active" onclick="switchTeamTab('my-team')">
@@ -134,7 +134,7 @@
             <span>模板库</span>
           </div>
         </div>
-        
+
         <div class="modal-body">
           <!-- 我的团队标签页 -->
           <div class="team-tab-content" id="myTeamTab">
@@ -144,7 +144,7 @@
               <div class="available-agents" id="availableAgents"></div>
             </div>
           </div>
-          
+
           <!-- 模板库标签页 -->
           <div class="team-tab-content" id="templatesTab" style="display:none;">
             <div class="templates-grid" id="templatesGrid"></div>
@@ -152,7 +152,7 @@
         </div>
       </div>
     </div>
-    
+
     <!-- 模板详情弹窗 -->
     <div class="modal-overlay" id="templateDetailModal">
       <div class="modal template-detail-modal">
@@ -274,7 +274,7 @@
         </div>
       </div>
     </div>
-    
+
     <!-- 使用量统计弹窗 -->
     <div class="modal-overlay" id="usageStatsModal">
       <div class="modal usage-stats-modal">
@@ -363,20 +363,20 @@
             开始了解
           </button>
         </div>
-        
+
         <!-- Step 2: 选择职业 -->
         <div id="onboardingStep2" class="onboarding-step" style="display:none;">
           <h3 style="text-align:center;margin-bottom:20px;">请问你主要是做什么工作的？</h3>
           <div class="job-type-grid" id="jobTypeGrid"></div>
         </div>
-        
+
         <!-- Step 3: 推荐配置 -->
         <div id="onboardingStep3" class="onboarding-step" style="display:none;">
           <h3 style="text-align:center;margin-bottom:8px;">根据你的需求，我建议配置</h3>
           <p id="recommendationHint" style="text-align:center;font-size:13px;color:#6e6e80;margin-bottom:20px;"></p>
-          
+
           <div class="recommendation-agents" id="recommendationAgents"></div>
-          
+
           <div style="margin-top:24px;display:flex;gap:12px;">
             <button class="home-btn home-btn-secondary" onclick="goToOnboardingStep(2)" style="flex:1;">
               重新选择
@@ -386,7 +386,7 @@
             </button>
           </div>
         </div>
-        
+
         <!-- Step 4: 完成 -->
         <div id="onboardingStep4" class="onboarding-step" style="display:none;">
           <div class="onboarding-complete">
@@ -411,7 +411,7 @@
       align-items: center;
       gap: 8px;
     }
-    
+
     .nav-link {
       font-size: 14px;
       font-weight: 500;
@@ -419,11 +419,11 @@
       border-radius: 8px;
       transition: all 0.2s;
     }
-    
+
     .nav-link:hover {
       background: #f3f4f6;
     }
-    
+
     .nav-link.active {
       background: rgba(16, 163, 127, 0.1);
       color: #10a37f;
@@ -435,7 +435,7 @@
         align-items: center;
         gap: 16px;
       }
-      
+
       #connectionStatus {
         display: flex;
         align-items: center;
@@ -445,16 +445,16 @@
       .onboarding-modal {
         background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%);
       }
-      
+
       .onboarding-step {
         padding: 20px;
       }
-      
+
       .onboarding-welcome {
         text-align: center;
         padding: 20px 0;
       }
-      
+
       .onboarding-emoji {
         width: 80px;
         height: 80px;
@@ -466,7 +466,7 @@
         margin: 0 auto 20px;
         font-size: 40px;
       }
-      
+
       .onboarding-icon{
         width: 80px;
         height: 80px;
@@ -477,24 +477,24 @@
         justify-content: center;
         margin: 0 auto 20px;
       }
-      
+
       .onboarding-icon svg{
         width: 40px;
         height: 40px;
         color: white;
       }
-      
+
       .onboarding-welcome h2{
         font-size: 24px;
         margin-bottom: 8px;
       }
-      
+
       .job-type-grid {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
         gap: 10px;
       }
-      
+
       .job-type-item {
         padding: 16px;
         background: rgba(255,255,255,0.05);
@@ -504,23 +504,23 @@
         text-align: center;
         transition: all 0.2s;
       }
-      
+
       .job-type-item:hover {
         background: rgba(255,255,255,0.1);
         border-color: #10a37f;
       }
-      
+
       .job-type-item.selected {
         background: rgba(16,163,127,0.2);
         border-color: #10a37f;
       }
-      
+
       .recommendation-agents {
         display: flex;
         flex-direction: column;
         gap: 12px;
       }
-      
+
       .recommendation-agent {
         display: flex;
         align-items: center;
@@ -529,7 +529,7 @@
         background: rgba(255,255,255,0.05);
         border-radius: 12px;
       }
-      
+
       .recommendation-agent .emoji {
         width: 48px;
         height: 48px;
@@ -540,32 +540,32 @@
         justify-content: center;
         font-size: 24px;
       }
-      
+
       .recommendation-agent .emoji svg{
         width: 24px;
         height: 24px;
         color: #10a37f;
       }
-      
+
       .recommendation-agent .info{
         flex: 1;
       }
-      
+
       .recommendation-agent .name {
         font-weight: 600;
         margin-bottom: 4px;
       }
-      
+
       .recommendation-agent .desc {
         font-size: 13px;
         color: rgba(255,255,255,0.6);
       }
-      
+
       .onboarding-complete {
         text-align: center;
         padding: 20px 0;
       }
-      
+
       .team-preview {
         display: flex;
         justify-content: center;
@@ -573,7 +573,7 @@
         margin-top: 20px;
         flex-wrap: wrap;
       }
-      
+
       .team-preview-avatar {
         width: 48px;
         height: 48px;
@@ -584,13 +584,13 @@
         justify-content: center;
         font-size: 24px;
       }
-      
+
       .team-preview-avatar svg{
         width: 24px;
         height: 24px;
         color: #10a37f;
       }
-      
+
       /* 签到按钮 */
       .checkin-btn {
         display: flex;
@@ -606,31 +606,31 @@
         margin-right: 8px;
         border: none;
       }
-      
+
       .checkin-btn:hover {
         transform: scale(1.05);
         box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
       }
-      
+
       .checkin-btn.checked-in {
         background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
         cursor: default;
       }
-      
+
       .checkin-btn.checked-in:hover {
         transform: none;
         box-shadow: none;
       }
-      
+
       .checkin-icon {
         font-size: 16px;
       }
-      
+
       .checkin-points {
         font-size: 11px;
         opacity: 0.9;
       }
-      
+
       /* 主题切换按钮 */
       .theme-toggle-btn {
         display: flex;
@@ -645,12 +645,12 @@
         cursor: pointer;
         transition: all 0.2s;
       }
-      
+
       .theme-toggle-btn:hover {
         background: #e5e5e5;
         transform: scale(1.05);
       }
-    
+
 </style>
 
     <!-- 技能库样式 -->
@@ -661,7 +661,7 @@
       align-items: center;
       gap: 8px;
     }
-    
+
     .nav-link {
       font-size: 14px;
       font-weight: 500;
@@ -669,11 +669,11 @@
       border-radius: 8px;
       transition: all 0.2s;
     }
-    
+
     .nav-link:hover {
       background: #f3f4f6;
     }
-    
+
     .nav-link.active {
       background: rgba(16, 163, 127, 0.1);
       color: #10a37f;
@@ -685,7 +685,7 @@
         align-items: center;
         gap: 16px;
       }
-      
+
       #connectionStatus {
         display: flex;
         align-items: center;
@@ -798,7 +798,7 @@
         padding: 24px;
         overflow-y: auto;
       }
-      
+
       /* 搜索框 */
       .skill-search-box {
         display: flex;
@@ -834,7 +834,7 @@
       .skill-search-box input::placeholder {
         color: #9ca3af;
       }
-      
+
       /* 技能网格 */
       .skill-grid {
         display: grid;
@@ -1208,23 +1208,20 @@
         <h3>📁 文件管理器</h3>
         <button class="fe-close" onclick="toggleFileExplorer()"><i data-lucide="x" style="width:18px;height:18px;"></i></button>
       </div>
-      <div id="feContent" style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
-        <!-- 加载中 -->
-        <div class="fe-loading" id="feLoading">检测文件管理器...</div>
-        <!-- 未安装提示 -->
-        <div id="feNotInstalled" style="display:none;padding:30px 20px;text-align:center;">
-          <div style="font-size:48px;margin-bottom:16px;">📁</div>
-          <p style="color:var(--text-secondary);font-size:14px;margin-bottom:20px;">当前服务器尚未安装文件管理器</p>
-          <button onclick="feInstallFileBrowser()" id="feInstallBtn" style="
-            background:var(--bg-active,#4CAF50);color:#fff;border:none;padding:10px 24px;
-            border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;
-          ">一键安装 FileBrowser</button>
-          <p id="feInstallStatus" style="color:var(--text-tertiary);font-size:12px;margin-top:12px;"></p>
+      <div class="fe-path-bar" id="fePathBar">/root</div>
+
+      <div class="fe-body" id="feBody">
+        <div class="fe-loading" id="feLoading">加载中...</div>
+        <ul class="fe-file-list" id="feFileList" style="display:none;"></ul>
+      </div>
+
+      <div class="fe-viewer" id="feViewer" style="display:none;flex-direction:column;">
+        <div class="fe-viewer-header">
+          <button class="fe-viewer-back" onclick="feBackToList()">← 返回</button>
+          <span class="fe-viewer-title" id="feViewerTitle"></span>
         </div>
-        <!-- iframe 嵌入 -->
-        <iframe id="feIframe" style="display:none;flex:1;border:none;width:100%;" 
-          sandbox="allow-same-origin allow-scripts allow-forms allow-downloads"
-          loading="lazy"></iframe>
+        <div class="fe-viewer-meta" id="feViewerMeta"></div>
+        <pre class="fe-viewer-content" id="feViewerContent"></pre>
       </div>
     </div>
 
@@ -1256,7 +1253,7 @@
             </div>
           </div>
         </div>
-        
+
         <div class="input-wrapper">
           <!-- 左边：相机图标 -->
           <button class="camera-btn" id="cameraBtn" onclick="handleCameraCapture()" title="拍照">
@@ -1267,11 +1264,11 @@
           <!-- 右边：动态显示（有文字显示发送，无文字显示麦克风+上传） -->
           <div class="input-right-btns" id="inputRightBtns">
             <!-- 默认显示麦克风和上传图标 -->
-            <button class="voice-btn" id="voiceBtn" 
-                    onmousedown="startRecording()" 
-                    onmouseup="stopRecordingAndSend()" 
+            <button class="voice-btn" id="voiceBtn"
+                    onmousedown="startRecording()"
+                    onmouseup="stopRecordingAndSend()"
                     onmouseleave="if(isRecording) stopRecordingAndSend()"
-                    ontouchstart="event.preventDefault(); startRecording()" 
+                    ontouchstart="event.preventDefault(); startRecording()"
                     ontouchend="stopRecordingAndSend()"
                     title="按住说话，松开发送">
               <i data-lucide="mic" class="icon-sm"></i>
@@ -1314,75 +1311,85 @@
   <!-- 文件管理器逻辑 -->
   <script>
     let feOpen = false;
+    let feCurrentPath = "/root";
 
     function toggleFileExplorer() {
       feOpen = !feOpen;
-      const panel = document.getElementById('fileExplorerPanel');
-      const main = document.getElementById('mainContent');
-      const btn = document.querySelector('.nav-icon-btn');
-      panel.classList.toggle('open', feOpen);
-      main.classList.toggle('fe-open', feOpen);
-      if (btn) btn.classList.toggle('active', feOpen);
-      if (feOpen) feCheckFileBrowser();
+      document.getElementById("fileExplorerPanel").classList.toggle("open", feOpen);
+      document.getElementById("mainContent").classList.toggle("fe-open", feOpen);
+      const btn = document.querySelector(".nav-icon-btn");
+      if (btn) btn.classList.toggle("active", feOpen);
+      if (feOpen) feLoadDir("/root");
     }
 
-    async function feCheckFileBrowser() {
-      const token = localStorage.getItem('lingxi_token');
+    async function feLoadDir(path) {
+      const token = localStorage.getItem("lingxi_token");
       if (!token) return;
-
+      feCurrentPath = path;
+      document.getElementById("fePathBar").textContent = path;
+      document.getElementById("feLoading").style.display = "flex";
+      document.getElementById("feLoading").textContent = "加载中...";
+      document.getElementById("feFileList").style.display = "none";
+      document.getElementById("feBody").style.display = "";
+      document.getElementById("feViewer").style.display = "none";
       try {
-        const res = await fetch(`${API_BASE}/api/file-explorer/filebrowser`, {
-          headers: { 'Authorization': `Bearer ${token}` }
+        const res = await fetch("${API_BASE}/api/file-explorer/list?path=" + encodeURIComponent(path), {
+          headers: { "Authorization": "Bearer " + token }
         });
         const data = await res.json();
-
-        document.getElementById('feLoading').style.display = 'none';
-
-        if (data.installed) {
-          // 已安装 → iframe 嵌入
-          const iframe = document.getElementById('feIframe');
-          iframe.src = data.url;
-          iframe.style.display = 'block';
-          document.getElementById('feNotInstalled').style.display = 'none';
-        } else {
-          // 未安装 → 显示安装按钮
-          document.getElementById('feNotInstalled').style.display = 'block';
-          document.getElementById('feIframe').style.display = 'none';
-        }
-      } catch (e) {
-        document.getElementById('feLoading').textContent = '❌ ' + e.message;
-      }
+        if (data.error) { document.getElementById("feLoading").textContent = "❌ " + data.error; return; }
+        feRenderFiles(data.files || []);
+      } catch (e) { document.getElementById("feLoading").textContent = "❌ " + e.message; }
     }
 
-    async function feInstallFileBrowser() {
-      const token = localStorage.getItem('lingxi_token');
-      const btn = document.getElementById('feInstallBtn');
-      const status = document.getElementById('feInstallStatus');
+    function feRenderFiles(files) {
+      document.getElementById("feLoading").style.display = "none";
+      const list = document.getElementById("feFileList");
+      list.style.display = "block";
+      let html = "";
+      if (feCurrentPath !== "/") {
+        const parent = feCurrentPath.split("/").slice(0, -1).join("/") || "/";
+        html += '<li class="fe-file-item" onclick="feLoadDir(''+parent+'')"><svg class="fe-file-icon folder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg><span class="fe-file-name" style="color:var(--text-secondary)">..</span></li>';
+      }
+      files.forEach(f => {
+        const icon = f.isDir ? '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>' : '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>';
+        const cls = f.isDir ? "folder" : "";
+        const click = f.isDir ? "feLoadDir('"+f.path.replace(/'/g,"\'")+"')" : "feOpenFile('"+f.path.replace(/'/g,"\'")+"')";
+        const size = f.isDir ? "" : feFormatSize(f.size);
+        html += '<li class="fe-file-item" onclick="'+click+'"><svg class="fe-file-icon '+cls+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'+icon+'</svg><span class="fe-file-name">'+f.name+(f.isDir?"/":"")+"</span><span class="fe-file-size">"+size+"</span></li>";
+      });
+      list.innerHTML = html || '<div class="fe-empty">📭 空目录</div>';
+    }
 
-      btn.disabled = true;
-      btn.textContent = '安装中...';
-      status.textContent = '⏳ 正在通过 SSH 安装 FileBrowser，请稍候...';
+    function feFormatSize(b) {
+      if (!b) return "";
+      if (b < 1024) return b + " B";
+      if (b < 1048576) return (b/1024).toFixed(1) + " KB";
+      return (b/1048576).toFixed(1) + " MB";
+    }
 
+    async function feOpenFile(path) {
+      const token = localStorage.getItem("lingxi_token");
+      document.getElementById("feBody").style.display = "none";
+      document.getElementById("fePathBar").style.display = "none";
+      document.getElementById("feViewer").style.display = "flex";
+      document.getElementById("feViewerTitle").textContent = path.split("/").pop();
+      document.getElementById("feViewerMeta").textContent = "加载中...";
+      document.getElementById("feViewerContent").textContent = "";
       try {
-        const res = await fetch(`${API_BASE}/api/file-explorer/install-filebrowser`, {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}` }
+        const res = await fetch("${API_BASE}/api/file-explorer/get?path=" + encodeURIComponent(path), {
+          headers: { "Authorization": "Bearer " + token }
         });
         const data = await res.json();
+        document.getElementById("feViewerMeta").textContent = data.error || path;
+        document.getElementById("feViewerContent").textContent = data.error || data.content || "(空文件)";
+      } catch (e) { document.getElementById("feViewerContent").textContent = "❌ " + e.message; }
+    }
 
-        if (data.ok) {
-          status.textContent = '✅ 安装成功！正在加载...';
-          setTimeout(() => feCheckFileBrowser(), 1000);
-        } else {
-          btn.disabled = false;
-          btn.textContent = '重新安装';
-          status.textContent = '❌ ' + (data.error || '安装失败');
-        }
-      } catch (e) {
-        btn.disabled = false;
-        btn.textContent = '重新安装';
-        status.textContent = '❌ ' + e.message;
-      }
+    function feBackToList() {
+      document.getElementById("feBody").style.display = "";
+      document.getElementById("fePathBar").style.display = "";
+      document.getElementById("feViewer").style.display = "none";
     }
   </script>
 
@@ -1390,18 +1397,18 @@
   <script>
     const THEME_KEY = 'lingxi_theme';
     const SIDEBAR_WIDTH_KEY = 'lingxi_sidebar_width';
-    
+
     // 初始化主题
     function initTheme() {
       const savedTheme = localStorage.getItem(THEME_KEY) || 'light';
       applyTheme(savedTheme);
     }
-    
+
     // 应用主题
     function applyTheme(theme) {
       const darkTheme = document.getElementById('darkTheme');
       const toggleIcon = document.getElementById('themeToggleIcon');
-      
+
       if (theme === 'dark') {
         darkTheme.disabled = false;
         if (toggleIcon) toggleIcon.textContent = '☀️';
@@ -1409,10 +1416,10 @@
         darkTheme.disabled = true;
         if (toggleIcon) toggleIcon.textContent = '🌙';
       }
-      
+
       localStorage.setItem(THEME_KEY, theme);
     }
-    
+
     // 切换主题
     function toggleTheme() {
       const currentTheme = localStorage.getItem(THEME_KEY) || 'light';
@@ -1426,31 +1433,31 @@
       const mainContent = document.getElementById('mainContent');
       const resizer = document.getElementById('sidebarResizer');
       const savedWidth = localStorage.getItem(SIDEBAR_WIDTH_KEY);
-      
+
       // 恢复保存的宽度（仅桌面端）
       if (savedWidth && window.innerWidth > 768) {
         sidebar.style.width = savedWidth + 'px';
         mainContent.style.marginLeft = savedWidth + 'px';
         resizer.style.left = savedWidth + 'px';
       }
-      
+
       // 初始化拖拽调整
       initSidebarResizer();
-      
+
       // 加载会话列表 - 延迟调用，等待 chat.js 加载完成
       // loadSidebarSessions() 会在 loadSessions() 完成后自动调用
-      
+
       // 加载用户信息
       loadUserInfo();
     }
-    
+
     function toggleSidebar() {
       const sidebar = document.getElementById('sidebar');
       const mainContent = document.getElementById('mainContent');
       const overlay = document.getElementById('sidebarOverlay');
-      
+
       const isMobile = window.innerWidth <= 768;
-      
+
       if (isMobile) {
         // 移动端：显示/隐藏侧边栏
         sidebar.classList.toggle('show');
@@ -1461,56 +1468,56 @@
         mainContent.classList.toggle('expanded');
       }
     }
-    
+
     function initSidebarResizer() {
       const sidebar = document.getElementById('sidebar');
       const mainContent = document.getElementById('mainContent');
       const resizer = document.getElementById('sidebarResizer');
-      
+
       let isResizing = false;
-      
+
       resizer.addEventListener('mousedown', (e) => {
         isResizing = true;
         resizer.classList.add('dragging');
         document.body.style.cursor = 'col-resize';
         document.body.style.userSelect = 'none';
       });
-      
+
       document.addEventListener('mousemove', (e) => {
         if (!isResizing) return;
-        
+
         const newWidth = Math.max(200, Math.min(400, e.clientX));
         sidebar.style.width = newWidth + 'px';
         mainContent.style.marginLeft = newWidth + 'px';
         resizer.style.left = newWidth + 'px';
       });
-      
+
       document.addEventListener('mouseup', () => {
         if (isResizing) {
           isResizing = false;
           resizer.classList.remove('dragging');
           document.body.style.cursor = '';
           document.body.style.userSelect = '';
-          
+
           // 保存宽度
           const width = parseInt(sidebar.style.width);
           localStorage.setItem(SIDEBAR_WIDTH_KEY, width);
         }
       });
     }
-    
+
     function loadSidebarSessions() {
       console.log('🔄 loadSidebarSessions 被调用');
       console.log('🔄 window.sessions:', window.sessions);
-      
+
       const todaySessions = document.getElementById('todaySessions');
       const weekSessions = document.getElementById('weekSessions');
       const olderSessions = document.getElementById('olderSessions');
-      
+
       // 获取全局会话数据（从 chat.js）
       const allSessions = window.sessions || [];
       console.log('🔄 allSessions.length:', allSessions.length);
-      
+
       if (allSessions.length === 0) {
         // 没有会话数据时显示提示
         console.log('⚠️ 没有会话数据');
@@ -1523,9 +1530,9 @@
         olderSessions.innerHTML = '';
         return;
       }
-      
+
       console.log('✅ 开始渲染', allSessions.length, '个会话');
-      
+
       // 去重（基于 key）
       const uniqueSessions = [];
       const seenKeys = new Set();
@@ -1536,17 +1543,17 @@
         }
       });
       console.log('✅ 去重后', uniqueSessions.length, '个会话');
-      
+
       // 按时间分组
       const now = Date.now();
       const today = [];
       const week = [];
       const older = [];
-      
+
       uniqueSessions.forEach(session => {
         const updatedAt = session.updatedAt ? new Date(session.updatedAt).getTime() : 0;
         const daysAgo = (now - updatedAt) / (1000 * 60 * 60 * 24);
-        
+
         if (daysAgo < 1) {
           today.push(session);
         } else if (daysAgo < 7) {
@@ -1555,31 +1562,31 @@
           older.push(session);
         }
       });
-      
+
       // 渲染今天的会话
-      todaySessions.innerHTML = today.map(session => renderSessionItem(session)).join('') || 
+      todaySessions.innerHTML = today.map(session => renderSessionItem(session)).join('') ||
         '<div style="padding:10px;color:#6e6e80;font-size:13px;">暂无今天的对话</div>';
-      
+
       // 渲染最近7天的会话
       weekSessions.innerHTML = week.map(session => renderSessionItem(session)).join('') || '';
-      
+
       // 渲染更早的会话
       olderSessions.innerHTML = older.map(session => renderSessionItem(session)).join('') || '';
-      
+
       if (window.lucide) lucide.createIcons();
     }
-    
+
     // 渲染单个会话项
     function renderSessionItem(session) {
       // 使用 chat.js 中的 currentSessionKey（如果可访问）
       const currentKey = typeof currentSessionKey !== 'undefined' ? currentSessionKey : window.currentSessionKey;
       const isActive = session.key === currentKey;
-      
+
       console.log('📋 渲染会话项:', session.key, 'isActive:', isActive, 'currentKey:', currentKey);
-      
+
       // 生成显示名称：优先使用 label，否则从 key 识别 agent
       let displayName = session.label || session.displayName;
-      
+
       // 🔧 修复：从 session key 提取 agentId 并显示 agent 名称
       if (!displayName) {
         // 检查是否是主会话
@@ -1609,21 +1616,21 @@
             if (lastMsg && lastMsg.length > 0) {
               displayName = lastMsg.substring(0, 15) + (lastMsg.length > 15 ? '...' : '');
             } else {
-              displayName = session.updatedAt 
+              displayName = session.updatedAt
                 ? new Date(session.updatedAt).toLocaleString('zh-CN', {month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'})
                 : '对话';
             }
           }
         }
       }
-      
+
       // 预览内容
       const preview = session.lastMessage || session.preview || session.last_message || '';
       const previewText = preview.substring(0, 30) + (preview.length > 30 ? '...' : '');
-      
+
       // 时间
       const time = session.updatedAt ? new Date(session.updatedAt).toLocaleString('zh-CN', {month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit'}) : '';
-      
+
       return `
         <div class="sidebar-session ${isActive ? 'active' : ''}" onclick="switchToSession('${session.key}')" title="${escapeHtml(previewText)}">
           <i data-lucide="message-circle" class="icon-sm ${isActive ? 'icon-primary' : ''}"></i>
@@ -1637,31 +1644,31 @@
         </div>
       `;
     }
-    
+
     // 切换到指定会话
     function switchToSession(sessionKey) {
       console.log('🔄 switchToSession 被调用, sessionKey:', sessionKey);
       // 切换回对话视图
       switchView('chat');
-      
+
       // 移动端关闭侧边栏
       if (window.innerWidth <= 768) {
         toggleSidebar();
       }
-      
+
       // 🔧 修复：如果是 agent session，更新 currentAgentId
       const agentMatch = sessionKey.match(/:agent:([a-z]+)$/);
       if (agentMatch) {
         const agentId = agentMatch[1];
         console.log('🎯 检测到 agent session，更新 currentAgentId:', agentId);
-        
+
         // 更新 chat.js 中的 currentAgentId（如果存在）
         if (typeof currentAgentId !== 'undefined') {
           currentAgentId = agentId;
         } else if (typeof window.currentAgentId !== 'undefined') {
           window.currentAgentId = agentId;
         }
-        
+
         // 更新导航栏图标
         const agentInfo = typeof AGENT_INFO !== 'undefined' ? AGENT_INFO[agentId] : null;
         if (agentInfo) {
@@ -1672,7 +1679,7 @@
           }
         }
       }
-      
+
       // 调用 chat.js 中的 switchSession 函数
       if (typeof switchSession === 'function') {
         console.log('📞 调用 chat.js 中的 switchSession');
@@ -1682,7 +1689,7 @@
         window.switchSession(sessionKey);
       } else {
         console.log('⚠️ switchSession 函数不存在');
-        
+
         // 备用方案：直接更新 currentSessionKey 并加载历史
         if (typeof window.currentSessionKey !== 'undefined') {
           window.currentSessionKey = sessionKey;
@@ -1692,7 +1699,7 @@
         }
       }
     }
-    
+
     // 从侧边栏删除会话
     function deleteSessionFromSidebar(sessionKey) {
       // 调用 chat.js 中的删除函数（已有确认弹窗）
@@ -1704,14 +1711,14 @@
         setTimeout(() => loadSidebarSessions(), 500);
       }
     }
-    
+
     // HTML 转义函数
     function escapeHtml(text) {
       const div = document.createElement('div');
       div.textContent = text;
       return div.innerHTML;
     }
-    
+
     async function loadUserInfo() {
       const user = JSON.parse(localStorage.getItem('lingxi_user') || '{}');
       if (user.nickname) {
@@ -1720,7 +1727,7 @@
         if (!nameEl || !avatarEl) return;  // 元素未加载
         nameEl.textContent = user.nickname;
         document.getElementById('sidebarUserAvatar').textContent = user.nickname.charAt(0).toUpperCase();
-        
+
         // 加载积分信息
         try {
           const token = localStorage.getItem('lingxi_token');
@@ -1738,7 +1745,7 @@
         }
       }
     }
-    
+
     function newChat() {
       // 调用 chat.js 中的创建新会话函数
       // 切换回对话视图
@@ -1747,7 +1754,7 @@
       if (typeof createNewSession === 'function') {
         createNewSession();
       }
-      
+
       // 清空消息区域，显示欢迎界面
       const messages = document.getElementById('messages');
       messages.innerHTML = `
@@ -1760,23 +1767,23 @@
           <div class="team-tags" id="teamTags"></div>
         </div>
       `;
-      
+
       // 重新渲染团队标签
       if (typeof renderTeamTags === 'function') {
         renderTeamTags();
       }
-      
+
       // 重新初始化 Lucide 图标
       if (window.lucide) {
         lucide.createIcons();
       }
-      
+
       // 更新侧边栏会话列表（取消激活状态）
       document.querySelectorAll('.sidebar-session').forEach(el => {
         el.classList.remove('active');
       });
     }
-    
+
     function deleteSession(e) {
       e.stopPropagation();
       if (confirm('确定删除这个会话？')) {
@@ -1784,7 +1791,7 @@
         session.remove();
       }
     }
-    
+
     // 关于弹窗
     function showAbout() {
       const modal = document.createElement('div');
@@ -1795,36 +1802,36 @@
       return;
       alert('Lume v1.0\n\n你的 AI 团队，一键拥有');
     }
-    
+
     // ===== LumeClaw 维护模式 =====
     let lumeclawModal = null;
-    
+
     // 检查 LumeClaw 权限
     async function checkLumeclawAccess() {
       const token = localStorage.getItem('lingxi_token');
       if (!token) return null;
-      
+
       try {
         // 解析 token 获取 userId
         const payload = JSON.parse(atob(token.split('.')[1]));
         const userId = payload.userId;
-        
+
         const res = await fetch(`${API_BASE}/api/lumeclaw/permissions/${userId}`);
         const data = await res.json();
-        
+
         if (data.success && data.allowed) {
           // 显示 LumeClaw 入口
           const entry = document.getElementById('lumeclawEntry');
           if (entry) entry.style.display = 'flex';
         }
-        
+
         return data;
       } catch (e) {
         console.error('检查 LumeClaw 权限失败:', e);
         return null;
       }
     }
-    
+
     // 打开 LumeClaw
     async function openLumeClaw() {
       const token = localStorage.getItem('lingxi_token');
@@ -1832,7 +1839,7 @@
         alert('请先登录');
         return;
       }
-      
+
       // 创建弹窗
       if (!lumeclawModal) {
         lumeclawModal = document.createElement('div');
@@ -1849,7 +1856,7 @@
                 <i data-lucide="x" class="icon-sm"></i>
               </button>
             </div>
-            
+
             <!-- 功能介绍区 -->
             <div class="lumeclaw-intro">
               <div class="lumeclaw-intro-icon">🤖</div>
@@ -1858,7 +1865,7 @@
                 <p>Lume - OpenClaw 智能维护助手，帮你诊断问题、查看日志、修复配置</p>
               </div>
             </div>
-            
+
             <!-- 快捷功能按钮 -->
             <div class="lumeclaw-quick-actions">
               <button onclick="sendLumeQuickMessage('检查 OpenClaw Gateway 状态')" class="lume-quick-btn">
@@ -1882,13 +1889,13 @@
                 <span>系统资源</span>
               </button>
             </div>
-            
+
             <!-- 聊天区域 -->
             <div class="lumeclaw-messages" id="lumeclawMessages"></div>
-            
+
             <!-- 输入区域 -->
             <div class="lumeclaw-input-area">
-              <input type="text" id="lumeclawInput" placeholder="输入维护指令或描述问题..." 
+              <input type="text" id="lumeclawInput" placeholder="输入维护指令或描述问题..."
                 onkeypress="if(event.key==='Enter')sendLumeMessage()">
               <button onclick="sendLumeMessage()" class="lumeclaw-send-btn">
                 <i data-lucide="send" class="icon-sm"></i>
@@ -1897,7 +1904,7 @@
           </div>
         `;
         document.body.appendChild(lumeclawModal);
-        
+
         // 添加样式
         const style = document.createElement('style');
         style.textContent = `
@@ -1922,7 +1929,7 @@
             opacity: 1;
             visibility: visible;
           }
-          
+
           /* 弹窗主体 */
           .lumeclaw-modal {
             width: 90%;
@@ -1941,7 +1948,7 @@
           .lumeclaw-overlay.show .lumeclaw-modal {
             transform: scale(1) translateY(0);
           }
-          
+
           /* 头部 */
           .lumeclaw-header {
             display: flex;
@@ -1977,7 +1984,7 @@
           .lumeclaw-close:hover {
             background: rgba(255,255,255,0.3);
           }
-          
+
           /* 功能介绍区 */
           .lumeclaw-intro {
             display: flex;
@@ -2008,7 +2015,7 @@
             color: #6e6e80;
             margin: 0;
           }
-          
+
           /* 快捷按钮 */
           .lumeclaw-quick-actions {
             display: flex;
@@ -2038,7 +2045,7 @@
           .lume-quick-btn svg {
             color: #10a37f;
           }
-          
+
           /* 消息区域 */
           .lumeclaw-messages {
             flex: 1;
@@ -2073,7 +2080,7 @@
             font-family: 'Consolas', monospace;
             font-size: 13px;
           }
-          
+
           /* 输入区域 */
           .lumeclaw-input-area {
             display: flex;
@@ -2120,55 +2127,55 @@
         `;
         document.head.appendChild(style);
       }
-      
+
       // 显示弹窗
       lumeclawModal.classList.add('show');
-      
+
       // 重新渲染图标
       if (window.lucide) lucide.createIcons();
-      
+
       // 添加欢迎消息
       const messagesDiv = document.getElementById('lumeclawMessages');
       if (messagesDiv.children.length === 0) {
         addLumeMessage('lume', '👋 你好！我是 **Lume**，OpenClaw 的守护者。\n\n我可以帮你：\n• 🩺 诊断 Gateway 故障\n• 📋 查看错误日志\n• 🔧 修复配置问题\n• 🔄 重启服务\n• 💻 监控系统资源\n\n直接告诉我问题，或点击上方快捷按钮。');
       }
-      
+
       // 聚焦输入框
       document.getElementById('lumeclawInput').focus();
     }
-    
+
     // 关闭 LumeClaw
     function closeLumeClaw() {
       if (lumeclawModal) {
         lumeclawModal.classList.remove('show');
       }
     }
-    
+
     // ESC 键关闭 LumeClaw
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && lumeclawModal && lumeclawModal.classList.contains('show')) {
         closeLumeClaw();
       }
     });
-    
+
     // 发送消息
     async function sendLumeMessage() {
       const input = document.getElementById('lumeclawInput');
       const message = input.value.trim();
       if (!message) return;
-      
+
       input.value = '';
-      
+
       // 显示用户消息
       addLumeMessage('user', message);
-      
+
       // 显示加载中
       const loadingId = addLumeMessage('lume', '⏳ 分析中...', true);
-      
+
       try {
         const token = localStorage.getItem('lingxi_token');
         const payload = JSON.parse(atob(token.split('.')[1]));
-        
+
         const res = await fetch(`${API_BASE}/api/lumeclaw/chat`, {
           method: 'POST',
           headers: {
@@ -2180,12 +2187,12 @@
             message: message
           })
         });
-        
+
         const data = await res.json();
-        
+
         // 移除加载中
         removeLumeMessage(loadingId);
-        
+
         if (data.success) {
           addLumeMessage('lume', data.response);
         } else {
@@ -2196,13 +2203,13 @@
         addLumeMessage('lume', '❌ 网络错误: ' + e.message);
       }
     }
-    
+
     // 发送快捷消息
     function sendLumeQuickMessage(message) {
       document.getElementById('lumeclawInput').value = message;
       sendLumeMessage();
     }
-    
+
     // 添加消息
     function addLumeMessage(type, content, isTemp = false) {
       const messagesDiv = document.getElementById('lumeclawMessages');
@@ -2217,7 +2224,7 @@
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
       return msgDiv.id;
     }
-    
+
     // 移除消息
     function removeLumeMessage(id) {
       if (id) {
@@ -2225,9 +2232,9 @@
         if (el) el.remove();
       }
     }
-    
+
     // 注意：LumeClaw 权限检查在 load-components.js 中调用（侧边栏加载完成后）
-    
+
     // 切换用户菜单
     function toggleUserMenu() {
       const trigger = document.querySelector('.sidebar-user-trigger');
@@ -2235,35 +2242,35 @@
       trigger.classList.toggle('active');
       menu.classList.toggle('show');
     }
-    
+
     // 点击其他地方关闭用户菜单
     document.addEventListener('click', (e) => {
       const footer = document.querySelector('.sidebar-footer');
       const menu = document.getElementById('sidebarUserMenu');
       const trigger = document.querySelector('.sidebar-user-trigger');
-      
+
       if (footer && !footer.contains(e.target)) {
         menu.classList.remove('show');
         trigger.classList.remove('active');
       }
     });
-    
+
     // 页面加载时初始化
     initTheme();
     initSidebar();
-    
+
     // 自动切换视图（从 skills.html 跳转）
     const autoView = sessionStorage.getItem('autoSwitchView');
     if (autoView) {
       sessionStorage.removeItem('autoSwitchView');
       setTimeout(() => switchView(autoView), 100);
     }
-    
+
     // 初始化 Lucide 图标
     if (window.lucide) {
       lucide.createIcons();
     }
-    
+
     // ===== 签到功能 =====
     // API 基础地址（如果 chat.js 还没加载）
     if (typeof API_BASE === 'undefined') {
@@ -2272,18 +2279,18 @@
     async function checkCheckinStatus() {
       const token = localStorage.getItem('lingxi_token');
       if (!token) return;
-      
+
       try {
         const res = await fetch(`${API_BASE}/api/auth/checkin/status`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await res.json();
-        
+
         const checkinBtn = document.getElementById('checkinBtn');
         if (!checkinBtn) return;
         const checkinText = document.getElementById('checkinText');
         const checkinPoints = document.getElementById('checkinPoints');
-        
+
         if (data.checkedIn) {
           checkinBtn.classList.add('checked-in');
           checkinText.textContent = '已签到';
@@ -2297,31 +2304,31 @@
         console.error('获取签到状态失败:', e);
       }
     }
-    
+
     async function handleCheckin() {
       const token = localStorage.getItem('lingxi_token');
       if (!token) {
         alert('请先登录');
         return;
       }
-      
+
       const checkinBtn = document.getElementById('checkinBtn');
         if (!checkinBtn) return;
       if (checkinBtn.classList.contains('checked-in')) {
         return; // 已签到
       }
-      
+
       try {
         checkinBtn.disabled = true;
         const res = await fetch(`${API_BASE}/api/auth/checkin`, {
           method: 'POST',
-          headers: { 
+          headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
         });
         const data = await res.json();
-        
+
         if (data.ok || res.ok) {
           checkinBtn.classList.add('checked-in');
           document.getElementById('checkinText').textContent = '已签到';
@@ -2337,13 +2344,13 @@
         checkinBtn.disabled = false;
       }
     }
-    
+
     // 检查签到状态
     checkCheckinStatus();
   </script>
-  
+
   <!-- 文件预览模块 -->
-  
+
   <script src="assets/js/chat.js?v=1773569491"></script>
 
     <!-- 统一组件加载器 -->
