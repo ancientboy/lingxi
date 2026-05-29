@@ -1309,87 +1309,114 @@
   <!-- 技能库弹窗 -->
 
   <!-- 文件管理器逻辑 -->
+  <!-- 文件管理器逻辑 -->
   <script>
     let feOpen = false;
-    let feCurrentPath = "/root";
 
     function toggleFileExplorer() {
       feOpen = !feOpen;
-      document.getElementById("fileExplorerPanel").classList.toggle("open", feOpen);
-      document.getElementById("mainContent").classList.toggle("fe-open", feOpen);
-      const btn = document.querySelector(".nav-icon-btn");
-      if (btn) btn.classList.toggle("active", feOpen);
-      if (feOpen) feLoadDir("/root");
+      document.getElementById('fileExplorerPanel').classList.toggle('open', feOpen);
+      document.getElementById('mainContent').classList.toggle('fe-open', feOpen);
+      const btn = document.querySelector('.nav-icon-btn');
+      if (btn) btn.classList.toggle('active', feOpen);
+      if (feOpen) feLoadDir('/root');
     }
 
     async function feLoadDir(path) {
-      const token = localStorage.getItem("lingxi_token");
+      const token = localStorage.getItem('lingxi_token');
       if (!token) return;
-      feCurrentPath = path;
-      document.getElementById("fePathBar").textContent = path;
-      document.getElementById("feLoading").style.display = "flex";
-      document.getElementById("feLoading").textContent = "加载中...";
-      document.getElementById("feFileList").style.display = "none";
-      document.getElementById("feBody").style.display = "";
-      document.getElementById("feViewer").style.display = "none";
+      document.getElementById('fePathBar').textContent = path;
+      document.getElementById('feLoading').style.display = 'flex';
+      document.getElementById('feLoading').textContent = '加载中...';
+      document.getElementById('feFileList').style.display = 'none';
+      document.getElementById('feBody').style.display = '';
+      document.getElementById('fePathBar').style.display = '';
+      document.getElementById('feViewer').style.display = 'none';
+
       try {
-        const res = await fetch("${API_BASE}/api/file-explorer/list?path=" + encodeURIComponent(path), {
-          headers: { "Authorization": "Bearer " + token }
+        const res = await fetch(`${API_BASE}/api/file-explorer/list?path=${encodeURIComponent(path)}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await res.json();
-        if (data.error) { document.getElementById("feLoading").textContent = "❌ " + data.error; return; }
-        feRenderFiles(data.files || []);
-      } catch (e) { document.getElementById("feLoading").textContent = "❌ " + e.message; }
+        if (data.error) {
+          document.getElementById('feLoading').textContent = '\u274c ' + data.error;
+          return;
+        }
+        feRenderFiles(data.files || [], path);
+      } catch (e) {
+        document.getElementById('feLoading').textContent = '\u274c ' + e.message;
+      }
     }
 
-    function feRenderFiles(files) {
-      document.getElementById("feLoading").style.display = "none";
-      const list = document.getElementById("feFileList");
-      list.style.display = "block";
-      let html = "";
-      if (feCurrentPath !== "/") {
-        const parent = feCurrentPath.split("/").slice(0, -1).join("/") || "/";
-        html += '<li class="fe-file-item" onclick="feLoadDir(''+parent+'')"><svg class="fe-file-icon folder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg><span class="fe-file-name" style="color:var(--text-secondary)">..</span></li>';
+    function feRenderFiles(files, currentPath) {
+      document.getElementById('feLoading').style.display = 'none';
+      const list = document.getElementById('feFileList');
+      list.style.display = 'block';
+      list.innerHTML = '';
+
+      // 返回上级
+      if (currentPath !== '/') {
+        const parent = currentPath.split('/').slice(0, -1).join('/') || '/';
+        const li = document.createElement('li');
+        li.className = 'fe-file-item';
+        li.innerHTML = '<svg class="fe-file-icon folder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg><span class="fe-file-name" style="color:var(--text-secondary)">..</span>';
+        li.addEventListener('click', () => feLoadDir(parent));
+        list.appendChild(li);
       }
+
       files.forEach(f => {
-        const icon = f.isDir ? '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>' : '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>';
-        const cls = f.isDir ? "folder" : "";
-        const click = f.isDir ? "feLoadDir('"+f.path.replace(/'/g,"\'")+"')" : "feOpenFile('"+f.path.replace(/'/g,"\'")+"')";
-        const size = f.isDir ? "" : feFormatSize(f.size);
-        html += '<li class="fe-file-item" onclick="'+click+'"><svg class="fe-file-icon '+cls+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'+icon+'</svg><span class="fe-file-name">'+f.name+(f.isDir?"/":"")+"</span><span class="fe-file-size">"+size+"</span></li>";
+        const li = document.createElement('li');
+        li.className = 'fe-file-item';
+        const iconSvg = f.isDir
+          ? '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>'
+          : '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>';
+        const cls = f.isDir ? 'folder' : '';
+        const size = f.isDir ? '' : feFormatSize(f.size);
+        li.innerHTML = `<svg class="fe-file-icon ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${iconSvg}</svg><span class="fe-file-name">${f.name}${f.isDir ? '/' : ''}</span><span class="fe-file-size">${size}</span>`;
+        li.addEventListener('click', () => {
+          if (f.isDir) feLoadDir(f.path);
+          else feOpenFile(f.path);
+        });
+        list.appendChild(li);
       });
-      list.innerHTML = html || '<div class="fe-empty">📭 空目录</div>';
+
+      if (files.length === 0 && currentPath === '/') {
+        list.innerHTML = '<div class="fe-empty">\ud83d\udced 空目录</div>';
+      }
     }
 
     function feFormatSize(b) {
-      if (!b) return "";
-      if (b < 1024) return b + " B";
-      if (b < 1048576) return (b/1024).toFixed(1) + " KB";
-      return (b/1048576).toFixed(1) + " MB";
+      if (!b) return '';
+      if (b < 1024) return b + ' B';
+      if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+      return (b / 1048576).toFixed(1) + ' MB';
     }
 
     async function feOpenFile(path) {
-      const token = localStorage.getItem("lingxi_token");
-      document.getElementById("feBody").style.display = "none";
-      document.getElementById("fePathBar").style.display = "none";
-      document.getElementById("feViewer").style.display = "flex";
-      document.getElementById("feViewerTitle").textContent = path.split("/").pop();
-      document.getElementById("feViewerMeta").textContent = "加载中...";
-      document.getElementById("feViewerContent").textContent = "";
+      const token = localStorage.getItem('lingxi_token');
+      document.getElementById('feBody').style.display = 'none';
+      document.getElementById('fePathBar').style.display = 'none';
+      document.getElementById('feViewer').style.display = 'flex';
+      document.getElementById('feViewerTitle').textContent = path.split('/').pop();
+      document.getElementById('feViewerMeta').textContent = '加载中...';
+      document.getElementById('feViewerContent').textContent = '';
+
       try {
-        const res = await fetch("${API_BASE}/api/file-explorer/get?path=" + encodeURIComponent(path), {
-          headers: { "Authorization": "Bearer " + token }
+        const res = await fetch(`${API_BASE}/api/file-explorer/get?path=${encodeURIComponent(path)}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await res.json();
-        document.getElementById("feViewerMeta").textContent = data.error || path;
-        document.getElementById("feViewerContent").textContent = data.error || data.content || "(空文件)";
-      } catch (e) { document.getElementById("feViewerContent").textContent = "❌ " + e.message; }
+        document.getElementById('feViewerMeta').textContent = data.error || path;
+        document.getElementById('feViewerContent').textContent = data.error || data.content || '(空文件)';
+      } catch (e) {
+        document.getElementById('feViewerContent').textContent = '\u274c ' + e.message;
+      }
     }
 
     function feBackToList() {
-      document.getElementById("feBody").style.display = "";
-      document.getElementById("fePathBar").style.display = "";
-      document.getElementById("feViewer").style.display = "none";
+      document.getElementById('feBody').style.display = '';
+      document.getElementById('fePathBar').style.display = '';
+      document.getElementById('feViewer').style.display = 'none';
     }
   </script>
 
