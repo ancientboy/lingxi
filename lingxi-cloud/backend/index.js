@@ -186,6 +186,10 @@ app.use('/api/lumeclaw', lumeclawRoutes);
 import agentWorkspaceRoutes from './routes/agent-workspace.js';
 app.use('/api/agent-workspace', agentWorkspaceRoutes);
 
+// 文件管理器（浏览用户 OpenClaw workspace）
+import fileExplorerRoutes from './routes/file-explorer.js';
+app.use('/api/file-explorer', fileExplorerRoutes);
+
 // 托管上传的图片
 import { fileURLToPath as fileURLToPath2 } from 'url';
 import { dirname as dirname2, join as join2 } from 'path';

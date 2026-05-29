@@ -8,6 +8,10 @@
   </div>
   <div class="nav-right">
     <div id="connectionStatus" title="未连接"><div class="status-dot"></div></div>
+    <!-- 文件管理器按钮 -->
+    <button class="nav-icon-btn" onclick="toggleFileExplorer()" title="文件管理器">
+      <i data-lucide="folder-open" class="icon"></i>
+    </button>
     <div class="agent-switcher" onclick="toggleAgentDropdown()" title="切换 Agent">
       <i data-lucide="zap" class="icon icon-primary" id="currentAgentIcon"></i>
       <span class="agent-switcher-arrow">▼</span>
