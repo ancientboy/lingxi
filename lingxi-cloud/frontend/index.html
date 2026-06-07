@@ -651,19 +651,38 @@
           <div style="font-size: 12px; opacity: 0.8; margin-top: 8px;">已邀请 <span id="inviteCount">0</span> 位好友，获得 <span id="earnedPoints">0</span> 积分</div>
         </div>
         
-        <!-- 领取团队按钮（积分不足时显示） -->
+        <!-- 🔧 新的三入口设计 -->
         <div id="claimTeamSection" class="home-hidden">
-          <button class="home-btn home-btn-enter" onclick="claimTeam()" id="claimTeamBtn">
-            <i data-lucide="sparkles" class="icon-sm"></i> 领取 AI 团队（消耗 100 积分）
+          <!-- 入口 1：免费聊天（随时可用） -->
+          <button class="home-btn home-btn-enter" onclick="goToChat()" style="margin-bottom: 10px;">
+            <i data-lucide="message-circle" class="icon-sm"></i> 💬 开始聊天（免费）
           </button>
-          <div style="text-align: center; font-size: 13px; color: #6e6e80; margin-top: 8px;" id="claimTeamHint"></div>
+          <div style="text-align: center; font-size: 12px; color: #6e6e80; margin-bottom: 16px;">
+            免费使用，支持 8 个 AI 角色切换
+          </div>
+          
+          <!-- 入口 2：添加自己的 OpenClaw 设备 -->
+          <button class="home-btn home-btn-secondary" onclick="showAddDevice()" style="margin-bottom: 10px; width: 100%;">
+            <i data-lucide="smartphone" class="icon-sm"></i> 📱 添加我的设备
+          </button>
+          <div style="text-align: center; font-size: 12px; color: #6e6e80; margin-bottom: 16px;">
+            已有 OpenClaw？连接你的设备解锁全功能
+          </div>
+          
+          <!-- 入口 3：灵犀云托管 -->
+          <button class="home-btn home-btn-secondary" onclick="showDeploy()" id="deployBtn" style="margin-bottom: 10px; width: 100%;">
+            <i data-lucide="cloud" class="icon-sm"></i> ☁️ 一键部署服务器
+          </button>
+          <div style="text-align: center; font-size: 12px; color: #6e6e80; margin-bottom: 8px;">
+            灵犀云托管，开箱即用
+          </div>
           
           <!-- 部署进度区域 -->
           <div id="deployProgress" class="home-hidden" style="margin-top: 16px; padding: 16px; background: rgba(16, 163, 127, 0.1); border-radius: 12px;">
           </div>
         </div>
         
-        <!-- 已有团队时显示 -->
+        <!-- 已有设备时显示 -->
         <div id="hasTeamSection" class="home-hidden">
           <button class="home-btn home-btn-enter" onclick="goToChat()">
             <i data-lucide="message-circle" class="icon-sm"></i> 开始对话
@@ -1029,46 +1048,16 @@
               document.getElementById('inviteCount').textContent = user.inviteCount;
             }
             
-            // 显示领取团队或开始对话按钮
-            const hasAgents = user.agents && user.agents.length > 0;
-            const canClaim = user.canClaimTeam;
+            // 🔧 新逻辑：检查是否有设备，有设备直接用，没有显示三入口
+            const hasServer = user.userServers && user.userServers.length > 0;
             
-            if (hasAgents) {
-              // 已有团队，检查服务器状态
+            if (hasServer) {
+              // 已有设备，检查服务器状态
               checkServerStatus(user);
             } else {
-              // 未领取团队
+              // 没有设备，显示三入口（免费聊天 / 添加设备 / 部署）
               document.getElementById('hasTeamSection').classList.add('home-hidden');
               document.getElementById('claimTeamSection').classList.remove('home-hidden');
-              
-              const btn = document.getElementById('claimTeamBtn');
-              const hint = document.getElementById('claimTeamHint');
-              
-              // 检查订阅状态
-              const isSubscribed = user.subscription && 
-                                   user.subscription.plan !== 'free' && 
-                                   user.subscription.status === 'active';
-              
-              if (canClaim) {
-                btn.disabled = false;
-                btn.style.background = '#10a37f';
-                hint.textContent = isSubscribed ? 
-                  '✅ 订阅用户，点击领取您的 AI 团队' : 
-                  '点击领取您的 AI 团队';
-              } else {
-                btn.disabled = true;
-                btn.style.background = '#d9d9e3';
-                // 根据订阅状态显示不同提示
-                if (isSubscribed) {
-                  hint.textContent = '订阅已生效，请直接领取团队';
-                } else {
-                  const needPoints = 5000 - (user.points || 0);
-                  const need = 100 - (user.points || 0);
-                  hint.textContent = needPoints > 0 ? 
-                    `还需 ${needPoints} 积分或开通订阅才能领取，邀请好友快速获取积分~` : 
-                    `还需开通订阅或累积消耗积分，邀请好友快速获取积分~`;
-                }
-              }
             }
           } else {
             // Token 无效，清除并显示登录
@@ -1161,7 +1150,6 @@
           
           btn.disabled = true;
           btn.innerHTML = '<span class="loading-spinner"></span> 正在创建服务器...';
-          hint.textContent = '⏳ 服务器正在创建中，请稍候...';
           
           // 显示进度区域
           if (progressEl) {
@@ -1170,19 +1158,19 @@
               <div class="deploy-steps">
                 <div class="deploy-step step-done">
                   <span class="step-icon">✅</span>
-                  <span class="step-text">领取 AI 团队</span>
+                  <span class="step-text">创建服务器</span>
                 </div>
                 <div class="deploy-step step-active">
                   <span class="step-icon">⏳</span>
-                  <span class="step-text">创建专属服务器</span>
+                  <span class="step-text">部署运行环境</span>
                 </div>
                 <div class="deploy-step">
                   <span class="step-icon">○</span>
-                  <span class="step-text">安装运行环境</span>
+                  <span class="step-text">配置 AI 服务</span>
                 </div>
                 <div class="deploy-step">
                   <span class="step-icon">○</span>
-                  <span class="step-text">启动 AI 服务</span>
+                  <span class="step-text">启动完成</span>
                 </div>
               </div>
             `;
@@ -1238,7 +1226,26 @@
       poll();
     }
     
-    // 领取 AI 团队
+    // 🆕 显示添加设备弹窗
+    function showAddDevice() {
+      // 跳转到 chat 页面（免费模式），通过 chat 页面的设备管理添加
+      window.location.href = 'chat.html';
+    }
+    
+    // 🆕 显示部署服务器流程
+    function showDeploy() {
+      // 触发原有的部署流程
+      const btn = document.getElementById('deployBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="loading-spinner"></span> 正在准备部署...';
+      
+      // TODO: 接入部署流程
+      alert('服务器部署功能即将上线，敬请期待！\n\n当前可以先"添加我的设备"使用已有的 OpenClaw。');
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="cloud" class="icon-sm"></i> ☁️ 一键部署服务器';
+    }
+    
+    // 领取 AI 团队（保留但不再主动调用）
     async function claimTeam() {
       const token = localStorage.getItem('lingxi_token');
       const btn = document.getElementById('claimTeamBtn');

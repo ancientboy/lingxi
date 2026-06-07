@@ -10,9 +10,12 @@ import 'package:lingxicloud/pages/settings_page.dart';
 import 'package:lingxicloud/pages/lumeclaw_page.dart';
 import 'package:lingxicloud/services/api_service.dart';
 import 'package:lingxicloud/services/websocket_service.dart';
-import 'package:lingxicloud/pages/chat_page.dart';
+import 'package:lingxicloud/pages/main_shell.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
+import 'package:lingxicloud/pages/workspace_page.dart';
+import 'package:lingxicloud/pages/file_explorer_page.dart';
+import 'package:lingxicloud/pages/servers_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SideMenu extends StatelessWidget {
@@ -66,149 +69,13 @@ class SideMenu extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                Consumer<AppProvider>(
-                  builder: (context, appProvider, child) {
-                    if (appProvider.user == null) {
-                      return const SizedBox.shrink();
-                    }
-                    return Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 16,
-                          backgroundColor: Colors.white.withOpacity(0.2),
-                          child: Text(
-                            appProvider.user!.nickname.isNotEmpty
-                                ? appProvider.user!.nickname.substring(0, 1).toUpperCase()
-                                : 'U',
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          appProvider.user!.nickname,
-                          style: const TextStyle(color: Colors.white70, fontSize: 14),
-                        ),
-                        const Spacer(),
-                        Text(
-                          '💎 ${appProvider.user!.points}',
-                          style: const TextStyle(color: Colors.white70, fontSize: 14),
-                        ),
-                      ],
-                    );
-                  },
-                ),
+
               ],
             ),
           ),
         ),
 
-        // 功能菜单
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            children: [
-              _MenuItem(
-                icon: Icons.chat_outlined,
-                title: '聊天',
-                onTap: () {
-                  Navigator.of(context).pop();
-                  Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (_) => const HomePage()),
-                    (route) => route.isFirst,
-                  );
-                },
-              ),
-              const Divider(height: 24),
-              const _MenuSection(title: '功能'),
-              _MenuItem(
-                icon: Icons.people_outline,
-                title: '我的团队',
-                onTap: () {
-                  Navigator.of(context).pop();
-                  _showTeamDialog(context);
-                },
-              ),
-              _MenuItem(
-                icon: Icons.segment_outlined,
-                title: '技能库',
-                onTap: () {
-                  Navigator.of(context).pop();
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const SkillsPage()),
-                  );
-                },
-              ),
-              // LumeClaw 维护模式
-              _MenuItem(
-                icon: Icons.build_outlined,
-                title: 'LumeClaw',
-                onTap: () {
-                  Navigator.of(context).pop();
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const LumeClawPage()),
-                  );
-                },
-              ),
-              const Divider(height: 24),
-              const _MenuSection(title: '历史会话'),
-              _MenuItem(
-                icon: Icons.history_outlined,
-                title: '历史会话',
-                onTap: () {
-                  Navigator.of(context).pop();
-                  _showSessionsDialog(context);
-                },
-              ),
-              _MenuItem(
-                icon: Icons.bar_chart_outlined,
-                title: '使用量统计',
-                onTap: () {
-                  Navigator.of(context).pop();
-                  _showUsageStatsDialog(context);
-                },
-              ),
-              const Divider(height: 24),
-              const _MenuSection(title: '订阅'),
-              _MenuItem(
-                icon: Icons.star_rounded,
-                title: '我的订阅',
-                onTap: () {
-                  Navigator.of(context).pop();
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const SubscriptionPage()),
-                  );
-                },
-              ),
-              const Divider(height: 24),
-              const _MenuSection(title: '设置'),
-              _MenuItem(
-                icon: Icons.settings_outlined,
-                title: '设置',
-                onTap: () {
-                  Navigator.of(context).pop();
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const SettingsPage()),
-                  );
-                },
-              ),
-              _MenuItem(
-                icon: Icons.info_outline,
-                title: '关于',
-                onTap: () {
-                  Navigator.of(context).pop();
-                  showAboutDialog(
-                    context: context,
-                    applicationName: Constants.appName,
-                    applicationVersion: Constants.appVersion,
-                    applicationLegalese: '© 2026 灵犀云',
-                    children: const [Text('你的 AI 团队，一键拥有')],
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
+
 
         // 底部版本信息
         Divider(height: 1, color: Constants.textLightColor.withOpacity(0.2)),
@@ -684,6 +551,22 @@ class _SessionsDialogState extends State<_SessionsDialog> {
 
     final List<Widget> children = [];
 
+    // 办公区入口（在"新会话"上面）
+    children.add(
+      ListTile(
+        leading: Icon(Icons.business_outlined, color: Constants.primaryColor),
+        title: const Text('办公区', style: TextStyle(fontWeight: FontWeight.w600)),
+        trailing: Icon(Icons.chevron_right, size: 18, color: Constants.textTertiaryColor),
+        onTap: () {
+          Navigator.pop(context);
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const WorkspacePage()),
+          );
+        },
+      ),
+    );
+    children.add(const Divider(height: 1, thickness: 0.5));
+
     // 添加"新会话"按钮
     children.add(
       ListTile(
@@ -834,7 +717,7 @@ class _SessionsDialogState extends State<_SessionsDialog> {
         // TODO: 实际加载历史消息
         // 这里先跳转到聊天页面
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const ChatPage()),
+          MaterialPageRoute(builder: (_) => const MainShell()),
           (route) => route.isFirst,
         );
       } else {

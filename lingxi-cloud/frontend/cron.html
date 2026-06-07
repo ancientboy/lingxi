@@ -1,0 +1,1548 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>定时任务与提醒 - 灵犀云</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23667eea'/><text x='16' y='22' text-anchor='middle' fill='white' font-size='16' font-weight='700'>L</text></svg>">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: #f5f1eb;
+      min-height: 100vh;
+      font-size: 14px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      color: #2d3748;
+    }
+
+    /* ===== Top Bar ===== */
+    .top-bar {
+      position: fixed; top: 0; left: 0; right: 0; height: 44px;
+      background: rgba(255,255,255,0.94); backdrop-filter: blur(12px);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 16px; z-index: 200;
+      border-bottom: 1px solid rgba(0,0,0,0.05);
+    }
+    .top-bar-left { display: flex; align-items: center; gap: 8px; }
+    .back-link {
+      display: flex; align-items: center; gap: 3px; padding: 4px 10px;
+      border: 1px solid #ddd; border-radius: 6px; color: #666;
+      font-size: 12px; text-decoration: none; transition: all 0.2s;
+    }
+    .back-link:hover { background: #f5f5f5; color: #333; }
+    .page-title { font-size: 15px; font-weight: 700; color: #2d3748; }
+    .btn {
+      padding: 8px 16px; border: none; border-radius: 8px;
+      font-size: 13px; cursor: pointer; font-weight: 500;
+      transition: all 0.2s; font-family: inherit;
+    }
+    .btn-primary { background: #667eea; color: white; }
+    .btn-primary:hover { background: #5a6fd6; }
+    .btn-outline { background: white; color: #667eea; border: 1px solid #667eea; }
+    .btn-outline:hover { background: #f0eeff; }
+    .btn-danger { background: white; color: #f5576c; border: 1px solid #f5576c; }
+    .btn-danger:hover { background: #fff5f5; }
+    .btn-sm { padding: 4px 10px; font-size: 11px; }
+
+    /* ===== Main Content ===== */
+    .main-content {
+      max-width: 640px; margin: 0 auto;
+      padding: 100px 16px 32px;
+    }
+
+    .main-content.no-device-bar {
+      padding-top: 60px;
+    }
+
+    /* ===== Status Bar ===== */
+    .device-bar {
+      position: fixed; top: 44px; left: 0; right: 0;
+      background: rgba(255,255,255,0.96); backdrop-filter: blur(12px);
+      padding: 8px 16px; border-bottom: 1px solid rgba(0,0,0,0.05); z-index: 199;
+    }
+    .device-tabs {
+      display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px;
+      -webkit-overflow-scrolling: touch; scrollbar-width: none;
+    }
+    .device-tabs::-webkit-scrollbar { display: none; }
+    .device-tab {
+      padding: 6px 14px; border-radius: 8px; font-size: 13px;
+      white-space: nowrap; cursor: pointer; transition: all 0.15s;
+      background: #f5f1eb; color: #666; border: 1px solid transparent;
+    }
+    .device-tab:hover { background: #f0eeff; color: #667eea; }
+    .device-tab.active {
+      background: #667eea; color: #fff; border-color: #667eea;
+      box-shadow: 0 2px 8px rgba(102,126,234,0.25);
+    }
+    .device-tab .tab-status {
+      display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+      margin-right: 6px; vertical-align: middle;
+    }
+    .device-tab .tab-status.online { background: #43e97b; }
+    .device-tab .tab-status.offline { background: #ddd; }
+
+    .status-bar {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 14px; margin-bottom: 20px;
+      background: #fff; border: 1px solid rgba(0,0,0,0.06);
+      border-radius: 12px; font-size: 13px; color: #888;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    }
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    }
+    .status-dot.online { background: #43e97b; box-shadow: 0 0 6px rgba(67,233,123,0.4); }
+    .status-dot.offline { background: #f5576c; }
+    .status-dot.loading { background: #fbbf24; animation: pulse-dot 1.5s infinite; }
+    @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    /* ===== Job Card ===== */
+    .job-list { display: flex; flex-direction: column; gap: 10px; }
+
+    .job-card {
+      background: #fff; border-radius: 12px; padding: 16px 18px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      border: 2px solid transparent;
+      transition: all 0.2s; cursor: pointer;
+    }
+    .job-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); transform: translateY(-1px); }
+    .job-card.disabled { opacity: 0.6; }
+
+    .job-header { display: flex; align-items: flex-start; gap: 12px; }
+
+    .job-info { flex: 1; min-width: 0; }
+    .job-name {
+      font-size: 15px; font-weight: 600; color: #2d3748;
+      margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .job-schedule {
+      font-size: 12px; color: #667eea; font-weight: 500;
+      margin-bottom: 2px;
+    }
+    .job-meta {
+      font-size: 12px; color: #aaa;
+    }
+
+    .job-actions {
+      display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+    }
+
+    /* Toggle Switch */
+    .toggle-switch {
+      position: relative; width: 40px; height: 22px; cursor: pointer;
+    }
+    .toggle-switch input { display: none; }
+    .toggle-slider {
+      position: absolute; inset: 0; background: #ddd;
+      border-radius: 11px; transition: all 0.3s;
+    }
+    .toggle-slider::before {
+      content: ''; position: absolute; width: 16px; height: 16px;
+      border-radius: 50%; background: #fff; left: 3px; top: 3px;
+      transition: all 0.3s;
+    }
+    .toggle-switch input:checked + .toggle-slider { background: #667eea; }
+    .toggle-switch input:checked + .toggle-slider::before { transform: translateX(18px); }
+    .toggle-switch input:disabled + .toggle-slider { opacity: 0.5; cursor: not-allowed; }
+    .toggle-switch input:disabled ~ .toggle-slider { pointer-events: none; }
+
+    /* Action Buttons */
+    .btn-icon {
+      width: 32px; height: 32px; border: none; border-radius: 8px;
+      background: transparent; color: #888;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s;
+    }
+    .btn-icon:hover { background: #f5f5f5; color: #2d3748; }
+    .btn-icon.danger:hover { background: #fff5f5; color: #f5576c; }
+    .btn-icon svg { width: 16px; height: 16px; }
+
+    /* Expand Arrow */
+    .expand-arrow {
+      transition: transform 0.3s;
+      color: #bbb;
+    }
+    .expand-arrow.open { transform: rotate(180deg); }
+
+    /* ===== Run History ===== */
+    .job-history {
+      max-height: 0; overflow: hidden; transition: max-height 0.35s ease;
+    }
+    .job-history.open { max-height: 500px; }
+    .history-list {
+      margin-top: 12px; padding-top: 12px;
+      border-top: 1px solid #f0f0f0;
+    }
+    .history-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 0; font-size: 12px;
+    }
+    .history-item + .history-item { border-top: 1px solid rgba(0,0,0,0.04); }
+    .history-status {
+      width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+    }
+    .history-status.ok { background: #43e97b; }
+    .history-status.fail { background: #f5576c; }
+    .history-status.running { background: #fbbf24; animation: pulse-dot 1.5s infinite; }
+    .history-time { color: #888; flex: 1; }
+    .history-duration { color: #bbb; }
+    .history-empty { color: #bbb; font-size: 12px; text-align: center; padding: 12px 0; }
+
+    /* ===== Empty State ===== */
+    .empty-state {
+      text-align: center; padding: 60px 24px;
+      color: #bbb;
+    }
+    .empty-state svg { width: 48px; height: 48px; margin-bottom: 16px; opacity: 0.4; }
+    .empty-state p { font-size: 14px; margin-bottom: 4px; color: #888; }
+    .empty-state small { font-size: 12px; }
+
+    /* ===== Loading Skeleton ===== */
+    .skeleton-card {
+      background: #fff; border-radius: 12px; padding: 16px 18px; margin-bottom: 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+      animation: shimmer 1.5s infinite;
+    }
+    @keyframes shimmer {
+      0%,100% { opacity: 1; } 50% { opacity: 0.5; }
+    }
+
+    /* ===== Modal ===== */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);
+      z-index: 500; justify-content: center; align-items: center;
+      padding: 16px;
+    }
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: white; border-radius: 16px;
+      width: 100%; max-width: 480px;
+      max-height: 90vh; overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+      animation: modal-in 0.25s ease-out;
+    }
+    @keyframes modal-in { from{opacity:0;transform:scale(0.95) translateY(10px)} to{opacity:1;transform:scale(1) translateY(0)} }
+
+    .modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 20px 0; margin-bottom: 16px;
+    }
+    .modal-header h3 { font-size: 18px; font-weight: 700; color: #2d3748; }
+    .modal-close {
+      width: 32px; height: 32px; border: none; border-radius: 8px;
+      background: #f5f5f5; color: #888; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s; font-size: 14px;
+    }
+    .modal-close:hover { background: #eee; }
+    .modal-close svg { width: 18px; height: 18px; }
+
+    .modal-body { padding: 0 20px 20px; }
+
+    /* ===== Form Elements ===== */
+    .form-group { margin-bottom: 14px; }
+    .form-label {
+      display: block; font-size: 12px; font-weight: 600;
+      color: #555; margin-bottom: 6px;
+    }
+    .form-input, .form-textarea, .form-select {
+      width: 100%; padding: 8px 12px;
+      background: #fff; border: 1px solid #ddd;
+      border-radius: 8px; color: #2d3748;
+      font-size: 13px; font-family: inherit;
+      transition: border-color 0.2s; outline: none;
+    }
+    .form-input:focus, .form-textarea:focus, .form-select:focus {
+      border-color: #667eea;
+    }
+    .form-input::placeholder, .form-textarea::placeholder {
+      color: #bbb;
+    }
+    .form-textarea { resize: vertical; min-height: 80px; }
+    .form-select {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 32px;
+    }
+    .form-select option { background: #fff; color: #2d3748; }
+
+    /* ===== Frequency Tabs ===== */
+    .freq-tabs {
+      display: flex; gap: 0; background: #f5f1eb;
+      border-radius: 8px; padding: 3px; margin-bottom: 12px;
+    }
+    .freq-tab {
+      flex: 1; padding: 7px 0; text-align: center;
+      font-size: 12px; font-weight: 500; color: #888;
+      border: none; background: transparent; border-radius: 6px;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .freq-tab.active {
+      background: #667eea; color: #fff; font-weight: 600;
+    }
+    .freq-tab:hover:not(.active) { color: #2d3748; }
+
+    .freq-options { margin-bottom: 12px; }
+
+    .time-row {
+      display: flex; gap: 8px; align-items: center;
+    }
+    .time-row .form-select { flex: 1; }
+
+    .weekday-chips {
+      display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;
+    }
+    .weekday-chip {
+      padding: 5px 12px; font-size: 12px; font-weight: 500;
+      background: #fff; border: 1px solid #ddd;
+      border-radius: 20px; color: #888;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .weekday-chip.active {
+      background: #f0eeff; border-color: #667eea;
+      color: #667eea;
+    }
+    .weekday-chip:hover:not(.active) { border-color: #bbb; }
+
+    .cron-hint {
+      font-size: 11px; color: #aaa; margin-top: 6px;
+      line-height: 1.5;
+    }
+
+    /* ===== Templates ===== */
+    .template-section { margin-bottom: 16px; }
+    .template-section .form-label { margin-bottom: 8px; }
+    .template-chips {
+      display: flex; flex-wrap: wrap; gap: 6px;
+    }
+    .template-chip {
+      padding: 6px 12px; font-size: 12px;
+      background: #fff; border: 1px solid #ddd;
+      border-radius: 8px; color: #666;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .template-chip:hover {
+      border-color: #667eea; color: #667eea;
+      background: #f0eeff;
+    }
+
+    /* ===== Modal Buttons ===== */
+    .modal-actions {
+      display: flex; gap: 8px; margin-top: 20px;
+    }
+    .modal-actions .btn { flex: 1; }
+
+    /* ===== Toast ===== */
+    .toast-box {
+      position: fixed; top: 52px; right: 12px; z-index: 600;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .toast {
+      padding: 8px 16px; background: #fff;
+      border: 1px solid rgba(0,0,0,0.06); border-radius: 8px;
+      font-size: 13px; color: #2d3748;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+      animation: t-in 0.3s ease-out;
+      max-width: 300px;
+    }
+    .toast.error { border-color: #f5576c; color: #f5576c; }
+    .toast.success { border-color: #43e97b; color: #2d9a5e; }
+    .toast.out { animation: t-out 0.3s ease-in forwards; }
+    @keyframes t-in { from{transform:translateX(40px);opacity:0} to{transform:translateX(0);opacity:1} }
+    @keyframes t-out { from{transform:translateX(0);opacity:1} to{transform:translateX(40px);opacity:0} }
+
+    /* ===== Confirm Dialog ===== */
+    .confirm-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);
+      z-index: 550; justify-content: center; align-items: center;
+      padding: 16px;
+    }
+    .confirm-overlay.open { display: flex; }
+    .confirm-box {
+      background: white; border-radius: 16px; padding: 24px;
+      max-width: 360px; width: 100%; text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+      animation: modal-in 0.2s ease-out;
+    }
+    .confirm-box p { margin-bottom: 20px; font-size: 14px; line-height: 1.6; color: #2d3748; }
+    .confirm-box .modal-actions { justify-content: center; }
+
+    /* ===== Responsive ===== */
+    @media (max-width: 480px) {
+      .top-bar { padding: 0 12px; }
+      .main-content { padding: 56px 12px 24px; }
+      .job-card { padding: 14px; }
+      .modal { max-width: 100%; }
+      .freq-tabs { flex-wrap: wrap; }
+      .freq-tab { font-size: 11px; padding: 6px 0; }
+    }
+
+    /* ===== Topbar Tabs ===== */
+    .topbar-tabs {
+      display: flex; gap: 0; background: #f0ebe3;
+      border-radius: 8px; padding: 2px;
+    }
+    .topbar-tab {
+      padding: 4px 12px; font-size: 12px; font-weight: 500;
+      color: #888; border: none; background: transparent;
+      border-radius: 6px; cursor: pointer; transition: all 0.2s;
+      font-family: inherit; white-space: nowrap;
+    }
+    .topbar-tab.active {
+      background: #667eea; color: #fff; font-weight: 600;
+    }
+    .topbar-tab:hover:not(.active) { color: #2d3748; }
+
+    /* ===== Reminder Card ===== */
+    .reminder-card {
+      background: #fff; border-radius: 12px; padding: 16px 18px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      border: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    .reminder-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); transform: translateY(-1px); }
+    .reminder-card.completed {
+      opacity: 0.55;
+    }
+    .reminder-card.completed .reminder-title {
+      text-decoration: line-through; color: #aaa;
+    }
+    .reminder-header { display: flex; align-items: flex-start; gap: 12px; }
+    .reminder-info { flex: 1; min-width: 0; }
+    .reminder-title {
+      font-size: 15px; font-weight: 600; color: #2d3748;
+      margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .reminder-meta {
+      font-size: 12px; color: #aaa; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    .reminder-type-badge {
+      display: inline-block; padding: 1px 8px;
+      border-radius: 10px; font-size: 11px; font-weight: 500;
+    }
+    .reminder-type-badge.once { background: #f0eeff; color: #667eea; }
+    .reminder-type-badge.daily { background: #e8f8f0; color: #2d9a5e; }
+    .reminder-type-badge.weekly { background: #fff8e8; color: #d4820a; }
+    .reminder-type-badge.monthly { background: #fff0f0; color: #f5576c; }
+    .reminder-status-badge {
+      display: inline-block; padding: 1px 8px;
+      border-radius: 10px; font-size: 11px; font-weight: 500;
+    }
+    .reminder-status-badge.pending { background: #f0eeff; color: #667eea; }
+    .reminder-status-badge.fired { background: #fff8e8; color: #d4820a; }
+    .reminder-status-badge.completed { background: #f0f0f0; color: #aaa; }
+    .reminder-content {
+      font-size: 13px; color: #888; margin-top: 6px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .reminder-actions {
+      display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+    }
+
+    /* ===== Quick Time Buttons ===== */
+    .quick-time-row {
+      display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px;
+    }
+    .quick-time-btn {
+      padding: 5px 12px; font-size: 12px;
+      background: #f5f1eb; border: 1px solid #ddd;
+      border-radius: 8px; color: #666;
+      cursor: pointer; transition: all 0.2s; font-family: inherit;
+    }
+    .quick-time-btn:hover { border-color: #667eea; color: #667eea; background: #f0eeff; }
+    .quick-time-btn.active { background: #667eea; color: #fff; border-color: #667eea; }
+  </style>
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <div class="top-bar-left">
+      <a href="chat.html" class="back-link">&larr; 返回</a>
+      <span class="page-title" id="pageTitle">定时任务</span>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <!-- Tab switcher in top bar -->
+      <div class="topbar-tabs">
+        <button class="topbar-tab active" id="tabCron" onclick="switchTab('cron')">定时任务</button>
+        <button class="topbar-tab" id="tabReminders" onclick="switchTab('reminders')">提醒</button>
+      </div>
+      <button class="btn btn-primary btn-sm" id="topBarCreateBtn" onclick="handleCreate()">+ 创建任务</button>
+    </div>
+  </div>
+
+  <!-- Device Tabs -->
+  <div class="device-bar" id="deviceBar" style="display:none;">
+    <div class="device-tabs" id="deviceTabs"></div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-box" id="toastBox"></div>
+
+  <!-- Confirm Dialog -->
+  <div class="confirm-overlay" id="confirmOverlay">
+    <div class="confirm-box">
+      <p id="confirmText"></p>
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="closeConfirm()">取消</button>
+        <button class="btn btn-danger" id="confirmBtn">删除</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Modal -->
+  <div class="modal-overlay" id="createModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>创建定时任务</h3>
+        <button class="modal-close" onclick="closeCreateModal()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <!-- Templates -->
+        <div class="template-section">
+          <div class="form-label">快速模板</div>
+          <div class="template-chips">
+            <div class="template-chip" onclick="applyTemplate('morning')">早安汇总</div>
+            <div class="template-chip" onclick="applyTemplate('weekly')">周报生成</div>
+            <div class="template-chip" onclick="applyTemplate('check')">服务器巡检</div>
+          </div>
+        </div>
+
+        <!-- Name -->
+        <div class="form-group">
+          <label class="form-label">任务名称</label>
+          <input type="text" class="form-input" id="jobName" placeholder="早安汇总" maxlength="50">
+        </div>
+
+        <!-- Frequency -->
+        <div class="form-group">
+          <label class="form-label">执行频率</label>
+          <div class="freq-tabs">
+            <button class="freq-tab" data-freq="once" onclick="setFrequency('once')">仅一次</button>
+            <button class="freq-tab active" data-freq="daily" onclick="setFrequency('daily')">每天</button>
+            <button class="freq-tab" data-freq="weekly" onclick="setFrequency('weekly')">每周</button>
+            <button class="freq-tab" data-freq="hourly" onclick="setFrequency('hourly')">每小时</button>
+            <button class="freq-tab" data-freq="custom" onclick="setFrequency('custom')">自定义</button>
+          </div>
+          <div class="freq-options" id="freqOptions">
+            <!-- Dynamic content based on frequency -->
+          </div>
+        </div>
+
+        <!-- Task Content -->
+        <div class="form-group">
+          <label class="form-label">任务内容</label>
+          <textarea class="form-textarea" id="jobPayload" placeholder="帮我汇总今天的日程、天气和未读消息" maxlength="500"></textarea>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn btn-outline" onclick="closeCreateModal()">取消</button>
+          <button class="btn btn-primary" id="submitBtn" onclick="createJob()">创建</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main-content" id="mainContent">
+    <!-- Status Bar (cron tab) -->
+    <div class="status-bar" id="statusBar">
+      <span class="status-dot loading" id="statusDot"></span>
+      <span id="statusText">加载中...</span>
+    </div>
+
+    <!-- Cron Job List -->
+    <div id="jobList">
+      <!-- Loading skeletons -->
+      <div class="skeleton-card" style="height:80px"></div>
+      <div class="skeleton-card" style="height:80px"></div>
+    </div>
+
+    <!-- Reminders Panel (hidden by default) -->
+    <div id="remindersPanel" style="display:none">
+      <div id="reminderList">
+        <div class="skeleton-card" style="height:80px"></div>
+        <div class="skeleton-card" style="height:80px"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reminder Create Modal -->
+  <div class="modal-overlay" id="reminderCreateModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>新建提醒</h3>
+        <button class="modal-close" onclick="closeReminderModal()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <!-- Title -->
+        <div class="form-group">
+          <label class="form-label">标题 <span style="color:#f5576c">*</span></label>
+          <input type="text" class="form-input" id="reminderTitle" placeholder="提醒标题" maxlength="100">
+        </div>
+
+        <!-- Content -->
+        <div class="form-group">
+          <label class="form-label">内容</label>
+          <textarea class="form-textarea" id="reminderContent" placeholder="详细内容（可选）" maxlength="500" style="min-height:60px"></textarea>
+        </div>
+
+        <!-- Quick Time Buttons -->
+        <div class="form-group">
+          <label class="form-label">快捷时间</label>
+          <div class="quick-time-row">
+            <button class="quick-time-btn" onclick="applyQuickTime('30m')">30 分钟后</button>
+            <button class="quick-time-btn" onclick="applyQuickTime('1h')">1 小时后</button>
+            <button class="quick-time-btn" onclick="applyQuickTime('tomorrow')">明天 09:00</button>
+            <button class="quick-time-btn" onclick="clearQuickTime()">自定义</button>
+          </div>
+        </div>
+
+        <!-- Trigger Time -->
+        <div class="form-group">
+          <label class="form-label">触发时间 <span style="color:#f5576c">*</span></label>
+          <input type="datetime-local" class="form-input" id="reminderTriggerAt">
+        </div>
+
+        <!-- Repeat Type -->
+        <div class="form-group">
+          <label class="form-label">重复</label>
+          <div class="freq-tabs">
+            <button class="freq-tab active" data-rtype="once" onclick="setReminderType('once')">一次</button>
+            <button class="freq-tab" data-rtype="daily" onclick="setReminderType('daily')">每天</button>
+            <button class="freq-tab" data-rtype="weekly" onclick="setReminderType('weekly')">每周</button>
+            <button class="freq-tab" data-rtype="monthly" onclick="setReminderType('monthly')">每月</button>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn btn-outline" onclick="closeReminderModal()">取消</button>
+          <button class="btn btn-primary" id="reminderSubmitBtn" onclick="createReminder()">保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+// ===== State =====
+var jobs = [];
+var currentFrequency = 'daily';
+var selectedWeekday = 1; // 1=周一
+var confirmCallback = null;
+var WEEKDAYS = ['周日','周一','周二','周三','周四','周五','周六'];
+var currentServerId = null; // 当前选中的设备 ID
+
+// ===== Auth =====
+function getToken() {
+  return localStorage.getItem('lingxi_token');
+}
+
+function checkAuth() {
+  var token = getToken();
+  if (!token) {
+    window.location.href = 'index.html';
+    return false;
+  }
+  return true;
+}
+
+function authHeaders() {
+  var token = getToken();
+  return token ? { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
+               : { 'Content-Type': 'application/json' };
+}
+
+// ===== Toast =====
+function showToast(msg, type) {
+  var box = document.getElementById('toastBox');
+  var t = document.createElement('div');
+  t.className = 'toast' + (type ? ' ' + type : '');
+  t.textContent = msg;
+  box.appendChild(t);
+  setTimeout(function() { t.classList.add('out'); setTimeout(function() { t.remove(); }, 300); }, 3000);
+}
+
+// ===== Confirm Dialog =====
+function showConfirm(text, btnText, callback) {
+  document.getElementById('confirmText').textContent = text;
+  document.getElementById('confirmBtn').textContent = btnText || '确认';
+  confirmCallback = callback;
+  document.getElementById('confirmOverlay').classList.add('open');
+}
+function closeConfirm() {
+  document.getElementById('confirmOverlay').classList.remove('open');
+  confirmCallback = null;
+}
+document.getElementById('confirmBtn').onclick = function() {
+  if (confirmCallback) confirmCallback();
+  closeConfirm();
+};
+
+// ===== API =====
+async function api(method, path, body) {
+  var opts = { method: method, headers: authHeaders() };
+  // GET 请求把 serverId 放 query string，POST 放 body
+  var url = '/api/cron' + path;
+  if (method === 'GET') {
+    var sep = url.indexOf('?') === -1 ? '?' : '&';
+    if (currentServerId) url += sep + 'serverId=' + encodeURIComponent(currentServerId);
+  } else {
+    if (body && typeof body === 'object') {
+      body.serverId = currentServerId;
+    }
+  }
+  if (body) opts.body = JSON.stringify(body);
+  var res = await fetch(url, opts);
+  if (res.status === 401) {
+    localStorage.removeItem('lingxi_token');
+    window.location.href = 'index.html';
+    throw new Error('认证已失效，请重新登录');
+  }
+  var data = await res.json();
+  if (!res.ok) throw new Error(data.error || data.message || '请求失败');
+  if (data.success === false) throw new Error(data.error || '请求失败');
+  return data;
+}
+
+// ===== XSS Escape =====
+function escapeHtml(s) {
+  var div = document.createElement('div');
+  div.textContent = s;
+  return div.innerHTML;
+}
+
+// ===== Relative Time =====
+function relativeTime(isoStr) {
+  if (!isoStr) return '';
+  var now = Date.now();
+  var then = new Date(isoStr).getTime();
+  var diff = now - then;
+  if (diff < 60000) return '刚刚';
+  if (diff < 3600000) return Math.floor(diff / 60000) + ' 分钟前';
+  if (diff < 86400000) return Math.floor(diff / 3600000) + ' 小时前';
+  if (diff < 604800000) return Math.floor(diff / 86400000) + ' 天前';
+  var d = new Date(isoStr);
+  return (d.getMonth()+1) + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+}
+
+// ===== Schedule Description =====
+function scheduleDesc(job) {
+  var s = job.schedule;
+  if (!s) return '未知';
+  if (s.kind === 'at') {
+    var d = new Date(s.at);
+    return '单次 · ' + (d.getMonth()+1) + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+  }
+  if (s.kind === 'cron' && s.expr) {
+    var parts = s.expr.trim().split(/\s+/);
+    if (parts.length === 5) {
+      var m = parts[0], h = parts[1], dom = parts[2], mon = parts[3], dow = parts[4];
+      var timeStr = h === '*' ? '每小时' : String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+      if (h === '*') return '每小时执行';
+      if (dom === '*' && dow === '*') return '每天 ' + timeStr;
+      if (dow !== '*') {
+        var dayNums = dow.split(',');
+        var dayNames = dayNums.map(function(n) { return WEEKDAYS[parseInt(n)] || n; }).join('、');
+        return '每' + dayNames + ' ' + timeStr;
+      }
+      return s.expr;
+    }
+    return s.expr;
+  }
+  return '自定义';
+}
+
+// ===== Device Management =====
+async function loadDevices() {
+  try {
+    var token = getToken();
+    var res = await fetch('/api/cron/servers', { headers: authHeaders() });
+    var data = await res.json();
+    if (data.success && data.servers && data.servers.length > 1) {
+      var tabs = document.getElementById('deviceTabs');
+      var bar = document.getElementById('deviceBar');
+      tabs.innerHTML = '';
+      data.servers.forEach(function(s) {
+        var tab = document.createElement('div');
+        tab.className = 'device-tab' + (s.isActive ? ' active' : '');
+        tab.setAttribute('data-server-id', s.id);
+        tab.innerHTML = '<span class="tab-status online"></span>' + escapeHtml(s.name || s.ip);
+        tab.onclick = function() {
+          // Remove active from all tabs
+          tabs.querySelectorAll('.device-tab').forEach(function(t) { t.classList.remove('active'); });
+          tab.classList.add('active');
+          onDeviceChange(s.id);
+        };
+        tabs.appendChild(tab);
+      });
+      currentServerId = data.activeServerId || (data.servers[0] && data.servers[0].id);
+      bar.style.display = 'block';
+      document.getElementById('mainContent').classList.remove('no-device-bar');
+    } else {
+      document.getElementById('deviceBar').style.display = 'none';
+      var mc = document.getElementById('mainContent');
+      if (mc) mc.classList.add('no-device-bar');
+      currentServerId = null;
+    }
+  } catch (e) {
+    console.warn('加载设备列表失败:', e);
+    document.getElementById('deviceBar').style.display = 'none';
+  }
+}
+
+function onDeviceChange(serverId) {
+  currentServerId = serverId;
+  loadStatus();
+  loadJobs();
+}
+
+// ===== Load Status =====
+async function loadStatus() {
+  var dot = document.getElementById('statusDot');
+  var text = document.getElementById('statusText');
+  try {
+    var data = await api('GET', '/status');
+    var status = data.status || data;
+    if (status.enabled) {
+      dot.className = 'status-dot online';
+      text.textContent = 'Cron 服务运行中';
+    } else {
+      dot.className = 'status-dot offline';
+      text.textContent = 'Cron 服务未启动';
+    }
+  } catch (e) {
+    dot.className = 'status-dot offline';
+    var errMsg = e.message || '';
+    text.textContent = errMsg.indexOf('未配置服务器') !== -1 ? '未配置设备' : '连接失败';
+  }
+}
+
+// ===== Load Jobs =====
+async function loadJobs() {
+  try {
+    var data = await api('GET', '/list');
+    jobs = data.jobs || data || [];
+    renderJobs();
+  } catch (e) {
+    var errMsg = e.message || '';
+    if (errMsg.indexOf('未配置服务器') !== -1) {
+      document.getElementById('jobList').innerHTML =
+        '<div class="empty-state">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:48px;height:48px;color:#667eea;margin-bottom:12px;"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>' +
+          '<p style="font-size:16px;font-weight:600;color:#2d3748;">需要先配置设备</p>' +
+          '<p style="font-size:13px;color:#888;margin-top:6px;">定时任务需要连接到你的 AI 设备才能使用</p>' +
+          '<a href="chat.html" class="btn btn-primary btn-sm" style="margin-top:16px;text-decoration:none;">前往配置</a>' +
+        '</div>';
+    } else {
+      showToast('加载任务失败: ' + errMsg, 'error');
+      document.getElementById('jobList').innerHTML =
+        '<div class="empty-state"><p>加载失败</p><small>' + escapeHtml(errMsg) + '</small></div>';
+    }
+  }
+}
+
+// ===== Render Jobs =====
+function renderJobs() {
+  var list = document.getElementById('jobList');
+
+  if (jobs.length === 0) {
+    list.innerHTML =
+      '<div class="empty-state">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' +
+        '<p>还没有定时任务</p>' +
+        '<small>点击上方按钮创建</small>' +
+      '</div>';
+    return;
+  }
+
+  var html = '<div class="job-list">';
+  for (var i = 0; i < jobs.length; i++) {
+    var job = jobs[i];
+    var enabled = job.enabled !== false;
+    var lastRun = job.state?.lastRunAtMs || job.lastRunAtMs || '';
+    var cls = enabled ? '' : ' disabled';
+    var arrowId = 'arrow_' + job.id;
+    var safeId = escapeHtml(job.id);
+    var safeName = escapeHtml(job.name || '');
+
+    html += '<div class="job-card' + cls + '" id="card_' + safeId + '">';
+
+    // Header
+    html += '<div class="job-header" data-action="toggle-history" data-job-id="' + safeId + '">';
+    html += '<div class="job-info">';
+    html += '<div class="job-name">' + escapeHtml(job.name || '未命名') + '</div>';
+    html += '<div class="job-schedule">' + escapeHtml(scheduleDesc(job)) + '</div>';
+    html += '<div class="job-meta">上次执行: ' + (lastRun ? relativeTime(lastRun) : '未执行') + '</div>';
+    html += '</div>';
+
+    // Actions
+    html += '<div class="job-actions">';
+    // Toggle
+    html += '<label class="toggle-switch"><input type="checkbox"' + (enabled ? ' checked' : '') + ' data-action="toggle" data-job-id="' + safeId + '"><span class="toggle-slider"></span></label>';
+    // Run
+    html += '<button class="btn-icon" title="立即执行" data-action="run" data-job-id="' + safeId + '">';
+    html += '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+    html += '</button>';
+    // Delete
+    html += '<button class="btn-icon danger" title="删除" data-action="remove" data-job-id="' + safeId + '" data-job-name="' + safeName + '">';
+    html += '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+    html += '</button>';
+    // Expand arrow
+    html += '<svg class="btn-icon expand-arrow" id="' + arrowId + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;margin-left:2px;cursor:pointer;color:#bbb"><polyline points="6 9 12 15 18 9"/></svg>';
+    html += '</div>';
+
+    html += '</div>'; // job-header
+
+    // History
+    html += '<div class="job-history" id="history_' + safeId + '">';
+    html += '<div class="history-list" id="history_list_' + safeId + '">';
+    html += '<div class="history-empty">加载中...</div>';
+    html += '</div></div>';
+
+    html += '</div>'; // job-card
+  }
+  html += '</div>';
+  list.innerHTML = html;
+}
+
+// ===== Event Delegation for Job List =====
+document.getElementById('jobList').addEventListener('click', function(e) {
+  var target = e.target.closest('[data-action]');
+  if (!target) {
+    var header = e.target.closest('.job-header');
+    if (header && header.dataset.action) {
+      target = header;
+    }
+  }
+  if (!target) return;
+
+  var action = target.dataset.action;
+  var jobId = target.dataset.jobId;
+  if (!action || !jobId) return;
+
+  if (action !== 'toggle-history') {
+    e.stopPropagation();
+  }
+
+  switch (action) {
+    case 'toggle-history':
+      toggleHistory(jobId);
+      break;
+    case 'run':
+      runJob(jobId);
+      break;
+    case 'remove':
+      removeJob(jobId, target.dataset.jobName || '');
+      break;
+  }
+});
+
+// Handle toggle switch changes via event delegation
+document.getElementById('jobList').addEventListener('change', function(e) {
+  if (e.target.matches('[data-action="toggle"]')) {
+    var jobId = e.target.dataset.jobId;
+    toggleJob(jobId, e.target.checked);
+  }
+});
+
+// ===== Toggle Job =====
+var _togglePending = {};
+async function toggleJob(jobId, enabled) {
+  if (_togglePending[jobId]) return;
+  _togglePending[jobId] = true;
+
+  var card = document.getElementById('card_' + jobId);
+  var cb = card ? card.querySelector('[data-action="toggle"]') : null;
+  if (cb) cb.disabled = true;
+
+  if (enabled) card.classList.remove('disabled');
+  else card.classList.add('disabled');
+
+  try {
+    await api('POST', '/update', { jobId: jobId, patch: { enabled: enabled } });
+    showToast(enabled ? '任务已启用' : '任务已禁用', 'success');
+  } catch (e) {
+    if (enabled) card.classList.add('disabled');
+    else card.classList.remove('disabled');
+    if (cb) cb.checked = !enabled;
+    showToast('操作失败: ' + e.message, 'error');
+  } finally {
+    _togglePending[jobId] = false;
+    if (cb) cb.disabled = false;
+  }
+}
+
+// ===== Run Job =====
+async function runJob(jobId) {
+  try {
+    showToast('正在执行...', 'success');
+    await api('POST', '/run', { jobId: jobId });
+    showToast('任务已触发', 'success');
+    setTimeout(loadJobs, 2000);
+  } catch (e) {
+    showToast('执行失败: ' + e.message, 'error');
+  }
+}
+
+// ===== Remove Job =====
+function removeJob(jobId, name) {
+  showConfirm('确定删除任务「' + name + '」？此操作不可撤销。', '删除', async function() {
+    try {
+      await api('POST', '/remove', { jobId: jobId });
+      showToast('任务已删除', 'success');
+      loadJobs();
+    } catch (e) {
+      showToast('删除失败: ' + e.message, 'error');
+    }
+  });
+}
+
+// ===== Toggle History =====
+async function toggleHistory(jobId) {
+  var el = document.getElementById('history_' + jobId);
+  var arrow = document.getElementById('arrow_' + jobId);
+  var listEl = document.getElementById('history_list_' + jobId);
+  if (!el) return;
+
+  var isOpen = el.classList.contains('open');
+  if (isOpen) {
+    el.classList.remove('open');
+    if (arrow) arrow.classList.remove('open');
+    return;
+  }
+
+  el.classList.add('open');
+  if (arrow) arrow.classList.add('open');
+
+  listEl.innerHTML = '<div class="history-empty">加载中...</div>';
+  try {
+    var data = await api('GET', '/runs/' + jobId + '?limit=20');
+    var runs = data.runs || data || [];
+    if (runs.length === 0) {
+      listEl.innerHTML = '<div class="history-empty">暂无执行记录</div>';
+      return;
+    }
+    var html = '';
+    for (var i = 0; i < runs.length; i++) {
+      var run = runs[i];
+      var status = run.status || run.state || '';
+      var dotClass = 'ok';
+      if (status === 'failed' || status === 'error' || status === 'rejected') dotClass = 'fail';
+      else if (status === 'running' || status === 'pending') dotClass = 'running';
+      var startedAt = run.startedAt || run.started_at || run.createdAt || '';
+      var duration = run.duration ? (run.duration < 1000 ? run.duration + 'ms' : (run.duration/1000).toFixed(1) + 's') : '';
+      html += '<div class="history-item">';
+      html += '<span class="history-status ' + dotClass + '"></span>';
+      html += '<span class="history-time">' + (startedAt ? relativeTime(startedAt) : '-') + '</span>';
+      html += '<span class="history-duration">' + duration + '</span>';
+      html += '</div>';
+    }
+    listEl.innerHTML = html;
+  } catch (e) {
+    listEl.innerHTML = '<div class="history-empty">加载失败</div>';
+  }
+}
+
+// ===== Create Modal =====
+function openCreateModal() {
+  document.getElementById('createModal').classList.add('open');
+  resetForm();
+}
+function closeCreateModal() {
+  document.getElementById('createModal').classList.remove('open');
+}
+
+function resetForm() {
+  document.getElementById('jobName').value = '';
+  document.getElementById('jobPayload').value = '';
+  setFrequency('daily');
+}
+
+// ===== Frequency =====
+function setFrequency(freq) {
+  currentFrequency = freq;
+  document.querySelectorAll('.freq-tab').forEach(function(tab) {
+    tab.classList.toggle('active', tab.dataset.freq === freq);
+  });
+  renderFreqOptions();
+}
+
+function renderFreqOptions() {
+  var container = document.getElementById('freqOptions');
+  var html = '';
+
+  if (currentFrequency === 'once') {
+    html = '<div class="time-row">' +
+      '<input type="datetime-local" class="form-input" id="onceDatetime">' +
+      '</div>';
+  }
+  else if (currentFrequency === 'daily') {
+    html = '<div class="time-row">' +
+      '<label style="font-size:12px;color:#888;white-space:nowrap">时间</label>' +
+      buildTimeSelect('dailyHour', '08', 'dailyMin', '00') +
+      '</div>';
+  }
+  else if (currentFrequency === 'weekly') {
+    html = '<div class="time-row" style="margin-bottom:8px">' +
+      '<label style="font-size:12px;color:#888;white-space:nowrap">时间</label>' +
+      buildTimeSelect('weeklyHour', '09', 'weeklyMin', '00') +
+      '</div>';
+    html += '<div class="weekday-chips" id="weekdayChips">';
+    for (var i = 1; i <= 5; i++) {
+      html += '<div class="weekday-chip' + (selectedWeekday === i ? ' active' : '') + '" onclick="selectWeekday(' + i + ',this)">' + WEEKDAYS[i] + '</div>';
+    }
+    html += '<div class="weekday-chip' + (selectedWeekday === 6 ? ' active' : '') + '" onclick="selectWeekday(6,this)">' + WEEKDAYS[6] + '</div>';
+    html += '<div class="weekday-chip' + (selectedWeekday === 0 ? ' active' : '') + '" onclick="selectWeekday(0,this)">' + WEEKDAYS[0] + '</div>';
+    html += '</div>';
+  }
+  else if (currentFrequency === 'hourly') {
+    html = '<p style="font-size:12px;color:#aaa">系统将在每小时整点自动执行</p>';
+  }
+  else if (currentFrequency === 'custom') {
+    html = '<input type="text" class="form-input" id="cronExpr" placeholder="0 8 * * *">' +
+      '<div class="cron-hint">Cron 表达式格式：分 时 日 月 星期<br>示例：0 8 * * * = 每天 8:00 &nbsp;|&nbsp; 30 9 * * 1-5 = 工作日 9:30</div>';
+  }
+
+  container.innerHTML = html;
+}
+
+function buildTimeSelect(hourId, defaultHour, minId, defaultMin) {
+  var html = '<select class="form-select" id="' + hourId + '">';
+  for (var h = 0; h < 24; h++) {
+    var val = String(h).padStart(2, '0');
+    html += '<option value="' + val + '"' + (val === defaultHour ? ' selected' : '') + '>' + val + '</option>';
+  }
+  html += '</select>';
+  html += '<span style="color:#bbb">:</span>';
+  html += '<select class="form-select" id="' + minId + '">';
+  for (var m = 0; m < 60; m += 5) {
+    var val2 = String(m).padStart(2, '0');
+    html += '<option value="' + val2 + '"' + (val2 === defaultMin ? ' selected' : '') + '>' + val2 + '</option>';
+  }
+  html += '</select>';
+  return html;
+}
+
+function selectWeekday(day, el) {
+  selectedWeekday = day;
+  document.querySelectorAll('#weekdayChips .weekday-chip').forEach(function(c) {
+    c.classList.remove('active');
+  });
+  el.classList.add('active');
+}
+
+// ===== Build Schedule =====
+function buildSchedule() {
+  if (currentFrequency === 'once') {
+    var dt = document.getElementById('onceDatetime');
+    if (!dt || !dt.value) return null;
+    return { kind: 'at', at: new Date(dt.value).toISOString() };
+  }
+  if (currentFrequency === 'daily') {
+    var h = document.getElementById('dailyHour').value;
+    var m = document.getElementById('dailyMin').value;
+    return { kind: 'cron', expr: m + ' ' + h + ' * * *', tz: 'Asia/Shanghai' };
+  }
+  if (currentFrequency === 'weekly') {
+    var h2 = document.getElementById('weeklyHour').value;
+    var m2 = document.getElementById('weeklyMin').value;
+    return { kind: 'cron', expr: m2 + ' ' + h2 + ' * * ' + selectedWeekday, tz: 'Asia/Shanghai' };
+  }
+  if (currentFrequency === 'hourly') {
+    return { kind: 'cron', expr: '0 * * * *', tz: 'Asia/Shanghai' };
+  }
+  if (currentFrequency === 'custom') {
+    var expr = document.getElementById('cronExpr');
+    if (!expr || !expr.value.trim()) return null;
+    return { kind: 'cron', expr: expr.value.trim(), tz: 'Asia/Shanghai' };
+  }
+  return null;
+}
+
+// ===== Apply Template =====
+function applyTemplate(key) {
+  var templates = {
+    morning: { name: '早安汇总', freq: 'daily', hour: '08', min: '00', payload: '帮我汇总今天的日程、天气和未读消息' },
+    weekly: { name: '周报生成', freq: 'weekly', hour: '17', min: '00', weekday: 5, payload: '帮我生成本周工作总结' },
+    check: { name: '服务器巡检', freq: 'daily', hour: '09', min: '00', payload: '帮我检查服务器运行状态，有问题及时通知我' }
+  };
+  var t = templates[key];
+  if (!t) return;
+
+  document.getElementById('jobName').value = t.name;
+  document.getElementById('jobPayload').value = t.payload;
+  setFrequency(t.freq);
+  selectedWeekday = t.weekday || 1;
+
+  setTimeout(function() {
+    if (t.freq === 'daily' || t.freq === 'weekly') {
+      var prefix = t.freq === 'daily' ? 'daily' : 'weekly';
+      var hEl = document.getElementById(prefix + 'Hour');
+      var mEl = document.getElementById(prefix + 'Min');
+      if (hEl) hEl.value = t.hour;
+      if (mEl) mEl.value = t.min;
+    }
+    if (t.freq === 'weekly' && t.weekday !== undefined) {
+      var chips = document.querySelectorAll('#weekdayChips .weekday-chip');
+      chips.forEach(function(c) { c.classList.remove('active'); });
+      var order = [1,2,3,4,5,6,0];
+      order.forEach(function(d, i) {
+        if (d === t.weekday && chips[i]) chips[i].classList.add('active');
+      });
+    }
+  }, 50);
+}
+
+// ===== Create Job =====
+async function createJob() {
+  var name = document.getElementById('jobName').value.trim();
+  var payload = document.getElementById('jobPayload').value.trim();
+
+  if (!name) { showToast('请输入任务名称', 'error'); return; }
+  if (!payload) { showToast('请输入任务内容', 'error'); return; }
+
+  var schedule = buildSchedule();
+  if (!schedule) {
+    showToast('请设置执行时间', 'error');
+    return;
+  }
+
+  var btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = '创建中...';
+
+  try {
+    await api('POST', '/add', {
+      name: name,
+      schedule: schedule,
+      payload: { kind: 'agentTurn', message: payload },
+      enabled: true
+    });
+    showToast('任务创建成功', 'success');
+    closeCreateModal();
+    loadJobs();
+  } catch (e) {
+    showToast('创建失败: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '创建';
+  }
+}
+
+// ===== Close modal on overlay click =====
+document.getElementById('createModal').addEventListener('click', function(e) {
+  if (e.target === this) closeCreateModal();
+});
+document.getElementById('confirmOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeConfirm();
+});
+
+// ===== Keyboard =====
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    closeCreateModal();
+    closeConfirm();
+  }
+});
+
+// ===== Tab Switching =====
+var currentTab = 'cron';
+
+function switchTab(tab) {
+  currentTab = tab;
+  var tabCron = document.getElementById('tabCron');
+  var tabRem = document.getElementById('tabReminders');
+  var cronPanel = document.getElementById('statusBar');
+  var jobListEl = document.getElementById('jobList');
+  var remPanel = document.getElementById('remindersPanel');
+  var createBtn = document.getElementById('topBarCreateBtn');
+
+  if (tab === 'cron') {
+    tabCron.classList.add('active');
+    tabRem.classList.remove('active');
+    cronPanel.style.display = '';
+    jobListEl.style.display = '';
+    remPanel.style.display = 'none';
+    createBtn.textContent = '+ 创建任务';
+    document.getElementById('pageTitle').textContent = '定时任务';
+  } else {
+    tabCron.classList.remove('active');
+    tabRem.classList.add('active');
+    cronPanel.style.display = 'none';
+    jobListEl.style.display = 'none';
+    remPanel.style.display = '';
+    createBtn.textContent = '+ 新建提醒';
+    document.getElementById('pageTitle').textContent = '提醒';
+    loadReminders();
+  }
+}
+
+function handleCreate() {
+  if (currentTab === 'cron') {
+    openCreateModal();
+  } else {
+    openReminderModal();
+  }
+}
+
+// ===== Reminder API =====
+var reminders = [];
+var reminderType = 'once';
+
+async function reminderApi(method, path, body) {
+  var opts = { method: method, headers: authHeaders() };
+  var url = '/api/reminders' + path;
+  if (body) opts.body = JSON.stringify(body);
+  var res = await fetch(url, opts);
+  if (res.status === 401) {
+    localStorage.removeItem('lingxi_token');
+    window.location.href = 'index.html';
+    throw new Error('认证已失效');
+  }
+  var data = await res.json();
+  if (!res.ok) throw new Error(data.error || '请求失败');
+  if (data.success === false) throw new Error(data.error || '请求失败');
+  return data;
+}
+
+// ===== Load Reminders =====
+async function loadReminders() {
+  var listEl = document.getElementById('reminderList');
+  try {
+    var data = await reminderApi('GET', '/list');
+    reminders = data.reminders || [];
+    renderReminders();
+  } catch (e) {
+    listEl.innerHTML = '<div class="empty-state"><p>加载失败</p><small>' + escapeHtml(e.message) + '</small></div>';
+  }
+}
+
+// ===== Render Reminders =====
+function renderReminders() {
+  var listEl = document.getElementById('reminderList');
+
+  if (reminders.length === 0) {
+    listEl.innerHTML =
+      '<div class="empty-state">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' +
+        '<p>还没有提醒</p>' +
+        '<small>点击上方按钮创建</small>' +
+      '</div>';
+    return;
+  }
+
+  var typeLabels = { once: '一次', daily: '每天', weekly: '每周', monthly: '每月' };
+  var statusLabels = { pending: '待办', fired: '已触发', completed: '已完成' };
+
+  var html = '<div class="job-list">';
+  for (var i = 0; i < reminders.length; i++) {
+    var r = reminders[i];
+    var isCompleted = r.status === 'completed';
+    var cardClass = isCompleted ? 'reminder-card completed' : 'reminder-card';
+
+    html += '<div class="' + cardClass + '" id="rem_' + escapeHtml(r.id) + '">';
+    html += '<div class="reminder-header">';
+
+    // Info
+    html += '<div class="reminder-info">';
+    html += '<div class="reminder-title">' + escapeHtml(r.title) + '</div>';
+    html += '<div class="reminder-meta">';
+    html += '<span class="reminder-type-badge ' + escapeHtml(r.type) + '">' + typeLabels[r.type] + '</span>';
+    html += '<span class="reminder-status-badge ' + escapeHtml(r.status) + '">' + statusLabels[r.status] + '</span>';
+    html += '<span>' + formatReminderTime(r.triggerAt) + '</span>';
+    html += '</div>';
+    if (r.content) {
+      html += '<div class="reminder-content">' + escapeHtml(r.content) + '</div>';
+    }
+    html += '</div>';
+
+    // Actions
+    html += '<div class="reminder-actions">';
+    if (r.status === 'pending') {
+      html += '<button class="btn-icon" title="完成" data-action="remind-complete" data-rem-id="' + escapeHtml(r.id) + '">';
+      html += '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>';
+      html += '</button>';
+    }
+    html += '<button class="btn-icon danger" title="删除" data-action="remind-remove" data-rem-id="' + escapeHtml(r.id) + '">';
+    html += '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+    html += '</button>';
+    html += '</div>';
+
+    html += '</div>'; // reminder-header
+    html += '</div>'; // reminder-card
+  }
+  html += '</div>';
+  listEl.innerHTML = html;
+}
+
+function formatReminderTime(isoStr) {
+  if (!isoStr) return '';
+  var d = new Date(isoStr);
+  var now = Date.now();
+  var then = d.getTime();
+  var diff = then - now;
+  if (diff > 0 && diff < 60000) return '即将触发';
+  if (diff > 0 && diff < 3600000) return Math.floor(diff / 60000) + ' 分钟后';
+  if (diff > 0 && diff < 86400000) return Math.floor(diff / 3600000) + ' 小时后';
+  var month = d.getMonth() + 1;
+  var day = d.getDate();
+  var hour = String(d.getHours()).padStart(2, '0');
+  var min = String(d.getMinutes()).padStart(2, '0');
+  return month + '/' + day + ' ' + hour + ':' + min;
+}
+
+// ===== Reminder Event Delegation =====
+document.getElementById('reminderList').addEventListener('click', function(e) {
+  var target = e.target.closest('[data-action]');
+  if (!target) return;
+  var action = target.dataset.action;
+  var remId = target.dataset.remId;
+  if (!action || !remId) return;
+
+  if (action === 'remind-complete') {
+    completeReminder(remId);
+  } else if (action === 'remind-remove') {
+    removeReminder(remId);
+  }
+});
+
+async function completeReminder(remId) {
+  try {
+    await reminderApi('POST', '/complete/' + remId);
+    showToast('提醒已完成', 'success');
+    loadReminders();
+  } catch (e) {
+    showToast('操作失败: ' + e.message, 'error');
+  }
+}
+
+function removeReminder(remId) {
+  showConfirm('确定删除这条提醒？', '删除', async function() {
+    try {
+      await reminderApi('POST', '/remove', { id: remId });
+      showToast('提醒已删除', 'success');
+      loadReminders();
+    } catch (e) {
+      showToast('删除失败: ' + e.message, 'error');
+    }
+  });
+}
+
+// ===== Reminder Create Modal =====
+function openReminderModal() {
+  document.getElementById('reminderCreateModal').classList.add('open');
+  resetReminderForm();
+}
+function closeReminderModal() {
+  document.getElementById('reminderCreateModal').classList.remove('open');
+}
+
+function resetReminderForm() {
+  document.getElementById('reminderTitle').value = '';
+  document.getElementById('reminderContent').value = '';
+  document.getElementById('reminderTriggerAt').value = '';
+  setReminderType('once');
+  // Clear quick time active states
+  document.querySelectorAll('.quick-time-btn').forEach(function(b) { b.classList.remove('active'); });
+}
+
+function setReminderType(type) {
+  reminderType = type;
+  document.querySelectorAll('[data-rtype]').forEach(function(tab) {
+    tab.classList.toggle('active', tab.dataset.rtype === type);
+  });
+}
+
+function applyQuickTime(key) {
+  var now = new Date();
+  var target;
+  if (key === '30m') {
+    target = new Date(now.getTime() + 30 * 60 * 1000);
+  } else if (key === '1h') {
+    target = new Date(now.getTime() + 60 * 60 * 1000);
+  } else if (key === 'tomorrow') {
+    target = new Date(now);
+    target.setDate(target.getDate() + 1);
+    target.setHours(9, 0, 0, 0);
+  }
+  if (target) {
+    // Format as datetime-local value: YYYY-MM-DDTHH:mm
+    var y = target.getFullYear();
+    var m = String(target.getMonth() + 1).padStart(2, '0');
+    var d = String(target.getDate()).padStart(2, '0');
+    var h = String(target.getHours()).padStart(2, '0');
+    var mi = String(target.getMinutes()).padStart(2, '0');
+    document.getElementById('reminderTriggerAt').value = y + '-' + m + '-' + d + 'T' + h + ':' + mi;
+  }
+  // Highlight the clicked button
+  document.querySelectorAll('.quick-time-btn').forEach(function(b) { b.classList.remove('active'); });
+  event.target.classList.add('active');
+}
+
+function clearQuickTime() {
+  document.getElementById('reminderTriggerAt').value = '';
+  document.querySelectorAll('.quick-time-btn').forEach(function(b) { b.classList.remove('active'); });
+}
+
+async function createReminder() {
+  var title = document.getElementById('reminderTitle').value.trim();
+  var content = document.getElementById('reminderContent').value.trim();
+  var triggerAt = document.getElementById('reminderTriggerAt').value;
+
+  if (!title) { showToast('请输入标题', 'error'); return; }
+  if (!triggerAt) { showToast('请选择触发时间', 'error'); return; }
+
+  var btn = document.getElementById('reminderSubmitBtn');
+  btn.disabled = true;
+  btn.textContent = '保存中...';
+
+  try {
+    await reminderApi('POST', '/create', {
+      title: title,
+      content: content || undefined,
+      triggerAt: new Date(triggerAt).toISOString(),
+      type: reminderType
+    });
+    showToast('提醒创建成功', 'success');
+    closeReminderModal();
+    loadReminders();
+  } catch (e) {
+    showToast('创建失败: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '保存';
+  }
+}
+
+// Close reminder modal on overlay click
+document.getElementById('reminderCreateModal').addEventListener('click', function(e) {
+  if (e.target === this) closeReminderModal();
+});
+(async function init() {
+  // Check token first, redirect if not logged in
+  if (!checkAuth()) return;
+
+  try {
+    // 1. 先加载设备列表
+    await loadDevices();
+    // 2. 再加载当前设备的任务和状态
+    await Promise.all([loadStatus(), loadJobs()]);
+  } catch (e) {
+    // loadStatus/loadJobs handle their own errors
+  }
+})();
+</script>
+</body>
+</html>

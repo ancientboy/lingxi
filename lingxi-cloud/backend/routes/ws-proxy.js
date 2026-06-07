@@ -48,8 +48,8 @@ async function getUserGatewayConfig(userId) {
   
   console.log("🔍 userServer:", userServer?.ip, userServer?.status);
   
-  // 🔒 只有运行中的独立服务器才能连接
-  if (userServer && userServer.status === 'running' && userServer.ip) {
+  // 🔒 只要有 IP 的服务器就尝试连接（即使 status 是 unhealthy，可能刚恢复）
+  if (userServer && userServer.ip) {
     const httpUrl = `http://${userServer.ip === "120.55.192.144" ? "localhost" : userServer.ip}:${userServer.openclawPort}`;
     return {
       wsUrl: `ws://${userServer.ip === "120.55.192.144" ? "localhost" : userServer.ip}:${userServer.openclawPort}`,
@@ -395,6 +395,12 @@ export function setupWebSocketProxy(app) {
         // ⏱️ 收到消息，重置空闲定时器
         resetIdleTimer();
         
+        // 🔍 调试日志：确认 Gateway 回复到达
+        try {
+          const debugMsg = JSON.parse(data.toString());
+          console.log(`📥 [${userId?.substring(0, 8)}] Gateway 回复: type=${debugMsg.type} method=${debugMsg.method||debugMsg.event||'?'} ok=${debugMsg.ok}`);
+        } catch(e) {}
+        
         try {
           const msgStr = data.toString();
           const msg = JSON.parse(msgStr);
@@ -411,13 +417,22 @@ export function setupWebSocketProxy(app) {
               console.log(JSON.stringify(rawMessage, null, 2).substring(0, 500));
             }
             
-            // 尝试提取文本
+            // 尝试提取文本（兼容多种消息格式）
             if (typeof rawMessage === 'string') {
               text = rawMessage;
             } else if (rawMessage?.content) {
-              text = typeof rawMessage.content === 'string' 
-                ? rawMessage.content 
-                : rawMessage.content.text || '';
+              if (typeof rawMessage.content === 'string') {
+                text = rawMessage.content;
+              } else if (Array.isArray(rawMessage.content)) {
+                // Anthropic 格式：content 是数组，只取 text 类型的 block
+                text = rawMessage.content
+                  .filter(block => block.type === 'text')
+                  .map(block => block.text)
+                  .join('');
+                // 如果全是 tool_use 块没有 text 块，text 为空
+              } else {
+                text = rawMessage.content.text || '';
+              }
             } else if (rawMessage?.text) {
               text = rawMessage.text;
             } else if (rawMessage?.parts && Array.isArray(rawMessage.parts)) {
@@ -425,6 +440,29 @@ export function setupWebSocketProxy(app) {
               text = rawMessage.parts.map(p => p.text || '').join('');
             }
             
+            // 🚫 过滤心跳/静默消息 — 不转发给前端
+            if (text === 'HEARTBEAT_OK' || text === 'NO_REPLY' || 
+                (text && text.startsWith('Read HEARTBEAT.md'))) {
+              console.log(`⏭️ [${userId?.substring(0, 8)}] 拦截心跳消息: ${text?.substring(0, 30)}`);
+              return; // 不转发给前端
+            }
+            
+            // 🚫 过滤工具调用消息（无实际文本内容，只含 tool_use 块）
+            if (!text || text.trim().length === 0) {
+              // 检查是否是纯工具调用（有 content 数组但全是 tool_use 类型）
+              const content = rawMessage?.content;
+              if (Array.isArray(content) && content.length > 0 && 
+                  content.every(block => block.type !== 'text')) {
+                console.log(`⏭️ [${userId?.substring(0, 8)}] 跳过工具调用消息`);
+                return;
+              }
+              // 其他空文本也跳过（避免空气泡）
+              if (payload.state === 'final') {
+                console.log(`⏭️ [${userId?.substring(0, 8)}] 跳过空 final 消息`);
+                return;
+              }
+            }
+
             // 🔍 调试：打印收到的消息
             if (needsTTS) {
               console.log(`🔍 [${userId?.substring(0, 8)}] 收到 chat 事件:`);
@@ -457,7 +495,7 @@ export function setupWebSocketProxy(app) {
             }
           }
 
-          // 🔍 拦截历史消息中的图片 URL
+          // 🔍 拦截历史消息中的图片 URL + 过滤心跳消息
           if (msg.type === 'res' && msg.ok && msg.payload?.messages) {
             const messages = msg.payload.messages;
             let modified = false;
@@ -474,15 +512,47 @@ export function setupWebSocketProxy(app) {
             if (modified) {
               console.log(`🔄 [${userId?.substring(0, 8)}] 已替换历史消息中的图片 URL`);
             }
+
+            // 🚫 过滤非用户可见消息（心跳、工具调用、系统消息、空消息）
+            const beforeLen = msg.payload.messages.length;
+            msg.payload.messages = msg.payload.messages.filter(m => {
+              const role = m.role || '';
+              // 过滤非对话角色（工具、系统等）
+              if (role === 'toolResult' || role === 'system' || role === 'tool' || 
+                  role === 'tool_use' || role === 'function_call') return false;
+              if (role !== 'user' && role !== 'assistant') return false;
+              
+              const content = typeof m.content === 'string' ? m.content : 
+                              (Array.isArray(m.content) 
+                                ? m.content.filter(b => b.type === 'text').map(b => b.text).join('')
+                                : (m.content?.text || m.text || ''));
+              // 过滤助手的心跳/静默回复
+              if (content === 'HEARTBEAT_OK' || content === 'NO_REPLY') return false;
+              // 过滤用户发送的心跳 prompt
+              if (typeof content === 'string' && content.startsWith('Read HEARTBEAT.md')) return false;
+              // 过滤空消息（工具调用的 text block 为空）
+              if (!content || content.trim().length === 0) return false;
+              // 过滤纯元数据消息
+              if (content.includes('<<<EXTERNAL_UNTRUSTED_CONTENT') && 
+                  content.includes('"url":') && !content.includes('[附件:')) return false;
+              return true;
+            });
+            const filtered = beforeLen - msg.payload.messages.length;
+            if (filtered > 0) {
+              console.log(`🧹 [${userId?.substring(0, 8)}] 过滤了 ${filtered} 条心跳消息 (剩余 ${msg.payload.messages.length} 条)`);
+            }
           }
 
           // 转发给前端
           if (ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify(msg));
+            console.log(`➡️ [${userId?.substring(0, 8)}] 已转发给前端: type=${msg.type} event=${msg.event||'-'} state=${msg.payload?.state||'-'}`);
+          } else {
+            console.log(`❌ [${userId?.substring(0, 8)}] 前端 WebSocket 已关闭，无法转发`);
           }
         } catch (e) {
           // 解析失败，直接转发
-          console.error('解析 Gateway 消息失败:', e);
+          console.error('❌ 解析/处理 Gateway 消息失败:', e.message);
           if (ws.readyState === WebSocket.OPEN) {
             ws.send(data);
           }
@@ -607,7 +677,8 @@ export function setupWebSocketProxy(app) {
           if (targetWs && targetWs.readyState === WebSocket.OPEN) {
             const dataToSend = msg ? JSON.stringify(msg) : data;
             targetWs.send(dataToSend);
-            console.log(`📤 [${userId?.substring(0, 8)}] 已转发到 Gateway, 消息大小: ${dataToSend.length} 字节`);
+            console.log(`📤 [${userId?.substring(0, 8)}] 已转发到 Gateway, method=${msg?.method}, 消息大小: ${dataToSend.length} 字节`);
+            // 临时文件日志
           } else if (targetWs && targetWs.readyState === WebSocket.CONNECTING) {
             const dataToSend = msg ? JSON.stringify(msg) : data;
             messageQueue.push(dataToSend);

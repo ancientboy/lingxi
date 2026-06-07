@@ -6,6 +6,9 @@
       <i data-lucide="sparkles" class="icon-lg"></i>
     </div>
     <span class="sidebar-brand-name">Lume</span>
+    <button class="sidebar-collapse-btn" onclick="event.preventDefault();event.stopPropagation();toggleSidebar()" title="收起侧边栏">
+      <i data-lucide="panel-left-close" class="icon-sm"></i>
+    </button>
   </a>
   
   <div class="sidebar-header">
@@ -15,6 +18,55 @@
     </button>
     <button class="sidebar-close" onclick="toggleSidebar()">
       <i data-lucide="x" class="icon-sm"></i>
+    </button>
+  </div>
+  
+  <!-- 🔧 快捷入口 -->
+  <div class="sidebar-shortcuts">
+    <button class="sidebar-shortcut-btn" onclick="switchView('workspace')">
+      <i data-lucide="building" class="icon-sm"></i>
+      <span>办公区</span>
+    </button>
+    <button class="sidebar-shortcut-btn" onclick="switchView('servers')">
+      <i data-lucide="monitor-smartphone" class="icon-sm"></i>
+      <span>设备管理</span>
+    </button>
+    <button class="sidebar-shortcut-btn" onclick="switchView('skills')">
+      <i data-lucide="layout-grid" class="icon-sm"></i>
+      <span>技能库</span>
+    </button>
+    <button class="sidebar-shortcut-btn" onclick="toggleFileExplorer()">
+      <i data-lucide="folder-open" class="icon-sm"></i>
+      <span>文件</span>
+    </button>
+    <button class="sidebar-shortcut-btn" onclick="window.open('cron.html','_blank')">
+      <i data-lucide="clock" class="icon-sm"></i>
+      <span>定时任务</span>
+    </button>
+    <button class="sidebar-shortcut-btn" onclick="window.open('memory.html','_blank')">
+      <i data-lucide="brain" class="icon-sm"></i>
+      <span>记忆</span>
+    </button>
+    <button class="sidebar-shortcut-btn" onclick="window.open('triggers.html','_blank')">
+      <i data-lucide="webhook" class="icon-sm"></i>
+      <span>触发器</span>
+    </button>
+    <button class="sidebar-shortcut-btn" onclick="window.open('knowledge.html','_blank')">
+      <i data-lucide="book-open" class="icon-sm"></i>
+      <span>知识库</span>
+    </button>
+    <button class="sidebar-shortcut-btn" onclick="window.open('market.html','_blank')">
+      <i data-lucide="store" class="icon-sm"></i>
+      <span>市场</span>
+    </button>
+    <button class="sidebar-shortcut-btn" onclick="window.open('workflows.html','_blank')">
+      <i data-lucide="workflow" class="icon-sm"></i>
+      <span>工作流</span>
+    </button>
+    <button class="sidebar-shortcut-btn" onclick="toggleAgentDropdown()" style="position:relative;">
+      <i data-lucide="zap" class="icon-sm" id="currentAgentIcon"></i>
+      <span>切换Agent</span>
+      <div class="agent-dropdown" id="agentDropdown"></div>
     </button>
   </div>
   
@@ -33,26 +85,6 @@
     </div>
   </div>
   
-  <!-- 功能区 -->
-  <div class="sidebar-tools">
-    <div class="sidebar-tool-item" onclick="showMyTeam()">
-      <i data-lucide="users" class="icon-sm icon-primary"></i>
-      <span>我的团队</span>
-    </div>
-    <div class="sidebar-tool-item" onclick="window.location.href='agent-workspace.html'">
-      <i data-lucide="building" class="icon-sm icon-primary"></i>
-      <span>办公区</span>
-    </div>
-    <div class="sidebar-tool-item" onclick="switchView('skills')">
-      <i data-lucide="layout-grid" class="icon-sm icon-primary"></i>
-      <span>技能库</span>
-    </div>
-    <!-- LumeClaw 入口 -->
-    <div class="sidebar-tool-item sidebar-tool-lume" onclick="openLumeClaw()" id="lumeclawEntry" style="display: none;">
-      <i data-lucide="bot" class="icon-sm icon-primary"></i>
-      <span>LumeClaw</span>
-    </div>
-  </div>
   
   <!-- 底部用户区 -->
   <div class="sidebar-footer">
@@ -66,6 +98,15 @@
       <span class="sidebar-user-arrow">▼</span>
     </div>
     <div class="sidebar-user-menu" id="sidebarUserMenu">
+      <div class="sidebar-menu-item" onclick="openLumeClaw()" id="lumeclawMenuEntry" style="display: none;">
+        <i data-lucide="bot" class="icon-sm"></i>
+        <span>LumeClaw</span>
+      </div>
+      <div class="sidebar-menu-item" onclick="handleCheckin()" id="checkinBtn">
+        <i data-lucide="calendar" class="icon-sm"></i>
+        <span>每日签到</span>
+        <span class="checkin-points" id="checkinPoints" style="margin-left:auto;font-size:0.75rem;color:#10a37f;"></span>
+      </div>
       <div class="sidebar-menu-item" onclick="showUsageStats()">
         <i data-lucide="bar-chart-2" class="icon-sm"></i>
         <span>使用量统计</span>
@@ -73,6 +114,10 @@
       <div class="sidebar-menu-item" onclick="showSubscription()">
         <i data-lucide="credit-card" class="icon-sm"></i>
         <span>我的订阅</span>
+      </div>
+      <div class="sidebar-menu-item" onclick="toggleTheme()">
+        <i data-lucide="moon" class="icon-sm" id="themeToggleIcon"></i>
+        <span>切换主题</span>
       </div>
       <div class="sidebar-menu-item" onclick="showFeishuConfig()">
         <i data-lucide="message-square" class="icon-sm"></i>

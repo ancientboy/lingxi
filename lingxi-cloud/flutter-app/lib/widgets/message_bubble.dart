@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lingxicloud/models/message.dart';
 import 'package:lingxicloud/utils/constants.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class MessageBubble extends StatelessWidget {
   final Message message;
@@ -27,6 +29,114 @@ class MessageBubble extends StatelessWidget {
       };
     }
     return null;
+  }
+
+  /// 识别文本中的链接并渲染为可点击的富文本
+  /// 链接点击 → 浏览器打开；非链接文字长按 → 复制全文
+  Widget _buildRichText(String text, {required bool isUser}) {
+    final urlRegex = RegExp(
+      r'https?://[^\s<>\[\]{}|\\^`"\')]+',
+      caseSensitive: false,
+    );
+
+    final matches = urlRegex.allMatches(text);
+    if (matches.isEmpty) {
+      // 没有链接，用普通的可选中文字
+      return SelectableText(
+        text,
+        style: TextStyle(
+          color: isUser ? Colors.white : Constants.textPrimaryColor,
+          fontSize: 14,
+          height: 1.5,
+        ),
+        contextMenuBuilder: (context, editableTextState) {
+          return _buildContextMenu(editableTextState);
+        },
+      );
+    }
+
+    // 有链接 → 用 RichText 渲染
+    final spans = <TextSpan>[];
+    int lastEnd = 0;
+
+    for (final match in matches) {
+      // 链接前的普通文字
+      if (match.start > lastEnd) {
+        spans.add(TextSpan(
+          text: text.substring(lastEnd, match.start),
+          style: TextStyle(
+            color: isUser ? Colors.white : Constants.textPrimaryColor,
+            fontSize: 14,
+            height: 1.5,
+          ),
+        ));
+      }
+
+      // 链接文字（可点击）
+      final url = match.group(0);
+      spans.add(TextSpan(
+        text: url,
+        style: TextStyle(
+          color: isUser ? const Color(0xFFB3E5FC) : const Color(0xFF1565C0),
+          fontSize: 14,
+          height: 1.5,
+          decoration: TextDecoration.underline,
+          decorationColor: isUser ? const Color(0xFFB3E5FC) : const Color(0xFF1565C0),
+        ),
+        recognizer: TapGestureRecognizer()
+          ..onTap = () => _openUrl(url),
+      ));
+
+      lastEnd = match.end;
+    }
+
+    // 链接后的普通文字
+    if (lastEnd < text.length) {
+      spans.add(TextSpan(
+        text: text.substring(lastEnd),
+        style: TextStyle(
+          color: isUser ? Colors.white : Constants.textPrimaryColor,
+          fontSize: 14,
+          height: 1.5,
+        ),
+      ));
+    }
+
+    return GestureDetector(
+      onLongPress: () => _copyToClipboard(text),
+      child: RichText(
+        text: TextSpan(children: spans),
+        selectable: true,
+      ),
+    );
+  }
+
+  /// 打开链接
+  Future<void> _openUrl(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri != null && await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  /// 复制到剪贴板
+  void _copyToClipboard(String text) {
+    Clipboard.setData(ClipboardData(text: text));
+  }
+
+  /// 自定义右键菜单（复制）
+  AdaptiveTextSelectionToolbar _buildContextMenu(EditableTextState state) {
+    final items = [
+      ContextMenuButtonItem(
+        label: '复制',
+        type: ContextMenuButtonType.copy,
+        onPressed: () {
+          state.copyEnabled ? state.renderEditable.handleCopy() : null;
+          Clipboard.setData(ClipboardData(text: state.currentTextEditingValue.selection.textInside(state.currentTextEditingValue.text)));
+        },
+      ),
+    ];
+    return AdaptiveTextSelectionToolbar(buttonItems: items, anchors: state.contextMenuAnchors);
   }
 
   @override
@@ -138,16 +248,9 @@ class MessageBubble extends StatelessWidget {
                     ),
                   ),
                 if (hasImage || hasDocument) SizedBox(height: 8),
-                // 文本内容
+                // 文本内容（链接可点击，长按复制全文）
                 if (cleanContent.isNotEmpty)
-                  SelectableText(
-                    cleanContent,
-                    style: TextStyle(
-                      color: isUser ? Colors.white : Constants.textPrimaryColor,
-                      fontSize: 14,
-                      height: 1.5,
-                    ),
-                  ),
+                  _buildRichText(cleanContent, isUser: isUser),
               ],
             ),
           ),

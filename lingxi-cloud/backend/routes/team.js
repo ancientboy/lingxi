@@ -5,64 +5,160 @@
  * - 用户团队配置存储
  * - 团队模板管理
  * - 团队 CRUD 操作
+ * - 模板部署（通过 OpenClaw RPC，不依赖 SSH）
  * 
  * ✅ 配置合并策略：切换团队时保留用户自定义的模型、工作区等配置
  */
 
 import express from 'express';
+import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
+import { fileURLToPath } from 'url';
+import jwt from 'jsonwebtoken';
 import { getDB, saveDB } from '../utils/db.js';
 import { success, errors } from '../utils/response.js';
-import { authAndCheckOwnership } from '../middleware/auth.js';
+import { authAndCheckOwnership, verifyToken } from '../middleware/auth.js';
+import { getActiveServer } from '../utils/activeServer.js';
+import { callOpenClawRPC } from '../utils/openclaw-rpc.js';
+import { rebuildAndPushForUser } from '../utils/dispatch-config.js';
+import { config as appConfig } from '../config/index.js';
 
 const router = express.Router();
 
-// ============ 团队模板库 ============
+// ============ 团队模板库（从独立 JSON 文件加载） ============
 
-const TEAM_TEMPLATES = [
-  {
-    templateId: 'software-dev',
-    templateName: '软件开发团队',
-    description: '完整的软件开发团队，从需求到上线',
-    category: 'development',
-    members: [
-      { id: 'lingxi', name: '灵犀', icon: 'zap', role: '队长', desc: '团队调度', triggers: ['灵犀', '队长'], isDefault: true },
-      { id: 'pm', name: '产品经理', icon: 'target', role: '需求分析', desc: '需求分析、产品规划', triggers: ['需求', '产品', '功能', 'PRD'] },
-      { id: 'architect', name: '架构师', icon: 'layers', role: '架构设计', desc: '技术选型、架构设计', triggers: ['架构', '技术选型', '系统设计'] },
-      { id: 'frontend', name: '前端工程师', icon: 'monitor', role: '前端开发', desc: 'UI 实现、前端开发', triggers: ['前端', 'UI', '页面', 'Vue', 'React'] },
-      { id: 'backend', name: '后端工程师', icon: 'server', role: '后端开发', desc: 'API 开发、数据库设计', triggers: ['后端', 'API', '数据库', '服务'] },
-      { id: 'qa', name: '测试工程师', icon: 'check-circle', role: '质量保障', desc: '测试用例、质量保障', triggers: ['测试', 'QA', 'bug', '质量'] }
-    ]
-  },
-  {
-    templateId: 'content-marketing',
-    templateName: '内容营销团队',
-    description: '内容创作与社媒运营',
-    category: 'marketing',
-    members: [
-      { id: 'lingxi', name: '灵犀', icon: 'zap', role: '队长', desc: '团队调度', triggers: ['灵犀', '队长'], isDefault: true },
-      { id: 'copywriter', name: '文案策划', icon: 'pen-tool', role: '文案撰写', desc: '营销文案、公众号文章', triggers: ['文案', '写作', '软文', '稿件'] },
-      { id: 'designer', name: '视觉设计', icon: 'palette', role: '视觉设计', desc: '海报设计、配图制作', triggers: ['设计', '海报', '图片', '视觉'] },
-      { id: 'seo', name: 'SEO 专员', icon: 'trending-up', role: 'SEO 优化', desc: '关键词优化、流量分析', triggers: ['SEO', '关键词', '排名', '流量'] },
-      { id: 'social', name: '社媒运营', icon: 'share-2', role: '社媒运营', desc: '微博/抖音/小红书运营', triggers: ['社媒', '微博', '抖音', '小红书'] }
-    ]
-  },
-  {
-    templateId: 'lingxi-team',
-    templateName: '灵犀团队',
-    description: 'AI 助手调度与任务分发（默认配置）',
-    category: 'assistant',
-    members: [
-      { id: 'lingxi', name: '灵犀', icon: 'zap', role: '队长', desc: '调度、协调、沟通', triggers: ['灵犀', '队长', '调度'], isDefault: true },
-      { id: 'coder', name: '云溪', icon: 'code', role: '代码开发', desc: '代码、bug、API、架构', triggers: ['代码', 'bug', 'API', '架构', '开发', 'SQL', '算法', '重构', '调试', 'Git'] },
-      { id: 'ops', name: '若曦', icon: 'bar-chart-2', role: '数据分析', desc: '数据分析、报表、增长', triggers: ['数据', '报表', '增长', 'SEO', '用户', '转化', '留存', '分析', '运营'] },
-      { id: 'inventor', name: '紫萱', icon: 'lightbulb', role: '创意策划', desc: '文案、创意、营销、品牌', triggers: ['文案', '创意', '营销', '社媒', '品牌', '广告', '传播', '策划'] },
-      { id: 'pm', name: '梓萱', icon: 'target', role: '产品设计', desc: '需求、产品、MVP、商业', triggers: ['需求', '产品', 'MVP', '商业', '体验', '功能', '原型'] },
-      { id: 'noter', name: '晓琳', icon: 'book-open', role: '知识管理', desc: '学习、翻译、笔记、知识', triggers: ['学习', '翻译', '笔记', '搜索', '知识', '文档', '整理'] },
-      { id: 'media', name: '音韵', icon: 'image', role: '多媒体', desc: '图片、视频、音乐、设计', triggers: ['图片', '视频', '音乐', '设计', '绘图', '剧本', '海报'] },
-      { id: 'smart', name: '智家', icon: 'home', role: '智能工具', desc: '自动化、脚本、工具、效率', triggers: ['自动化', '脚本', '工具', '效率', '批量', '处理'] }
-    ]
+// 解析当前文件所在目录，构建模板文件路径
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const TEMPLATES_PATH = path.join(__dirname, '..', 'templates', 'team-templates.json');
+
+/**
+ * 加载团队模板数据
+ * - 启动时从 team-templates.json 读取并缓存
+ * - 如果文件读取失败，回退到空数组并打印警告
+ */
+function loadTeamTemplates() {
+  try {
+    const raw = fs.readFileSync(TEMPLATES_PATH, 'utf8');
+    const data = JSON.parse(raw);
+    return data.templates || [];
+  } catch (err) {
+    console.error('⚠️ 团队模板文件加载失败:', err.message);
+    return [];
   }
-];
+}
+
+const TEAM_TEMPLATES = loadTeamTemplates();
+
+// 预设模板 ID 集合（用于区分自定义模板，防止误删预设）
+const PRESET_TEMPLATE_IDS = new Set(TEAM_TEMPLATES.map(t => t.templateId));
+
+// ============ 自定义模板常量 ============
+
+/** 每个用户最多保存的自定义模板数量 */
+const MAX_CUSTOM_TEMPLATES_PER_USER = 20;
+
+/** 模板名最大长度 */
+const MAX_TEMPLATE_NAME_LENGTH = 50;
+
+/**
+ * 清理模板名称：去除 HTML 标签、截断长度
+ */
+function sanitizeTemplateName(name) {
+  if (typeof name !== 'string') return '';
+  return name
+    .replace(/<[^>]*>/g, '')   // 去除 HTML 标签
+    .replace(/[<>"'&]/g, '')   // 去除特殊字符
+    .trim()
+    .substring(0, MAX_TEMPLATE_NAME_LENGTH);
+}
+
+/**
+ * 从用户 OpenClaw 获取当前 agents 列表并组装为模板 members 格式
+ * 如果 RPC 不可用（免费用户 / 无服务器），回退到 lingxi-team 默认模板
+ * 
+ * ✅ 纯函数：始终返回新数组，不修改任何输入
+ */
+async function fetchCurrentAgentsAsMembers(userServer) {
+  // 默认模板（回退用）
+  const fallbackTemplate = TEAM_TEMPLATES.find(t => t.templateId === 'lingxi-team');
+  const fallbackMembers = fallbackTemplate?.members || [];
+
+  if (!userServer?.ip) {
+    return [...fallbackMembers];
+  }
+
+  try {
+    const result = await callOpenClawRPC(userServer, 'config.get', {}, {
+      displayName: '灵犀云模板管理',
+    });
+    if (!result.ok) {
+      console.warn('⚠️ config.get RPC 失败，回退到默认模板');
+      return [...fallbackMembers];
+    }
+
+    const openclawConfig = result.payload?.config || {};
+    const agentsList = openclawConfig.agents?.list || [];
+
+    if (agentsList.length === 0) {
+      return [...fallbackMembers];
+    }
+
+    // 将 OpenClaw agent 配置转换为模板 members 格式（纯函数，返回新对象）
+    return agentsList.map(agent => ({
+      id: agent.id === 'main' ? 'lingxi' : agent.id,
+      name: agent.identity?.name || agent.name || agent.id,
+      icon: agent.identity?.emoji || 'bot',
+      role: agent.id === 'main' ? '队长' : (agent.identity?.name || agent.id),
+      desc: '',
+      triggers: [agent.id === 'main' ? '灵犀' : agent.id],
+      isDefault: agent.default === true,
+      capabilities: [],
+      defaultModel: agent.model?.primary || 'zhipu/glm-5',
+      skills: [],
+      ...(agent.model ? { model: agent.model } : {}),
+    }));
+  } catch (err) {
+    console.warn('⚠️ 获取 agents 配置失败，回退到默认模板:', err.message);
+    return [...fallbackMembers];
+  }
+}
+
+/**
+ * 根据 templateId 查找模板（预设 + 自定义）
+ * @param {string} templateId - 模板 ID
+ * @param {Object} db - 数据库对象（用于查自定义模板）
+ * @param {string} [userId] - 用户 ID（查自定义模板时需要）
+ * @returns {Object|null} 模板对象，附带 isCustom 标记
+ */
+function findTemplateById(templateId, db, userId) {
+  // 1. 先查预设模板
+  const preset = TEAM_TEMPLATES.find(t => t.templateId === templateId);
+  if (preset) {
+    return { ...preset, isCustom: false };
+  }
+
+  // 2. 再查自定义模板
+  if (userId && db.customTemplates) {
+    const custom = db.customTemplates.find(
+      t => t.id === templateId && t.userId === userId
+    );
+    if (custom) {
+      return {
+        templateId: custom.id,
+        templateName: custom.templateName,
+        description: custom.description || '',
+        category: custom.category || 'personal',
+        tags: custom.tags || [],
+        members: custom.members || [],
+        isCustom: true,
+      };
+    }
+  }
+
+  return null;
+}
 
 // ============ Agent SOUL 模板 ============
 
@@ -402,29 +498,443 @@ echo "=== ✅ 团队配置同步完成 ==="
 /**
  * 获取团队模板列表
  */
-router.get('/templates', (req, res) => {
+/**
+ * 获取团队模板列表
+ * 如果用户已登录（携带 Bearer Token），同时返回该用户的自定义模板
+ */
+router.get('/templates', async (req, res) => {
+  // 防护：模板数据加载失败时返回 503，避免下游 API 全崩
+  if (!TEAM_TEMPLATES || TEAM_TEMPLATES.length === 0) {
+    return res.status(503).json({
+      success: false,
+      error: '团队模板数据暂时不可用，请检查模板文件配置'
+    });
+  }
+
+  // 预设模板列表
+  const presetTemplates = TEAM_TEMPLATES.map(t => ({
+    templateId: t.templateId,
+    templateName: t.templateName,
+    description: t.description,
+    category: t.category,
+    tags: t.tags || [],
+    memberCount: t.members.length,
+    isCustom: false
+  }));
+
+  // 尝试识别登录用户，合并自定义模板
+  let customList = [];
+  try {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const JWT_SECRET = appConfig.security.jwtSecret;
+      const decoded = jwt.verify(authHeader.substring(7), JWT_SECRET);
+      const db = await getDB();
+      customList = (db.customTemplates || [])
+        .filter(t => t.userId === decoded.userId)
+        .map(t => ({
+          templateId: t.id,
+          templateName: t.templateName,
+          description: t.description || '',
+          category: t.category || 'personal',
+          tags: t.tags || [],
+          memberCount: (t.members || []).length,
+          isCustom: true
+        }));
+    }
+  } catch (e) {
+    // Token 无效或过期 → 忽略，只返回预设模板
+  }
+
   success(res, {
-    templates: TEAM_TEMPLATES.map(t => ({
-      templateId: t.templateId,
-      templateName: t.templateName,
-      description: t.description,
-      category: t.category,
-      memberCount: t.members.length
-    }))
+    templates: [...presetTemplates, ...customList]
+  });
+});
+
+// ============ 自定义模板 API ============
+// 注意：固定路径路由必须在 :templateId 参数路由之前注册
+
+/**
+ * 获取用户自己的自定义模板列表
+ * GET /api/team/templates/my/list
+ */
+router.get('/templates/my/list', authAndCheckOwnership, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const db = await getDB();
+    const customs = (db.customTemplates || [])
+      .filter(t => t.userId === userId)
+      .map(t => ({
+        templateId: t.id,
+        templateName: t.templateName,
+        description: t.description || '',
+        category: t.category || 'personal',
+        tags: t.tags || [],
+        members: t.members || [],
+        memberCount: (t.members || []).length,
+        isCustom: true,
+        createdAt: t.createdAt,
+        updatedAt: t.updatedAt
+      }));
+
+    success(res, { templates: customs });
+  } catch (error) {
+    console.error('获取自定义模板失败:', error);
+    errors.serverError(res, error.message);
+  }
+});
+
+/**
+ * 保存当前团队配置为自定义模板
+ * POST /api/team/templates/save
+ * Body: { templateName, description?, category?, tags? }
+ */
+router.post('/templates/save', authAndCheckOwnership, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { templateName, description = '', category = 'personal', tags = [] } = req.body;
+
+    if (!templateName || !templateName.trim()) {
+      return errors.badRequest(res, 'templateName 是必需的');
+    }
+
+    // 清理 & 长度校验
+    const cleanName = sanitizeTemplateName(templateName);
+    if (!cleanName) {
+      return errors.badRequest(res, 'templateName 包含无效字符');
+    }
+    if (description.length > 500) {
+      return errors.badRequest(res, 'description 不能超过 500 个字符');
+    }
+    const normalizedTags = Array.isArray(tags) ? tags.slice(0, 10) : [];
+    if (normalizedTags.some(t => typeof t !== 'string' || t.length > 20)) {
+      return errors.badRequest(res, '每个 tag 不能超过 20 个字符');
+    }
+
+    const db = await getDB();
+    if (!db.customTemplates) db.customTemplates = [];
+
+    // 每用户模板数量限制
+    const userTemplateCount = db.customTemplates.filter(t => t.userId === userId).length;
+    if (userTemplateCount >= MAX_CUSTOM_TEMPLATES_PER_USER) {
+      return errors.badRequest(res, `自定义模板数量已达上限（${MAX_CUSTOM_TEMPLATES_PER_USER} 个），请删除后再创建`);
+    }
+
+    // 获取用户的活跃服务器
+    const userServer = getActiveServer(db, userId);
+
+    // 问题 4：members 赋值逻辑改为直接赋值
+    const user = db.users.find(u => u.id === userId);
+    const members = (user?.team?.members?.length > 0)
+      ? JSON.parse(JSON.stringify(user.team.members))
+      : await fetchCurrentAgentsAsMembers(userServer);
+
+    // 生成模板 ID
+    const templateId = `custom-${crypto.randomUUID().substring(0, 8)}`;
+
+    const now = new Date().toISOString();
+    const newTemplate = {
+      id: templateId,
+      userId,
+      templateName: cleanName,
+      description,
+      category,
+      tags: normalizedTags,
+      members,
+      createdAt: now,
+      updatedAt: now
+    };
+
+    db.customTemplates.push(newTemplate);
+    await saveDB(db);
+
+    console.log(`✅ 用户 ${userId} 保存自定义模板: ${templateName} (${members.length} 人)`);
+
+    success(res, {
+      template: {
+        templateId: newTemplate.id,
+        templateName: newTemplate.templateName,
+        description: newTemplate.description,
+        category: newTemplate.category,
+        tags: newTemplate.tags,
+        members: newTemplate.members,
+        memberCount: newTemplate.members.length,
+        isCustom: true,
+        createdAt: newTemplate.createdAt,
+        updatedAt: newTemplate.updatedAt
+      }
+    });
+  } catch (error) {
+    console.error('保存自定义模板失败:', error);
+    errors.serverError(res, error.message);
+  }
+});
+
+/**
+ * 删除自定义模板
+ * DELETE /api/team/templates/:templateId
+ */
+router.delete('/templates/:templateId', authAndCheckOwnership, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { templateId } = req.params;
+
+    // 不允许删除预设模板
+    if (PRESET_TEMPLATE_IDS.has(templateId)) {
+      return errors.badRequest(res, '不能删除预设模板');
+    }
+
+    const db = await getDB();
+    if (!db.customTemplates) db.customTemplates = [];
+
+    const index = db.customTemplates.findIndex(
+      t => t.id === templateId && t.userId === userId
+    );
+
+    if (index === -1) {
+      return errors.notFound(res, '自定义模板');
+    }
+
+    const removed = db.customTemplates.splice(index, 1)[0];
+    await saveDB(db);
+
+    console.log(`✅ 用户 ${userId} 删除自定义模板: ${removed.templateName}`);
+
+    success(res, {
+      message: '模板已删除',
+      templateId: removed.id,
+      templateName: removed.templateName
+    });
+  } catch (error) {
+    console.error('删除自定义模板失败:', error);
+    errors.serverError(res, error.message);
+  }
+});
+
+/**
+ * 获取特定模板详情（支持预设和自定义）
+ * 预设模板无需登录；自定义模板需鉴权（verifyToken），401/404 语义分离
+ */
+router.get('/templates/:templateId', async (req, res, next) => {
+  const { templateId } = req.params;
+
+  // 先查预设模板（无需登录）
+  const preset = TEAM_TEMPLATES.find(t => t.templateId === templateId);
+  if (preset) {
+    return success(res, { template: { ...preset, isCustom: false } });
+  }
+
+  // 自定义模板需要登录 → 交给 verifyToken 中间件处理后的 handler
+  // 使用 verifyToken 中间件，让 401 和 404 语义分离
+  verifyToken(req, res, () => {
+    _handleCustomTemplateLookup(req, res);
   });
 });
 
 /**
- * 获取特定模板详情
+ * 自定义模板查询 handler（需在 verifyToken 之后调用）
  */
-router.get('/templates/:templateId', (req, res) => {
-  const template = TEAM_TEMPLATES.find(t => t.templateId === req.params.templateId);
-  
-  if (!template) {
+async function _handleCustomTemplateLookup(req, res) {
+  try {
+    const { templateId } = req.params;
+    const userId = req.user.id;
+    const db = await getDB();
+    const custom = (db.customTemplates || []).find(
+      t => t.id === templateId && t.userId === userId
+    );
+    if (!custom) {
+      return errors.notFound(res, '模板');
+    }
+    return success(res, {
+      template: {
+        templateId: custom.id,
+        templateName: custom.templateName,
+        description: custom.description || '',
+        category: custom.category || 'personal',
+        tags: custom.tags || [],
+        members: custom.members || [],
+        isCustom: true,
+        createdAt: custom.createdAt,
+        updatedAt: custom.updatedAt
+      }
+    });
+  } catch (e) {
     return errors.notFound(res, '模板');
   }
-  
-  success(res, { template });
+}
+
+// ═══════════════════════════════════════════════════════════
+// 工作流管理（必须在 /:userId 之前注册，否则被参数路由拦截）
+// ═══════════════════════════════════════════════════════════
+
+router.get('/workflows/available', verifyToken, async (req, res) => {
+  try {
+    const dir = '/root/.openclaw/workspace/skills/workflow-hub/workflows';
+    const files = fs.readdirSync(dir);
+    const workflows = [];
+    for (const file of files) {
+      if (!file.endsWith('.json')) continue;
+      const content = fs.readFileSync(path.join(dir, file), 'utf8');
+      const wf = JSON.parse(content);
+      workflows.push({
+        id: wf.id,
+        name: wf.name,
+        description: wf.description,
+        mode: wf.mode,
+        agents: wf.agents || [],
+        estimatedDuration: wf.estimatedDuration,
+        steps: (wf.steps || []).map(s => ({
+          name: s.name || s.task || '步骤',
+          agent: s.agent || s.agentId || '',
+          description: s.description || s.prompt || ''
+        }))
+      });
+    }
+    res.json({ success: true, workflows });
+  } catch (err) {
+    console.error('读取可用工作流失败:', err.message);
+    res.json({ success: true, workflows: [] });
+  }
+});
+
+router.post('/workflows/activate', verifyToken, async (req, res) => {
+  try {
+    const { workflowIds, serverId } = req.body;
+    if (!Array.isArray(workflowIds) || workflowIds.length === 0) {
+      return res.status(400).json({ success: false, error: '请选择要激活的工作流' });
+    }
+    if (workflowIds.length > 20) {
+      return res.status(400).json({ success: false, error: '一次最多激活 20 个工作流' });
+    }
+    // 校验每个元素
+    for (const id of workflowIds) {
+      if (typeof id !== 'string' || id.length > 64 || !/^[a-zA-Z0-9_-]+$/.test(id)) {
+        return res.status(400).json({ success: false, error: '工作流 ID 格式无效' });
+      }
+    }
+    const userId = req.user.id;
+    const db = await getDB();
+    if (!db.activeWorkflows) db.activeWorkflows = [];
+    let activated = 0;
+    for (const wfId of workflowIds) {
+      if (typeof wfId !== 'string' || wfId.length > 50) continue;
+      const exists = db.activeWorkflows.find(w => w.userId === userId && w.serverId === serverId && w.workflowId === wfId);
+      if (!exists) {
+        db.activeWorkflows.push({ userId, serverId, workflowId: wfId, activatedAt: new Date().toISOString() });
+        activated++;
+      }
+    }
+    await saveDB(db);
+    res.json({ success: true, activated });
+    // 更新 dispatch-config.json
+    try {
+      const server = db.userServers?.find(s => s.userId === userId && s.id === serverId);
+      if (server) await rebuildAndPushForUser(userId, db, server);
+    } catch (e) { console.warn('推送调度配置失败:', e.message); }
+  } catch (err) {
+    console.error('激活工作流失败:', err);
+    res.status(500).json({ success: false, error: '激活失败' });
+  }
+});
+
+router.get('/workflows/list', verifyToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const serverId = req.query.serverId;
+    const db = await getDB();
+
+    // 1. 从 db 读取灵犀云记录的激活状态
+    let active = (db.activeWorkflows || []).filter(w => w.userId === userId);
+    if (serverId) {
+      active = active.filter(w => w.serverId === serverId);
+    }
+
+    // 2. 从设备 OpenClaw 读 dispatch-config.json 获取真实状态
+    let deviceWorkflows = [];
+    let userServer = null;
+    if (serverId) {
+      userServer = db.userServers?.find(s => s.userId === userId && s.id === serverId);
+    } else {
+      userServer = getActiveServer(db, userId);
+    }
+
+    if (userServer && userServer.ip) {
+      try {
+        const rpcResult = await callOpenClawRPC(userServer, 'agents.files.get', {
+          agentId: 'main',
+          name: 'dispatch-config.json'
+        }, 8000);
+
+        const content = rpcResult?.payload?.content || rpcResult?.payload?.text || '';
+        const contentStr = typeof content === 'string' ? content : JSON.stringify(content);
+        if (contentStr) {
+          const config = JSON.parse(contentStr);
+          if (config?.workflows?.matchRules) {
+            deviceWorkflows = config.workflows.matchRules.map(r => ({
+              workflowId: r.workflowId,
+              serverId: serverId || userServer.id,
+              activatedAt: config.updatedAt || new Date().toISOString(),
+              fromDevice: true // 标记来自设备真实状态
+            }));
+          }
+        }
+      } catch (e) {
+        // 设备不可达或文件不存在，只用 db 数据
+        console.warn('⚠️ 读取设备 dispatch-config 失败:', e.message);
+      }
+    }
+
+    // 3. 合并：设备真实状态优先，db 补充
+    const OFFICIAL_IDS = new Set(['dev-standard', 'dev-quick', 'content-standard', 'data-analysis', 'gstack-sprint']);
+    const dbIds = new Set(active.map(w => w.workflowId));
+    for (const dw of deviceWorkflows) {
+      if (!dbIds.has(dw.workflowId)) {
+        // 不在 db 里的 → 设备独有的
+        dw.custom = !OFFICIAL_IDS.has(dw.workflowId); // 非官方的标记为自定义
+        active.push(dw);
+      } else {
+        // 设备确认了 db 里的记录，标记为已验证
+        const existing = active.find(w => w.workflowId === dw.workflowId);
+        if (existing) existing.verified = true;
+      }
+    }
+
+    // 标记哪些只在 db 里但设备没确认（可能没真正激活）
+    for (const w of active) {
+      if (!w.fromDevice && !w.verified) {
+        w.pending = true; // 待确认
+      }
+    }
+
+    res.json({ success: true, workflows: active, deviceChecked: !!userServer });
+  } catch (err) {
+    console.error('获取工作流列表失败:', err);
+    res.status(500).json({ success: false, error: '获取失败' });
+  }
+});
+
+router.post('/workflows/deactivate', verifyToken, async (req, res) => {
+  try {
+    const { workflowId, serverId } = req.body;
+    const userId = req.user.id;
+    const db = await getDB();
+    if (!db.activeWorkflows) db.activeWorkflows = [];
+    db.activeWorkflows = db.activeWorkflows.filter(w => {
+      // 匹配 userId + workflowId + serverId（如果传了 serverId 则精确匹配，否则按旧行为）
+      if (w.userId !== userId || w.workflowId !== workflowId) return true;
+      if (serverId && w.serverId !== serverId) return true;
+      return false;
+    });
+    await saveDB(db);
+    res.json({ success: true });
+    // 更新 dispatch-config.json
+    try {
+      const server = db.userServers?.find(s => s.userId === userId && (serverId ? s.id === serverId : s.status === 'running'));
+      if (server) await rebuildAndPushForUser(userId, db, server);
+    } catch (e) { console.warn('推送调度配置失败:', e.message); }
+  } catch (err) {
+    res.status(500).json({ success: false, error: '停用失败' });
+  }
 });
 
 /**
@@ -441,10 +951,11 @@ router.get('/:userId', authAndCheckOwnership, async (req, res) => {
     }
     
     // 返回用户的团队配置（如果没有则返回默认）
+    const defaultTemplate = TEAM_TEMPLATES.find(t => t.templateId === 'lingxi-team');
     const team = user.team || {
       teamId: 'default',
       teamName: '我的团队',
-      members: TEAM_TEMPLATES.find(t => t.templateId === 'lingxi-team').members.slice(0, 3)
+      members: defaultTemplate?.members?.slice(0, 3) || []
     };
     
     success(res, { team });
@@ -498,12 +1009,14 @@ router.post('/:userId/apply-template/:templateId', authAndCheckOwnership, async 
   try {
     const { userId, templateId } = req.params;
     
-    const template = TEAM_TEMPLATES.find(t => t.templateId === templateId);
+    const db = await getDB();
+    
+    // ✅ 同时查找预设模板和自定义模板
+    const template = findTemplateById(templateId, db, userId);
     if (!template) {
       return errors.notFound(res, '模板');
     }
     
-    const db = await getDB();
     const user = db.users.find(u => u.id === userId);
     
     if (!user) {
@@ -579,6 +1092,382 @@ router.post('/:userId/apply-template/:templateId', authAndCheckOwnership, async 
     console.error('template:', template);
     errors.serverError(res, error.message);
   }
+});
+
+// ============ 模板部署（通过 OpenClaw RPC） ============
+
+/**
+ * 用户部署锁 — 防止同一用户并发部署导致 config.patch 冲突
+ * key: userId, value: true
+ */
+const _deployLocks = new Map();
+
+/**
+ * 为指定 agent 生成默认 SOUL.md
+ * 预设角色用 AGENT_SOUL_TEMPLATES，自定义角色根据模板信息生成
+ */
+function generateSoulMd(member) {
+  // 预设角色使用硬编码模板
+  if (AGENT_SOUL_TEMPLATES[member.id]) {
+    return AGENT_SOUL_TEMPLATES[member.id];
+  }
+
+  // 自定义角色：根据模板信息生成通用 SOUL.md
+  const name = member.name || member.id;
+  const role = member.role || '团队成员';
+  const desc = member.desc || '';
+  const capabilities = member.capabilities || [];
+  const triggers = member.triggers || [member.id];
+
+  return `# ${name}
+
+你是${name}，${role}。
+
+## 身份
+${role}，专注于${desc || '团队协作'}。
+
+## 性格
+**专业可靠**
+- 认真负责，注重细节
+- 善于沟通和协作
+- 追求高质量输出
+
+## 职责
+${capabilities.length > 0 ? capabilities.map(c => `- ${c}`).join('\n') : `- 团队分配的任务`}
+
+## 触发词
+${triggers.join('、')}
+`;
+}
+
+/**
+ * 通过 OpenClaw RPC 将整个模板部署到用户服务器
+ * 分阶段执行，每个阶段通过 callback 报告进度
+ * 
+ * @param {Object} userServer - 用户服务器信息
+ * @param {Object} template - 模板对象（含 members）
+ * @param {Array} oldMembers - 旧成员列表（用于合并配置）
+ * @param {Function} onProgress - 进度回调 (phase, detail) => void
+ * @returns {Object} 部署结果
+ */
+async function deployTemplateViaRPC(userServer, template, oldMembers, onProgress) {
+  // 每次部署用唯一 sessionKey，避免并发部署干扰
+  const deployId = crypto.randomUUID().substring(0, 8);
+  const sessionKey = `agent:main:lingxi-cloud-deploy-${deployId}`;
+
+  const newMembers = template.members || [];
+
+  // ── 阶段 1：读取当前配置 ──
+  onProgress('read-config', '正在读取 OpenClaw 配置...');
+  const configRes = await callOpenClawRPC(userServer, 'config.get', {}, {
+    displayName: '灵犀云部署',
+  });
+  if (!configRes.ok) {
+    throw new Error('读取 OpenClaw 配置失败: ' + JSON.stringify(configRes.error));
+  }
+
+  const baseHash = configRes.payload?.hash;
+  const currentConfig = configRes.payload?.config || {};
+  const agentsList = currentConfig.agents?.list || [];
+  const defaultWorkspace = currentConfig.agents?.defaults?.workspace || '~/.openclaw/workspace';
+
+  // 构建旧 agent 映射（用于合并用户自定义配置）
+  const oldAgentMap = {};
+  agentsList.forEach(a => { oldAgentMap[a.id] = a; });
+
+  // 旧成员的自定义配置（模型、工作区）
+  const oldMemberConfigMap = {};
+  oldMembers.forEach(m => {
+    if (m.model || m.workspace) {
+      oldMemberConfigMap[m.id] = m;
+    }
+  });
+
+  onProgress('read-config', `已读取配置，当前 ${agentsList.length} 个 Agent`);
+
+  // ── 阶段 2：构建新 agents 列表 ──
+  onProgress('build-config', '正在构建新的 Agent 列表...');
+
+  const updatedList = newMembers.map(member => {
+    const agentId = member.id;
+    const isMain = agentId === 'lingxi';
+    const configId = isMain ? 'main' : agentId;
+    const workspace = member.workspace || `${defaultWorkspace}-${agentId}`;
+
+    // 合并旧配置
+    const existing = oldAgentMap[configId];
+    const oldCustom = oldMemberConfigMap[agentId];
+
+    const agent = {
+      id: configId,
+      ...(isMain ? { default: true } : {}),
+      workspace: existing?.workspace || workspace,
+      identity: {
+        name: member.name || agentId,
+        emoji: member.icon || '🤖',
+      },
+      // 保留用户选择的模型
+      ...(existing?.model ? { model: existing.model } : {}),
+      ...(oldCustom?.model ? { model: oldCustom.model } : {}),
+      ...(member.model ? { model: member.model } : {}),
+    };
+
+    // 灵犀的 subagents 配置
+    if (isMain) {
+      agent.subagents = {
+        allowAgents: newMembers
+          .filter(m => m.id !== 'lingxi')
+          .map(m => m.id),
+      };
+      // 保留旧的其他 subagents 字段
+      if (existing?.subagents) {
+        Object.keys(existing.subagents).forEach(key => {
+          if (key !== 'allowAgents') {
+            agent.subagents[key] = existing.subagents[key];
+          }
+        });
+      }
+    }
+
+    // 保留旧的其他自定义字段
+    if (existing) {
+      Object.keys(existing).forEach(key => {
+        if (!['id', 'default', 'workspace', 'identity', 'model', 'subagents'].includes(key)) {
+          agent[key] = existing[key];
+        }
+      });
+    }
+
+    return agent;
+  });
+
+  onProgress('build-config', `已构建 ${updatedList.length} 个 Agent 配置`);
+
+  // ── 阶段 3：通过 config.patch 更新 ──
+  onProgress('patch-config', '正在更新 OpenClaw 配置（Agent 将重启）...');
+
+  const patchRes = await callOpenClawRPC(userServer, 'config.patch', {
+    raw: JSON.stringify({ agents: { list: updatedList } }),
+    baseHash,
+    note: `灵犀云部署模板: ${template.templateName || template.id}`,
+  }, { timeout: 15000 });
+
+  if (!patchRes.ok) {
+    throw new Error('配置更新失败: ' + JSON.stringify(patchRes.error));
+  }
+
+  onProgress('patch-config', '配置已更新，等待 OpenClaw 重启...');
+
+  // 等待重启（config.patch 后 OpenClaw 会自动重启）
+  await new Promise(resolve => setTimeout(resolve, 5000));
+
+  // ── 阶段 4：为新 agent 写入 SOUL.md ──
+  const newAgentIds = newMembers
+    .filter(m => m.id !== 'lingxi') // 灵犀的 SOUL.md 通常已存在
+    .map(m => m.id);
+
+  const existingIds = new Set(agentsList.map(a => a.id === 'main' ? 'lingxi' : a.id));
+  const agentsNeedingSoul = newAgentIds.filter(id => !existingIds.has(id));
+
+  for (let i = 0; i < agentsNeedingSoul.length; i++) {
+    const agentId = agentsNeedingSoul[i];
+    const member = newMembers.find(m => m.id === agentId);
+    if (!member) continue;
+
+    onProgress('write-soul', `正在写入 ${member.name || agentId} 的 SOUL.md (${i + 1}/${agentsNeedingSoul.length})`);
+
+    try {
+      const soulContent = generateSoulMd(member);
+      // 通过 chat.send 让灵犀写入文件
+      await callOpenClawRPC(userServer, 'chat.send', {
+        sessionKey,
+        message: `请用 write 工具将以下内容写入 agent:${agentId} 的工作区文件 SOUL.md，直接写入不要回复多余内容：\n\n${soulContent}`,
+      }, { timeout: 30000 });
+    } catch (err) {
+      console.warn(`⚠️ 写入 ${agentId} SOUL.md 失败:`, err.message);
+      // 不中断流程，继续下一个
+    }
+  }
+
+  if (agentsNeedingSoul.length > 0) {
+    onProgress('write-soul', `已写入 ${agentsNeedingSoul.length} 个 Agent 的 SOUL.md`);
+  }
+
+  // ── 阶段 5：安装模板指定的 Skills ──
+  // 收集所有成员的 skills
+  const skillsToInstall = newMembers
+    .flatMap(m => (m.skills || []).map(s => ({ agentId: m.id, skillId: s })))
+    .filter(s => s.skillId && typeof s.skillId === 'string');
+
+  // 去重
+  const uniqueSkills = [...new Set(skillsToInstall.map(s => s.skillId))];
+
+  for (let i = 0; i < uniqueSkills.length; i++) {
+    const skillId = uniqueSkills[i];
+    const targetAgents = skillsToInstall.filter(s => s.skillId === skillId).map(s => s.agentId);
+
+    onProgress('install-skills', `正在安装 Skill: ${skillId} (${i + 1}/${uniqueSkills.length})`);
+
+    try {
+      // 让灵犀通过 clawhub skill 安装
+      await callOpenClawRPC(userServer, 'chat.send', {
+        sessionKey,
+        message: `请使用 clawhub skill 安装技能 "${skillId}"，为以下 agent 安装: ${targetAgents.join(', ')}。执行安装即可，不需要回复多余内容。`,
+      }, { timeout: 60000 });
+    } catch (err) {
+      console.warn(`⚠️ 安装 Skill ${skillId} 失败:`, err.message);
+    }
+  }
+
+  if (uniqueSkills.length > 0) {
+    onProgress('install-skills', `已安装 ${uniqueSkills.length} 个 Skill`);
+  }
+
+  return {
+    agentsDeployed: updatedList.length,
+    soulsWritten: agentsNeedingSoul.length,
+    skillsInstalled: uniqueSkills.length,
+  };
+}
+
+/**
+ * 通过 SSE 部署模板到用户 OpenClaw
+ * POST /api/team/:userId/deploy-template/:templateId
+ * 
+ * 流程：应用模板到数据库 → 通过 RPC 部署到 OpenClaw → SSE 推送进度
+ * 如果没有运行中的服务器，只更新数据库（同步方式）
+ */
+router.post('/:userId/deploy-template/:templateId', authAndCheckOwnership, async (req, res) => {
+  const { userId, templateId } = req.params;
+
+  // ── 并发保护：同一用户不能同时部署 ──
+  if (_deployLocks.has(userId)) {
+    return errors.badRequest(res, '部署正在进行中，请稍后再试');
+  }
+  _deployLocks.set(userId, true);
+
+  // ── 1. 查找模板 ──
+  const db = await getDB();
+  const template = findTemplateById(templateId, db, userId);
+  if (!template) {
+    _deployLocks.delete(userId);
+    return errors.notFound(res, '模板');
+  }
+
+  const user = db.users.find(u => u.id === userId);
+  if (!user) {
+    _deployLocks.delete(userId);
+    return errors.notFound(res, '用户');
+  }
+
+  // ── 2. 先同步更新数据库（跟 apply-template 一样） ──
+  const oldMembers = user.team?.members || [];
+  const oldMemberMap = {};
+  oldMembers.forEach(m => {
+    if (m.model || m.workspace) {
+      oldMemberMap[m.id] = m;
+    }
+  });
+
+  const newMembers = template.members.map(m => ({
+    ...m,
+    ...(oldMemberMap[m.id] || {}),
+  }));
+
+  user.team = {
+    teamId: templateId,
+    teamName: template.templateName || template.templateId,
+    members: newMembers,
+    templateId,
+    appliedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  user.agents = newMembers.map(m => m.id);
+  user.agentsUpdatedAt = new Date().toISOString();
+  await saveDB(db);
+
+  console.log(`✅ 已为用户 ${userId} 更新数据库：${template.templateName || templateId}`);
+
+  // ── 3. 检查是否有运行中的服务器 ──
+  const server = getActiveServer(db, userId);
+
+  if (!server?.ip) {
+    _deployLocks.delete(userId);
+    // 没有服务器 → 数据库已更新，直接返回成功
+    return success(res, {
+      team: user.team,
+      agents: user.agents,
+      deploy: { mode: 'db-only', message: '数据库已更新，无运行中的服务器需要部署' },
+    });
+  }
+
+  // ── 4. 有服务器 → SSE 流式部署 ──
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no', // Nginx 不缓冲
+  });
+
+  /** 发送 SSE 事件 */
+  function sendEvent(event, data) {
+    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  }
+
+  // 心跳保活：每 15 秒发送一次，防止代理/负载均衡器超时断开
+  const heartbeat = setInterval(() => {
+    res.write(': heartbeat\n\n');
+  }, 15000);
+
+  // 确保部署结束时清理锁和心跳
+  function finish() {
+    clearInterval(heartbeat);
+    _deployLocks.delete(userId);
+    res.end();
+  }
+
+  // 客户端断开时清理
+  req.on('close', () => {
+    clearInterval(heartbeat);
+    _deployLocks.delete(userId);
+  });
+
+  sendEvent('start', {
+    templateId,
+    templateName: template.templateName || template.templateId,
+    memberCount: newMembers.length,
+  });
+
+  try {
+    const result = await deployTemplateViaRPC(server, template, oldMembers, (phase, detail) => {
+      sendEvent('progress', { phase, detail });
+    });
+
+    sendEvent('complete', {
+      team: user.team,
+      agents: user.agents,
+      deploy: {
+        mode: 'rpc',
+        agentsDeployed: result.agentsDeployed,
+        soulsWritten: result.soulsWritten,
+        skillsInstalled: result.skillsInstalled,
+        recommendedWorkflows: template.recommendedWorkflows || [],
+      },
+    });
+
+    // 推送 dispatch-config.json
+    try {
+      await rebuildAndPushForUser(user.id, await getDB(), server);
+    } catch (e) { console.warn('部署后推送调度配置失败:', e.message); }
+  } catch (err) {
+    console.error('❌ 模板部署失败:', err.message);
+    sendEvent('error', {
+      message: err.message,
+      team: user.team, // 数据库已更新，返回当前状态
+    });
+  }
+
+  finish();
 });
 
 /**
@@ -782,6 +1671,8 @@ router.put('/:userId/members/:memberId', authAndCheckOwnership, async (req, res)
   }
 });
 
+// ═══════════════════════════════════════════════════════════
+// 工作流激活
 export default router;
 
 console.log('✅ lume 团队管理 API 已加载（支持配置合并）');

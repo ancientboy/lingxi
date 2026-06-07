@@ -324,4 +324,40 @@ router.get('/admin/credits', authMiddleware, adminMiddleware, async (req, res) =
   }
 });
 
+// ============ 用户模型偏好 ============
+
+// 获取当前用户的模型偏好
+router.get('/model-preference', authMiddleware, async (req, res) => {
+  try {
+    const db = await getDB();
+    const user = db.users.find(u => u.id === req.user.id);
+    if (!user) return res.status(404).json({ error: '用户不存在' });
+    
+    res.json({ 
+      success: true, 
+      preferredModel: user.preferredModel || null 
+    });
+  } catch (e) {
+    res.status(500).json({ error: '获取失败' });
+  }
+});
+
+// 设置当前用户的模型偏好
+router.post('/model-preference', authMiddleware, async (req, res) => {
+  try {
+    const { model } = req.body;
+    const db = await getDB();
+    const user = db.users.find(u => u.id === req.user.id);
+    if (!user) return res.status(404).json({ error: '用户不存在' });
+    
+    user.preferredModel = model || null;
+    await saveDB(db);
+    
+    console.log(`🎯 用户 ${user.nickname} 设置模型偏好: ${model}`);
+    res.json({ success: true, preferredModel: user.preferredModel });
+  } catch (e) {
+    res.status(500).json({ error: '设置失败' });
+  }
+});
+
 export default router;

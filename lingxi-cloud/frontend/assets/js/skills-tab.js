@@ -26,35 +26,31 @@ function switchView(view) {
   
   const chatContainer = document.querySelector('.chat-container');
   const skillsView = document.getElementById('skillsView');
+  const serversView = document.getElementById('serversView');
+  const workspaceView = document.getElementById('workspaceView');
   
-  console.log('📦 chatContainer:', chatContainer);
-  console.log('📦 skillsView:', skillsView);
+  // 隐藏所有视图
+  if (chatContainer) chatContainer.classList.remove('hidden');
+  if (chatContainer) chatContainer.style.display = '';
+  if (skillsView) skillsView.classList.remove('active');
+  if (serversView) serversView.classList.remove('active');
+  if (workspaceView) workspaceView.classList.remove('active');
   
   if (view === 'chat') {
-    // 切换到聊天视图
-    if (chatContainer) {
-      chatContainer.classList.remove('hidden');
-      chatContainer.style.display = ''; // 清除内联样式
-      console.log('✅ chatContainer 已显示');
-    }
-    if (skillsView) {
-      skillsView.classList.remove('active');
-      console.log('✅ skillsView 已隐藏');
-    }
+    // 聊天视图（默认）
   } else if (view === 'skills') {
-    // 切换到技能库视图
-    if (chatContainer) {
-      chatContainer.classList.add('hidden');
-      console.log('✅ chatContainer 已隐藏');
-    }
-    if (skillsView) {
-      skillsView.classList.add('active');
-      console.log('✅ skillsView 已显示');
-    }
-    
-    if (!skillsState.loaded) {
-      loadSkillsLibrary();
-    }
+    if (chatContainer) chatContainer.classList.add('hidden');
+    if (skillsView) skillsView.classList.add('active');
+    if (!skillsState.loaded) loadSkillsLibrary();
+  } else if (view === 'servers') {
+    if (chatContainer) chatContainer.classList.add('hidden');
+    const serversView = document.getElementById('serversView');
+    if (serversView) serversView.classList.add('active');
+    loadServersView();
+  } else if (view === 'workspace') {
+    if (chatContainer) chatContainer.classList.add('hidden');
+    const workspaceView = document.getElementById('workspaceView');
+    if (workspaceView) workspaceView.classList.add('active');
   }
   
   // 强制重绘
@@ -376,3 +372,257 @@ setTimeout(initSkillsView, 200);
 console.log('✅ skills-tab.js 已加载');
 
 window.initSkillsView = initSkillsView;
+
+// ═══════════════════════════════════════════════════════════════
+// 📱 设备管理视图
+// ═══════════════════════════════════════════════════════════════
+
+
+// ═══════════════════════════════════════════════════════════════
+// 📱 设备管理（对标 Flutter servers_page.dart）
+// ═══════════════════════════════════════════════════════════════
+
+let _serversCache = { servers: [], activeServerId: null, userId: null };
+
+function _getUserId() {
+  if (_serversCache.userId) return _serversCache.userId;
+  try {
+    const u = JSON.parse(localStorage.getItem('lingxi_user') || '{}');
+    _serversCache.userId = u.id || u.user?.id || '';
+  } catch(e) { _serversCache.userId = ''; }
+  return _serversCache.userId;
+}
+
+async function loadServersView() {
+  const container = document.getElementById('serversGridContainer');
+  if (!container) return;
+  
+  container.innerHTML = '<div style="text-align:center;color:#999;padding:60px 20px;"><div style="font-size:32px;margin-bottom:12px;">⏳</div>加载中...</div>';
+  
+  const token = localStorage.getItem('lingxi_token');
+  if (!token) {
+    container.innerHTML = '<div style="text-align:center;color:#999;padding:60px 20px;">请先登录</div>';
+    return;
+  }
+  
+  const userId = _getUserId();
+  if (!userId) {
+    container.innerHTML = '<div style="text-align:center;color:#999;padding:60px 20px;">获取用户信息失败</div>';
+    return;
+  }
+  
+  try {
+    const res = await fetch(`${API_BASE}/api/servers/${userId}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await res.json();
+    _serversCache.servers = data.servers || [];
+    _serversCache.activeServerId = data.activeServerId || null;
+    
+    if (_serversCache.servers.length === 0) {
+      container.innerHTML = `
+        <div style="text-align:center;padding:80px 20px;">
+          <div style="width:64px;height:64px;border-radius:50%;background:#f0f0f0;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
+          <div style="font-size:16px;font-weight:500;color:#666;margin-bottom:8px;">还没有设备</div>
+          <div style="color:#aaa;font-size:13px;margin-bottom:24px;">点击下方按钮添加你的 OpenClaw 服务器</div>
+          <button onclick="showAddServerModal()" style="background:#10a37f;color:white;border:none;padding:12px 28px;border-radius:12px;font-size:14px;cursor:pointer;font-weight:500;">+ 添加设备</button>
+        </div>`;
+      return;
+    }
+    
+    const servers = _serversCache.servers;
+    const activeId = _serversCache.activeServerId;
+    
+    container.innerHTML = `
+      <div style="display:grid;gap:12px;">
+        ${servers.map(s => {
+          const isActive = s.id == activeId;
+          const status = s.status || 'pending';
+          const statusInfo = {
+            running: { text: '在线', color: '#43e97b', emoji: '●' },
+            offline: { text: '离线', color: '#999', emoji: '●' },
+            pending: { text: '检查中', color: '#fbbf24', emoji: '●' },
+            unhealthy: { text: '异常', color: '#fb923c', emoji: '●' },
+          };
+          const si = statusInfo[status] || statusInfo.pending;
+          const port = s.openclawPort || 18789;
+          
+          return `
+            <div style="background:#fff;border-radius:12px;padding:16px;border:${isActive ? '2px solid #10a37f' : '1px solid #f0f0f0'};box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+              <div style="display:flex;align-items:center;gap:12px;">
+                <div style="width:42px;height:42px;border-radius:10px;background:${isActive ? '#10a37f15' : '#f0eeff'};display:flex;align-items:center;justify-content:center;font-size:24px;color:${isActive ? '#10a37f' : '#ccc'};">●</div>
+                <div style="flex:1;min-width:0;">
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <span style="font-size:16px;font-weight:600;">${s.name || '未命名'}</span>
+                    ${isActive ? '<span style="background:#10a37f;color:white;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600;">活跃</span>' : ''}
+                  </div>
+                  <div style="font-size:12px;color:#888;font-family:monospace;margin-top:2px;">${s.ip}:${port}</div>
+                  ${s.description ? `<div style="font-size:11px;color:#aaa;margin-top:2px;">${s.description}</div>` : ''}
+                </div>
+                <div style="text-align:center;">
+                  <div style="width:10px;height:10px;border-radius:50%;background:${si.color};margin:0 auto 4px;${status === 'running' ? 'box-shadow:0 0 6px ' + si.color + '60;' : ''}"></div>
+                  <div style="font-size:11px;color:${si.color};font-weight:500;">${si.text}</div>
+                </div>
+              </div>
+              <div style="border-top:1px solid #f5f5f5;margin-top:12px;padding-top:10px;display:flex;flex-wrap:wrap;gap:8px;">
+                <button onclick="checkServer('${s.id}')" style="border:1px solid #ddd;background:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:12px;color:#667eea;">检查</button>
+                ${!isActive ? `<button onclick="activateServer('${s.id}')" style="border:1px solid #10a37f50;background:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:12px;color:#10a37f;font-weight:600;">切换</button>` : ''}
+                <button onclick="showEditServerModal('${s.id}')" style="border:1px solid #ddd;background:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:12px;color:#667eea;">编辑</button>
+                <button onclick="deleteServer('${s.id}')" style="border:1px solid #f5576c50;background:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:12px;color:#f5576c;">删除</button>
+              </div>
+              ${s.lastCheck ? `<div style="font-size:10px;color:#bbb;margin-top:8px;">最后检查: ${new Date(s.lastCheck).toLocaleDateString('zh-CN',{month:'2-digit',day:'2-digit'})} ${new Date(s.lastCheck).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})}</div>` : ''}
+            </div>`;
+        }).join('')}
+      </div>
+    `;
+  } catch (e) {
+    container.innerHTML = `<div style="text-align:center;color:#e53935;padding:40px;">加载失败: ${e.message}</div>`;
+  }
+}
+
+// ===== 添加设备弹框（对标 Flutter _showAddModal） =====
+let _editingServerId = null;
+
+function showAddServerModal() {
+  _editingServerId = null;
+  const modal = document.getElementById('serverFormModal');
+  if (!modal) { console.error('❌ serverFormModal not found'); return; }
+  document.getElementById('serverFormTitle').textContent = '添加设备';
+  document.getElementById('serverFormSubmitBtn').textContent = '添加';
+  document.getElementById('sf_name').value = '';
+  document.getElementById('sf_ip').value = '';
+  document.getElementById('sf_port').value = '18789';
+  document.getElementById('sf_token').value = '';
+  document.getElementById('sf_session').value = '';
+  document.getElementById('sf_desc').value = '';
+  modal.style.display = 'flex';
+}
+
+function showEditServerModal(serverId) {
+  const server = _serversCache.servers.find(s => s.id == serverId);
+  if (!server) return;
+  
+  _editingServerId = serverId;
+  document.getElementById('serverFormTitle').textContent = '编辑设备';
+  document.getElementById('serverFormSubmitBtn').textContent = '更新';
+  document.getElementById('sf_name').value = server.name || '';
+  document.getElementById('sf_ip').value = server.ip || '';
+  document.getElementById('sf_port').value = server.openclawPort || 18789;
+  document.getElementById('sf_token').value = server.openclawToken || '';
+  document.getElementById('sf_session').value = server.openclawSession || '';
+  document.getElementById('sf_desc').value = server.description || '';
+  const modal = document.getElementById('serverFormModal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeServerFormModal() {
+  const modal = document.getElementById('serverFormModal');
+  if (modal) modal.style.display = 'none';
+}
+
+async function submitServerForm() {
+  const ip = document.getElementById('sf_ip').value.trim();
+  if (!ip) {
+    alert('IP 地址必填');
+    return;
+  }
+  
+  const body = {
+    name: document.getElementById('sf_name').value.trim(),
+    ip: ip,
+    openclawPort: parseInt(document.getElementById('sf_port').value.trim()) || 18789,
+    openclawToken: document.getElementById('sf_token').value.trim(),
+    openclawSession: document.getElementById('sf_session').value.trim(),
+    description: document.getElementById('sf_desc').value.trim(),
+  };
+  
+  const token = localStorage.getItem('lingxi_token');
+  const userId = _getUserId();
+  
+  try {
+    let res;
+    if (_editingServerId) {
+      res = await fetch(`${API_BASE}/api/servers/${userId}/${_editingServerId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(body)
+      });
+    } else {
+      res = await fetch(`${API_BASE}/api/servers/${userId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(body)
+      });
+    }
+    const data = await res.json();
+    closeServerFormModal();
+    loadServersView();
+  } catch (e) {
+    alert('保存失败: ' + e.message);
+  }
+}
+
+async function checkServer(serverId) {
+  const token = localStorage.getItem('lingxi_token');
+  const userId = _getUserId();
+  try {
+    const res = await fetch(`${API_BASE}/api/servers/${userId}/${serverId}/check`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await res.json();
+    alert(data.status === 'running' ? '✅ 设备在线' : '❌ 设备离线');
+    loadServersView();
+  } catch (e) {
+    alert('检查失败: ' + e.message);
+  }
+}
+
+async function activateServer(serverId) {
+  const token = localStorage.getItem('lingxi_token');
+  const userId = _getUserId();
+  try {
+    await fetch(`${API_BASE}/api/servers/${userId}/${serverId}/activate`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    // 刷新设备列表
+    await loadServersView();
+    
+    // 重连 WebSocket（跟 Flutter 的 ws.reset() + ws.connect() 一样）
+    if (typeof reconnectAfterDeviceSwitch === 'function') {
+      await reconnectAfterDeviceSwitch();
+    } else {
+      // fallback：刷新页面
+      location.reload();
+    }
+  } catch (e) {
+    alert('切换失败: ' + e.message);
+  }
+}
+
+async function deleteServer(serverId) {
+  if (!confirm('确定要删除这台设备吗？')) return;
+  const token = localStorage.getItem('lingxi_token');
+  const userId = _getUserId();
+  try {
+    await fetch(`${API_BASE}/api/servers/${userId}/${serverId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    loadServersView();
+  } catch (e) {
+    alert('删除失败: ' + e.message);
+  }
+}
+
+window.loadServersView = loadServersView;
+window.switchView = switchView;
+window.showAddServerModal = showAddServerModal;
+window.showEditServerModal = showEditServerModal;
+window.closeServerFormModal = closeServerFormModal;
+window.submitServerForm = submitServerForm;
+window.checkServer = checkServer;
+window.activateServer = activateServer;
+window.deleteServer = deleteServer;

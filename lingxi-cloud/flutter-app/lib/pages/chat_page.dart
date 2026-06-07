@@ -8,6 +8,8 @@ import 'package:lingxicloud/pages/skills_page.dart';
 import 'package:lingxicloud/pages/lumeclaw_page.dart';
 import 'package:lingxicloud/pages/test_page.dart';
 import 'package:lingxicloud/pages/login_page.dart';
+import 'package:lingxicloud/pages/workspace_page.dart';
+import 'package:lingxicloud/pages/file_explorer_page.dart';
 import 'package:lingxicloud/services/websocket_service.dart';
 import 'package:lingxicloud/services/api_service.dart';
 import 'package:lingxicloud/services/notification_service.dart';
@@ -27,6 +29,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
@@ -38,6 +41,53 @@ class ChatPage extends StatefulWidget {
 class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
+  bool _showScrollToBottom = false;
+  
+  // 🆕 在 initState 里添加滚动监听（初始化在 initState 中执行）
+  void _initScrollListener() {
+    _scrollController.addListener(() {
+      // 滚到顶部时加载更早消息
+      if (_scrollController.position.pixels <= 50 && 
+          !_isLoadingOlderMessages && 
+          _hasMoreOlderMessages && 
+          _currentSessionKey != null &&
+          WebSocketService().isConnected) {
+        _loadOlderMessages();
+      }
+      // 🆕 滚动到底部按钮显示逻辑
+      final show = _scrollController.hasClients &&
+          _scrollController.position.maxScrollExtent - _scrollController.offset > 200;
+      if (show != _showScrollToBottom) {
+        setState(() {
+          _showScrollToBottom = show;
+        });
+      }
+    });
+  }
+  
+  // 🆕 加载更早的消息
+  void _loadOlderMessages() {
+    if (_isLoadingOlderMessages || !_hasMoreOlderMessages || _messages.isEmpty) return;
+    
+    setState(() {
+      _isLoadingOlderMessages = true;
+    });
+    
+    final ws = WebSocketService();
+    // 用最早一条消息的 createdAt 作为游标
+    final oldestMsg = _messages.first;
+    
+    debugPrint('📜 加载更早消息，当前 ${_messages.length} 条');
+    
+    // 请求更多历史（limit 20）
+    ws.sendRequest('chat.history', {
+      'sessionKey': _currentSessionKey!,
+      'limit': 40,  // 多拉一些，过滤掉已有的
+    });
+    
+    // 用特殊标记区分"加载更早"和"普通加载"
+    _loadingOlderSessionKey = _currentSessionKey;
+  }
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   String _currentAgent = 'lingxi';
   bool _wsConnected = false;
@@ -47,6 +97,14 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
   // 🔔 App 生命周期状态（用于判断是否发送通知）
   bool _isAppInBackground = false;
+  
+  // 💾 本地消息缓存
+  bool _isRestoringFromCache = false;  // 标记正在从缓存恢复，避免触发不必要的保存
+  String? _incrementalHistorySessionKey;  // 增量模式标记：收到历史消息时做合并而非替换
+  String? _lastHistoryRequestSessionKey;  // 🔒 竞态保护：记录最后一次发出的历史请求 sessionKey
+  bool _isLoadingOlderMessages = false;   // 正在加载更早消息
+  bool _hasMoreOlderMessages = true;      // 是否还有更早的消息可加载
+  String? _loadingOlderSessionKey;        // 标记正在加载更早消息的 session
   
   // 语音识别（录音 + 后端阿里云识别）
   final _audioRecorder = AudioRecorder();
@@ -70,9 +128,20 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   int _pendingFileSize = 0;  // 🆕 文件大小
   List<Map<String, dynamic>> _sessions = [];
   
-  // 🆕 用于记录正在加载标题的会话列表（按顺序）
-  final List<String> _loadingTitleSessions = [];
   String? _currentSessionKey;
+  String? _selectedModel = 'auto';
+  bool _showModelDropdown = false;
+  
+  // 模型列表
+  static const List<Map<String, String>> _models = [
+    {'id': 'auto', 'name': 'Auto', 'desc': '智能选择最佳模型', 'tier': 'free'},
+    {'id': 'glm-5.1', 'name': 'GLM-5.1', 'desc': '中文最强', 'tier': 'free'},
+    {'id': 'gpt-4o-mini', 'name': 'GPT-4o Mini', 'desc': '快速响应', 'tier': 'free'},
+    {'id': 'glm-4.6', 'name': 'GLM-4.6', 'desc': '均衡稳定', 'tier': 'free'},
+    {'id': 'gpt-4o', 'name': 'GPT-4o', 'desc': 'OpenAI 旗舰', 'tier': 'pro'},
+    {'id': 'gpt-4.1', 'name': 'GPT-4.1', 'desc': '最新 GPT', 'tier': 'pro'},
+    {'id': 'claude-4.5-sonnet', 'name': 'Claude 4.5', 'desc': '即将开放', 'tier': 'pro'},
+  ];
   
   // 会话分组展开/收缩状态
   final Map<String, bool> _sessionGroupExpanded = {
@@ -174,6 +243,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     super.initState();
 
     debugPrint('📋 ChatPage initState 开始');
+    
+    // 🆕 初始化滚动监听
+    _initScrollListener();
 
     // 🔔 添加生命周期监听器
     WidgetsBinding.instance.addObserver(this);
@@ -188,6 +260,16 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     
     // 获取用户服务器信息（用于文件预览）
     _loadUserServerInfo();
+    
+    // 加载模型偏好
+    _loadModelPreference();
+    
+    // 💾 启动时三步走：
+    // ① 从本地缓存恢复消息（即时显示）
+    // ② 从本地缓存恢复 session 列表（即时显示侧边栏）
+    // ③ WebSocket 连上后服务器同步
+    _restoreLastSession();
+    _loadSessionsLocal();  // 不 await，立即开始
     
     // 捕获异步错误
     _loadSessions().catchError((e, stack) {
@@ -261,36 +343,233 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _loadSessions() async {
+  // 💾 保存消息到本地缓存（按服务器 IP 分开存）
+  Future<void> _saveMessagesLocal() async {
+    if (_isRestoringFromCache) return;  // 恢复期间不保存
+    if (_messages.isEmpty) return;
     try {
       final prefs = await SharedPreferences.getInstance();
-      final sessionsJson = prefs.getString('chat_sessions');
-      if (sessionsJson != null && mounted) {
-        final List<dynamic> decoded = json.decode(sessionsJson);
-        setState(() {
-          // 对每个 session 的 key 和 title 进行类型转换，确保是 String 类型
-          _sessions = decoded.map((s) {
-            final map = s is Map ? s as Map<String, dynamic> : <String, dynamic>{};
-            return {
-              'key': map['key']?.toString() ?? '',
-              'title': map['title']?.toString() ?? '新对话',
-              'createdAt': map['createdAt']?.toString(),
-              'updatedAt': map['updatedAt']?.toString(),
-            };
-          }).toList();
-        });
+      // 🔥 按服务器 IP + sessionKey 组合存储，切换设备不会串数据
+      final serverId = await _getCurrentServerId();
+      final cacheKey = 'msg_cache_${serverId}_${_currentSessionKey ?? 'default'}';
+      final jsonData = _messages.map((m) {
+        final map = <String, dynamic>{
+          'id': m.id,
+          'role': m.role,
+          'content': m.content,
+          'createdAt': m.createdAt.toIso8601String(),
+          'agentId': m.agentId,
+          'imageUrl': m.imageUrl,
+        };
+        return map;
+      }).toList();
+      await prefs.setString(cacheKey, jsonEncode(jsonData));
+      // 同时保存最后活跃会话（也按服务器区分）
+      if (_currentSessionKey != null) {
+        await prefs.setString('last_active_session_$serverId', _currentSessionKey!);
+        await prefs.setString('last_active_agent_$serverId', _currentAgent);
       }
-    } catch (e, stack) {
-      debugPrint('❌ _loadSessions 异常: $e\nStack: $stack');
+      debugPrint('💾 已缓存 ${_messages.length} 条消息 (server: $serverId, session: ${_currentSessionKey ?? 'default'})');
+    } catch (e) {
+      debugPrint('❌ 保存消息缓存失败: $e');
+    }
+  }
+  
+  // 💾 获取当前服务器标识（用于按设备隔离缓存）
+  Future<String> _getCurrentServerId() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      // 尝试从 WebSocket URL 中提取服务器标识
+      final ws = WebSocketService();
+      final debugInfo = ws.getDebugInfo();
+      final wsUrl = debugInfo['wsUrl']?.toString() ?? '';
+      if (wsUrl.isNotEmpty) {
+        // 从 ws://ip:port 提取 ip 作为 serverId
+        final uri = Uri.tryParse(wsUrl);
+        if (uri != null && uri.host.isNotEmpty) {
+          return uri.host.replaceAll('.', '_');
+        }
+      }
+      // 兜底：用 userId
+      final token = prefs.getString(Constants.storageAccessToken);
+      if (token != null) {
+        return 'user_${token.hashCode.abs()}';
+      }
+    } catch (e) {
+      debugPrint('❌ 获取服务器标识失败: $e');
+    }
+    return 'default';
+  }
+  
+  // 💾 从本地缓存加载消息（按服务器隔离）
+  Future<bool> _loadMessagesLocal(String? sessionKey) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final serverId = await _getCurrentServerId();
+      final cacheKey = 'msg_cache_${serverId}_${sessionKey ?? 'default'}';
+      final jsonStr = prefs.getString(cacheKey);
+      
+      if (jsonStr == null || jsonStr.isEmpty) return false;
+      
+      final List<dynamic> jsonData = jsonDecode(jsonStr);
+      if (jsonData.isEmpty) return false;
+      
+      _isRestoringFromCache = true;
+      setState(() {
+        _messages = jsonData.map((m) {
+          return Message(
+            id: m['id']?.toString() ?? '',
+            role: m['role']?.toString() ?? 'user',
+            content: m['content']?.toString() ?? '',
+            createdAt: DateTime.tryParse(m['createdAt']?.toString() ?? '') ?? DateTime.now(),
+            agentId: m['agentId']?.toString() ?? 'lingxi',
+            imageUrl: m['imageUrl']?.toString(),
+          );
+        }).toList();
+      });
+      _isRestoringFromCache = false;
+      
+      debugPrint('💾 从缓存恢复了 ${_messages.length} 条消息 (session: ${sessionKey ?? 'default'})');
+      _scrollToBottom();
+      return true;
+    } catch (e) {
+      _isRestoringFromCache = false;
+      debugPrint('❌ 加载消息缓存失败: $e');
+      return false;
+    }
+  }
+  
+  // 💾 清除指定会话的本地缓存（按服务器隔离）
+  Future<void> _clearMessagesLocal(String? sessionKey) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final serverId = await _getCurrentServerId();
+      final cacheKey = 'msg_cache_${serverId}_${sessionKey ?? 'default'}';
+      await prefs.remove(cacheKey);
+    } catch (e) {
+      debugPrint('❌ 清除消息缓存失败: $e');
+    }
+  }
+  
+  // 🆕 增量合并消息（本地 + 服务器）
+  void _mergeMessages(List<Message> serverMessages) {
+    if (serverMessages.isEmpty) return;
+    
+    // 用 id 作为去重 key
+    final existingIds = <String>{};
+    for (final m in _messages) {
+      if (m.id.isNotEmpty) existingIds.add(m.id);
+    }
+    
+    // 找出服务器有但本地没有的消息
+    final newMessages = <Message>[];
+    for (final sm in serverMessages) {
+      if (sm.id.isNotEmpty && !existingIds.contains(sm.id)) {
+        newMessages.add(sm);
+      }
+    }
+    
+    if (newMessages.isEmpty) {
+      debugPrint('🔄 增量合并: 无新消息，保持本地不变');
+      return;
+    }
+    
+    debugPrint('🔄 增量合并: 本地 ${_messages.length} 条，服务器 ${serverMessages.length} 条，新增 ${newMessages.length} 条');
+    
+    // 合并：本地消息 + 新消息，按时间排序
+    final allMessages = [..._messages, ...newMessages];
+    allMessages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    
+    setState(() {
+      _messages = allMessages;
+    });
+  }
+
+  // 💾 保存 session 列表到本地缓存（按服务器隔离）
+  Future<void> _saveSessionsLocal() async {
+    if (_sessions.isEmpty) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final serverId = await _getCurrentServerId();
+      final cacheKey = 'sessions_cache_$serverId';
+      await prefs.setString(cacheKey, jsonEncode(_sessions));
+      debugPrint('💾 已缓存 ${_sessions.length} 个会话 (server: $serverId)');
+    } catch (e) {
+      debugPrint('❌ 保存会话缓存失败: $e');
+    }
+  }
+  
+  // 💾 从本地缓存加载 session 列表
+  Future<bool> _loadSessionsLocal() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final serverId = await _getCurrentServerId();
+      final cacheKey = 'sessions_cache_$serverId';
+      final jsonStr = prefs.getString(cacheKey);
+      
+      if (jsonStr == null || jsonStr.isEmpty) return false;
+      
+      final List<dynamic> decoded = jsonDecode(jsonStr);
+      if (decoded.isEmpty) return false;
+      
+      setState(() {
+        _sessions = decoded.map((s) {
+          final map = s as Map<String, dynamic>;
+          // 更新相对时间（因为时间流逝了）
+          final timestamp = map['timestamp'] as int? ?? DateTime.now().millisecondsSinceEpoch;
+          return {
+            ...map,
+            'relativeTime': _formatRelativeTime(timestamp),
+          };
+        }).toList();
+      });
+      
+      debugPrint('💾 从缓存恢复了 ${_sessions.length} 个会话');
+      return true;
+    } catch (e) {
+      debugPrint('❌ 加载会话缓存失败: $e');
+      return false;
+    }
+  }
+
+  Future<void> _loadSessions() async {
+    // 🚀 已被 _loadSessionsLocal() + _loadSessionsFromServer() 替代
+    // 保留空实现防止编译错误
+  }
+
+  // 💾 恢复最后活跃会话（按服务器隔离，启动时即时显示缓存）
+  Future<void> _restoreLastSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final serverId = await _getCurrentServerId();
+      final lastSession = prefs.getString('last_active_session_$serverId');
+      final lastAgent = prefs.getString('last_active_agent_$serverId');
+      
+      if (lastSession != null && lastSession.isNotEmpty) {
+        debugPrint('💾 恢复最后会话: $lastSession, agent: $lastAgent');
+        setState(() {
+          _currentSessionKey = lastSession;
+          if (lastAgent != null && _agents.containsKey(lastAgent)) {
+            _currentAgent = lastAgent;
+          }
+        });
+        // 从本地缓存加载消息（即时显示）
+        await _loadMessagesLocal(lastSession);
+      }
+    } catch (e) {
+      debugPrint('❌ 恢复最后会话失败: $e');
     }
   }
 
   Future<void> _saveSessions() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('chat_sessions', json.encode(_sessions));
+    // 🚀 统一使用服务器隔离的缓存键（和 _saveSessionsLocal 一致）
+    await _saveSessionsLocal();
   }
 
   void _createNewSession() {
+    // 💾 保存当前会话到缓存
+    _saveMessagesLocal();
+    
     // 新建会话时，不设置本地格式的 key
     // sessionKey 会在第一次发送消息后从服务器响应中获取
     
@@ -306,11 +585,27 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     setState(() {
       _currentSessionKey = null;  // 清空，表示新会话
       _messages.clear();
+      _hasMoreOlderMessages = true;
+      _isLoadingOlderMessages = false;
     });
+    
+    // 💾 清除最后活跃会话标记
+    _getCurrentServerId().then((serverId) {
+      SharedPreferences.getInstance().then((prefs) {
+        prefs.remove('last_active_session_$serverId');
+      });
+    });
+    
     Navigator.pop(context);
   }
 
   void _switchSession(String sessionKey) {
+    // 🔒 如果已经是当前会话，不重复切换
+    if (_currentSessionKey == sessionKey) return;
+    
+    // 💾 保存当前会话到缓存
+    _saveMessagesLocal();
+    
     // 找到对应的会话
     final session = _sessions.firstWhere(
       (s) => s['key'] == sessionKey,
@@ -320,6 +615,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     setState(() {
       _currentSessionKey = sessionKey;
       _messages.clear();
+      _hasMoreOlderMessages = true;  // 重置更早消息标记
+      _isLoadingOlderMessages = false;
       // 恢复会话的 Agent
       if (session.isNotEmpty && session['agentId'] != null) {
         final agentId = session['agentId'].toString();
@@ -329,7 +626,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       }
     });
     Navigator.pop(context);
-    _loadMessageHistory(sessionKey);
+    
+    // 💾 先从本地缓存加载（即时显示）
+    _loadMessagesLocal(sessionKey).then((loaded) {
+      // 再从服务器增量同步最新消息
+      _loadMessageHistory(sessionKey, incremental: true);
+    });
   }
 
   void _deleteSession(String sessionKey) {
@@ -433,12 +735,29 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           });
           debugPrint('✅ WebSocket 已连接（状态已更新）');
           
+          // 🔥 重连后直接重置生成状态
+          if (_isGenerating) {
+            debugPrint('🔄 WebSocket 重连，重置生成状态');
+            setState(() {
+              _isGenerating = false;
+              _queuePosition = 0;
+              _queueTotal = 0;
+            });
+          }
+          
           // 异步加载会话，添加错误处理
           Future.microtask(() async {
             try {
               debugPrint('🔄 开始加载会话列表...');
               await Future.delayed(const Duration(milliseconds: 500));
               _loadSessionsFromServer();
+              
+              // 🆕 如果有当前会话，增量同步最新消息（处理后台完成的回复）
+              if (_currentSessionKey != null) {
+                await Future.delayed(const Duration(milliseconds: 300));
+                _loadMessageHistory(_currentSessionKey!, incremental: true);
+              }
+              
               debugPrint('✅ 会话列表加载完成');
             } catch (e, stack) {
               debugPrint('❌ 加载会话列表失败: $e\nStack: $stack');
@@ -463,7 +782,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             debugPrint('📋 收到 ${sessions.length} 个会话');
             
             // 🆕 异步加载会话标题（和 Web 端保持一致）
-            _loadSessionTitles(sessions);
+            _parseSessions(sessions);
           }
           return;
         }
@@ -472,43 +791,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       if (data['type'] == 'res' && data['id']?.toString().contains('chat_history') == true) {
         debugPrint('📚 收到历史消息响应：ok=${data['ok']}');
         
-        // 🆕 如果是用于加载会话标题的请求，尝试更新会话标题
-        if (data['ok'] == true && data['payload'] != null && !_isGenerating && _loadingTitleSessions.isNotEmpty) {
-          try {
-            final messages = data['payload']?['messages'] as List?;
-            if (messages != null && messages.isNotEmpty) {
-              final firstMessage = messages.first as Map<String, dynamic>?;
-              if (firstMessage != null && firstMessage['role'] == 'user') {
-                final content = _extractText(firstMessage) ?? '';
-                // 移除附件标记
-                final cleanContent = content.replaceAll(RegExp(r'\[附件:[^\]]+\]\s*'), '').trim();
-                
-                if (cleanContent.isNotEmpty) {
-                  final newTitle = cleanContent.length > 50 
-                      ? '${cleanContent.substring(0, 50)}...' 
-                      : cleanContent;
-                  
-                  // 🆕 从列表中取出对应的 sessionKey（按顺序）
-                  final sessionKey = _loadingTitleSessions.removeAt(0);
-                  
-                  // 更新对应的会话
-                  final index = _sessions.indexWhere((s) => s['key'] == sessionKey);
-                  if (index >= 0) {
-                    setState(() {
-                      _sessions[index]['title'] = newTitle;
-                      _sessions[index]['lastMessage'] = cleanContent.length > 100 
-                          ? '${cleanContent.substring(0, 100)}...' 
-                          : cleanContent;
-                    });
-                    
-                    debugPrint('✅ 自动更新会话标题: $sessionKey → $newTitle');
-                  }
-                }
-              }
-            }
-          } catch (e) {
-            debugPrint('⚠️ 自动更新会话标题失败: $e');
-          }
+        // 🔒 竞态保护：如果会话已经切走了，丢弃响应
+        if (_lastHistoryRequestSessionKey != null && 
+            _currentSessionKey != _lastHistoryRequestSessionKey) {
+          debugPrint('📚 ⏭️ 会话已切换，丢弃历史响应 (期望: $_lastHistoryRequestSessionKey, 当前: $_currentSessionKey)');
+          return;
         }
         
         // 如果正在生成消息，不要替换当前消息
@@ -522,9 +809,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             final messages = data['payload']?['messages'] as List? ?? data['payload']?['transcript'] as List?;
             if (messages != null && messages.isNotEmpty) {
               debugPrint('✅ 加载了 ${messages.length} 条历史消息');
-              setState(() {
-                _messages = messages.map((m) {
-                  final map = m is Map ? m as Map<String, dynamic> : {};
+              
+              // 🆕 解析服务器消息
+              final serverMessages = messages.map((m) {
+                final map = m is Map ? m as Map<String, dynamic> : {};
                   final messageId = map['id']?.toString() ?? map['runId']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString();
                   final createdAt = _parseDateTime(map['createdAt'] ?? map['created_at']);
                   // 使用消息自己的 agentId，如果没有则使用当前 Agent
@@ -654,8 +942,54 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                     documentInfo: documentInfo,  // 🆕 添加文档信息
                   );
                 }).whereType<Message>().toList();  // 🚫 过滤掉 null 值（工具调用结果等）
-              });
+              
+              // 🆕 增量合并：检查是否为增量模式
+              final isIncremental = _incrementalHistorySessionKey != null;
+              final isLoadingOlder = _loadingOlderSessionKey != null;
+              
+              if (isLoadingOlder) {
+                // 🔥 加载更早消息模式：前置旧消息，保持滚动位置
+                _loadingOlderSessionKey = null;
+                _isLoadingOlderMessages = false;
+                
+                // 记住当前滚动位置
+                final prevScrollExtent = _scrollController.hasClients ? _scrollController.position.maxScrollExtent : 0;
+                
+                // 去重后前置
+                final existingIds = _messages.map((m) => m.id).toSet();
+                final olderMessages = serverMessages.where((m) => !existingIds.contains(m.id)).toList();
+                
+                if (olderMessages.isEmpty) {
+                  _hasMoreOlderMessages = false;
+                  debugPrint('📜 没有更早的消息了');
+                } else {
+                  setState(() {
+                    _messages = [...olderMessages, ..._messages];
+                  });
+                  debugPrint('📜 前置了 ${olderMessages.length} 条更早消息');
+                  
+                  // 恢复滚动位置（不让用户感觉跳动）
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (_scrollController.hasClients) {
+                      final newExtent = _scrollController.position.maxScrollExtent;
+                      _scrollController.jumpTo(newExtent - prevScrollExtent);
+                    }
+                  });
+                }
+              } else if (isIncremental && _messages.isNotEmpty) {
+                // 增量模式：合并本地 + 服务器消息
+                _mergeMessages(serverMessages);
+                _incrementalHistorySessionKey = null;
+              } else {
+                // 全量模式：直接替换
+                setState(() {
+                  _messages = serverMessages;
+                });
+              }
+              
               _scrollToBottom();
+              // 💾 从服务器加载历史后更新本地缓存
+              _saveMessagesLocal();
             }
           } catch (e) {
             debugPrint('❌ 解析历史消息失败: $e');
@@ -761,6 +1095,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             _queuePosition = 0;
             _queueTotal = 0;
           });
+          // 💾 对话完成后保存消息缓存
+          _saveMessagesLocal();
           // 对话完成后刷新用户数据（更新 token 使用量）
           _refreshUserData();
 
@@ -1062,39 +1398,46 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     }
   }
 
-  // 🆕 异步加载会话标题（和 Web 端保持一致）
-  Future<void> _loadSessionTitles(List<dynamic> sessions) async {
+  // 🆕 解析会话列表（不发额外请求，只用 sessions.list 返回的数据）
+  void _parseSessions(List<dynamic> sessions) {
     try {
-      final ws = WebSocketService();
-      if (!ws.isConnected) {
-        debugPrint('⚠️ WebSocket 未连接，无法加载会话标题');
-        return;
-      }
+      // 🔒 过滤掉子 agent 的孤立会话（sessionKey 包含 :subagent:），只显示用户直接交互的会话
+      final filteredSessions = sessions.where((s) {
+        final map = s is Map ? s as Map<String, dynamic> : {};
+        final key = (map['key'] ?? '').toString();
+        return !key.contains(':subagent:');
+      }).toList();
       
-      // 🆕 用于存储加载的标题
-      final Map<String, String> loadedTitles = {};
-      
-      // 先显示基本会话列表
       setState(() {
-        _sessions = sessions.map((s) {
+        _sessions = filteredSessions.map((s) {
           final map = s is Map ? s as Map<String, dynamic> : {};
           
+          // 标题优先级：label > title > lastMessagePreview > agent名 > 默认
           String title = '未命名会话';
+          final label = map['label']?.toString() ?? '';
+          final mapTitle = map['title']?.toString() ?? '';
+          final preview = (map['lastMessagePreview'] ?? map['lastMessage'] ?? '').toString();
           
-          // 优先使用已有的 label（如果不是默认值）
-          if (map['label'] != null && 
-              map['label'].toString().isNotEmpty && 
-              map['label'].toString() != '灵犀' &&
-              !map['label'].toString().contains('agent:') &&
-              !map['label'].toString().contains(RegExp(r'[0-9a-f]{8}-[0-9a-f]{4}'))) {
-            title = map['label'].toString();
-          } else if (map['title'] != null && 
-                     map['title'].toString().isNotEmpty && 
-                     map['title'].toString() != '新对话' &&
-                     !map['title'].toString().contains(RegExp(r'[0-9a-f]{8}-[0-9a-f]{4}'))) {
-            title = map['title'].toString();
+          // label 且不是默认值
+          if (label.isNotEmpty && label != '灵犀' && !label.contains('agent:') && 
+              !RegExp(r'[0-9a-f]{8}-[0-9a-f]{4}').hasMatch(label) && label != 'agent') {
+            title = label.length > 50 ? '${label.substring(0, 50)}...' : label;
+          } 
+          // title 且不是默认值
+          else if (mapTitle.isNotEmpty && mapTitle != '新对话' && mapTitle != '灵犀' &&
+              !RegExp(r'[0-9a-f]{8}-[0-9a-f]{4}').hasMatch(mapTitle)) {
+            title = mapTitle.length > 50 ? '${mapTitle.substring(0, 50)}...' : mapTitle;
           }
-          // 🚫 不再使用 session key 的最后一部分（会导致显示 UUID）
+          // lastMessagePreview（截取前 50 字）
+          else if (preview.isNotEmpty && preview != '暂无消息') {
+            title = preview.length > 50 ? '${preview.substring(0, 50)}...' : preview;
+          }
+          // 用 agent 名字兜底
+          else {
+            final agentId = (map['agentId'] ?? map['agent_id'] ?? 'lingxi').toString();
+            final agentName = _agents[agentId]?['name'] ?? 'AI';
+            title = '$agentName 的对话';
+          }
           
           // 格式化相对时间
           final timestamp = map['updatedAt'] != null 
@@ -1106,11 +1449,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           return {
             'key': (map['key'] ?? '').toString(),
             'title': title,
-            'agentId': map['agentId'] ?? map['agent_id'] ?? 'lingxi',
+            'agentId': (map['agentId'] ?? map['agent_id'] ?? 'lingxi').toString(),
             'updatedAt': map['updatedAt'],
             'timestamp': timestamp,
             'relativeTime': _formatRelativeTime(timestamp),
-            'lastMessage': map['lastMessagePreview'] ?? map['lastMessage'] ?? '暂无消息',
+            'lastMessage': preview.isNotEmpty ? preview : '暂无消息',
           };
         }).toList();
         
@@ -1122,44 +1465,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         });
       });
       
-      // 🆕 为前 10 个会话同步加载第一条消息作为标题
-      final topSessions = _sessions.take(10).toList();
-      for (int i = 0; i < topSessions.length; i++) {
-        final session = topSessions[i];
-        final sessionKey = session['key'] as String?;
-        if (sessionKey == null) continue;
-        
-        // 如果标题已经是默认值，加载第一条消息
-        final currentTitle = session['title'] as String? ?? '';
-        if (currentTitle == '未命名会话' || 
-            currentTitle == '新对话' ||
-            currentTitle.contains('agent:') ||
-            currentTitle.contains(RegExp(r'[0-9a-f]{8}-[0-9a-f]{4}'))) {
-          
-          try {
-            // 🆕 记录正在加载的会话（按顺序）
-            _loadingTitleSessions.add(sessionKey);
-            
-            // 发送请求
-            ws.sendRequest('chat.history', {
-              'sessionKey': sessionKey,
-              'limit': 1,
-            });
-            
-            debugPrint('📝 请求加载会话标题: $sessionKey');
-            
-            // 等待一小段时间让响应到达
-            await Future.delayed(const Duration(milliseconds: 200));
-            
-          } catch (e) {
-            debugPrint('⚠️ 加载会话标题失败: $sessionKey, $e');
-          }
-        }
-      }
+      // 💾 保存 session 列表到本地缓存
+      _saveSessionsLocal();
       
-      debugPrint('✅ 会话标题加载完成');
+      debugPrint('✅ 解析了 ${_sessions.length} 个会话（无额外请求）');
     } catch (e, stack) {
-      debugPrint('❌ _loadSessionTitles 异常: $e\nStack: $stack');
+      debugPrint('❌ _parseSessions 异常: $e\nStack: $stack');
     }
   }
   
@@ -1187,11 +1498,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         return;
       }
       debugPrint('📋 发送 sessions.list 请求');
-      // 🔧 添加 includeDerivedTitles 和 includeLastMessage 参数
+      // 🚀 懒加载：只拿列表，不发额外请求
+      // 传入 includeLastMessage 以获取 lastMessagePreview 字段，用于会话列表预览
       ws.sendRequest('sessions.list', {
-        'includeDerivedTitles': true,
         'includeLastMessage': true,
-        'limit': 50,  // 限制数量
+        'includeDerivedTitles': true,
       });
     } catch (e, stack) {
       debugPrint('❌ _loadSessionsFromServer 异常: $e\nStack: $stack');
@@ -1209,17 +1520,23 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     }
   }
 
-  void _loadMessageHistory(String sessionKey) {
+  void _loadMessageHistory(String sessionKey, {bool incremental = false, int limit = 20}) {
     try {
       final ws = WebSocketService();
       if (!ws.isConnected) {
         debugPrint('⚠️ WebSocket 未连接，无法加载历史消息');
         return;
       }
-      debugPrint('📚 发送 chat.history 请求，sessionKey: $sessionKey');
+      debugPrint('📚 发送 chat.history 请求，sessionKey: $sessionKey, incremental: $incremental, limit: $limit');
+      // 🔒 记录请求时的 sessionKey，用于竞态检测
+      _lastHistoryRequestSessionKey = sessionKey;
+      // 标记当前请求是否为增量模式
+      if (incremental) {
+        _incrementalHistorySessionKey = sessionKey;
+      }
       ws.sendRequest('chat.history', {
         'sessionKey': sessionKey,
-        'limit': 10,
+        'limit': limit,
       });
       // 历史消息响应在 _initWebSocket 的主 listener 中处理
     } catch (e, stack) {
@@ -1251,14 +1568,37 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
     switch (state) {
       case AppLifecycleState.resumed:
-        // App 回到前台
         debugPrint('📱 App 回到前台');
         _isAppInBackground = false;
+        
+        // 🔥 直接重置生成状态（避免卡住的感觉）
+        if (_isGenerating) {
+          debugPrint('📱 后台切回，重置生成状态');
+          setState(() {
+            _isGenerating = false;
+            _queuePosition = 0;
+            _queueTotal = 0;
+          });
+        }
+        
+        // 恢复最后会话（如果没有当前会话）
+        if (_currentSessionKey == null && _messages.isEmpty) {
+          debugPrint('📱 无当前会话，尝试恢复最后活跃会话');
+          _restoreLastSession();
+        }
+        
+        // 增量同步最新消息
+        if (_currentSessionKey != null && WebSocketService().isConnected) {
+          debugPrint('📱 后台切回，增量同步最新消息');
+          _loadMessageHistory(_currentSessionKey!, incremental: true);
+        }
         break;
       case AppLifecycleState.paused:
         // App 进入后台
         debugPrint('📱 App 进入后台');
         _isAppInBackground = true;
+        // 💾 进入后台时保存消息缓存
+        _saveMessagesLocal();
         break;
       case AppLifecycleState.inactive:
         // App 不活跃（例如来电、分屏）
@@ -1729,6 +2069,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     final user = Provider.of<AppProvider>(context, listen: false).user;
     final userId = user?.id;
     
+    debugPrint('📤 免费用户发送消息: userId=$userId, text=$text, hasImage=$hasImage');
+    
     if (userId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('未登录，请重新登录')),
@@ -1814,8 +2156,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           });
         }
       }
-    } catch (e) {
+    } catch (e, stack) {
       debugPrint('❌ 免费用户发送消息失败: $e');
+      debugPrint('❌ Stack: $stack');
       if (mounted) {
         setState(() {
           _isGenerating = false;
@@ -1840,63 +2183,23 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     if (text.isEmpty && !hasImage) return;
     if (_isGenerating) return;
     
-    // ✅ 检查是否是免费用户
     final user = Provider.of<AppProvider>(context, listen: false).user;
-    final isFreeUser = user?.subscription?['plan'] == 'free' || user?.subscription?['plan'] == null;
+    final userId = user?.id;
+    final ws = WebSocketService();
     
-    if (isFreeUser) {
-      // 免费用户：使用 HTTP API 调用
+    // 判断是否能走 WebSocket
+    final canUseWs = ws.isConnected && userId != null;
+    
+    debugPrint('📤 发送消息: text="${text.length > 20 ? text.substring(0, 20) : text}", canUseWs=$canUseWs');
+    
+    if (!canUseWs) {
+      // WebSocket 不可用 → HTTP 路径（所有用户都可用）
+      debugPrint('📋 WebSocket 不可用，走 HTTP 路径');
       _sendMessageForFreeUser(text, hasImage);
       return;
     }
     
-    // ✅ 订阅用户：WebSocket 逻辑
-    final ws = WebSocketService();
-    if (!ws.isConnected) {
-      debugPrint('⚠️ WebSocket 未连接，状态: ${ws.isConnecting ? "正在连接" : "未连接"}');
-      
-      if (!ws.isConnecting) {
-        // 未在连接中，尝试连接
-        debugPrint('🔌 尝试连接 WebSocket...');
-        ws.connect().then((_) {
-          debugPrint('✅ WebSocket 连接成功，等待认证...');
-          // 等待认证完成（hello-ok）
-          Future.delayed(const Duration(seconds: 2), () {
-            if (ws.isConnected && mounted) {
-              debugPrint('✅ 认证完成，重新发送消息');
-              _sendMessage();
-            } else {
-              debugPrint('❌ 认证超时或连接失败');
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('连接超时，请重试')),
-                );
-              }
-            }
-          });
-        }).catchError((e) {
-          debugPrint('❌ 连接失败: $e');
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('连接失败: $e')),
-            );
-          }
-        });
-      } else {
-        // 正在连接中，等待
-        debugPrint('⏳ WebSocket 正在连接中，等待...');
-        Future.delayed(const Duration(seconds: 1), () {
-          if (ws.isConnected && mounted) {
-            _sendMessage();
-          } else if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('正在连接，请稍候...')),
-            );
-          }
-        });
-      }
-      return;
-    }
+    debugPrint('📋 走 WebSocket 路径');
 
     _controller.clear();
     
@@ -1982,6 +2285,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     }
     
     debugPrint('📤 发送消息: sessionKey=$targetSessionKey, message=${text.substring(0, text.length > 50 ? 50 : text.length)}');
+    
     debugPrint('📤 完整参数: $params');
     ws.sendRequest('chat.send', params);
     
@@ -2030,6 +2334,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     
     // 清除待发送的图片
     _clearPendingImage();
+    
+    // 💾 发送消息后保存缓存
+    _saveMessagesLocal();
   }
 
   String _toString(dynamic value) {
@@ -2120,20 +2427,18 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           if (!isWide) _scaffoldKey.currentState?.openDrawer();
         },
       ),
-      title: _buildAgentSelector(),  // Agent选择器放在中间
+      title: const Text('灵犀', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
       centerTitle: true,
       actions: [
-        // 状态指示灯
         Padding(
           padding: const EdgeInsets.only(right: 8),
           child: _buildConnectionIndicator(),
         ),
-        // 主题切换
         IconButton(
-          icon: Icon(isDarkMode ? Icons.light_mode : Icons.dark_mode),
-          onPressed: () {
-            Provider.of<AppProvider>(context, listen: false).toggleTheme();
-          },
+          icon: const Icon(Icons.folder_outlined, size: 22),
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const FileExplorerPage()),
+          ),
         ),
       ],
     );
@@ -2492,9 +2797,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   
   // ✅ 问题4：构建"思考中"气泡框
   Widget _buildThinkingBubble(bool isDarkMode, Map<String, dynamic>? agentInfo) {
-    final bgColor = isDarkMode ? const Color(0xFF343541) : Colors.grey.shade100;
+    final bgColor = isDarkMode ? const Color(0xFF343541) : Constants.surfaceColor;
     final iconColor = isDarkMode ? const Color(0xFF10A37F) : Constants.primaryColor;
-    final textColor = isDarkMode ? const Color(0xFFECECF1) : Colors.black87;
+    final textColor = isDarkMode ? const Color(0xFFECECF1) : Constants.textPrimaryColor;
     
     final agent = _agents[_currentAgent];
     String agentName = 'AI';
@@ -2510,12 +2815,19 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.all(12),
+        margin: const EdgeInsets.symmetric(vertical: 3, horizontal: 4),
+        padding: const EdgeInsets.all(14),
         constraints: const BoxConstraints(maxWidth: 400),
         decoration: BoxDecoration(
           color: bgColor,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(Constants.radiusMd),
+          border: Border.all(
+            color: isDarkMode ? const Color(0xFF404040) : Constants.borderLight,
+            width: 0.5,
+          ),
+          boxShadow: isDarkMode 
+            ? null 
+            : [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6, offset: const Offset(0, 1))],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2573,28 +2885,218 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   Text('思考中...', style: TextStyle(color: textColor, fontSize: 13)),
                 ],
               ),
-            // 停止按钮
-            const SizedBox(height: 12),
-            GestureDetector(
-              onTap: _abortChat,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.red.withOpacity(0.3)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.stop, size: 16, color: Colors.red.shade400),
-                    const SizedBox(width: 4),
-                    Text(
-                      '停止生成',
-                      style: TextStyle(color: Colors.red.shade400, fontSize: 12),
+          ],
+        ),
+      ),
+    );
+  }
+// 构建文本输入区域（悬浮圆角卡片，上下分区，对齐 Web 端高级感）
+  Widget _buildTextInputArea(bool isDarkMode) {
+    final hasText = _controller.text.isNotEmpty;
+    final showTools = !hasText && _pendingImageUrl == null && !_isGenerating;
+
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 680),
+      decoration: BoxDecoration(
+        color: isDarkMode ? const Color(0xFF2D2D30) : Constants.surfaceColor,
+        borderRadius: BorderRadius.circular(Constants.radiusLg),
+        border: Border.all(
+          color: isDarkMode ? const Color(0xFF404040) : Constants.borderDefault,
+          width: 1,
+        ),
+        boxShadow: isDarkMode 
+          ? null
+          : [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 12, offset: const Offset(0, 2))],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 图片预览区域
+          if (_pendingImageUrl != null)
+            Container(
+              height: 80,
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(Constants.radiusSm),
+                    child: _buildFilePreview(isDarkMode),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          _pendingImageName ?? '文件',
+                          style: TextStyle(
+                            color: isDarkMode ? Colors.white70 : Constants.textSecondaryColor,
+                            fontSize: 12,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _pendingFileType == 'document' ? '点击发送按钮上传文档' : '点击发送按钮上传',
+                          style: TextStyle(
+                            color: isDarkMode ? Colors.white38 : Constants.textTertiaryColor,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.close, color: Colors.red.shade400, size: 18),
+                    onPressed: _clearPendingImage,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                  ),
+                ],
+              ),
+            ),
+          // 上半部：输入框 + 发送按钮
+          Container(
+            padding: const EdgeInsets.fromLTRB(12, 10, 8, 0),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                // 输入框（无背景、无边框，融入卡片）
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    style: TextStyle(
+                      color: isDarkMode ? const Color(0xFFECECF1) : Constants.textPrimaryColor,
+                      fontSize: 15,
+                      height: 1.5,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: _pendingImageUrl != null ? '添加图片描述（可选）...' : '给灵犀发消息...',
+                      hintStyle: TextStyle(
+                        color: isDarkMode ? const Color(0xFF6E6E80) : Constants.textPlaceholderColor,
+                        fontSize: 15,
+                      ),
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      filled: false,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 4),
+                      isDense: true,
+                    ),
+                    maxLines: null,
+                    textInputAction: TextInputAction.send,
+                    onSubmitted: (_) => _sendMessage(),
+                  ),
                 ),
+                // 发送 / 停止按钮
+                if (_isGenerating)
+                  _buildStopButton(onTap: _abortChat, size: 30)
+                else if (hasText || _pendingImageUrl != null)
+                  _buildCircleButton(
+                    icon: Icons.arrow_upward_rounded,
+                    color: Constants.primaryColor,
+                    onTap: _sendMessage,
+                    size: 30,
+                  ),
+              ],
+            ),
+          ),
+          // 下半部：左工具 + 右模型（有文字时自动隐藏工具按钮）
+          Container(
+            padding: const EdgeInsets.fromLTRB(4, 2, 4, 6),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // 左边工具按钮（无文字+无附件+非生成中才显示）
+                if (showTools)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildToolButton(Icons.camera_alt_outlined, () async {
+                        final picker = ImagePicker();
+                        final XFile? file = await picker.pickImage(source: ImageSource.camera);
+                        if (file != null) {
+                          await _selectImageFromXFile(file);
+                        }
+                      }, isDarkMode),
+                      _buildToolButton(Icons.attach_file_rounded, () async {
+                        final result = await file_picker.FilePicker.platform.pickFiles(
+                          type: file_picker.FileType.custom,
+                          allowedExtensions: [
+                            'jpg', 'jpeg', 'png', 'gif', 'webp',
+                            'pdf', 'txt', 'md', 'html', 'csv', 'json',
+                          ],
+                          allowCompression: false,
+                        );
+                        if (result != null && result.files.isNotEmpty) {
+                          await _selectFile(result.files.first);
+                        }
+                      }, isDarkMode),
+                      _buildToolButton(Icons.mic_rounded, _speechEnabled
+                        ? () { setState(() { _showVoiceInput = true; }); }
+                        : null, isDarkMode),
+                    ],
+                  ),
+                // 右边：模型选择器
+                _buildModelPill(isDarkMode),
+              ],
+            ),
+          ),
+          // 模型下拉面板
+          if (_showModelDropdown) _buildModelDropdown(isDarkMode),
+        ],
+      ),
+    );
+  }
+
+  // 圆形按钮（发送/停止）
+  Widget _buildCircleButton({
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+    double size = 32,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+        ),
+        alignment: Alignment.center,
+        child: Icon(icon, color: Colors.white, size: size * 0.5),
+      ),
+    );
+  }
+
+  // 停止按钮（豆包风格：外圈持续旋转 + 内部方块停止图标）
+  Widget _buildStopButton({
+    required VoidCallback onTap,
+    double size = 32,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // 外圈持续旋转
+            _SpinningRing(color: Constants.primaryColor, strokeWidth: 2.5, size: size),
+            // 内部停止图标（圆角方块）
+            Container(
+              width: size * 0.38,
+              height: size * 0.38,
+              decoration: BoxDecoration(
+                color: Constants.primaryColor,
+                borderRadius: BorderRadius.circular(3),
               ),
             ),
           ],
@@ -2603,167 +3105,184 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     );
   }
 
-  // 构建文本输入区域（豆包风格布局）
-  Widget _buildTextInputArea(bool isDarkMode) {
-    final hasText = _controller.text.isNotEmpty;  // 检测输入框是否有文字
+  // 工具按钮（底部栏小图标）
+  Widget _buildToolButton(IconData icon, VoidCallback? onTap, bool isDarkMode) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(Constants.radiusSm),
+        ),
+        alignment: Alignment.center,
+        child: Icon(
+          icon,
+          size: 18,
+          color: isDarkMode ? const Color(0xFF8E8EA0) : Constants.textTertiaryColor,
+        ),
+      ),
+    );
+  }
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // 图片预览区域
-        if (_pendingImageUrl != null)
-          Container(
-            height: 80,
-            margin: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              children: [
-                // 文件预览（图片或文档图标）
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: _buildFilePreview(isDarkMode),
-                ),
-                const SizedBox(width: 8),
-                // 文件信息
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        _pendingImageName ?? '文件',
-                        style: TextStyle(
-                          color: isDarkMode ? Colors.white70 : Colors.black54,
-                          fontSize: 12,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _pendingFileType == 'document' ? '点击发送按钮上传文档' : '点击发送按钮上传',
-                        style: TextStyle(
-                          color: isDarkMode ? Colors.white54 : Colors.black38,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // 删除按钮
-                IconButton(
-                  icon: Icon(Icons.close, color: Colors.red.shade400, size: 20),
-                  onPressed: _clearPendingImage,
-                ),
-              ],
-            ),
-          ),
-        // 输入行（豆包风格：左相机，右麦克风+上传，有文字显示发送）
-        Row(
+  // 模型选择 Pill（对齐 Web model-pill）
+  Widget _buildModelPill(bool isDarkMode) {
+    final currentModel = _models.firstWhere(
+      (m) => m['id'] == _selectedModel,
+      orElse: () => _models.first,
+    );
+    return GestureDetector(
+      onTap: () => setState(() { _showModelDropdown = !_showModelDropdown; }),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          color: _showModelDropdown
+            ? (isDarkMode ? const Color(0xFF404040) : Constants.bgHover)
+            : Colors.transparent,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // 左边：相机图标
-            IconButton(
-              icon: Icon(
-                Icons.camera_alt_outlined,
-                color: isDarkMode ? const Color(0xFFECECF1) : Colors.grey.shade700,
-              ),
-              onPressed: () async {
-                final picker = ImagePicker();
-                final XFile? file = await picker.pickImage(source: ImageSource.camera);
-                if (file != null) {
-                  await _selectImageFromXFile(file);
-                }
-              },
-            ),
-            // 中间：输入框
-            Expanded(
-              child: TextField(
-                controller: _controller,
-                style: TextStyle(color: isDarkMode ? const Color(0xFFECECF1) : Colors.black87),
-                decoration: InputDecoration(
-                  hintText: _pendingImageUrl != null ? '添加图片描述（可选）...' : '输入消息...',
-                  hintStyle: TextStyle(color: isDarkMode ? const Color(0xFF6E6E80) : Colors.grey),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
-                  filled: true,
-                  fillColor: isDarkMode ? const Color(0xFF424454) : Colors.white,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  isDense: true,
-                ),
-                maxLines: null,
-                textInputAction: TextInputAction.send,
-                onSubmitted: (_) => _sendMessage(),
+            // 小圆点
+            Container(
+              width: 5, height: 5,
+              decoration: BoxDecoration(
+                color: Constants.primaryColor,
+                shape: BoxShape.circle,
               ),
             ),
-            // 右边：麦克风 + 上传文件（或发送/停止按钮）
-            if (_isGenerating)
-              // AI 正在生成时：显示停止按钮
-              IconButton(
-                icon: const Icon(
-                  Icons.stop,
-                  color: Colors.red,
-                  size: 28,
-                ),
-                onPressed: _abortChat,
-                tooltip: '停止生成',
-              )
-            else if (hasText || _pendingImageUrl != null)
-              // 有文字或图片时：显示发送按钮（绿色箭头）
-              IconButton(
-                icon: Icon(
-                  Icons.send,
-                  color: Constants.primaryColor,
-                ),
-                onPressed: _sendMessage,
-              )
-            else
-              // 没有文字时：显示麦克风 + 上传图标
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // 语音输入按钮
-                  IconButton(
-                    icon: Icon(
-                      Icons.mic,
-                      color: isDarkMode ? const Color(0xFFECECF1) : Colors.grey.shade700,
-                    ),
-                    onPressed: _speechEnabled
-                        ? () {
-                            setState(() {
-                              _showVoiceInput = true;
-                            });
-                          }
-                        : null,
-                  ),
-                  // 上传文件按钮（支持图片和文档）
-                  IconButton(
-                    icon: Icon(
-                      Icons.attach_file,
-                      color: isDarkMode ? const Color(0xFFECECF1) : Colors.grey.shade700,
-                    ),
-                    onPressed: () async {
-                      // 🆕 使用 FilePicker 支持图片和文档
-                      final result = await file_picker.FilePicker.platform.pickFiles(
-                        type: file_picker.FileType.custom,
-                        allowedExtensions: [
-                          // 图片
-                          'jpg', 'jpeg', 'png', 'gif', 'webp',
-                          // 文档
-                          'pdf', 'txt', 'md', 'html', 'csv', 'json',
-                        ],
-                        allowCompression: false,  // 禁用自动压缩
-                      );
-                      
-                      if (result != null && result.files.isNotEmpty) {
-                        final file = result.files.first;
-                        await _selectFile(file);
-                      }
-                    },
-                  ),
-                ],
+            const SizedBox(width: 4),
+            Text(
+              currentModel['name'] ?? 'GLM-5.1',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: isDarkMode ? const Color(0xFF8E8EA0) : Constants.textTertiaryColor,
               ),
+            ),
+            const SizedBox(width: 2),
+            Icon(
+              _showModelDropdown ? Icons.expand_less : Icons.expand_more,
+              size: 12,
+              color: isDarkMode ? const Color(0xFF8E8EA0) : Constants.textTertiaryColor,
+            ),
           ],
         ),
-      ],
+      ),
     );
+  }
+
+  // 模型下拉面板（对齐 Web model-dropdown）
+  Widget _buildModelDropdown(bool isDarkMode) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(8, 0, 8, 6),
+      decoration: BoxDecoration(
+        color: isDarkMode ? const Color(0xFF2D2D30) : Constants.surfaceColor,
+        borderRadius: BorderRadius.circular(Constants.radiusMd),
+        border: Border.all(
+          color: isDarkMode ? const Color(0xFF404040) : Constants.borderDefault,
+        ),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 16, offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: _models.map((m) {
+          final isActive = m['id'] == _selectedModel;
+          final isPro = m['tier'] == 'pro';
+          return GestureDetector(
+            onTap: () {
+              setState(() {
+                _selectedModel = m['id']!;
+                _showModelDropdown = false;
+              });
+              _saveModelPreference(m['id']!);
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: isActive
+                  ? Constants.primaryColor.withOpacity(0.08)
+                  : Colors.transparent,
+                borderRadius: BorderRadius.circular(Constants.radiusSm),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${m['name']}${isPro ? ' 🔒' : ''}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: isPro && !isActive
+                              ? (isDarkMode ? Colors.white38 : Constants.textTertiaryColor)
+                              : (isDarkMode ? const Color(0xFFECECF1) : Constants.textPrimaryColor),
+                          ),
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          m['desc'] ?? '',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isDarkMode ? const Color(0xFF6E6E80) : Constants.textTertiaryColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (isActive)
+                    Icon(Icons.check, size: 16, color: Constants.primaryColor),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  // 保存模型偏好到后端
+  Future<void> _saveModelPreference(String modelId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString(Constants.storageAccessToken);
+    if (token == null) return;
+    try {
+      await http.post(
+        Uri.parse('${Constants.baseUrl}/api/user/model-preference'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'model': modelId}),
+      );
+    } catch (e) {
+      debugPrint('保存模型偏好失败: $e');
+    }
+  }
+
+  // 加载模型偏好
+  Future<void> _loadModelPreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString(Constants.storageAccessToken);
+    if (token == null) return;
+    try {
+      final res = await http.get(
+        Uri.parse('${Constants.baseUrl}/api/user/model-preference'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      final data = jsonDecode(res.body);
+      if (data['success'] == true && data['preferredModel'] != null) {
+        setState(() { _selectedModel = data['preferredModel']; });
+      }
+    } catch (e) {
+      debugPrint('加载模型偏好失败: $e');
+    }
   }
 
   // 取消对话
@@ -2785,7 +3304,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       _queueTotal = 0;
     });
     
-    // 移除正在输入的提示
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('已取消生成'),
@@ -2793,8 +3311,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       ),
     );
   }
-
-  // 构建语音输入区域
   Widget _buildVoiceInputArea(bool isDarkMode) {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -2916,6 +3432,23 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             ),
           ),
           
+          // 办公区入口（在新对话上面）
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: ListTile(
+              dense: true,
+              leading: Icon(Icons.business_outlined, color: iconColor, size: 20),
+              title: const Text('办公区', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+              trailing: Icon(Icons.chevron_right, size: 16, color: subTextColor),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WorkspacePage()));
+              },
+            ),
+          ),
+          
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: OutlinedButton.icon(
@@ -2944,12 +3477,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                     children: _buildSessionGroups(isDarkMode),
                   ),
           ),
-          
-          Divider(color: isDarkMode ? Colors.white10 : Colors.black12, height: 1),
-          _buildToolItem(Icons.people_outline, _getTeamMenuTitle(), _getTeamMenuAction(), isDarkMode),
-          
-          Divider(color: isDarkMode ? Colors.white10 : Colors.black12, height: 1),
-          _buildUserFooter(isDarkMode),
         ],
       ),
     );
@@ -4379,7 +4906,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       final currentAgentInfo = _agents[_currentAgent];
       final currentAgentName = currentAgentInfo?['name']?.toString() ?? 'AI';
       
-      return Column(
+      return Stack(
+        children: [
+          Column(
         children: [
           // 顶部升级提示条（仅免费用户显示）
           if (isFreeUser) ...[
@@ -4409,6 +4938,15 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                 ? _buildWelcomeExamples(currentAgentInfo, isDarkMode)
                 : Column(
                     children: [
+                      // 🆕 加载更早消息指示器
+                      if (_isLoadingOlderMessages)
+                        Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: SizedBox(
+                            width: 16, height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Constants.primaryColor),
+                          ),
+                        ),
                       // 刷新按钮栏
                       if (_messages.isNotEmpty)
                         Container(
@@ -4429,10 +4967,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                                   TextButton.icon(
                                     onPressed: _isGenerating ? null : () {
                                       if (_currentSessionKey != null) {
-                                        _loadMessageHistory(_currentSessionKey!);
+                                        _loadMessageHistory(_currentSessionKey!, incremental: true);
                                         ScaffoldMessenger.of(context).showSnackBar(
                                           const SnackBar(
-                                            content: Text('正在刷新消息...'),
+                                            content: Text('正在同步最新消息...'),
                                             duration: Duration(seconds: 1),
                                           ),
                                         );
@@ -4542,28 +5080,66 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                     ],
                   ),
           ),
+          // 🆕 磨砂玻璃效果输入区域
           Container(
             padding: EdgeInsets.only(
-              left: 16,
-              right: 16,
-              top: 8,
+              left: 12,
+              right: 12,
+              top: 6,
               bottom: MediaQuery.of(context).viewInsets.bottom > 0
-                  ? 8
-                  : MediaQuery.of(context).padding.bottom + 16,
+                  ? 6
+                  : MediaQuery.of(context).padding.bottom + 10,
             ),
-            decoration: BoxDecoration(
-              color: isDarkMode ? const Color(0xFF343541) : Colors.white,
-              boxShadow: isDarkMode 
-                ? null
-                : [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -2))],
-            ),
-            child: SafeArea(
-              top: false,
-              child: _showVoiceInput 
-                  ? _buildVoiceInputArea(isDarkMode)
-                  : _buildTextInputArea(isDarkMode),
+            child: ClipRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                child: SafeArea(
+                  top: false,
+                  child: _showVoiceInput 
+                      ? _buildVoiceInputArea(isDarkMode)
+                      : _buildTextInputArea(isDarkMode),
+                ),
+              ),
             ),
           ),
+        ],
+      ),
+          // 🆕 回到底部浮动按钮
+          if (_showScrollToBottom)
+            Positioned(
+              bottom: 100,
+              // 居中偏移：屏幕宽度一半减去按钮半径
+              left: MediaQuery.of(context).size.width / 2 - 20,
+              child: GestureDetector(
+                onTap: () {
+                  _scrollController.animateTo(
+                    _scrollController.position.maxScrollExtent,
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeOut,
+                  );
+                },
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: isDarkMode ? const Color(0xFF3D3D3D) : Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: isDarkMode ? Colors.white70 : Colors.grey.shade700,
+                    size: 24,
+                  ),
+                ),
+              ),
+            ),
         ],
       );
     } catch (e) {
@@ -4892,10 +5468,13 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 对齐 Web 端气泡样式
     final bgColor = isUser
         ? (isDarkMode ? const Color(0xFF444654) : Constants.primaryColor)
-        : (isDarkMode ? const Color(0xFF343541) : Colors.grey.shade100);
-    final textColor = isDarkMode ? const Color(0xFFECECF1) : (isUser ? Colors.white : Colors.black87);
+        : (isDarkMode ? const Color(0xFF343541) : Constants.surfaceColor);
+    final textColor = isDarkMode 
+        ? const Color(0xFFECECF1) 
+        : (isUser ? Colors.white : Constants.textPrimaryColor);
     final iconColor = isDarkMode ? const Color(0xFF10A37F) : Constants.primaryColor;
 
     // 安全获取 agent 信息
@@ -4940,12 +5519,19 @@ class _MessageBubble extends StatelessWidget {
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.all(12),
+        margin: const EdgeInsets.symmetric(vertical: 3, horizontal: 4),
+        padding: const EdgeInsets.all(14),
         constraints: const BoxConstraints(maxWidth: 400),
         decoration: BoxDecoration(
           color: bgColor,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(Constants.radiusMd),
+          border: isUser ? null : Border.all(
+            color: isDarkMode ? const Color(0xFF404040) : Constants.borderLight,
+            width: 0.5,
+          ),
+          boxShadow: isDarkMode 
+            ? null 
+            : [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6, offset: const Offset(0, 1))],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -5347,6 +5933,90 @@ class _AudioWaveAnimationState extends State<_AudioWaveAnimation>
           }),
         );
       },
+    );
+  }
+}
+
+// 旋转进度画笔（停止按钮外圈动画）
+class _SpinProgressPainter extends CustomPainter {
+  final double progress;
+  final Color color;
+  final double strokeWidth;
+  
+  _SpinProgressPainter({
+    required this.progress,
+    required this.color,
+    this.strokeWidth = 2.5,
+  });
+  
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width - strokeWidth) / 2;
+    
+    // 背景圆（浅色）
+    final bgPaint = Paint()
+      ..color = color.withOpacity(0.15)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+    canvas.drawCircle(center, radius, bgPaint);
+    
+    // 前景弧（旋转）
+    final fgPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+    
+    final startAngle = progress * 2 * 3.14159265; // 旋转起点
+    const sweepAngle = 3.14159265 * 1.2; // 约 216 度弧
+    
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      startAngle,
+      sweepAngle,
+      false,
+      fgPaint,
+    );
+  }
+  
+  @override
+  bool shouldRepaint(covariant _SpinProgressPainter old) => old.progress != progress;
+}
+
+/// 持续旋转的圆环（豆包风格停止按钮外圈）
+class _SpinningRing extends StatefulWidget {
+  final Color color;
+  final double strokeWidth;
+  final double size;
+  const _SpinningRing({required this.color, this.strokeWidth = 2.5, this.size = 32});
+  @override
+  State<_SpinningRing> createState() => _SpinningRingState();
+}
+
+class _SpinningRingState extends State<_SpinningRing> with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1500))
+      ..repeat(); // 持续循环
+  }
+  @override
+  void dispose() { _ctrl.dispose(); super.dispose(); }
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (_, __) => CustomPaint(
+        size: Size(widget.size, widget.size),
+        painter: _SpinProgressPainter(
+          progress: _ctrl.value,
+          color: widget.color,
+          strokeWidth: widget.strokeWidth,
+        ),
+      ),
     );
   }
 }

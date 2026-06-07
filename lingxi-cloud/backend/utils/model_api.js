@@ -67,9 +67,10 @@ function recordFailure(model) {
  * 调用 DMXAPI 免费 API（支持多模型轮询）
  * @param {string} message - 用户消息
  * @param {string} [imageUrl] - 可选图片URL
+ * @param {string} [systemPrompt] - 可选 system prompt（角色人设）
  * @returns {Promise<string>} - 模型响应
  */
-export async function callModelAPI(message, imageUrl = null) {
+export async function callModelAPI(message, imageUrl = null, systemPrompt = null) {
   const apiKey = process.env.DMXAPI_API_KEY;
   const baseUrl = process.env.DMXAPI_BASE_URL || 'https://www.dmxapi.cn/v1';
   
@@ -110,7 +111,7 @@ export async function callModelAPI(message, imageUrl = null) {
           messages: [
             {
               role: 'system',
-              content: '你是 Lume，一个友好、聪明的 AI 助手。用简洁自然的语言回复用户。'
+              content: systemPrompt || '你是 Lume，一个友好、聪明的 AI 助手。用简洁自然的语言回复用户。'
             },
             {
               role: 'user',

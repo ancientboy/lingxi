@@ -30,6 +30,70 @@ const AGENT_INFO = {
   smart: { id: 'smart', name: '智家', emoji: '🏠', desc: '智能家居', agentDir: 'smart' }
 };
 
+// 默认团队（新用户/免费用户）
+const DEFAULT_AGENTS = ['lingxi', 'coder', 'noter'];
+
+/**
+ * 🆕 通过 OpenClaw HTTP API 推送团队配置（不需要 SSH）
+ * 使用 config.patch 安全合并，不覆盖其他配置
+ */
+async function pushAgentsViaHttpApi(server, agents) {
+  const { ip, openclawPort, openclawToken, openclawSession } = server;
+  const port = openclawPort || 18789;
+  const session = openclawSession || '';
+  const token = openclawToken || '';
+  
+  // 构建 agents 配置
+  const agentList = agents.map(agentId => {
+    const info = AGENT_INFO[agentId];
+    if (agentId === 'lingxi') {
+      return {
+        id: 'main',
+        default: true,
+        name: '灵犀',
+        workspace: '~/.openclaw/workspace',
+        agentDir: '~/.openclaw/agents/main/agent',
+        subagents: { allowAgents: agents.filter(a => a !== 'lingxi').map(a => AGENT_INFO[a]?.id || a) }
+      };
+    }
+    return {
+      id: info?.id || agentId,
+      name: info?.name || agentId,
+      workspace: `~/.openclaw/workspace-${agentId}`,
+      agentDir: `~/.openclaw/agents/${info?.agentDir || agentId}/agent`
+    };
+  });
+
+  const agentsConfig = {
+    defaults: { model: { primary: 'alibaba-cloud/qwen3.5-plus' }, workspace: '~/.openclaw/workspace' },
+    list: agentList
+  };
+
+  // 通过 OpenClaw HTTP API config.patch
+  const url = `http://${ip}:${port}/${session}/api`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify({
+      action: 'config.patch',
+      raw: JSON.stringify({ agents: agentsConfig }),
+      note: '灵犀云团队配置同步'
+    })
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`config.patch 失败: HTTP ${response.status} - ${text}`);
+  }
+
+  const result = await response.json();
+  console.log(`✅ 通过 HTTP API 同步团队配置成功: ${ip}`);
+  return result;
+}
+
 /**
  * 同步团队配置到远程服务器
  */

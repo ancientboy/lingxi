@@ -81,36 +81,51 @@ class WebSocketService {
         }
       }
       
-      // 从 API 获取 Gateway 连接信息
-      debugPrint('🔌 正在获取 Gateway 连接信息...');
-      final response = await apiService.get('/api/gateway/connect-info');
-      final data = response.data;
-      
-      debugPrint('🔌 Gateway 响应：$data (statusCode=${response.statusCode})');
-      
-      // 检查是否返回 403（没有团队/服务器）
-      if (response.statusCode == 403) {
-        debugPrint('📋 用户没有团队，使用免费 API 对话模式');
-        _isConnecting = false;
-        _notifyListeners({'type': 'status', 'status': 'free_mode', 'message': data['message'] ?? '请先领取 AI 团队'});
-        return;
-      }
-      
-      if (data != null && data['wsUrl'] != null) {
-        _wsUrl = data['wsUrl'];
-        _token = data['token'];
-        _gatewayToken = data['gatewayToken'];
-        _session = data['session'];
-        _sessionPrefix = data['sessionPrefix'];
-        
-        debugPrint('🔌 WebSocket URL: $_wsUrl');
-        debugPrint('🔌 Session: $_session');
-        debugPrint('🔌 Session Prefix: $_sessionPrefix');
+      // 从 API 获取 Gateway 连接信息（如果已有缓存则跳过）
+      if (_wsUrl != null && _token != null && _gatewayToken != null) {
+        debugPrint('🔌 使用缓存的 Gateway 信息，跳过 API 请求');
       } else {
-        debugPrint('❌ 获取 Gateway 信息失败: $data');
-        _isConnecting = false;
-        _notifyListeners({'type': 'error', 'error': '获取连接信息失败: ${data['error'] ?? '未知错误'}'});
-        return;
+        debugPrint('🔌 正在获取 Gateway 连接信息...');
+        final response = await apiService.get('/api/gateway/connect-info');
+      
+        final data = response.data;
+      
+        debugPrint('🔌 Gateway 响应：$data (statusCode=${response.statusCode})');
+      
+        // 🔧 新逻辑：mode=free 表示免费聊天模式（不是错误）
+        final mode = data?['mode'];
+        if (mode == 'free' || (data != null && data['wsUrl'] == null)) {
+          debugPrint('💬 免费聊天模式（无设备连接）');
+          _isConnecting = false;
+          _isConnected = false;
+          _notifyListeners({'type': 'status', 'status': 'free_mode', 'message': data?['message'] ?? '免费聊天模式'});
+          return;
+        }
+        
+        // 检查是否返回 403（真正的错误）
+        if (response.statusCode == 403) {
+          debugPrint('❌ 连接被拒绝');
+          _isConnecting = false;
+          _notifyListeners({'type': 'status', 'status': 'free_mode', 'message': data?['message'] ?? '请添加设备'});
+          return;
+        }
+      
+        if (data != null && data['wsUrl'] != null) {
+          _wsUrl = data['wsUrl'];
+          _token = data['token'];
+          _gatewayToken = data['gatewayToken'];
+          _session = data['session'];
+          _sessionPrefix = data['sessionPrefix'];
+        
+          debugPrint('🔌 WebSocket URL: $_wsUrl');
+          debugPrint('🔌 Session: $_session');
+          debugPrint('🔌 Session Prefix: $_sessionPrefix');
+        } else {
+          debugPrint('❌ 获取 Gateway 信息失败: $data');
+          _isConnecting = false;
+          _notifyListeners({'type': 'error', 'error': '获取连接信息失败: ${data['error'] ?? '未知错误'}'});
+          return;
+        }
       }
       
       final wsUrl = '${_wsUrl}?token=${Uri.encodeComponent(_token!)}';
@@ -162,10 +177,14 @@ class WebSocketService {
         onDone: () {
           debugPrint('🔌 WebSocket connection closed after receiving $_messagesReceived messages');
           _lastError = '连接已关闭';
+          final wasConnected = _isConnected;
           _isConnecting = false;
           _isConnected = false;
           _notifyListeners({'type': 'status', 'status': 'disconnected'});
-          _scheduleReconnect();
+          // 只在 App 活跃时自动重连（后台断开不重连，等回前台 forceReconnect）
+          if (wasConnected) {
+            _scheduleReconnect();
+          }
         },
       );
       
@@ -186,7 +205,7 @@ class WebSocketService {
     
     final params = {
       'minProtocol': 3,
-      'maxProtocol': 3,
+      'maxProtocol': 99,
       'client': {
         'id': 'openclaw-control-ui',
         'version': '1.0.0',
@@ -366,6 +385,29 @@ class WebSocketService {
     _gatewayToken = null;
     _session = null;
     _sessionPrefix = null;
+  }
+
+  /// 🔄 强制重连（App 回前台时调用）
+  /// 保留已有的 wsUrl/token 等信息，直接重连
+  void forceReconnect() {
+    debugPrint('🔄 forceReconnect: 重置状态并重连');
+    _reconnectTimer?.cancel();
+    _heartbeatTimer?.cancel();
+    _subscription?.cancel();
+    _channel?.sink.close();
+    _channel = null;
+    _isConnected = false;
+    _isConnecting = false;
+    _reconnectAttempts = 0;
+    connect();
+  }
+
+  /// 💓 发送心跳 ping（App 回前台时验证连接是否还活着）
+  void ping() {
+    if (_channel != null && _isConnected) {
+      debugPrint('💓 发送验证 ping');
+      _channel!.sink.add(json.encode({'type': 'ping'}));
+    }
   }
 
   void clearListeners() {

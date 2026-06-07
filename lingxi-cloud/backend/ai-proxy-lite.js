@@ -45,9 +45,82 @@ if (!fs.existsSync(DATA_DIR)) {
 // ============ 9Router 统一路由配置 ============
 const ROUTER_URL = process.env.ROUTER_URL || 'http://localhost:20128';
 
+// ============ Lume 智能模型选择 ============
+// 当用户请求 model="auto" 时，根据时段/套餐/负载自动选择最佳模型
+const LUME_AUTO_MODELS = {
+  // 优先级从高到低，按用户套餐分组
+  // 注意：不要把 glm-cn/glm-5.1 放首位，因为跟用户直连智谱共享 Key 限额
+  free: [
+    'gh/gpt-4o-mini',        // GitHub Copilot 免费，快速稳定
+    'glm-cn/glm-4.5-air',    // 智谱轻量（不同 Key，不冲突）
+    'glm-cn/glm-5.1',        // 智谱最强（最后兜底，可能跟用户直连共享限额）
+  ],
+  pro: [
+    'gh/gpt-4o',             // GPT-4o
+    'gh/gpt-4o-mini',        // 快速备选
+    'cu/claude-4.5-sonnet',  // Claude 备选
+    'glm-cn/glm-5.1',        // 智谱兜底
+  ],
+};
+
+// 记录每个模型的最近失败时间，用于智能避让
+const modelFailures = new Map(); // model -> { lastFail, count, cooldownUntil }
+
+function markModelFailed(routerModel) {
+  const now = Date.now();
+  const existing = modelFailures.get(routerModel) || { lastFail: 0, count: 0, cooldownUntil: 0 };
+  existing.lastFail = now;
+  existing.count++;
+  // 失败 1 次冷却 2 分钟，失败 2+ 次冷却 10 分钟
+  existing.cooldownUntil = now + (existing.count >= 2 ? 10 * 60 * 1000 : 2 * 60 * 1000);
+  modelFailures.set(routerModel, existing);
+}
+
+function isModelCoolingDown(routerModel) {
+  const fail = modelFailures.get(routerModel);
+  if (!fail) return false;
+  if (Date.now() > fail.cooldownUntil) {
+    modelFailures.delete(routerModel); // 冷却结束，清除记录
+    return false;
+  }
+  return true;
+}
+
+// 智能选择最佳可用模型
+function selectLumeAutoModel(clientIp) {
+  // 1. 查用户套餐
+  const userInfo = ipUserMap[clientIp];
+  const tier = userInfo?.userId ? 'pro' : 'free'; // TODO: 从数据库读实际套餐
+  const candidates = LUME_AUTO_MODELS[tier] || LUME_AUTO_MODELS.free;
+
+  // 2. 避让最近失败的模型
+  for (const model of candidates) {
+    if (!isModelCoolingDown(model)) {
+      console.log(`[Lume Auto] ${clientIp} (${tier}) → ${model}`);
+      return model;
+    }
+  }
+
+  // 3. 全部冷却中，用第一个（最小冷却时间）
+  console.warn(`[Lume Auto] ${clientIp} 所有模型冷却中，强制使用 ${candidates[0]}`);
+  return candidates[0];
+}
+
 // 模型映射：用户请求的模型名 → 9Router 对应的付费模型名
 // 所有请求都走 9Router，由 9Router 进行 provider 调度和 fallback
 const MODEL_MAP_TO_9ROUTER = {
+  // Lume 智能模型（由后端自动选择）
+  'auto': null,  // 特殊处理，由 selectLumeAutoModel() 动态决定
+  // GPT 系列 → GitHub Copilot
+  'gpt-4o':             'gh/gpt-4o',
+  'gpt-4o-mini':        'gh/gpt-4o-mini',
+  'gpt-4':              'gh/gpt-4',
+  'gpt-4.1':            'gh/gpt-4.1',
+  'gpt-5.2':            'cu/gpt-5.2',           // Cursor（需要绑定后才能用）
+  // Claude 系列 → Cursor（需要绑定后才能用）
+  'claude-4.5-sonnet':  'cu/claude-4.5-sonnet',
+  'claude-4.6-sonnet':  'cu/claude-4.6-sonnet-medium-thinking',
+  'claude-4.5-opus':    'cu/claude-4.5-opus',
   // 智谱 GLM 系列 → glm-cn (Coding Plan 付费)
   'glm-5.1':            'glm-cn/glm-5.1',
   'glm-5':              'glm-cn/glm-5',
@@ -70,10 +143,9 @@ const MODEL_MAP_TO_9ROUTER = {
   'qwen3-235b-a22b':    'glm-cn/glm-5.1',
   'qwen3-30b-a3b':      'glm-cn/glm-4.5-air',
   'qwen3-coder-plus':   'glm-cn/glm-5.1',
-  // DMXAPI 免费模型 → 映射到智谱等价
-  'gpt-4o-mini':        'gh/gpt-4o-mini',
+  // DMXAPI 免费模型 → 映射到 Copilot 免费模型
   'GLM-4.5-Flash':      'glm-cn/glm-4.5-air',
-  'Qwen3-8B':           'glm-cn/glm-4.5-air',
+  'Qwen3-8B':           'gh/gpt-4o-mini',
   'glm-4-flash':        'glm-cn/glm-4.5-air',
 };
 
@@ -84,27 +156,116 @@ const ROUTER_FALLBACK_MODELS = [
   'gh/claude-sonnet-4.5', // Claude 备选
 ];
 
+// ============ 用户模型偏好 ============
+// 从灵犀云数据库加载：IP → userId → preferredModel
+// preferredModel 是用户在灵犀云前端选择的模型（如 "gpt-4o"、"glm-5.1"）
+const DB_FILE = join(__dirname, 'data/db.json');
+let ipUserMap = {};   // { ip: { userId, nickname, preferredModel } }
+
+function loadUserPreferences() {
+  try {
+    const raw = fs.readFileSync(DB_FILE, 'utf8');
+    const db = JSON.parse(raw);
+    const users = db.users || [];
+    const servers = db.userServers || [];
+    
+    const map = {};
+    for (const s of servers) {
+      if (!s.ip) continue;
+      const user = users.find(u => u.id === s.userId);
+      map[s.ip] = {
+        userId: s.userId,
+        nickname: user?.nickname || '?',
+        preferredModel: user?.preferredModel || null,  // 用户选择的模型
+      };
+    }
+    ipUserMap = map;
+    console.log(`[用户偏好] 已加载 ${Object.keys(map)} 个 IP-用户映射`);
+  } catch (e) {
+    console.log('[用户偏好] 加载失败，使用默认路由:', e.message);
+  }
+}
+
+// 启动时加载 + 每 30 秒刷新
+loadUserPreferences();
+setInterval(loadUserPreferences, 30000);
+
+/** 将 usage 写入灵犀云 db.json（订阅用户统计） */
+async function updateDbWithCredits(userId, model, tokens) {
+  try {
+    const raw = fs.readFileSync(DB_FILE, 'utf8');
+    const db = JSON.parse(raw);
+    const user = db.users.find(u => u.id === userId);
+    if (!user) return;
+
+    const today = new Date().toISOString().split('T')[0];
+    if (!user.usage) {
+      user.usage = { totalTokens: 0, totalRequests: 0, byModel: {}, byDate: {} };
+    }
+    user.usage.totalTokens += tokens.total || 0;
+    user.usage.totalRequests += 1;
+    if (!user.usage.byDate[today]) {
+      user.usage.byDate[today] = { tokens: 0, requests: 0 };
+    }
+    user.usage.byDate[today].tokens += tokens.total || 0;
+    user.usage.byDate[today].requests += 1;
+    if (model) {
+      if (!user.usage.byModel[model]) user.usage.byModel[model] = { tokens: 0, requests: 0 };
+      user.usage.byModel[model].tokens += tokens.total || 0;
+      user.usage.byModel[model].requests += 1;
+    }
+    user.usage.lastUpdated = new Date().toISOString();
+    fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+    console.log(`📊 [${userId.substring(0, 8)}] +${tokens.total} tokens → 总计 ${user.usage.totalTokens}`);
+  } catch (e) {
+    console.error('[updateDbWithCredits] 失败:', e.message);
+  }
+}
+
+// 获取用户偏好的 9Router 模型
+function getUserPreferredModel(clientIp, requestedModel) {
+  const userInfo = ipUserMap[clientIp];
+  if (!userInfo?.preferredModel) {
+    // 没有偏好 → 按请求的模型路由
+    return mapTo9RouterModel(requestedModel, clientIp);
+  }
+  
+  // 有偏好 → 用偏好模型路由
+  const preferred = userInfo.preferredModel;
+  console.log(`[模型偏好] ${clientIp} (${userInfo.nickname}): 请求=${requestedModel} → 偏好=${preferred}`);
+  return mapTo9RouterModel(preferred, clientIp);
+}
+
 // 将用户模型名映射为 9Router 模型名
-function mapTo9RouterModel(model) {
+function mapTo9RouterModel(model, clientIp) {
   if (!model) return 'glm-cn/glm-5.1';
   
-  // 去掉 provider 前缀 (zhipu/glm-5.1 → glm-5.1)
+  // 去掉 provider 前缀 (lume/auto → auto, zhipu/glm-5.1 → glm-5.1)
   let cleanModel = model;
   if (cleanModel.includes('/')) {
     const parts = cleanModel.split('/');
     cleanModel = parts[parts.length - 1];
   }
   
+  // Lume auto：智能选择最佳模型
+  if (cleanModel === 'auto') {
+    return selectLumeAutoModel(clientIp || 'unknown');
+  }
+  
   // 精确匹配
-  if (MODEL_MAP_TO_9ROUTER[cleanModel]) {
+  if (MODEL_MAP_TO_9ROUTER[cleanModel] && MODEL_MAP_TO_9ROUTER[cleanModel] !== null) {
     return MODEL_MAP_TO_9ROUTER[cleanModel];
   }
-  if (MODEL_MAP_TO_9ROUTER[model]) {
+  if (MODEL_MAP_TO_9ROUTER[model] && MODEL_MAP_TO_9ROUTER[model] !== null) {
     return MODEL_MAP_TO_9ROUTER[model];
   }
   
   // 通配匹配
   const m = cleanModel.toLowerCase();
+  if (m.startsWith('gpt-4o')) return 'gh/gpt-4o';
+  if (m.startsWith('gpt-4')) return 'gh/gpt-4';
+  if (m.startsWith('gpt-3')) return 'gh/gpt-4o-mini';
+  if (m.startsWith('claude')) return 'cu/claude-4.5-sonnet';
   if (m.startsWith('glm-5')) return 'glm-cn/glm-5.1';
   if (m.startsWith('glm-4')) return 'glm-cn/glm-4.6';
   if (m.startsWith('glm')) return 'glm-cn/glm-4.5-air';
@@ -126,7 +287,8 @@ async function proxyVia9Router(reqBody, reqUrl, clientIp, res, fallbackIndex = -
     routerModel = ROUTER_FALLBACK_MODELS[fallbackIndex] || ROUTER_FALLBACK_MODELS[0];
     console.log(`[9Router] 🔄 降级 fallback #${fallbackIndex}: ${originalModel} → ${routerModel} [来源: ${clientIp}]`);
   } else {
-    routerModel = mapTo9RouterModel(originalModel);
+    // 查用户模型偏好，如果有偏好则覆盖请求模型
+    routerModel = getUserPreferredModel(clientIp, originalModel);
     console.log(`[9Router] 🎯 统一路由: ${originalModel} → ${routerModel} [来源: ${clientIp}]`);
   }
   
@@ -155,6 +317,9 @@ async function proxyVia9Router(reqBody, reqUrl, clientIp, res, fallbackIndex = -
         let errBody = '';
         proxyRes.on('data', chunk => errBody += chunk);
         proxyRes.on('end', () => {
+          // 标记模型失败（用于 Lume Auto 智能避让）
+          markModelFailed(routerModel);
+          
           const nextFallback = fallbackIndex + 1;
           if (nextFallback < ROUTER_FALLBACK_MODELS.length) {
             console.warn(`[9Router] ⚠️ ${routerModel} 返回 ${statusCode}，降级到免费模型 ${ROUTER_FALLBACK_MODELS[nextFallback]}`);
@@ -177,6 +342,7 @@ async function proxyVia9Router(reqBody, reqUrl, clientIp, res, fallbackIndex = -
       // 429/5xx + 流式 → 无法降级（已经开始写了），只记日志
       if ((statusCode === 429 || statusCode >= 500) && isStream) {
         console.error(`[9Router] ❌ 流式请求 ${routerModel} 返回 ${statusCode}，无法降级`);
+        markModelFailed(routerModel);
       }
       
       if (statusCode !== 200 && !res) {
@@ -263,6 +429,12 @@ async function unifiedRoute(providerId, req, res) {
       // 流式：直接 pipe（无法中途降级）
       await proxyVia9Router(reqBody, req.url, clientIp, res);
       recordRequest(clientIp, 'router', originalModel, 200);
+      // 📊 流式无法提取精确 usage，按请求次数估算（每次 ~500 tokens）
+      const userInfo = ipUserMap[clientIp];
+      if (userInfo?.userId) {
+        const tokens = { total: 500, input: 200, output: 300 };
+        updateDbWithCredits(userInfo.userId, originalModel, tokens).catch(() => {});
+      }
       return;
     }
     
@@ -279,8 +451,33 @@ async function unifiedRoute(providerId, req, res) {
     
     if (result.success) {
       recordRequest(clientIp, 'router', originalModel, 200);
-      if (result.routerModel !== mapTo9RouterModel(originalModel)) {
+      if (result.routerModel !== mapTo9RouterModel(originalModel, clientIp)) {
         console.log(`[9Router] ✅ 降级成功: ${originalModel} → ${result.routerModel}`);
+      }
+      // 📊 提取 usage 写入用户统计
+      try {
+        let usage = null;
+        if (result.usage) {
+          usage = result.usage;
+        } else if (result.body) {
+          try {
+            const parsed = JSON.parse(result.body);
+            usage = parsed.usage;
+          } catch {}
+        }
+        if (usage && (usage.total_tokens || usage.totalTokens)) {
+          const userInfo = ipUserMap[clientIp];
+          if (userInfo?.userId) {
+            const tokens = {
+              total: usage.total_tokens || usage.totalTokens || 0,
+              input: usage.prompt_tokens || usage.inputTokens || 0,
+              output: usage.completion_tokens || usage.outputTokens || 0,
+            };
+            updateDbWithCredits(userInfo.userId, result.routerModel || originalModel, tokens);
+          }
+        }
+      } catch (usageErr) {
+        console.error('[统一路由] usage 记录失败:', usageErr.message);
       }
       res.writeHead(200, { 'Content-Type': 'application/json' });
       return res.end(result.body);
@@ -1212,6 +1409,22 @@ const server = http.createServer(async (req, res) => {
   if (path.startsWith('/api/stats')) {
     const handled = handleStatsApi(req, res, path);
     if (handled !== false) return;
+  }
+
+  // 用户模型偏好接口
+  if (path === '/api/user-models' && req.method === 'GET') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      availableModels: [
+        { id: 'glm-5.1', name: 'GLM-5.1', provider: '智谱', tier: 'free', desc: '中文最强，推荐' },
+        { id: 'glm-4.6', name: 'GLM-4.6', provider: '智谱', tier: 'free', desc: '均衡稳定' },
+        { id: 'gpt-4o-mini', name: 'GPT-4o Mini', provider: 'OpenAI', tier: 'free', desc: '快速响应' },
+        { id: 'gpt-4o', name: 'GPT-4o', provider: 'OpenAI', tier: 'pro', desc: 'GPT旗舰模型' },
+        { id: 'gpt-4.1', name: 'GPT-4.1', provider: 'OpenAI', tier: 'pro', desc: '最新GPT模型' },
+        { id: 'claude-4.5-sonnet', name: 'Claude 4.5 Sonnet', provider: 'Anthropic', tier: 'pro', desc: '即将开放' },
+      ]
+    }));
+    return;
   }
 
   // ============ 统一 AI 路由：所有请求都走 9Router ============

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lingxicloud/providers/app_provider.dart';
 import 'package:lingxicloud/pages/login_page.dart';
-import 'package:lingxicloud/pages/chat_page.dart';
+import 'package:lingxicloud/pages/main_shell.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
@@ -34,7 +34,7 @@ class _SplashPageState extends State<SplashPage> {
 
     // 已登录 → 聊天页
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const ChatPage()),
+      MaterialPageRoute(builder: (_) => const MainShell()),
     );
   }
 

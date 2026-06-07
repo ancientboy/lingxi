@@ -31,50 +31,12 @@ export function getSubscription(userId) {
 }
 
 /**
- * 检查每日次数限制（仅对免费用户）
+ * 检查每日次数限制（已改为无限次）
  * @param {string} userId - 用户ID
  * @returns {object} - { allowed: boolean, message: string }
  */
 export async function checkDailyLimit(userId) {
-  const db = await getDB();
-  const user = db.users.find(u => u.id === userId);
-  
-  if (!user) {
-    return { allowed: false, message: '用户不存在' };
-  }
-
-  // 免费用户检查每日限制
-  const plan = user.subscription?.plan || 'free';
-  if (plan !== 'free') {
-    return { allowed: true, message: '订阅用户无每日限制' };
-  }
-
-  // 初始化每日使用记录
-  if (!user.dailyUsage) {
-    user.dailyUsage = {
-      date: null,
-      count: 0,
-      limit: 10 // 免费用户每日10次
-    };
-  }
-
-  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-
-  // 检查是否跨天
-  if (user.dailyUsage.date !== today) {
-    user.dailyUsage.date = today;
-    user.dailyUsage.count = 0;
-  }
-
-  // 检查是否超限
-  if (user.dailyUsage.count >= user.dailyUsage.limit) {
-    return {
-      allowed: false,
-      message: `今日次数已用尽（${user.dailyUsage.limit}次），明日再来吧`
-    };
-  }
-
-  return { allowed: true, message: '允许使用' };
+  return { allowed: true, message: '无限次使用' };
 }
 
 /**

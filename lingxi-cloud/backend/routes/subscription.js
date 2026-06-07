@@ -289,6 +289,11 @@ router.post('/subscribe', authMiddleware, async (req, res) => {
       user.server = user.server || {};
       user.server.type = 'dedicated';
     }
+
+    // Fix 4: 仅全新用户（previousPlan === null）重置 onboarding，free→付费 和 降级→升级 不重置
+    if (previousPlan === null) {
+      user.onboardingCompleted = false;
+    }
     
     await saveDB(db);
     
@@ -362,6 +367,131 @@ router.post('/credit-pack', authMiddleware, async (req, res) => {
     });
   } catch (error) {
     console.error('充值失败:', error);
+    res.status(500).json({ success: false, error: '服务器错误' });
+  }
+});
+
+// ============ 健康检查（复用 servers.js 的逻辑） ============
+
+async function checkServerHealth(server) {
+  const { ip, openclawPort, openclawSession, openclawToken } = server;
+  const port = openclawPort || 18789;
+
+  // Fix 1: 缺少关键字段时直接返回 false
+  if (!ip || !openclawToken) {
+    console.warn('[健康检查] 缺少关键字段 (ip=%s, token=%s)，跳过', !!ip, !!openclawToken);
+    return false;
+  }
+
+  // Fix 6: 拼接路径避免双斜杠
+  const sessionPath = openclawSession ? `/${openclawSession}` : '';
+
+  // Fix 2: Promise.race 全局超时 5s，防止无限等待
+  const healthPromise = (async () => {
+    const url = `http://${ip}:${port}${sessionPath}?token=${openclawToken}`;
+    const resp = await fetch(url, {
+      signal: AbortSignal.timeout(4000),
+      redirect: 'manual'
+    });
+    return resp.status === 302 || resp.ok;
+  })();
+
+  try {
+    return await Promise.race([
+      healthPromise,
+      new Promise(resolve => setTimeout(() => resolve(false), 5000))
+    ]);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 获取订阅 & onboarding 状态
+ * GET /api/subscription/status
+ */
+router.get('/status', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const db = await getDB();
+    const user = db.users.find(u => u.id === userId);
+
+    if (!user) {
+      return res.status(404).json({ success: false, error: '用户不存在' });
+    }
+
+    // 订阅状态
+    const plan = user.subscription?.plan || null;
+    const subscribed = plan !== null && plan !== 'free';
+
+    // 服务器状态
+    const userServers = (db.userServers || []).filter(s => s.userId === userId);
+    const hasServer = userServers.length > 0;
+
+    let serverStatus = null;
+    let serverInfo = null;
+
+    if (hasServer) {
+      // Fix 3: 直接取第一条服务器记录（activeServerId 已废弃）
+      const server = userServers[0];
+
+      serverInfo = {
+        ip: server.ip,
+        name: server.name || ''
+      };
+
+      // 异步健康检查（超时 5 秒）
+      try {
+        const healthy = await checkServerHealth(server);
+        serverStatus = healthy ? 'running' : 'offline';
+      } catch {
+        serverStatus = 'offline';
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        subscribed,
+        plan: subscribed ? plan : null,
+        hasServer,
+        serverStatus,
+        onboardingCompleted: !!user.onboardingCompleted,
+        serverInfo
+      }
+    });
+  } catch (error) {
+    console.error('获取订阅状态失败:', error);
+    res.status(500).json({ success: false, error: '服务器错误' });
+  }
+});
+
+/**
+ * 标记 onboarding 完成
+ * POST /api/subscription/onboarding-complete
+ */
+router.post('/onboarding-complete', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const db = await getDB();
+    const user = db.users.find(u => u.id === userId);
+
+    if (!user) {
+      return res.status(404).json({ success: false, error: '用户不存在' });
+    }
+
+    // Fix 7: 未订阅用户不允许完成 onboarding
+    const userPlan = user.subscription?.plan;
+    if (!userPlan || userPlan === 'free') {
+      return res.status(400).json({ success: false, error: '请先订阅套餐后再完成引导' });
+    }
+
+    user.onboardingCompleted = true;
+    await saveDB(db);
+
+    res.json({ success: true, message: 'Onboarding 已完成' });
+  } catch (error) {
+    console.error('标记 onboarding 完成失败:', error);
     res.status(500).json({ success: false, error: '服务器错误' });
   }
 });

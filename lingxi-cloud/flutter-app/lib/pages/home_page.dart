@@ -195,76 +195,99 @@ class _HomePageState extends State<HomePage> {
               ),
               const SizedBox(height: 32),
 
-              // 操作按钮
-              if (hasTeam)
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      // 检查是否已经初始化完成
-                      if (appProvider.isLoading) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('正在加载中，请稍候...')),
-                        );
-                        return;
-                      }
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatPage()));
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Constants.primaryColor,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: const Text('开始对话', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  ),
-                )
-              else
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton(
-                    onPressed: _canClaimTeam(user)
-                        ? () async {
-                            // 跳转到团队引导页，显示完整部署进度
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => TeamIntroPage(
-                                  onComplete: () {
-                                    Navigator.pop(context); // 关闭引导页
-                                    // 刷新用户信息
-                                    appProvider.refreshUser();
-                                  },
-                                ),
-                              ),
-                            );
-                          }
-                        : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Constants.primaryColor,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: Text(
-                      _getClaimButtonText(user),
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: _canClaimTeam(user) ? Colors.white : Colors.grey,
-                      ),
-                    ),
-                  ),
-                ),
+              // 🔧 三入口设计：免费聊天 / 添加设备 / 部署服务器
               
-              if (!hasTeam && !_canClaimTeam(user))
-                Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: Text(
-                    _getClaimButtonHint(user),
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+              // 入口 1：免费聊天（始终可用）
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatPage()));
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Constants.primaryColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.chat_bubble, size: 20),
+                      SizedBox(width: 8),
+                      Text('💬 开始聊天（免费）', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    ],
                   ),
                 ),
+              ),
+              const SizedBox(height: 4),
+              Text('支持 8 个 AI 角色切换，无限次使用', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+              const SizedBox(height: 16),
+              
+              // 入口 2：添加自己的设备
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: OutlinedButton(
+                  onPressed: () {
+                    // 跳转到服务器管理页面
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatPage()));
+                  },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Constants.primaryColor,
+                    side: const BorderSide(color: Color(0xFF10A37F)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.phone_android, size: 20),
+                      SizedBox(width: 8),
+                      Text('📱 添加我的 OpenClaw 设备', style: TextStyle(fontSize: 15)),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text('已有 OpenClaw？连接设备解锁全功能', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+              const SizedBox(height: 16),
+              
+              // 入口 3：灵犀云托管
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: OutlinedButton(
+                  onPressed: () async {
+                    // 跳转到部署流程
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => TeamIntroPage(
+                          onComplete: () {
+                            Navigator.pop(context);
+                            appProvider.init();
+                          },
+                        ),
+                      ),
+                    );
+                  },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.grey.shade700,
+                    side: BorderSide(color: Colors.grey.shade400),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.cloud_outlined, size: 20),
+                      SizedBox(width: 8),
+                      Text('☁️ 一键部署服务器', style: TextStyle(fontSize: 15)),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text('灵犀云托管，开箱即用', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
               
               const SizedBox(height: 24),
               

@@ -11,6 +11,7 @@
     .top-bar { position: fixed; top: 0; left: 0; right: 0; height: 44px; background: rgba(255,255,255,0.94); backdrop-filter: blur(12px); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; z-index: 200; border-bottom: 1px solid rgba(0,0,0,0.05); }
     .top-bar h1 { font-size: 15px; font-weight: 700; color: #2d3748; }
     .top-bar-left { display: flex; align-items: center; gap: 8px; }
+    .top-bar-right { display: flex; align-items: center; gap: 8px; }
     .back-link { display: flex; align-items: center; gap: 3px; padding: 4px 10px; border: 1px solid #ddd; border-radius: 6px; color: #666; font-size: 12px; text-decoration: none; }
     .back-link:hover { background: #f5f5f5; color: #333; }
 
@@ -31,6 +32,7 @@
     .btn-sm { padding: 4px 10px; font-size: 11px; }
     .btn-check { background: white; color: #43e97b; border: 1px solid #43e97b; }
     .btn-check:hover { background: #f0fff5; }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
     /* Server Card */
     .server-card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); border: 2px solid transparent; transition: all 0.2s; }
@@ -53,10 +55,34 @@
     .status-dot.unhealthy { background: #fb923c; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
-    .server-actions { display: flex; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; }
+    .server-actions { display: flex; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; flex-wrap: wrap; }
     .active-badge { font-size: 10px; background: #667eea; color: white; padding: 2px 8px; border-radius: 4px; font-weight: 600; }
 
-    .last-check { font-size: 10px; color: #bbb; margin-top: 8px; }
+    /* Health Check Status */
+    .health-status { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 11px; color: #888; }
+    .health-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .health-dot.online { background: #43e97b; box-shadow: 0 0 4px rgba(67,233,123,0.4); }
+    .health-dot.offline { background: #f5576c; }
+    .health-dot.unknown { background: #ccc; }
+    .health-response { color: #aaa; margin-left: 2px; }
+
+    /* History toggle button */
+    .btn-history { background: none; border: none; color: #667eea; font-size: 11px; cursor: pointer; padding: 0; margin-left: auto; font-weight: 500; }
+    .btn-history:hover { text-decoration: underline; }
+
+    /* History panel */
+    .history-panel { max-height: 0; overflow: hidden; transition: max-height 0.35s ease; }
+    .history-panel.open { max-height: 600px; }
+    .history-content { padding: 12px 0 0 0; border-top: 1px solid #f0f0f0; margin-top: 8px; }
+    .history-timeline { position: relative; padding-left: 16px; }
+    .history-timeline::before { content: ''; position: absolute; left: 3px; top: 4px; bottom: 4px; width: 1px; background: #e8e8e8; }
+    .history-item { position: relative; padding: 4px 0 4px 14px; font-size: 11px; color: #888; display: flex; align-items: center; gap: 8px; }
+    .history-item::before { content: ''; position: absolute; left: -2px; top: 50%; transform: translateY(-50%); width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid #fff; }
+    .history-item.online::before { background: #43e97b; }
+    .history-item.offline::before { background: #f5576c; }
+    .history-item .h-time { color: #aaa; min-width: 100px; }
+    .history-item .h-rt { color: #bbb; font-family: monospace; }
+    .history-empty { font-size: 11px; color: #ccc; padding: 8px 0; }
 
     /* Empty state */
     .empty-state { text-align: center; padding: 60px 20px; color: #bbb; }
@@ -88,10 +114,13 @@
 
 <div class="top-bar">
   <div class="top-bar-left">
-    <a href="agent-workspace.html" class="back-link">← 返回办公区</a>
-    <h1>🖥️ 设备管理</h1>
+    <a href="chat.html" class="back-link">&larr; 返回对话</a>
+    <h1>设备管理</h1>
   </div>
-  <button class="btn btn-check btn-sm" onclick="checkAll()">🔄 全部检查</button>
+  <div class="top-bar-right">
+    <button class="btn btn-outline btn-sm" id="btnRunHealthCheck" onclick="runHealthCheck()">巡检所有设备</button>
+    <button class="btn btn-check btn-sm" onclick="checkAll()">全部检查</button>
+  </div>
 </div>
 
 <div class="container">
@@ -110,7 +139,7 @@
 <!-- Add/Edit Modal -->
 <div class="modal-overlay" id="serverModal">
   <div class="modal" style="position:relative">
-    <button class="modal-close" onclick="closeModal()">✕</button>
+    <button class="modal-close" onclick="closeModal()">&#x2715;</button>
     <h2 id="modalTitle">添加设备</h2>
     <input type="hidden" id="editServerId">
     <div class="form-group">
@@ -149,143 +178,336 @@
 </div>
 
 <script>
-// Get userId from URL params, localStorage, or cookie
+// ========== 工具函数 ==========
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
 function getUserId() {
-  const urlParams = new URLSearchParams(window.location.search);
+  var urlParams = new URLSearchParams(window.location.search);
   if (urlParams.get('userId')) return urlParams.get('userId');
-  // index.html 登录时存的是 lingxi_user 和 lingxi_token
-  try { const u = JSON.parse(localStorage.getItem('lingxi_user') || '{}'); if (u.id) return u.id; } catch(e) {}
-  try { const u = JSON.parse(localStorage.getItem('user') || '{}'); if (u.id) return u.id; } catch(e) {}
+  try { var u = JSON.parse(localStorage.getItem('lingxi_user') || '{}'); if (u.id) return u.id; } catch(e) {}
+  try { var u = JSON.parse(localStorage.getItem('user') || '{}'); if (u.id) return u.id; } catch(e) {}
   if (localStorage.getItem('userId')) return localStorage.getItem('userId');
-  // 最后尝试用 token 调后端 API 获取
   return '';
 }
-let userId = getUserId();
-console.log('[servers.html] userId:', userId, '| lingxi_user:', localStorage.getItem('lingxi_user')?.slice(0, 80));
+
+function getToken() {
+  return localStorage.getItem('lingxi_token') || '';
+}
+
+function authHeaders() {
+  var t = getToken();
+  return t ? { 'Authorization': 'Bearer ' + t } : {};
+}
+
+function timeAgo(dateStr) {
+  if (!dateStr) return '';
+  var now = Date.now();
+  var then = new Date(dateStr).getTime();
+  var diff = now - then;
+  if (diff < 0) return '刚刚';
+  var minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return '刚刚';
+  if (minutes < 60) return minutes + ' 分钟前';
+  var hours = Math.floor(minutes / 60);
+  if (hours < 24) return hours + ' 小时前';
+  var days = Math.floor(hours / 24);
+  return days + ' 天前';
+}
+
+function formatTime(dateStr) {
+  if (!dateStr) return '--';
+  var d = new Date(dateStr);
+  var month = String(d.getMonth() + 1).padStart(2, '0');
+  var day = String(d.getDate()).padStart(2, '0');
+  var hour = String(d.getHours()).padStart(2, '0');
+  var min = String(d.getMinutes()).padStart(2, '0');
+  return month + '-' + day + ' ' + hour + ':' + min;
+}
+
+// ========== 状态 ==========
+
+var userId = getUserId();
+var servers = [];
+var activeServerId = null;
+var healthData = {};   // serverId -> { status, checkedAt, responseTime }
+var historyData = {};  // serverId -> [ { status, checkedAt, responseTime }, ... ]
+var expandedCards = {}; // serverId -> boolean
+
+console.log('[servers.html] userId:', userId);
+
+var API = '/api/servers';
+
+// ========== 初始化 ==========
 
 if (!userId) {
-  // 尝试用 token 从后端获取 userId
-  const token = localStorage.getItem('lingxi_token');
+  var token = getToken();
   if (token) {
-    fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` } })
-      .then(r => r.ok ? r.json() : null)
-      .then(user => {
+    fetch('/api/auth/me', { headers: authHeaders() })
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(user) {
         if (user && user.id) {
-          // 找到了，存起来并加载
           localStorage.setItem('lingxi_user', JSON.stringify(user));
           userId = user.id;
           loadServers();
         } else {
-          document.getElementById('serverList').innerHTML = '<div class="empty-state"><div class="icon">🔒</div><div class="title">请先登录</div><div class="desc"><a href="/" style="color:#667eea">前往登录</a></div></div>';
+          showLoginRequired();
         }
       })
-      .catch(() => {
-        document.getElementById('serverList').innerHTML = '<div class="empty-state"><div class="icon">🔒</div><div class="title">请先登录</div><div class="desc"><a href="/" style="color:#667eea">前往登录</a></div></div>';
-      });
+      .catch(function() { showLoginRequired(); });
   } else {
-    document.getElementById('serverList').innerHTML = '<div class="empty-state"><div class="icon">🔒</div><div class="title">请先登录</div><div class="desc"><a href="/" style="color:#667eea">前往登录</a></div></div>';
+    showLoginRequired();
   }
 }
 
-const API = '/api/servers';
-let servers = [];
-let activeServerId = null;
+function showLoginRequired() {
+  document.getElementById('serverList').innerHTML =
+    '<div class="empty-state"><div class="icon">&#x1f512;</div><div class="title">请先登录</div><div class="desc"><a href="/" style="color:#667eea">前往登录</a></div></div>';
+}
+
+// ========== 加载服务器列表 ==========
 
 async function loadServers() {
   if (!userId) return;
   try {
-    const resp = await fetch(`${API}/${userId}`);
-    const data = await resp.json();
+    var resp = await fetch(API + '/' + userId);
+    var data = await resp.json();
     servers = data.servers || [];
     activeServerId = data.activeServerId;
     renderServers();
+    loadAllHealthStatus();
   } catch (err) {
     console.error('加载设备失败:', err);
   }
 }
 
-function renderServers() {
-  const el = document.getElementById('serverList');
-  
-  if (servers.length === 0) {
-    el.innerHTML = '<div class="empty-state"><div class="icon">🖥️</div><div class="title">还没有设备</div><div class="desc">点击「添加设备」连接你的 OpenClaw 服务器</div></div>';
+// ========== 巡检状态加载 ==========
+
+async function loadAllHealthStatus() {
+  for (var i = 0; i < servers.length; i++) {
+    loadLatestHealth(servers[i].id);
+  }
+}
+
+async function loadLatestHealth(serverId) {
+  try {
+    var resp = await fetch('/api/healthcheck/latest/' + serverId, { headers: authHeaders() });
+    var data = await resp.json();
+    if (data.success && data.data) {
+      healthData[serverId] = data.data;
+    } else {
+      healthData[serverId] = null;
+    }
+  } catch (err) {
+    healthData[serverId] = null;
+  }
+  updateHealthUI(serverId);
+}
+
+function updateHealthUI(serverId) {
+  var el = document.getElementById('health-' + serverId);
+  if (!el) return;
+  var h = healthData[serverId];
+  if (!h) {
+    el.innerHTML =
+      '<span class="health-dot unknown"></span>' +
+      '<span>未巡检</span>';
+  } else if (h.status === 'online') {
+    el.innerHTML =
+      '<span class="health-dot online"></span>' +
+      '<span>' + timeAgo(h.checkedAt) + '检查：在线</span>' +
+      (h.responseTime ? '<span class="health-response">(' + escapeHtml(h.responseTime) + 'ms)</span>' : '');
+  } else {
+    el.innerHTML =
+      '<span class="health-dot offline"></span>' +
+      '<span>' + timeAgo(h.checkedAt) + '检查：离线</span>';
+  }
+}
+
+// ========== 巡检历史 ==========
+
+async function loadHistoryLogs(serverId) {
+  try {
+    var resp = await fetch('/api/healthcheck/logs/' + userId, { headers: authHeaders() });
+    var data = await resp.json();
+    if (data.success && data.data && data.data.grouped) {
+      historyData = data.data.grouped;
+    }
+  } catch (err) {
+    console.error('加载巡检历史失败:', err);
+  }
+  renderHistoryUI(serverId);
+}
+
+function renderHistoryUI(serverId) {
+  var el = document.getElementById('history-list-' + serverId);
+  if (!el) return;
+  var logs = historyData[serverId] || [];
+  if (logs.length === 0) {
+    el.innerHTML = '<div class="history-empty">暂无巡检记录</div>';
     return;
   }
-  
-  el.innerHTML = servers.map(s => {
-    const isActive = s.id === activeServerId;
-    const statusText = { running: '在线', offline: '离线', pending: '检查中', unhealthy: '异常' };
-    const statusClass = s.status || 'pending';
-    const lastCheck = s.lastCheck ? new Date(s.lastCheck).toLocaleString('zh-CN') : '未检查';
-    
-    return `<div class="server-card ${isActive ? 'active' : ''}">
-      <div class="server-top">
-        <div class="server-info">
-          <div class="server-icon">${isActive ? '🟢' : '🖥️'}</div>
-          <div>
-            <div class="server-name">${s.name || '未命名'} ${isActive ? '<span class="active-badge">活跃</span>' : ''}</div>
-            <div class="server-ip">${s.ip}:${s.openclawPort || 18789}</div>
-            ${s.description ? `<div class="server-desc">${s.description}</div>` : ''}
-          </div>
-        </div>
-        <div class="server-status">
-          <span class="status-dot ${statusClass}"></span>
-          ${statusText[statusClass] || statusClass}
-        </div>
-      </div>
-      <div class="server-actions">
-        <button class="btn btn-sm btn-outline" onclick="checkServer('${s.id}')">🔍 检查</button>
-        ${!isActive ? `<button class="btn btn-sm btn-primary" onclick="activateServer('${s.id}')">⚡ 切换</button>` : ''}
-        <button class="btn btn-sm btn-outline" onclick="editServer('${s.id}')">✏️ 编辑</button>
-        <button class="btn btn-sm btn-danger" onclick="deleteServer('${s.id}')">🗑️ 删除</button>
-      </div>
-      <div class="last-check">最后检查: ${lastCheck}</div>
-    </div>`;
+  // 最多显示 20 条
+  var items = logs.slice(0, 20);
+  el.innerHTML = items.map(function(log) {
+    return '<div class="history-item ' + escapeHtml(log.status) + '">' +
+      '<span class="h-time">' + formatTime(log.checkedAt) + '</span>' +
+      '<span>' + (log.status === 'online' ? '在线' : '离线') + '</span>' +
+      (log.responseTime ? '<span class="h-rt">' + escapeHtml(log.responseTime) + 'ms</span>' : '') +
+      '</div>';
   }).join('');
 }
 
-async function checkServer(serverId) {
-  showToast('🔍 正在检查...');
+function toggleHistory(serverId) {
+  var panel = document.getElementById('history-' + serverId);
+  var btn = document.getElementById('history-btn-' + serverId);
+  if (!panel) return;
+
+  if (expandedCards[serverId]) {
+    panel.classList.remove('open');
+    expandedCards[serverId] = false;
+    if (btn) btn.textContent = '查看历史';
+  } else {
+    expandedCards[serverId] = true;
+    if (btn) btn.textContent = '收起历史';
+    // Load history if not loaded
+    if (!historyData[serverId]) {
+      loadHistoryLogs(serverId);
+    } else {
+      renderHistoryUI(serverId);
+    }
+    // Need a frame for transition
+    requestAnimationFrame(function() {
+      panel.classList.add('open');
+    });
+  }
+}
+
+// ========== 巡检所有设备（调用 healthcheck API）==========
+
+async function runHealthCheck() {
+  var btn = document.getElementById('btnRunHealthCheck');
+  if (!btn) return;
+  btn.disabled = true;
+  btn.textContent = '巡检中...';
   try {
-    const resp = await fetch(`${API}/${userId}/${serverId}/check`, { method: 'POST' });
-    const data = await resp.json();
-    showToast(data.healthy ? '✅ 设备在线' : '❌ 设备离线');
+    var resp = await fetch('/api/healthcheck/run', { method: 'POST', headers: authHeaders() });
+    var data = await resp.json();
+    if (data.success) {
+      var checked = data.data ? data.data.checkedServers : 0;
+      showToast('巡检完成，已检查 ' + checked + ' 台设备');
+      // Refresh health status for all servers
+      healthData = {};
+      historyData = {};
+      await loadAllHealthStatus();
+    } else {
+      showToast(data.error || '巡检失败');
+    }
+  } catch (err) {
+    showToast('巡检请求失败');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '巡检所有设备';
+  }
+}
+
+// ========== 渲染服务器列表 ==========
+
+function renderServers() {
+  var el = document.getElementById('serverList');
+
+  if (servers.length === 0) {
+    el.innerHTML = '<div class="empty-state"><div class="icon">&#x1f5a5;&#xfe0f;</div><div class="title">还没有设备</div><div class="desc">点击「添加设备」连接你的 OpenClaw 服务器</div></div>';
+    return;
+  }
+
+  el.innerHTML = servers.map(function(s) {
+    var isActive = s.id === activeServerId;
+    var statusText = { running: '在线', offline: '离线', pending: '检查中', unhealthy: '异常' };
+    var statusClass = s.status || 'pending';
+
+    return '<div class="server-card ' + (isActive ? 'active' : '') + '">' +
+      '<div class="server-top">' +
+        '<div class="server-info">' +
+          '<div class="server-icon">' + (isActive ? '&#x1f7e2;' : '&#x1f5a5;&#xfe0f;') + '</div>' +
+          '<div>' +
+            '<div class="server-name">' + escapeHtml(s.name || '未命名') + (isActive ? ' <span class="active-badge">活跃</span>' : '') + '</div>' +
+            '<div class="server-ip">' + escapeHtml(s.ip) + ':' + (s.openclawPort || 18789) + '</div>' +
+            (s.description ? '<div class="server-desc">' + escapeHtml(s.description) + '</div>' : '') +
+          '</div>' +
+        '</div>' +
+        '<div class="server-status">' +
+          '<span class="status-dot ' + statusClass + '"></span>' +
+          (statusText[statusClass] || statusClass) +
+        '</div>' +
+      '</div>' +
+      '<div class="health-status" id="health-' + s.id + '">' +
+        '<span class="health-dot unknown"></span><span>加载中...</span>' +
+        '<button class="btn-history" id="history-btn-' + s.id + '" onclick="toggleHistory(\'' + s.id + '\')">查看历史</button>' +
+      '</div>' +
+      '<div class="server-actions">' +
+        '<button class="btn btn-sm btn-outline" onclick="checkServer(\'' + s.id + '\')">检查</button>' +
+        (!isActive ? '<button class="btn btn-sm btn-primary" onclick="activateServer(\'' + s.id + '\')">切换</button>' : '') +
+        '<button class="btn btn-sm btn-outline" onclick="editServer(\'' + s.id + '\')">编辑</button>' +
+        '<button class="btn btn-sm btn-danger" onclick="deleteServer(\'' + s.id + '\')">删除</button>' +
+      '</div>' +
+      '<div class="history-panel" id="history-' + s.id + '">' +
+        '<div class="history-content">' +
+          '<div class="history-timeline" id="history-list-' + s.id + '">' +
+            '<div class="history-empty">加载中...</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+// ========== 原有功能：检查、切换、增删改 ==========
+
+async function checkServer(serverId) {
+  showToast('正在检查...');
+  try {
+    var resp = await fetch(API + '/' + userId + '/' + serverId + '/check', { method: 'POST' });
+    var data = await resp.json();
+    showToast(data.healthy ? '设备在线' : '设备离线');
     loadServers();
   } catch (err) {
-    showToast('❌ 检查失败');
+    showToast('检查失败');
   }
 }
 
 async function checkAll() {
-  showToast('🔍 正在检查所有设备...');
+  showToast('正在检查所有设备...');
   try {
-    const resp = await fetch(`${API}/${userId}/check-all`, { method: 'POST' });
-    const data = await resp.json();
-    const online = data.results?.filter(r => r.healthy).length || 0;
-    const total = data.results?.length || 0;
-    showToast(`✅ 检查完成: ${online}/${total} 在线`);
+    var resp = await fetch(API + '/' + userId + '/check-all', { method: 'POST' });
+    var data = await resp.json();
+    var online = data.results ? data.results.filter(function(r) { return r.healthy; }).length : 0;
+    var total = data.results ? data.results.length : 0;
+    showToast('检查完成: ' + online + '/' + total + ' 在线');
     loadServers();
   } catch (err) {
-    showToast('❌ 检查失败');
+    showToast('检查失败');
   }
 }
 
 async function activateServer(serverId) {
   try {
-    const resp = await fetch(`${API}/${userId}/${serverId}/activate`, { method: 'POST' });
-    const data = await resp.json();
+    var resp = await fetch(API + '/' + userId + '/' + serverId + '/activate', { method: 'POST' });
+    var data = await resp.json();
     showToast(data.message);
     loadServers();
-    // 通知聊天页面刷新（postMessage + localStorage 双通道）
     localStorage.setItem('device_switched_at', Date.now().toString());
     try {
-      const chatWindow = window.opener || window.parent;
+      var chatWindow = window.opener || window.parent;
       if (chatWindow && chatWindow !== window) {
-        chatWindow.postMessage({ type: 'device-switched', serverId }, '*');
+        chatWindow.postMessage({ type: 'device-switched', serverId: serverId }, '*');
       }
     } catch(e) {}
   } catch (err) {
-    showToast('❌ 切换失败');
+    showToast('切换失败');
   }
 }
 
@@ -302,7 +524,7 @@ function showAddModal() {
 }
 
 function editServer(serverId) {
-  const s = servers.find(x => x.id === serverId);
+  var s = servers.find(function(x) { return x.id === serverId; });
   if (!s) return;
   document.getElementById('modalTitle').textContent = '编辑设备';
   document.getElementById('editServerId').value = s.id;
@@ -320,8 +542,8 @@ function closeModal() {
 }
 
 async function saveServer() {
-  const editId = document.getElementById('editServerId').value;
-  const body = {
+  var editId = document.getElementById('editServerId').value;
+  var body = {
     name: document.getElementById('fName').value,
     ip: document.getElementById('fIp').value,
     openclawPort: parseInt(document.getElementById('fPort').value) || 18789,
@@ -329,51 +551,51 @@ async function saveServer() {
     openclawSession: document.getElementById('fSession').value,
     description: document.getElementById('fDesc').value
   };
-  
-  if (!body.ip) { showToast('⚠️ IP 地址必填'); return; }
-  
+
+  if (!body.ip) { showToast('IP 地址必填'); return; }
+
   try {
-    let resp;
+    var resp;
     if (editId) {
-      resp = await fetch(`${API}/${userId}/${editId}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      resp = await fetch(API + '/' + userId + '/' + editId, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
     } else {
-      resp = await fetch(`${API}/${userId}`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      resp = await fetch(API + '/' + userId, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
     }
-    const data = await resp.json();
+    var data = await resp.json();
     if (resp.ok) {
-      showToast(editId ? '✅ 设备已更新' : '✅ 设备已添加');
+      showToast(editId ? '设备已更新' : '设备已添加');
       closeModal();
       loadServers();
     } else {
-      showToast('⚠️ ' + (data.error || '操作失败'));
+      showToast(data.error || '操作失败');
     }
   } catch (err) {
-    showToast('❌ 保存失败');
+    showToast('保存失败');
   }
 }
 
 async function deleteServer(serverId) {
-  const s = servers.find(x => x.id === serverId);
+  var s = servers.find(function(x) { return x.id === serverId; });
   if (!s) return;
-  if (!confirm(`确定删除「${s.name || s.ip}」？`)) return;
-  
+  if (!confirm('确定删除「' + (s.name || s.ip) + '」？')) return;
+
   try {
-    const resp = await fetch(`${API}/${userId}/${serverId}`, { method: 'DELETE' });
+    var resp = await fetch(API + '/' + userId + '/' + serverId, { method: 'DELETE' });
     if (resp.ok) {
-      showToast('✅ 设备已删除');
+      showToast('设备已删除');
       loadServers();
     }
   } catch (err) {
-    showToast('❌ 删除失败');
+    showToast('删除失败');
   }
 }
 
 function showToast(msg) {
-  const t = document.createElement('div');
+  var t = document.createElement('div');
   t.className = 'toast';
   t.textContent = msg;
   document.body.appendChild(t);
-  setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 2500);
+  setTimeout(function() { t.style.opacity = '0'; setTimeout(function() { t.remove(); }, 300); }, 2500);
 }
 
 // Click overlay to close modal

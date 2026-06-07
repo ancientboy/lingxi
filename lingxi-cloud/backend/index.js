@@ -149,6 +149,22 @@ app.use('/api/batch-update', batchUpdateRoutes);
 import genesRoutes from './routes/genes.js';
 app.use('/api/genes', genesRoutes);
 
+// Cron 定时任务代理
+import cronRoutes from './routes/cron.js';
+app.use('/api/cron', cronRoutes);
+
+// 记忆系统
+import memoryRoutes from './routes/memory.js';
+app.use('/api/memory', memoryRoutes);
+
+// 触发器系统
+import triggerRoutes from './routes/triggers.js';
+app.use('/api/triggers', triggerRoutes);
+
+// Webhook 入口（不需要鉴权）—— 使用 raw body 解析以支持签名验证
+import webhookRoutes from './routes/webhook.js';
+app.use('/api/webhook', express.json({ limit: '2mb', verify: function(req, res, buf, encoding) { req.rawBody = buf.toString(encoding || 'utf8'); } }), webhookRoutes);
+
 import userRoutes from './routes/user.js';
 
 // 用户服务器信息
@@ -162,6 +178,24 @@ import alipayRoutes from './routes/alipay.js';
 app.use('/api/subscription', subscriptionRoutes);
 app.use('/api/stripe', stripeRoutes);
 app.use('/api/alipay', alipayRoutes);
+
+// 服务器健康巡检
+import healthcheckRoutes from './routes/healthcheck.js';
+app.use('/api/healthcheck', healthcheckRoutes);
+
+// 智能提醒系统
+import reminderRoutes, { checkReminders } from './routes/reminders.js';
+app.use('/api/reminders', reminderRoutes);
+
+// 提醒自动检查（每 60 秒）
+setInterval(async function() {
+  try {
+    await checkReminders();
+  } catch (err) {
+    console.error('[提醒] 自动检查出错:', err.message);
+  }
+}, 60000);
+console.log('⏰ 提醒自动检查已启动: 每 60 秒检查一次');
 app.use('/api/user', userRoutes);
 
 // 图片上传
@@ -190,6 +224,14 @@ app.use('/api/agent-workspace', agentWorkspaceRoutes);
 import fileExplorerRoutes from './routes/file-explorer.js';
 app.use('/api/file-explorer', fileExplorerRoutes);
 
+// 知识库管理
+import knowledgeRoutes from './routes/knowledge.js';
+app.use('/api/knowledge', knowledgeRoutes);
+
+// Agent 市场
+import marketRoutes from './routes/market.js';
+app.use('/api/market', marketRoutes);
+
 // 托管上传的图片
 import { fileURLToPath as fileURLToPath2 } from 'url';
 import { dirname as dirname2, join as join2 } from 'path';
@@ -210,6 +252,44 @@ cron.schedule('0 2 * * *', () => {
   timezone: 'Asia/Shanghai'
 });
 console.log('⏰ 临时文件清理任务已启动: 每天凌晨2点');
+
+// 服务器定时巡检（每 30 分钟）
+import { runHealthCheckForUser } from './routes/healthcheck.js';
+var HEALTHCHECK_INTERVAL = 30 * 60 * 1000; // 30 分钟
+
+async function runAutoHealthCheck() {
+  try {
+    var db = await getDB();
+    if (!db.userServers || db.userServers.length === 0) return;
+
+    // 收集有服务器的用户 ID（去重）
+    var userIds = [...new Set(db.userServers.map(function(s) { return s.userId; }))];
+
+    var totalServers = 0;
+    var changedServers = 0;
+
+    for (var i = 0; i < userIds.length; i++) {
+      var results = await runHealthCheckForUser(db, userIds[i]);
+      totalServers += results.length;
+      changedServers += results.filter(function(r) { return r.changed; }).length;
+    }
+
+    if (totalServers > 0) {
+      cleanupOldData(db);
+      await saveDB(db);
+      console.log('[巡检] 自动巡检完成: ' + totalServers + ' 台服务器, ' + changedServers + ' 台状态变化');
+    }
+  } catch (err) {
+    console.error('[巡检] 自动巡检出错:', err.message);
+  }
+}
+
+// 启动后延迟 60 秒执行第一次巡检，然后每 30 分钟一次
+setTimeout(function() {
+  console.log('🏥 服务器自动巡检已启动: 每 30 分钟一次');
+  runAutoHealthCheck();
+  setInterval(runAutoHealthCheck, HEALTHCHECK_INTERVAL);
+}, 60 * 1000);
 
 // 错误处理
 app.use((err, req, res, next) => {
@@ -237,6 +317,6 @@ export default app;
 import ttsRouter from './routes/tts.js';
 app.use('/api/tts', ttsRouter);
 
-// 服务器健康检查定时任务（每 5 分钟）
-import { startHealthCheckScheduler } from './utils/health-check.js';
-startHealthCheckScheduler();
+// 服务器健康检查定时任务（由下方的自动巡检模块统一管理）
+// 旧的 health-check.js 仅保留 runHealthCheck() 供手动调用
+// startHealthCheckScheduler() 已被下方 healthcheck.js 的自动巡检替代

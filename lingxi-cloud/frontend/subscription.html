@@ -70,6 +70,407 @@
     .info-banner p { font-size: 13px; color: rgba(255, 255, 255, 0.7); margin: 0; }
     @media (max-width: 768px) { .subscription-page { padding: 16px; } .trial-list { grid-template-columns: 1fr; } }
     .hidden { display: none; }
+
+    /* ============ Onboarding Flow Styles ============ */
+    .onboarding-container {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 24px;
+      min-height: 80vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Step indicator */
+    .step-indicator {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      margin-bottom: 48px;
+      padding: 0 16px;
+    }
+    .step-node {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      position: relative;
+      z-index: 1;
+    }
+    .step-circle {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 600;
+      border: 2px solid rgba(255, 255, 255, 0.15);
+      background: rgba(255, 255, 255, 0.05);
+      color: rgba(255, 255, 255, 0.4);
+      transition: all 0.4s ease;
+    }
+    .step-node.active .step-circle {
+      border-color: #10a37f;
+      background: rgba(16, 163, 127, 0.2);
+      color: #10a37f;
+      box-shadow: 0 0 20px rgba(16, 163, 127, 0.3);
+    }
+    .step-node.completed .step-circle {
+      border-color: #10a37f;
+      background: #10a37f;
+      color: #fff;
+    }
+    .step-label {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.4);
+      white-space: nowrap;
+      transition: color 0.4s ease;
+    }
+    .step-node.active .step-label,
+    .step-node.completed .step-label {
+      color: rgba(255, 255, 255, 0.8);
+    }
+    .step-line {
+      flex: 1;
+      height: 2px;
+      background: rgba(255, 255, 255, 0.1);
+      margin: 0 8px;
+      margin-bottom: 26px;
+      position: relative;
+      min-width: 40px;
+      max-width: 120px;
+    }
+    .step-line.completed {
+      background: #10a37f;
+    }
+
+    /* Step content panels */
+    .step-panel {
+      display: none;
+      animation: obFadeIn 0.4s ease;
+    }
+    .step-panel.active {
+      display: block;
+    }
+    @keyframes obFadeIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .ob-card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 32px;
+      text-align: center;
+    }
+    .ob-card h2 {
+      font-size: 22px;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+    .ob-card p {
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 14px;
+      margin-bottom: 24px;
+    }
+
+    /* Spinner */
+    .ob-spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(255, 255, 255, 0.1);
+      border-top-color: #10a37f;
+      border-radius: 50%;
+      animation: obSpin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes obSpin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* SVG icons */
+    .ob-icon {
+      width: 48px;
+      height: 48px;
+      margin: 0 auto 16px;
+    }
+    .ob-icon.success { color: #4ade80; }
+    .ob-icon.warn { color: #fbbf24; }
+    .ob-icon.error { color: #f87171; }
+    .ob-icon.primary { color: #10a37f; }
+
+    /* Buttons */
+    .ob-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 28px;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      background: linear-gradient(135deg, #10a37f, #059669);
+      color: #fff;
+    }
+    .ob-btn:hover { transform: scale(1.02); box-shadow: 0 4px 20px rgba(16, 163, 127, 0.4); }
+    .ob-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+    .ob-btn-outline {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 28px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.8);
+    }
+    .ob-btn-outline:hover { border-color: rgba(255, 255, 255, 0.4); background: rgba(255, 255, 255, 0.05); }
+    .ob-btn-outline:disabled { opacity: 0.5; cursor: not-allowed; }
+    .ob-btn-warn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 28px;
+      border: 1px solid #fbbf24;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s;
+      background: transparent;
+      color: #fbbf24;
+    }
+    .ob-btn-warn:hover { background: rgba(251, 191, 36, 0.1); }
+
+    .ob-btn-group {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 24px;
+    }
+
+    /* Server config options */
+    .ob-options {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 24px;
+    }
+    @media (max-width: 600px) {
+      .ob-options { grid-template-columns: 1fr; }
+    }
+    .ob-option-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 24px;
+      cursor: pointer;
+      transition: all 0.3s;
+      text-align: left;
+    }
+    .ob-option-card:hover {
+      border-color: rgba(16, 163, 127, 0.5);
+      background: rgba(16, 163, 127, 0.05);
+    }
+    .ob-option-card.selected {
+      border-color: #10a37f;
+      background: rgba(16, 163, 127, 0.1);
+    }
+    .ob-option-card h3 {
+      font-size: 16px;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+    .ob-option-card p {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.5);
+      margin: 0;
+    }
+    .ob-option-icon {
+      width: 32px;
+      height: 32px;
+      margin-bottom: 12px;
+      color: #10a37f;
+    }
+
+    /* Manual config form */
+    .ob-form {
+      max-width: 400px;
+      margin: 24px auto 0;
+      text-align: left;
+    }
+    .ob-form label {
+      display: block;
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.6);
+      margin-bottom: 6px;
+      margin-top: 16px;
+    }
+    .ob-form label:first-child { margin-top: 0; }
+    .ob-form input {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.3);
+      color: #fff;
+      font-size: 14px;
+      box-sizing: border-box;
+      outline: none;
+      transition: border-color 0.3s;
+    }
+    .ob-form input:focus {
+      border-color: #10a37f;
+    }
+    .ob-form input::placeholder {
+      color: rgba(255, 255, 255, 0.3);
+    }
+    .ob-form-error {
+      color: #f87171;
+      font-size: 12px;
+      margin-top: 4px;
+      display: none;
+    }
+
+    /* Progress bar */
+    .ob-progress-bar {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      overflow: hidden;
+      margin: 16px 0;
+    }
+    .ob-progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #10a37f, #059669);
+      border-radius: 3px;
+      transition: width 0.5s ease;
+      width: 0%;
+    }
+    .ob-progress-text {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    /* Template cards */
+    .ob-template-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-top: 24px;
+    }
+    @media (max-width: 600px) {
+      .ob-template-grid { grid-template-columns: 1fr; }
+    }
+    .ob-template-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 24px 20px;
+      text-align: center;
+      transition: all 0.3s;
+      position: relative;
+    }
+    .ob-template-card:hover {
+      border-color: rgba(16, 163, 127, 0.5);
+      transform: translateY(-4px);
+    }
+    .ob-template-card.deployment-source {
+      border-color: rgba(16, 163, 127, 0.3);
+    }
+    .ob-template-card .tpl-icon {
+      width: 40px;
+      height: 40px;
+      margin: 0 auto 12px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+    }
+    .ob-template-card h3 {
+      font-size: 16px;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+    .ob-template-card .tpl-desc {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.5);
+      margin-bottom: 12px;
+      line-height: 1.5;
+      min-height: 40px;
+    }
+    .ob-template-card .tpl-meta {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.4);
+      margin-bottom: 16px;
+    }
+    .ob-template-card .tpl-btn {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #10a37f;
+      border-radius: 8px;
+      background: transparent;
+      color: #10a37f;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .ob-template-card .tpl-btn:hover {
+      background: #10a37f;
+      color: #fff;
+    }
+    .ob-template-card .tpl-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Completion page */
+    .ob-success-icon {
+      width: 72px;
+      height: 72px;
+      margin: 0 auto 20px;
+      color: #4ade80;
+    }
+    .ob-member-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      margin: 20px 0;
+    }
+    .ob-member-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 20px;
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.8);
+    }
+    .ob-member-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
   </style>
 </head>
 <body data-page="subscription">
@@ -77,21 +478,25 @@
   <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
   <main class="main-content" id="mainContent">
     <div id="navbar-container"></div>
-    <div class="subscription-page">
+
+    <!-- Subscription Page (original) -->
+    <div class="subscription-page" id="subscriptionPage">
       <div class="subscription-header">
-        <h1>💎 我的订阅</h1>
+        <h1>我的订阅</h1>
         <p>管理您的订阅计划和积分</p>
       </div>
       <div id="currentSubscriptionContainer"></div>
       <div id="trialCard" class="trial-card hidden">
         <div class="trial-header">
-          <div class="trial-icon">🎁</div>
+          <div class="trial-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12v10H4V12"/><path d="M2 7h20v5H2z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
+          </div>
           <div class="trial-title">领取免费积分</div>
         </div>
         <div class="trial-desc">新用户专享，赠送 100 积分体验！</div>
         <div class="trial-list">
           <div class="trial-item"><div class="number">100</div><div class="label">赠送积分</div></div>
-          <div class="trial-item"><div class="number">∞</div><div class="label">无时间限制</div></div>
+          <div class="trial-item"><div class="number">--</div><div class="label">无时间限制</div></div>
           <div class="trial-item"><div class="number">0</div><div class="label">元</div></div>
         </div>
         <button id="startTrialBtn" class="start-trial-btn" onclick="startTrial()">立即领取积分</button>
@@ -103,40 +508,585 @@
       <div class="credit-packs">
         <h2>积分充值</h2>
         <div class="packs-grid" id="packsGrid"></div>
-        <p style="margin-top: 16px; color: rgba(255, 255, 255, 0.5); font-size: 12px;">💡 积分永不过期，订阅用户可叠加使用</p>
+        <p style="margin-top: 16px; color: rgba(255, 255, 255, 0.5); font-size: 12px;">积分永不过期，订阅用户可叠加使用</p>
       </div>
       <div class="info-banner">
-        <h3>ℹ️ 订阅说明</h3>
-        <p>• 订阅套餐按月计费，到期后自动降级为免费版<br>• 充值的积分永久有效，可随时用于对话<br>• 付费用户可享受独享服务器和更多高级功能</p>
+        <h3>订阅说明</h3>
+        <p>订阅套餐按月计费，到期后自动降级为免费版<br>充值的积分永久有效，可随时用于对话<br>付费用户可享受独享服务器和更多高级功能</p>
+      </div>
+    </div>
+
+    <!-- Onboarding Flow (hidden by default) -->
+    <div id="onboardingFlow" class="onboarding-container" style="display:none">
+      <!-- Step Indicator -->
+      <div class="step-indicator">
+        <div class="step-node active" data-step="1">
+          <div class="step-circle">1</div>
+          <div class="step-label">检测服务器</div>
+        </div>
+        <div class="step-line" data-line="1"></div>
+        <div class="step-node" data-step="2">
+          <div class="step-circle">2</div>
+          <div class="step-label">配置服务器</div>
+        </div>
+        <div class="step-line" data-line="2"></div>
+        <div class="step-node" data-step="3">
+          <div class="step-circle">3</div>
+          <div class="step-label">选择模板</div>
+        </div>
+        <div class="step-line" data-line="3"></div>
+        <div class="step-node" data-step="4">
+          <div class="step-circle">4</div>
+          <div class="step-label">完成</div>
+        </div>
+      </div>
+
+      <!-- Step 1: Detect server status -->
+      <div class="step-panel active" id="step1Panel">
+        <div class="ob-card">
+          <div id="step1Content">
+            <div class="ob-spinner"></div>
+            <h2>正在检测服务器状态</h2>
+            <p>请稍候，正在检查您的订阅和服务器信息...</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: Configure server -->
+      <div class="step-panel" id="step2Panel">
+        <div class="ob-card">
+          <svg class="ob-icon primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+          <h2>配置服务器</h2>
+          <p>选择一种方式来配置您的服务器</p>
+
+          <div class="ob-options" id="serverOptions">
+            <div class="ob-option-card" id="optionAuto" onclick="selectServerOption('auto')">
+              <svg class="ob-option-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              <h3>自动开通</h3>
+              <p>一键自动部署专属服务器，无需任何配置</p>
+            </div>
+            <div class="ob-option-card" id="optionManual" onclick="selectServerOption('manual')">
+              <svg class="ob-option-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+              <h3>手动配置</h3>
+              <p>输入已有服务器的 IP 和密码进行连接</p>
+            </div>
+          </div>
+
+          <!-- Manual config form (hidden) -->
+          <div class="ob-form" id="manualForm" style="display:none">
+            <label for="serverIp">服务器 IP</label>
+            <input type="text" id="serverIp" placeholder="例如: 192.168.1.100">
+            <div class="ob-form-error" id="ipError">请输入有效的 IP 地址</div>
+            <label for="serverPassword">SSH 密码</label>
+            <input type="password" id="serverPassword" placeholder="输入服务器 SSH 密码">
+            <div class="ob-form-error" id="pwError">请输入密码</div>
+            <div class="ob-btn-group">
+              <button class="ob-btn-outline" onclick="cancelManualConfig()">返回选择</button>
+              <button class="ob-btn" id="manualSubmitBtn" onclick="submitManualServer()">连接服务器</button>
+            </div>
+          </div>
+
+          <!-- Deploy progress (hidden) -->
+          <div id="deployProgress" style="display:none; margin-top: 24px;">
+            <h2 style="margin-bottom: 8px;">正在部署服务器</h2>
+            <p id="deployStatusText">初始化部署任务...</p>
+            <div class="ob-progress-bar">
+              <div class="ob-progress-bar-fill" id="deployProgressFill"></div>
+            </div>
+            <div class="ob-progress-text" id="deployProgressPercent">0%</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3: Choose team template -->
+      <div class="step-panel" id="step3Panel">
+        <div class="ob-card" style="text-align: left;">
+          <div style="text-align: center; margin-bottom: 8px;">
+            <svg class="ob-icon primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <h2>选择团队模板</h2>
+            <p>选择一个预设模板，快速组建您的 AI 团队</p>
+          </div>
+          <div class="ob-template-grid" id="templateGrid"></div>
+        </div>
+      </div>
+
+      <!-- Step 4: Complete -->
+      <div class="step-panel" id="step4Panel">
+        <div class="ob-card">
+          <svg class="ob-success-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          <h2>团队已就绪</h2>
+          <p id="step4TemplateName">正在加载...</p>
+          <div class="ob-member-list" id="step4MemberList"></div>
+          <div class="ob-btn-group">
+            <button class="ob-btn" onclick="finishOnboarding()">开始使用</button>
+          </div>
+        </div>
       </div>
     </div>
   </main>
+
   <script type="module">
     import { loadSidebar } from '/frontend/components/load-components.js';
     const API_BASE = window.location.origin;
     let user = JSON.parse(localStorage.getItem('lingxi_user') || '{}');
+
+    // ========== Onboarding State ==========
+    const ONBOARDING_KEY = 'onboarding_step';
+    let currentObStep = 1;
+    let serverConfigOption = null;
+    let deployPollTimer = null;
+
+    // Built-in template data
+    const BUILTIN_TEMPLATES = [
+      {
+        templateId: 'dev-team',
+        templateName: '软件开发',
+        description: '适合软件开发项目，包含开发、产品协作',
+        memberCount: 3,
+        color: '#4facfe',
+        abbr: 'DEV',
+        members: [
+          { id:'lingxi', name:'灵犀', role:'队长', color:'#667eea' },
+          { id:'coder', name:'云溪', role:'代码', color:'#4facfe' },
+          { id:'pm', name:'梓萱', role:'产品', color:'#f5576c' },
+        ]
+      },
+      {
+        templateId: 'content-team',
+        templateName: '内容营销',
+        description: '适合内容创作和自媒体运营',
+        memberCount: 4,
+        color: '#fa709a',
+        abbr: 'MKT',
+        members: [
+          { id:'lingxi', name:'灵犀', role:'队长', color:'#667eea' },
+          { id:'inventor', name:'紫萱', role:'创意', color:'#fa709a' },
+          { id:'media', name:'音韵', role:'多媒体', color:'#a18cd1' },
+          { id:'noter', name:'晓琳', role:'笔记', color:'#c79081' },
+        ]
+      },
+      {
+        templateId: 'lingxi-team',
+        templateName: '灵犀团队',
+        description: '全能团队，覆盖开发、运营、创意、产品等',
+        memberCount: 10,
+        color: '#667eea',
+        abbr: 'ALL',
+        members: [
+          { id:'lingxi', name:'灵犀', role:'队长', color:'#667eea' },
+          { id:'coder', name:'云溪', role:'代码', color:'#4facfe' },
+          { id:'ops', name:'若曦', role:'运营', color:'#43e97b' },
+          { id:'inventor', name:'紫萱', role:'创意', color:'#fa709a' },
+          { id:'pm', name:'梓萱', role:'产品', color:'#f5576c' },
+          { id:'noter', name:'晓琳', role:'笔记', color:'#c79081' },
+          { id:'media', name:'音韵', role:'多媒体', color:'#a18cd1' },
+          { id:'smart', name:'智家', role:'自动化', color:'#89b4c4' },
+          { id:'reviewer', name:'清源', role:'审查', color:'#e67e22' },
+        ]
+      },
+    ];
+
+    // ========== Onboarding Logic ==========
+
+    function getOnboardingStep() {
+      const saved = localStorage.getItem(ONBOARDING_KEY);
+      return saved ? parseInt(saved, 10) : null;
+    }
+
+    function setOnboardingStep(step) {
+      currentObStep = step;
+      localStorage.setItem(ONBOARDING_KEY, String(step));
+    }
+
+    function clearOnboardingState() {
+      localStorage.removeItem(ONBOARDING_KEY);
+      currentObStep = 1;
+      serverConfigOption = null;
+    }
+
+    function showOnboarding() {
+      document.getElementById('subscriptionPage').style.display = 'none';
+      document.getElementById('onboardingFlow').style.display = 'flex';
+      const saved = getOnboardingStep();
+      if (saved && saved >= 1 && saved <= 4) {
+        currentObStep = saved;
+        updateStepIndicator();
+        showStepPanel(currentObStep);
+        if (currentObStep === 1) {
+          startServerDetection();
+        } else if (currentObStep === 3) {
+          renderTemplates();
+        } else if (currentObStep === 4) {
+          const savedTpl = localStorage.getItem('onboarding_template');
+          if (savedTpl) {
+            try { renderCompletion(JSON.parse(savedTpl)); } catch (e) { /* ignore */ }
+          }
+        }
+      } else {
+        setOnboardingStep(1);
+        updateStepIndicator();
+        showStepPanel(1);
+        startServerDetection();
+      }
+    }
+
+    function updateStepIndicator() {
+      document.querySelectorAll('.step-node').forEach(node => {
+        const s = parseInt(node.dataset.step, 10);
+        node.classList.remove('active', 'completed');
+        if (s < currentObStep) node.classList.add('completed');
+        else if (s === currentObStep) node.classList.add('active');
+      });
+      document.querySelectorAll('.step-line').forEach(line => {
+        const l = parseInt(line.dataset.line, 10);
+        line.classList.toggle('completed', l < currentObStep);
+      });
+      // Update completed circles to show checkmark
+      document.querySelectorAll('.step-node').forEach(node => {
+        const circle = node.querySelector('.step-circle');
+        const s = parseInt(node.dataset.step, 10);
+        if (s < currentObStep) {
+          circle.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>';
+        } else {
+          circle.textContent = s;
+        }
+      });
+    }
+
+    function showStepPanel(step) {
+      document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
+      const panel = document.getElementById('step' + step + 'Panel');
+      if (panel) panel.classList.add('active');
+    }
+
+    function goToStep(step) {
+      setOnboardingStep(step);
+      updateStepIndicator();
+      showStepPanel(step);
+    }
+
+    // Step 1: Detect server
+    async function startServerDetection() {
+      const content = document.getElementById('step1Content');
+      content.innerHTML = '<div class="ob-spinner"></div><h2>正在检测服务器状态</h2><p>请稍候，正在检查您的订阅和服务器信息...</p>';
+
+      const token = localStorage.getItem('lingxi_token');
+      try {
+        const res = await fetch('/api/subscription/status', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await res.json();
+
+        if (!data.success) {
+          content.innerHTML = '<svg class="ob-icon error" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg><h2>检测失败</h2><p>' + escHtml(data.error || '无法获取订阅状态') + '</p><div class="ob-btn-group"><button class="ob-btn" onclick="startServerDetection()">重试</button></div>';
+          return;
+        }
+
+        const status = data.data || data;
+        const server = status.server;
+        const serverStatus = server?.status || server?.state;
+
+        if (server && (serverStatus === 'running' || serverStatus === 'active' || server.online)) {
+          // Server running -> skip to step 3
+          content.innerHTML = '<svg class="ob-icon success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><h2>服务器已就绪</h2><p>您的服务器正在运行中，正在进入下一步...</p>';
+          setTimeout(() => {
+            goToStep(3);
+            renderTemplates();
+          }, 1200);
+        } else if (server && (serverStatus === 'offline' || serverStatus === 'stopped' || !server.online)) {
+          // Server offline
+          content.innerHTML = '<svg class="ob-icon warn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><h2>服务器离线</h2><p>您的服务器当前处于离线状态，请前往服务器管理页面检查</p><div class="ob-btn-group"><a class="ob-btn-warn" href="servers.html">前往服务器管理</a><button class="ob-btn-outline" onclick="goToStep(2)">重新配置</button></div>';
+        } else {
+          // No server -> go to step 2
+          content.innerHTML = '<svg class="ob-icon primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg><h2>需要配置服务器</h2><p>您还没有配置服务器，请选择一种方式完成配置</p><div class="ob-btn-group"><button class="ob-btn" onclick="goToStep(2)">去配置</button></div>';
+        }
+      } catch (err) {
+        content.innerHTML = '<svg class="ob-icon error" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><h2>网络错误</h2><p>' + escHtml(err.message) + '</p><div class="ob-btn-group"><button class="ob-btn" onclick="startServerDetection()">重试</button></div>';
+      }
+    }
+
+    // Step 2: Server config
+    function selectServerOption(type) {
+      serverConfigOption = type;
+      document.querySelectorAll('.ob-option-card').forEach(c => c.classList.remove('selected'));
+      document.getElementById(type === 'auto' ? 'optionAuto' : 'optionManual').classList.add('selected');
+
+      if (type === 'auto') {
+        startAutoDeploy();
+      } else {
+        document.getElementById('serverOptions').style.display = 'none';
+        document.getElementById('manualForm').style.display = 'block';
+      }
+    }
+
+    function cancelManualConfig() {
+      document.getElementById('serverOptions').style.display = 'grid';
+      document.getElementById('manualForm').style.display = 'none';
+      document.querySelectorAll('.ob-option-card').forEach(c => c.classList.remove('selected'));
+      serverConfigOption = null;
+    }
+
+    async function startAutoDeploy() {
+      document.getElementById('serverOptions').style.display = 'none';
+      document.getElementById('deployProgress').style.display = 'block';
+
+      const token = localStorage.getItem('lingxi_token');
+      try {
+        const res = await fetch('/api/deploy/one-click', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
+        });
+        const data = await res.json();
+
+        if (data.success && data.taskId) {
+          pollDeployStatus(data.taskId);
+        } else {
+          showDeployError(data.error || '部署启动失败');
+        }
+      } catch (err) {
+        showDeployError(err.message);
+      }
+    }
+
+    function pollDeployStatus(taskId) {
+      const token = localStorage.getItem('lingxi_token');
+      let attempts = 0;
+      const maxAttempts = 120; // 10 min at 5s interval
+      let consecutiveFailures = 0;
+      const maxConsecutiveFailures = 10;
+
+      deployPollTimer = setInterval(async () => {
+        attempts++;
+        if (attempts > maxAttempts) {
+          clearInterval(deployPollTimer);
+          showDeployError('部署超时，请稍后在服务器管理中查看状态');
+          return;
+        }
+        try {
+          const res = await fetch('/api/deploy/task/' + taskId, {
+            headers: { 'Authorization': 'Bearer ' + token }
+          });
+          const data = await res.json();
+          consecutiveFailures = 0;
+          const task = data.data || data;
+
+          if (task.status === 'completed' || task.status === 'success' || task.progress >= 100) {
+            clearInterval(deployPollTimer);
+            updateDeployProgress(100, '部署完成！');
+            setTimeout(() => {
+              goToStep(3);
+              renderTemplates();
+            }, 1000);
+          } else if (task.status === 'failed' || task.status === 'error') {
+            clearInterval(deployPollTimer);
+            showDeployError(String(task.error || task.message || '部署失败'));
+          } else {
+            const progress = Math.min(task.progress || 0, 95);
+            const msg = task.message || task.currentStep || '部署进行中...';
+            updateDeployProgress(progress, msg);
+          }
+        } catch (err) {
+          consecutiveFailures++;
+          if (consecutiveFailures >= maxConsecutiveFailures) {
+            clearInterval(deployPollTimer);
+            showDeployError('连续多次请求失败，请检查网络后重试');
+            return;
+          }
+          if (attempts > 3 && attempts % 5 === 0) {
+            updateDeployProgress(0, '连接中断，正在重试...');
+          }
+        }
+      }, 5000);
+    }
+
+    function updateDeployProgress(percent, text) {
+      document.getElementById('deployProgressFill').style.width = percent + '%';
+      document.getElementById('deployProgressPercent').textContent = percent + '%';
+      document.getElementById('deployStatusText').textContent = text;
+    }
+
+    function showDeployError(msg) {
+      document.getElementById('deployProgress').style.display = 'none';
+      const optionsEl = document.getElementById('serverOptions');
+      optionsEl.style.display = 'grid';
+      let errDiv = document.getElementById('deployErrorMsg');
+      if (!errDiv) {
+        errDiv = document.createElement('div');
+        errDiv.id = 'deployErrorMsg';
+        optionsEl.parentNode.insertBefore(errDiv, optionsEl);
+      }
+      errDiv.style.cssText = 'color:#f87171; font-size:14px; margin-top:16px; padding:12px; background:rgba(248,113,113,0.1); border-radius:8px;';
+      errDiv.textContent = msg;
+      setTimeout(() => { if (errDiv.parentNode) errDiv.remove(); }, 8000);
+    }
+
+    function isValidIp(ip) {
+      const parts = ip.split('.');
+      if (parts.length !== 4) return false;
+      return parts.every(p => { const n = parseInt(p, 10); return /^\d{1,3}$/.test(p) && n >= 0 && n <= 255; });
+    }
+
+    async function submitManualServer() {
+      const ip = document.getElementById('serverIp').value.trim();
+      const password = document.getElementById('serverPassword').value;
+      const ipErr = document.getElementById('ipError');
+      const pwErr = document.getElementById('pwError');
+      const btn = document.getElementById('manualSubmitBtn');
+
+      ipErr.style.display = 'none';
+      pwErr.style.display = 'none';
+
+      if (!ip || !isValidIp(ip)) {
+        ipErr.style.display = 'block';
+        return;
+      }
+      if (!password) {
+        pwErr.style.display = 'block';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = '连接中...';
+
+      const token = localStorage.getItem('lingxi_token');
+      const userId = user.id || user._id || '';
+
+      try {
+        const res = await fetch('/api/servers/' + userId, {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ip, password })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          document.getElementById('manualForm').style.display = 'none';
+          document.getElementById('deployProgress').style.display = 'block';
+          updateDeployProgress(100, '服务器连接成功！');
+          setTimeout(() => {
+            goToStep(3);
+            renderTemplates();
+          }, 1000);
+        } else {
+          throw new Error(String(data.error || '添加服务器失败'));
+        }
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = '连接服务器';
+        pwErr.textContent = err.message;
+        pwErr.style.display = 'block';
+      }
+    }
+
+    // Step 3: Templates
+    function renderTemplates() {
+      const grid = document.getElementById('templateGrid');
+      grid.innerHTML = BUILTIN_TEMPLATES.map(t => {
+        return '<div class="ob-template-card">' +
+          '<div class="tpl-icon" style="background:' + t.color + '22; color:' + t.color + ';">' + t.abbr + '</div>' +
+          '<h3>' + escHtml(t.templateName) + '</h3>' +
+          '<div class="tpl-desc">' + escHtml(t.description) + '</div>' +
+          '<div class="tpl-meta">' + t.memberCount + ' 个角色</div>' +
+          '<button class="tpl-btn" data-tid="' + t.templateId + '" onclick="selectTemplate(\'' + t.templateId + '\', this)">选择</button>' +
+          '</div>';
+      }).join('');
+    }
+
+    async function selectTemplate(templateId, btnEl) {
+      if (btnEl.disabled) return;
+      btnEl.disabled = true;
+      btnEl.textContent = '部署中...';
+      // Disable all template buttons
+      document.querySelectorAll('.tpl-btn').forEach(b => b.disabled = true);
+
+      const token = localStorage.getItem('lingxi_token');
+      const userId = user.id || user._id || '';
+
+      const tpl = BUILTIN_TEMPLATES.find(t => t.templateId === templateId);
+
+      try {
+        const res = await fetch('/api/team/' + userId + '/deploy-template/' + templateId, {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          localStorage.setItem('onboarding_template', JSON.stringify(tpl));
+          goToStep(4);
+          renderCompletion(tpl);
+        } else {
+          throw new Error(String(data.error || '模板部署失败'));
+        }
+      } catch (err) {
+        showToast('模板部署遇到问题，已保存本地配置', 'error');
+        localStorage.setItem('onboarding_template', JSON.stringify(tpl));
+        goToStep(4);
+        renderCompletion(tpl);
+      }
+    }
+
+    // Step 4: Completion
+    function renderCompletion(tpl) {
+      document.getElementById('step4TemplateName').textContent = '已部署模板：' + tpl.templateName;
+      const memberList = document.getElementById('step4MemberList');
+      memberList.innerHTML = (tpl.members || []).map(m => {
+        return '<div class="ob-member-chip"><span class="ob-member-dot" style="background:' + m.color + '"></span>' + escHtml(m.name) + ' - ' + escHtml(m.role) + '</div>';
+      }).join('');
+    }
+
+    async function finishOnboarding() {
+      const token = localStorage.getItem('lingxi_token');
+      try {
+        await fetch('/api/subscription/onboarding-complete', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
+        });
+      } catch (e) {
+        // non-critical
+      }
+      clearOnboardingState();
+      window.location.href = 'chat.html';
+    }
+
+    function escHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str || '';
+      return div.innerHTML;
+    }
+
+    function showToast(text, type) {
+      const existing = document.getElementById('obToast');
+      if (existing) existing.remove();
+      const bg = type === 'error' ? '#f87171' : '#10a37f';
+      const msg = document.createElement('div');
+      msg.id = 'obToast';
+      msg.style.cssText = 'position:fixed;top:24px;left:50%;transform:translateX(-50%);background:' + bg + ';color:#fff;padding:12px 24px;border-radius:8px;font-size:14px;z-index:9999;';
+      msg.textContent = text;
+      document.body.appendChild(msg);
+      setTimeout(() => msg.remove(), 3000);
+    }
+
+    // ========== Original Subscription Logic ==========
+
     async function init() {
-      console.log('🚀 订阅页面初始化...');
       const token = localStorage.getItem('lingxi_token');
       if (!token) { window.location.href = 'index.html'; return; }
       await loadComponents();
-      await loadSubscriptionData();
-    }
-    async function loadComponents() {
-      const sidebarContainer = document.getElementById('sidebar-container');
-      if (sidebarContainer) {
-        try {
-          const response = await fetch('/frontend/components/load-components.js');
-          if (response.ok) {
-            const script = document.createElement('script');
-            script.src = '/frontend/components/load-components.js?_=' + Date.now();
-            script.type = 'module';
-            document.head.appendChild(script);
-          }
-        } catch (e) { console.log('加载侧边栏组件失败:', e); }
+      // Check if we should resume onboarding
+      const savedStep = getOnboardingStep();
+      if (savedStep && savedStep >= 1 && savedStep <= 4) {
+        showOnboarding();
+      } else {
+        await loadSubscriptionData();
       }
+    }
+
+    async function loadComponents() {
+      try { await loadSidebar(); } catch (e) { console.log('加载侧边栏组件失败:', e); }
       document.title = '我的订阅 - Lume';
     }
+
     async function loadSubscriptionData() {
       const token = localStorage.getItem('lingxi_token');
       try {
@@ -146,12 +1096,11 @@
         else { console.error('获取订阅数据失败:', result.error); showErrorMessage(result.error); }
       } catch (error) { console.error('获取订阅数据失败:', error); showErrorMessage('网络错误，请稍后重试'); }
     }
+
     function renderSubscription(data) {
       const currentSubscriptionContainer = document.getElementById('currentSubscriptionContainer');
       const trialCard = document.getElementById('trialCard');
-      const plansGrid = document.getElementById('plansGrid');
-      const packsGrid = document.getElementById('packsGrid');
-      
+
       if (data.subscription) {
         const subscription = data.subscription;
         const subscriptionStatus = data.trialStatus;
@@ -164,7 +1113,7 @@
         let planLevel = subscription.plan || 'free';
         let priceDisplay = '';
         if (planLevel === 'free') { priceDisplay = '免费试用'; }
-        else { const planData = data.plans[planLevel]; priceDisplay = planData ? '¥' + planData.price + '/月' : '未知套餐'; }
+        else { const planData = data.plans?.[planLevel]; priceDisplay = planData ? '¥' + planData.price + '/月' : '未知套餐'; }
         let creditsDisplay = '';
         if (planLevel === 'free') { creditsDisplay = '每日 100 积分（已用：' + (data.credits?.freeDailyUsed || 0) + '）'; }
         else { creditsDisplay = (planData?.credits || 0) + ' 积分/月'; }
@@ -189,22 +1138,25 @@
       renderPacksGrid(data.creditPacks);
       if (window.lucide) lucide.createIcons();
     }
+
     function renderPlansGrid(plans, currentSubscription) {
       const plansGrid = document.getElementById('plansGrid');
       plansGrid.innerHTML = Object.entries(plans).map(([planId, plan]) => {
         const isCurrent = currentSubscription && currentSubscription.plan === planId;
         const isRecommended = planId === 'lite';
-        return '<div class="plan-card ' + (isRecommended ? 'recommended' : '') + '"><div class="plan-name">' + plan.name + '</div><div class="plan-price">¥' + plan.price + '<span>/月</span></div><div class="plan-features"><div class="feature-item">积分: ' + (plan.credits || 0) + '</div><div class="feature-item">服务器: ' + (plan.serverType === 'dedicated' ? '独享' : '共享') + '</div><div class="feature-item">模型: ' + (plan.features?.models === 'all' ? '全部' : '基础') + '</div></div><button class="subscribe-btn ' + (isCurrent ? 'disabled' : '') + '" onclick="subscribeToPlan(\'' + planId + '\')" ' + (isCurrent ? 'disabled' : '') + '>' + (isCurrent ? '当前套餐' : '订阅') + '</button></div>';
+        return '<div class="plan-card ' + (isRecommended ? 'recommended' : '') + '"><div class="plan-name">' + escHtml(plan.name) + '</div><div class="plan-price">¥' + escHtml(String(plan.price)) + '<span>/月</span></div><div class="plan-features"><div class="feature-item">积分: ' + escHtml(String(plan.credits || 0)) + '</div><div class="feature-item">服务器: ' + (plan.serverType === 'dedicated' ? '独享' : '共享') + '</div><div class="feature-item">模型: ' + (plan.features?.models === 'all' ? '全部' : '基础') + '</div></div><button class="subscribe-btn ' + (isCurrent ? 'disabled' : '') + '" data-plan="' + escHtml(planId) + '" ' + (isCurrent ? 'disabled' : '') + '>' + (isCurrent ? '当前套餐' : '订阅') + '</button></div>';
       }).join('');
     }
+
     function renderPacksGrid(packs) {
       const packsGrid = document.getElementById('packsGrid');
       packsGrid.innerHTML = packs.map(pack => {
         const bonusPercent = pack.bonus * 100;
         const bonusText = bonusPercent > 0 ? '赠送 ' + bonusPercent.toFixed(0) + '%' : '';
-        return '<div class="pack-card"><div class="pack-name">' + pack.name + '</div><div class="pack-price">¥' + pack.price + '</div><div class="pack-credits">' + pack.credits.toLocaleString() + ' 积分</div>' + (bonusText ? '<div class="pack-bonus">+' + bonusText + '</div>' : '') + '<button class="buy-btn" onclick="buyCreditPack(\'' + pack.id + '\')">立即购买</button></div>';
+        return '<div class="pack-card"><div class="pack-name">' + escHtml(pack.name) + '</div><div class="pack-price">¥' + escHtml(String(pack.price)) + '</div><div class="pack-credits">' + escHtml(pack.credits.toLocaleString()) + ' 积分</div>' + (bonusText ? '<div class="pack-bonus">+' + escHtml(bonusText) + '</div>' : '') + '<button class="buy-btn" onclick="buyCreditPack(\'' + escHtml(pack.id) + '\')">立即购买</button></div>';
       }).join('');
     }
+
     async function startTrial() {
       const token = localStorage.getItem('lingxi_token');
       const btn = document.getElementById('startTrialBtn');
@@ -213,33 +1165,86 @@
       try {
         const response = await fetch('/api/subscription/trial', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' } });
         const result = await response.json();
-        if (result.success) { alert('🎉 积分已到账！\n\n您已获得 100 积分，开始体验吧！'); await loadSubscriptionData(); }
-        else { alert('❌ ' + result.error); btn.disabled = false; btn.textContent = '立即领取积分'; }
-      } catch (error) { alert('网络错误: ' + error.message); btn.disabled = false; btn.textContent = '立即领取积分'; }
+        if (result.success) {
+          showToast('积分已到账！您已获得 100 积分。');
+          await loadSubscriptionData();
+        }
+        else {
+          showToast(result.error || '操作失败', 'error');
+          btn.disabled = false;
+          btn.textContent = '立即领取积分';
+        }
+      } catch (error) {
+        showToast('网络错误: ' + error.message, 'error');
+        btn.disabled = false;
+        btn.textContent = '立即领取积分';
+      }
     }
+
     async function subscribeToPlan(planId) {
       const token = localStorage.getItem('lingxi_token');
+      const btn = document.querySelector('.subscribe-btn[data-plan="' + planId + '"]');
+      if (!btn || btn.disabled) return;
+      btn.disabled = true;
+      btn.dataset.originalText = btn.textContent;
+      btn.textContent = '处理中...';
       try {
         const response = await fetch('/api/subscription/subscribe', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ planId }) });
         const result = await response.json();
-        if (result.success) { alert('💰 ' + result.message); await loadSubscriptionData(); }
-        else { alert('❌ ' + result.error); }
-      } catch (error) { alert('网络错误: ' + error.message); }
+        if (result.success) {
+          showToast(result.message || '订阅成功！');
+          setTimeout(() => {
+            showOnboarding();
+          }, 1500);
+        }
+        else {
+          btn.disabled = false;
+          btn.textContent = btn.dataset.originalText || '订阅';
+          showToast(String(result.error || '订阅失败'), 'error');
+        }
+      } catch (error) {
+        btn.disabled = false;
+        btn.textContent = btn.dataset.originalText || '订阅';
+        showToast('网络错误: ' + error.message, 'error');
+      }
     }
+
     async function buyCreditPack(packId) {
       const token = localStorage.getItem('lingxi_token');
       try {
         const response = await fetch('/api/subscription/credit-pack', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ packId }) });
         const result = await response.json();
-        if (result.success) { alert('💰 ' + result.message); await loadSubscriptionData(); }
-        else { alert('❌ ' + result.error); }
-      } catch (error) { alert('网络错误: ' + error.message); }
+        if (result.success) {
+          showToast(result.message || '购买成功！');
+          await loadSubscriptionData();
+        }
+        else {
+          showToast(result.error || '购买失败', 'error');
+        }
+      } catch (error) {
+        showToast('网络错误: ' + error.message, 'error');
+      }
     }
+
     function showErrorMessage(message) {
       document.getElementById('currentSubscriptionContainer').innerHTML = '<div style="text-align: center; padding: 40px;"><i data-lucide="alert-circle" style="width: 48px; height: 48px; color: #f87171; margin-bottom: 16px;"></i><p style="color: #f87171;">' + message + '</p></div>';
     }
+
     document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('click', function(e) {
+      const btn = e.target.closest('.subscribe-btn[data-plan]');
+      if (btn && !btn.disabled) { subscribeToPlan(btn.dataset.plan); }
+    });
     window.showSubscription = function() { const dropdown = document.getElementById('userDropdown'); if (dropdown) dropdown.classList.remove('show'); const userMenu = document.getElementById('sidebarUserMenu'); if (userMenu) userMenu.classList.remove('show'); window.location.href = 'subscription.html'; };
+
+    // Expose onboarding functions to global scope for onclick handlers
+    window.startServerDetection = startServerDetection;
+    window.goToStep = goToStep;
+    window.selectServerOption = selectServerOption;
+    window.cancelManualConfig = cancelManualConfig;
+    window.submitManualServer = submitManualServer;
+    window.selectTemplate = selectTemplate;
+    window.finishOnboarding = finishOnboarding;
   </script>
 </body>
 </html>

@@ -19,7 +19,8 @@ const defaultDB = {
   agentConfigs: [],
   userServers: [],
   userConfigs: [],
-  deployTasks: []
+  deployTasks: [],
+  customTemplates: []
 };
 
 // 初始化数据库
@@ -49,10 +50,32 @@ async function saveDB(db) {
   await fs.writeFile(dbPath, JSON.stringify(db, null, 2));
 }
 
-// 获取数据库
+// 获取数据库（自动补全新增字段，补全后立即持久化）
 async function getDB() {
   const data = await fs.readFile(dbPath, 'utf-8');
-  return JSON.parse(data);
+  const db = JSON.parse(data);
+  let dirty = false;
+  // 自动补缺：确保新增的 customTemplates 字段存在
+  if (!db.customTemplates) {
+    db.customTemplates = [];
+    dirty = true;
+  }
+  // Fix 5: 用 _migrated_onboarding 标记避免每次 O(n) 扫描
+  if (!db._migrated_onboarding && Array.isArray(db.users)) {
+    for (const user of db.users) {
+      if (user.onboardingCompleted === undefined) {
+        user.onboardingCompleted = false;
+        dirty = true;
+      }
+    }
+    // 无论是否有变更都标记迁移完成，下次跳过
+    db._migrated_onboarding = true;
+    dirty = true;
+  }
+  if (dirty) {
+    await saveDB(db);
+  }
+  return db;
 }
 
 // ============ 邀请码操作 ============

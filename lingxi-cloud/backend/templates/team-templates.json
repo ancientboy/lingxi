@@ -1,0 +1,593 @@
+{
+  "_meta": {
+    "description": "灵犀团队预设模板库",
+    "version": "1.0.0",
+    "lastUpdated": "2026-06-06"
+  },
+  "templates": [
+    {
+      "templateId": "software-dev",
+      "templateName": "软件开发团队",
+      "description": "完整的软件开发团队，从需求到上线",
+      "version": "1.0.0",
+      "category": "development",
+      "isCustom": false,
+      "createdBy": null,
+      "createdAt": "2026-06-06",
+      "tags": [
+        "开发",
+        "全栈",
+        "敏捷",
+        "软件工程"
+      ],
+      "members": [
+        {
+          "id": "lingxi",
+          "name": "灵犀",
+          "icon": "zap",
+          "role": "队长",
+          "desc": "团队调度",
+          "triggers": [
+            "灵犀",
+            "队长"
+          ],
+          "isDefault": true,
+          "capabilities": [
+            "任务调度",
+            "团队协调",
+            "需求分发"
+          ],
+          "defaultModel": "zhipu/glm-5",
+          "skills": []
+        },
+        {
+          "id": "pm",
+          "name": "产品经理",
+          "icon": "target",
+          "role": "需求分析",
+          "desc": "需求分析、产品规划",
+          "triggers": [
+            "需求",
+            "产品",
+            "功能",
+            "PRD"
+          ],
+          "isDefault": false,
+          "capabilities": [
+            "需求分析",
+            "PRD撰写",
+            "产品规划",
+            "优先级排序"
+          ],
+          "defaultModel": "zhipu/glm-5",
+          "skills": []
+        },
+        {
+          "id": "architect",
+          "name": "架构师",
+          "icon": "layers",
+          "role": "架构设计",
+          "desc": "技术选型、架构设计",
+          "triggers": [
+            "架构",
+            "技术选型",
+            "系统设计"
+          ],
+          "isDefault": false,
+          "capabilities": [
+            "架构设计",
+            "技术选型",
+            "系统设计",
+            "性能规划"
+          ],
+          "defaultModel": "zhipu/glm-5",
+          "skills": []
+        },
+        {
+          "id": "frontend",
+          "name": "前端工程师",
+          "icon": "monitor",
+          "role": "前端开发",
+          "desc": "UI 实现、前端开发",
+          "triggers": [
+            "前端",
+            "UI",
+            "页面",
+            "Vue",
+            "React"
+          ],
+          "isDefault": false,
+          "capabilities": [
+            "页面开发",
+            "UI实现",
+            "前端框架",
+            "响应式设计"
+          ],
+          "defaultModel": "zhipu/glm-5",
+          "skills": [
+            "frontend-design"
+          ]
+        },
+        {
+          "id": "backend",
+          "name": "后端工程师",
+          "icon": "server",
+          "role": "后端开发",
+          "desc": "API 开发、数据库设计",
+          "triggers": [
+            "后端",
+            "API",
+            "数据库",
+            "服务"
+          ],
+          "isDefault": false,
+          "capabilities": [
+            "API开发",
+            "数据库设计",
+            "服务端逻辑",
+            "Bug修复"
+          ],
+          "defaultModel": "zhipu/glm-5",
+          "skills": []
+        },
+        {
+          "id": "qa",
+          "name": "测试工程师",
+          "icon": "check-circle",
+          "role": "质量保障",
+          "desc": "测试用例、质量保障",
+          "triggers": [
+            "测试",
+            "QA",
+            "bug",
+            "质量"
+          ],
+          "isDefault": false,
+          "capabilities": [
+            "测试用例编写",
+            "自动化测试",
+            "Bug分析",
+            "质量报告"
+          ],
+          "defaultModel": "zhipu/glm-5",
+          "skills": []
+        },
+        {
+          "id": "reviewer",
+          "name": "清源",
+          "icon": "shield",
+          "role": "代码审查",
+          "desc": "代码审查、质量检查、安全审计",
+          "triggers": [
+            "审查",
+            "review",
+            "代码审查"
+          ],
+          "isDefault": false,
+          "capabilities": [
+            "代码审查",
+            "安全检测",
+            "性能分析",
+            "规范检查"
+          ],
+          "defaultModel": "zhipu/glm-5",
+          "skills": []
+        }
+      ],
+      "recommendedWorkflows": [
+        {
+          "id": "dev-standard",
+          "name": "标准开发流程",
+          "description": "完整功能开发，多 Agent 协作确保质量"
+        },
+        {
+          "id": "dev-quick",
+          "name": "快速开发流程",
+          "description": "简单功能快速实现，单 Agent"
+        }
+      ]
+    },
+    {
+      "templateId": "content-marketing",
+      "templateName": "内容营销团队",
+      "description": "内容创作与社媒运营",
+      "version": "1.0.0",
+      "category": "marketing",
+      "isCustom": false,
+      "createdBy": null,
+      "createdAt": "2026-06-06",
+      "tags": [
+        "内容",
+        "营销",
+        "社媒",
+        "运营"
+      ],
+      "members": [
+        {
+          "id": "lingxi",
+          "name": "灵犀",
+          "icon": "zap",
+          "role": "队长",
+          "desc": "团队调度",
+          "triggers": [
+            "灵犀",
+            "队长"
+          ],
+          "isDefault": true,
+          "capabilities": [
+            "任务调度",
+            "团队协调",
+            "需求分发"
+          ],
+          "defaultModel": "zhipu/glm-5",
+          "skills": []
+        },
+        {
+          "id": "copywriter",
+          "name": "文案策划",
+          "icon": "pen-tool",
+          "role": "文案撰写",
+          "desc": "营销文案、公众号文章",
+          "triggers": [
+            "文案",
+            "写作",
+            "软文",
+            "稿件"
+          ],
+          "isDefault": false,
+          "capabilities": [
+            "文案撰写",
+            "内容策划",
+            "公众号运营",
+            "品牌叙事"
+          ],
+          "defaultModel": "zhipu/glm-5",
+          "skills": []
+        },
+        {
+          "id": "designer",
+          "name": "视觉设计",
+          "icon": "palette",
+          "role": "视觉设计",
+          "desc": "海报设计、配图制作",
+          "triggers": [
+            "设计",
+            "海报",
+            "图片",
+            "视觉"
+          ],
+          "isDefault": false,
+          "capabilities": [
+            "海报设计",
+            "配图制作",
+            "视觉规范",
+            "品牌设计"
+          ],
+          "defaultModel": "zhipu/glm-5",
+          "skills": [
+            "frontend-design"
+          ]
+        },
+        {
+          "id": "seo",
+          "name": "SEO 专员",
+          "icon": "trending-up",
+          "role": "SEO 优化",
+          "desc": "关键词优化、流量分析",
+          "triggers": [
+            "SEO",
+            "关键词",
+            "排名",
+            "流量"
+          ],
+          "isDefault": false,
+          "capabilities": [
+            "关键词研究",
+            "SEO优化",
+            "流量分析",
+            "竞品分析"
+          ],
+          "defaultModel": "zhipu/glm-5",
+          "skills": []
+        },
+        {
+          "id": "social",
+          "name": "社媒运营",
+          "icon": "share-2",
+          "role": "社媒运营",
+          "desc": "微博/抖音/小红书运营",
+          "triggers": [
+            "社媒",
+            "微博",
+            "抖音",
+            "小红书"
+          ],
+          "isDefault": false,
+          "capabilities": [
+            "社媒运营",
+            "内容分发",
+            "粉丝互动",
+            "数据分析"
+          ],
+          "defaultModel": "zhipu/glm-5",
+          "skills": []
+        }
+      ],
+      "recommendedWorkflows": [
+        {
+          "id": "content-standard",
+          "name": "内容创作流程",
+          "description": "选题→撰写→配图→排版完整流程"
+        }
+      ]
+    },
+    {
+      "templateId": "lingxi-team",
+      "templateName": "灵犀团队",
+      "description": "AI 助手调度与任务分发（默认配置）",
+      "version": "1.0.0",
+      "category": "assistant",
+      "isCustom": false,
+      "createdBy": null,
+      "createdAt": "2026-06-06",
+      "tags": [
+        "AI助手",
+        "任务调度",
+        "默认团队",
+        "多智能体"
+      ],
+      "members": [
+        {
+          "id": "lingxi",
+          "name": "灵犀",
+          "icon": "zap",
+          "role": "队长",
+          "desc": "调度、协调、沟通",
+          "triggers": [
+            "灵犀",
+            "队长",
+            "调度"
+          ],
+          "isDefault": true,
+          "capabilities": [
+            "任务调度",
+            "团队协调",
+            "需求分发",
+            "跨Agent协作"
+          ],
+          "defaultModel": "zhipu/glm-5",
+          "skills": []
+        },
+        {
+          "id": "coder",
+          "name": "云溪",
+          "icon": "code",
+          "role": "代码开发",
+          "desc": "代码、bug、API、架构",
+          "triggers": [
+            "代码",
+            "bug",
+            "API",
+            "架构",
+            "开发",
+            "SQL",
+            "算法",
+            "重构",
+            "调试",
+            "Git"
+          ],
+          "isDefault": false,
+          "capabilities": [
+            "代码编写",
+            "Bug修复",
+            "API开发",
+            "架构设计",
+            "SQL优化",
+            "代码审查"
+          ],
+          "defaultModel": "zhipu/glm-5",
+          "skills": [
+            "frontend-design",
+            "github",
+            "healthcheck"
+          ]
+        },
+        {
+          "id": "ops",
+          "name": "若曦",
+          "icon": "bar-chart-2",
+          "role": "数据分析",
+          "desc": "数据分析、报表、增长",
+          "triggers": [
+            "数据",
+            "报表",
+            "增长",
+            "SEO",
+            "用户",
+            "转化",
+            "留存",
+            "分析",
+            "运营"
+          ],
+          "isDefault": false,
+          "capabilities": [
+            "数据分析",
+            "报表制作",
+            "增长策略",
+            "用户研究"
+          ],
+          "defaultModel": "zhipu/glm-5",
+          "skills": []
+        },
+        {
+          "id": "inventor",
+          "name": "紫萱",
+          "icon": "lightbulb",
+          "role": "创意策划",
+          "desc": "文案、创意、营销、品牌",
+          "triggers": [
+            "文案",
+            "创意",
+            "营销",
+            "社媒",
+            "品牌",
+            "广告",
+            "传播",
+            "策划"
+          ],
+          "isDefault": false,
+          "capabilities": [
+            "文案创作",
+            "创意策划",
+            "营销方案",
+            "品牌传播"
+          ],
+          "defaultModel": "zhipu/glm-5",
+          "skills": []
+        },
+        {
+          "id": "pm",
+          "name": "梓萱",
+          "icon": "target",
+          "role": "产品设计",
+          "desc": "需求、产品、MVP、商业",
+          "triggers": [
+            "需求",
+            "产品",
+            "MVP",
+            "商业",
+            "体验",
+            "功能",
+            "原型"
+          ],
+          "isDefault": false,
+          "capabilities": [
+            "需求分析",
+            "产品设计",
+            "MVP规划",
+            "用户体验"
+          ],
+          "defaultModel": "zhipu/glm-5",
+          "skills": []
+        },
+        {
+          "id": "noter",
+          "name": "晓琳",
+          "icon": "book-open",
+          "role": "知识管理",
+          "desc": "学习、翻译、笔记、知识",
+          "triggers": [
+            "学习",
+            "翻译",
+            "笔记",
+            "搜索",
+            "知识",
+            "文档",
+            "整理"
+          ],
+          "isDefault": false,
+          "capabilities": [
+            "知识整理",
+            "翻译服务",
+            "笔记管理",
+            "文档编写"
+          ],
+          "defaultModel": "zhipu/glm-5",
+          "skills": []
+        },
+        {
+          "id": "media",
+          "name": "音韵",
+          "icon": "image",
+          "role": "多媒体",
+          "desc": "图片、视频、音乐、设计",
+          "triggers": [
+            "图片",
+            "视频",
+            "音乐",
+            "设计",
+            "绘图",
+            "剧本",
+            "海报"
+          ],
+          "isDefault": false,
+          "capabilities": [
+            "图片处理",
+            "视频剪辑",
+            "音频处理",
+            "海报设计"
+          ],
+          "defaultModel": "zhipu/glm-5",
+          "skills": [
+            "frontend-design"
+          ]
+        },
+        {
+          "id": "smart",
+          "name": "智家",
+          "icon": "home",
+          "role": "智能工具",
+          "desc": "自动化、脚本、工具、效率",
+          "triggers": [
+            "自动化",
+            "脚本",
+            "工具",
+            "效率",
+            "批量",
+            "处理"
+          ],
+          "isDefault": false,
+          "capabilities": [
+            "自动化脚本",
+            "效率工具",
+            "批量处理",
+            "工具集成"
+          ],
+          "defaultModel": "zhipu/glm-5",
+          "skills": []
+        },
+        {
+          "id": "reviewer",
+          "name": "清源",
+          "icon": "shield",
+          "role": "代码审查",
+          "desc": "代码审查、质量检查、安全审计",
+          "triggers": [
+            "审查",
+            "review",
+            "代码审查",
+            "质量检查",
+            "安全审计"
+          ],
+          "isDefault": false,
+          "capabilities": [
+            "代码审查",
+            "安全检测",
+            "性能分析",
+            "规范检查",
+            "可维护性评估"
+          ],
+          "defaultModel": "zhipu/glm-5",
+          "skills": []
+        }
+      ],
+      "recommendedWorkflows": [
+        {
+          "id": "dev-standard",
+          "name": "标准开发流程",
+          "description": "完整功能开发"
+        },
+        {
+          "id": "content-standard",
+          "name": "内容创作流程",
+          "description": "内容创作全流程"
+        },
+        {
+          "id": "data-analysis",
+          "name": "数据分析流程",
+          "description": "数据采集→清洗→分析→可视化"
+        }
+      ]
+    }
+  ]
+}

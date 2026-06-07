@@ -39,6 +39,19 @@ body {
   background: #0d8a6a;
 }
 
+.sidebar-shortcuts {
+  /* 无边框 */
+}
+
+.sidebar-shortcut-btn {
+  color: #888;
+}
+
+.sidebar-shortcut-btn:hover {
+  background: #2a2a2a;
+  color: #ddd;
+}
+
 .sidebar-close {
   background: #2d2d2d;
   color: #9a9b9f;
@@ -329,6 +342,16 @@ body {
 
 .send-btn:hover {
   background: #0d8a6a;
+}
+
+.send-btn.stopping {
+  background: transparent;
+  color: #ef4444;
+}
+
+.send-btn.stopping:hover {
+  background: transparent;
+  color: #dc2626;
 }
 
 /* 弹窗 */

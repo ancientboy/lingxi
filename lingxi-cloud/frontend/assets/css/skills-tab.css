@@ -3,10 +3,10 @@
 .skills-view {
   display: none;
   flex-direction: column;
-  height: calc(100vh - 60px);
+  height: 100vh;
   overflow: hidden;
-  background: var(--bg-primary, #fff);
-  padding-top: 60px; /* 为固定 navbar 留空间 */
+  background: var(--bg-white, #ffffff);
+  padding-top: 0;
 }
 
 .skills-view.active { display: flex; }
@@ -16,15 +16,15 @@
   display: flex;
   gap: 8px;
   padding: 16px 20px;
-  background: var(--bg-secondary, #f7f7f8);
-  border-bottom: 1px solid var(--border, #e5e5e5);
+  background: var(--bg-main, #f7f7f8);
+  border-bottom: 1px solid var(--border-default, #e5e7eb);
   flex-wrap: wrap;
 }
 
 .category-chip {
   padding: 8px 16px;
-  background: var(--bg-primary, #fff);
-  border: 1px solid var(--border, #e5e5e5);
+  background: var(--bg-white, #ffffff);
+  border: 1px solid var(--border-default, #e5e7eb);
   border-radius: 20px;
   font-size: 13px;
   font-weight: 500;
@@ -37,14 +37,14 @@
 }
 
 .category-chip:hover {
-  border-color: var(--primary, #10a37f);
+  border-color: var(--accent, #10a37f);
   background: rgba(16, 163, 127, 0.05);
 }
 
 .category-chip.active {
-  background: var(--primary, #10a37f);
+  background: var(--accent, #10a37f);
   color: #fff;
-  border-color: var(--primary, #10a37f);
+  border-color: var(--accent, #10a37f);
 }
 
 .category-icon { font-size: 16px; }
@@ -54,8 +54,8 @@
   display: flex;
   gap: 12px;
   padding: 16px 20px;
-  background: var(--bg-primary, #fff);
-  border-bottom: 1px solid var(--border, #e5e5e5);
+  background: var(--bg-white, #ffffff);
+  border-bottom: 1px solid var(--border-default, #e5e7eb);
   align-items: center;
 }
 
@@ -63,8 +63,8 @@
   flex: 1;
   max-width: 400px;
   padding: 10px 14px;
-  background: var(--bg-secondary, #f7f7f8);
-  border: 1px solid var(--border, #e5e5e5);
+  background: var(--bg-main, #f7f7f8);
+  border: 1px solid var(--border-default, #e5e7eb);
   border-radius: 8px;
   font-size: 14px;
   color: var(--text-primary, #202123);
@@ -72,15 +72,15 @@
 
 .skills-search:focus {
   outline: none;
-  border-color: var(--primary, #10a37f);
+  border-color: var(--accent, #10a37f);
 }
 
 .skills-filters { display: flex; gap: 6px; }
 
 .filter-chip {
   padding: 8px 14px;
-  background: var(--bg-secondary, #f7f7f8);
-  border: 1px solid var(--border, #e5e5e5);
+  background: var(--bg-main, #f7f7f8);
+  border: 1px solid var(--border-default, #e5e7eb);
   border-radius: 8px;
   font-size: 13px;
   font-weight: 500;
@@ -90,14 +90,14 @@
 }
 
 .filter-chip:hover {
-  border-color: var(--primary, #10a37f);
-  color: var(--primary, #10a37f);
+  border-color: var(--accent, #10a37f);
+  color: var(--accent, #10a37f);
 }
 
 .filter-chip.active {
-  background: var(--primary, #10a37f);
+  background: var(--accent, #10a37f);
   color: #fff;
-  border-color: var(--primary, #10a37f);
+  border-color: var(--accent, #10a37f);
 }
 
 .skills-grid-container {
@@ -113,8 +113,8 @@
 }
 
 .skill-card {
-  background: var(--bg-primary, #fff);
-  border: 1px solid var(--border, #e5e5e5);
+  background: var(--bg-white, #ffffff);
+  border: 1px solid var(--border-default, #e5e7eb);
   border-radius: 12px;
   padding: 16px;
   transition: all 0.2s;
@@ -122,7 +122,7 @@
 }
 
 .skill-card:hover {
-  border-color: var(--primary, #10a37f);
+  border-color: var(--accent, #10a37f);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
@@ -169,7 +169,7 @@
   display: none;
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid var(--border, #e5e5e5);
+  border-top: 1px solid var(--border-default, #e5e7eb);
   font-size: 13px;
   color: var(--text-secondary, #6b7280);
   line-height: 1.6;
@@ -185,7 +185,7 @@
   align-items: center;
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid var(--border, #e5e5e5);
+  border-top: 1px solid var(--border-default, #e5e7eb);
 }
 
 .skill-meta {
@@ -195,7 +195,7 @@
 
 .skill-install-btn {
   padding: 6px 14px;
-  background: var(--primary, #10a37f);
+  background: var(--accent, #10a37f);
   color: #fff;
   border: none;
   border-radius: 6px;
@@ -308,7 +308,7 @@
 .skill-card.expanded .skill-detail {
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid var(--border, #e5e5e5);
+  border-top: 1px solid var(--border-default, #e5e7eb);
 }
 
 /* 技能元信息 */
@@ -409,12 +409,12 @@
 
 /* 使用示例 */
 .skill-example {
-  background: var(--bg-secondary, #f7f7f8);
+  background: var(--bg-main, #f7f7f8);
   padding: 10px 12px;
   border-radius: 8px;
   font-size: 13px;
   color: var(--text-secondary, #6b7280);
-  border-left: 3px solid var(--primary, #10a37f);
+  border-left: 3px solid var(--accent, #10a37f);
   font-style: italic;
 }
 

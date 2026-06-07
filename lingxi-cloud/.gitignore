@@ -68,3 +68,9 @@ releases/
 
 # 临时文件
 *.tar.gz
+android-app/.gradle/
+android-app/app/build/
+flutter-app/.dart_tool/
+flutter-app/build/
+backend/data/
+*.apk

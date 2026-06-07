@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Lume - AI 团队</title>
   <script src="https://js.stripe.com/v3/"></script>
-  <link rel="stylesheet" href="assets/css/chat.css?v=1772600190">
+  <link rel="stylesheet" href="assets/css/chat.css?v=20260602c">
   <link rel="stylesheet" href="assets/css/dark.css" id="darkTheme" disabled>
   <link rel="stylesheet" href="assets/css/subscription.css">
   <link rel="stylesheet" href="assets/css/stripe-payment.css">
-  <link rel="stylesheet" href="assets/css/skills-tab.css?v=1772456206">
+  <link rel="stylesheet" href="assets/css/skills-tab.css?v=20260602a">
   <link rel="stylesheet" href="assets/css/file-preview.css">
   <!-- Lucide Icons - 使用 cdnjs 备用源 -->
   <script src="assets/libs/lucide.min.js"></script>
@@ -75,6 +75,181 @@
       display: none;
     }
 
+    /* ===== 通知铃铛 ===== */
+    .notification-bell {
+      position: fixed;
+      top: 16px;
+      right: 24px;
+      z-index: 100;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.08);
+      backdrop-filter: blur(8px);
+      cursor: pointer;
+      transition: background 0.2s, transform 0.15s;
+      color: #b4b4b4;
+    }
+    .notification-bell:hover {
+      background: rgba(255,255,255,0.15);
+      color: #fff;
+      transform: scale(1.05);
+    }
+    .notification-badge {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      min-width: 16px;
+      height: 16px;
+      padding: 0 4px;
+      border-radius: 8px;
+      background: #f5576c;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 16px;
+      text-align: center;
+      pointer-events: none;
+    }
+
+    /* ===== 通知下拉面板 ===== */
+    .notification-panel {
+      position: fixed;
+      top: 62px;
+      right: 24px;
+      z-index: 200;
+      width: 360px;
+      max-height: 480px;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .notification-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .notification-panel-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #1a1a1a;
+    }
+    .notification-mark-all {
+      border: none;
+      background: none;
+      color: #667eea;
+      font-size: 13px;
+      cursor: pointer;
+      padding: 2px 8px;
+      border-radius: 6px;
+      transition: background 0.15s;
+    }
+    .notification-mark-all:hover {
+      background: rgba(102,126,234,0.08);
+    }
+    .notification-panel-body {
+      flex: 1;
+      overflow-y: auto;
+      max-height: 400px;
+    }
+    .notification-empty {
+      padding: 40px 16px;
+      text-align: center;
+      color: #999;
+      font-size: 14px;
+    }
+
+    /* ===== 单条通知 ===== */
+    .notification-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 16px;
+      cursor: pointer;
+      transition: background 0.15s;
+      border-bottom: 1px solid #f5f5f5;
+    }
+    .notification-item:hover {
+      background: #f9f9fb;
+    }
+    .notification-item.is-unread {
+      background: rgba(102,126,234,0.04);
+    }
+    .notification-item-bar {
+      width: 3px;
+      min-height: 32px;
+      border-radius: 2px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .notification-item-bar.offline { background: #667eea; }
+    .notification-item-bar.recovered { background: #43e97b; }
+    .notification-item-bar.reminder { background: #fbbf24; }
+    .notification-item-content {
+      flex: 1;
+      min-width: 0;
+    }
+    .notification-item-msg {
+      font-size: 13px;
+      color: #333;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+    .notification-item-time {
+      font-size: 11px;
+      color: #aaa;
+      margin-top: 4px;
+    }
+
+    /* 深色主题适配 */
+    body.dark-theme .notification-panel {
+      background: #2a2a2e;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    }
+    body.dark-theme .notification-panel-header {
+      border-bottom-color: #3a3a3e;
+    }
+    body.dark-theme .notification-panel-title {
+      color: #e0e0e0;
+    }
+    body.dark-theme .notification-item {
+      border-bottom-color: #3a3a3e;
+    }
+    body.dark-theme .notification-item:hover {
+      background: rgba(255,255,255,0.04);
+    }
+    body.dark-theme .notification-item.is-unread {
+      background: rgba(102,126,234,0.08);
+    }
+    body.dark-theme .notification-item-msg {
+      color: #d0d0d0;
+    }
+    body.dark-theme .notification-item-time {
+      color: #777;
+    }
+    body.dark-theme .notification-empty {
+      color: #777;
+    }
+
+    @media (max-width: 768px) {
+      .notification-panel {
+        right: 8px;
+        width: calc(100vw - 16px);
+        max-width: 360px;
+      }
+      .notification-bell {
+        right: 12px;
+      }
+    }
+
 </style>
 </head>
 <body data-page="chat">
@@ -91,6 +266,34 @@
   <main class="main-content" id="mainContent">
     <!-- 导航栏容器 -->
     <div id="navbar-container"></div>
+
+    <!-- 通知铃铛 -->
+    <div class="notification-bell" id="notificationBell" onclick="toggleNotificationPanel(event)">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+      </svg>
+      <span class="notification-badge" id="notificationBadge" style="display:none;">0</span>
+    </div>
+    <!-- 通知下拉面板 -->
+    <div class="notification-panel" id="notificationPanel" style="display:none;">
+      <div class="notification-panel-header">
+        <span class="notification-panel-title">通知</span>
+        <button class="notification-mark-all" id="notificationMarkAll" onclick="markAllNotificationsRead(event)" style="display:none;">全部已读</button>
+      </div>
+      <div class="notification-panel-body" id="notificationPanelBody">
+        <div class="notification-empty">暂无通知</div>
+      </div>
+    </div>
+
+    <!-- 未完成配置提示条（放在导航栏下方） -->
+    <div class="onboarding-banner" id="onboardingBanner" style="display:none;">
+      <span class="onboarding-banner-text">你的 AI 团队还未配置完成</span>
+      <button class="onboarding-banner-btn" onclick="goToSubscriptionSetup()">立即配置</button>
+      <button class="onboarding-banner-close" onclick="permanentlyDismissBanner()" title="不再提醒">
+        <i data-lucide="x" style="width:14px;height:14px;"></i>
+      </button>
+    </div>
 
     <!-- 订阅弹窗 -->
     <div class="modal-overlay" id="subscriptionModal">
@@ -113,64 +316,7 @@
       </div>
     </div>
 
-    <!-- 团队管理弹窗 -->
-    <div class="modal-overlay" id="teamModal">
-      <div class="modal team-modal">
-        <div class="modal-header">
-          <h3><i data-lucide="users" class="icon-sm icon-primary"></i> 我的团队</h3>
-          <button class="close-btn" onclick="closeTeamModal()">
-            <i data-lucide="x" class="icon-sm"></i>
-          </button>
-        </div>
 
-        <!-- 标签页导航 -->
-        <div class="team-tabs">
-          <div class="team-tab active" onclick="switchTeamTab('my-team')">
-            <i data-lucide="users" class="icon-sm"></i>
-            <span>我的团队</span>
-          </div>
-          <div class="team-tab" onclick="switchTeamTab('templates')">
-            <i data-lucide="layout-template" class="icon-sm"></i>
-            <span>模板库</span>
-          </div>
-        </div>
-
-        <div class="modal-body">
-          <!-- 我的团队标签页 -->
-          <div class="team-tab-content" id="myTeamTab">
-            <div class="team-list" id="myTeamList"></div>
-            <div class="add-team-section">
-              <h4>添加成员</h4>
-              <div class="available-agents" id="availableAgents"></div>
-            </div>
-          </div>
-
-          <!-- 模板库标签页 -->
-          <div class="team-tab-content" id="templatesTab" style="display:none;">
-            <div class="templates-grid" id="templatesGrid"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 模板详情弹窗 -->
-    <div class="modal-overlay" id="templateDetailModal">
-      <div class="modal template-detail-modal">
-        <div class="modal-header">
-          <h3 id="templateDetailTitle">模板详情</h3>
-          <button class="close-btn" onclick="closeTemplateDetailModal()">
-            <i data-lucide="x" class="icon-sm"></i>
-          </button>
-        </div>
-        <div class="modal-body">
-          <div class="template-detail-content" id="templateDetailContent"></div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary" onclick="closeTemplateDetailModal()">取消</button>
-          <button class="btn btn-primary" id="applyTemplateBtn" onclick="confirmApplyTemplate()">应用此模板</button>
-        </div>
-      </div>
-    </div>
 
     <!-- 飞书配置弹窗 -->
     <div class="modal-overlay" id="feishuModal">
@@ -344,8 +490,25 @@
       </div>
     </div>
 
+    <!-- 订阅后 Onboarding 引导弹窗（已订阅但未完成配置的用户） -->
+    <div class="modal-overlay" id="subOnboardingModal" style="display:none;" onclick="if(event.target===this)dismissSubOnboarding()">
+      <div class="modal sub-onboarding-modal" style="max-width:440px;">
+        <div class="sub-onboarding-content">
+          <div class="sub-onboarding-icon">
+            <i data-lucide="users" style="width:36px;height:36px;color:#fff;"></i>
+          </div>
+          <h2 class="sub-onboarding-title">欢迎！让我们配置你的 AI 团队</h2>
+          <p class="sub-onboarding-desc">你的订阅已生效，接下来需要完成团队配置才能开始使用。</p>
+          <div class="sub-onboarding-actions">
+            <button class="sub-onboarding-btn-primary" onclick="goToSubscriptionSetup()">开始配置</button>
+            <button class="sub-onboarding-btn-secondary" onclick="dismissSubOnboarding()">稍后配置</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- 新用户引导弹窗 -->
-    <div class="modal-overlay" id="onboardingModal" style="display:none;">
+    <div class="modal-overlay" id="onboardingModal" style="display:none;" onclick="if(event.target===this)startChat()">
       <div class="modal onboarding-modal" style="max-width:480px;">
         <!-- Step 1: 欢迎 -->
         <div id="onboardingStep1" class="onboarding-step">
@@ -393,7 +556,7 @@
             <div class="onboarding-icon" style="background:#10a37f;">
               <i data-lucide="check" class="icon-lg"></i>
             </div>
-            <h2>🎉 配置完成！</h2>
+            <h2>配置完成!</h2>
             <p>你的 AI 团队已就绪，现在可以开始对话了</p>
             <div class="team-preview" id="teamPreview"></div>
           </div>
@@ -589,6 +752,137 @@
         width: 24px;
         height: 24px;
         color: #10a37f;
+      }
+
+      /* 订阅后 Onboarding 引导弹窗 */
+      .sub-onboarding-modal {
+        background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%);
+        border: 1px solid rgba(16, 163, 127, 0.3);
+      }
+
+      .sub-onboarding-content {
+        padding: 40px 32px;
+        text-align: center;
+      }
+
+      .sub-onboarding-icon {
+        width: 72px;
+        height: 72px;
+        background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 24px;
+        box-shadow: 0 8px 24px rgba(16, 163, 127, 0.3);
+      }
+
+      .sub-onboarding-title {
+        font-size: 22px;
+        font-weight: 600;
+        color: #ffffff;
+        margin-bottom: 12px;
+      }
+
+      .sub-onboarding-desc {
+        font-size: 14px;
+        color: rgba(255, 255, 255, 0.6);
+        line-height: 1.6;
+        margin-bottom: 32px;
+      }
+
+      .sub-onboarding-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .sub-onboarding-btn-primary {
+        width: 100%;
+        padding: 14px;
+        background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
+        color: #fff;
+        border: none;
+        border-radius: 12px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        box-shadow: 0 4px 12px rgba(16, 163, 127, 0.3);
+      }
+
+      .sub-onboarding-btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(16, 163, 127, 0.4);
+      }
+
+      .sub-onboarding-btn-secondary {
+        width: 100%;
+        padding: 12px;
+        background: transparent;
+        color: rgba(255, 255, 255, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 12px;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      .sub-onboarding-btn-secondary:hover {
+        color: rgba(255, 255, 255, 0.7);
+        border-color: rgba(255, 255, 255, 0.3);
+      }
+
+      /* 未完成配置提示条 */
+      .onboarding-banner {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 16px;
+        background: linear-gradient(90deg, rgba(16, 163, 127, 0.12) 0%, rgba(59, 130, 246, 0.12) 100%);
+        border-bottom: 1px solid rgba(16, 163, 127, 0.2);
+        font-size: 13px;
+        color: #10a37f;
+      }
+
+      .onboarding-banner-text {
+        flex: 1;
+        font-weight: 500;
+      }
+
+      .onboarding-banner-btn {
+        padding: 5px 14px;
+        background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        white-space: nowrap;
+      }
+
+      .onboarding-banner-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(16, 163, 127, 0.3);
+      }
+
+      .onboarding-banner-close {
+        background: none;
+        border: none;
+        color: rgba(16, 163, 127, 0.5);
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        transition: all 0.2s;
+      }
+
+      .onboarding-banner-close:hover {
+        color: rgba(16, 163, 127, 0.8);
+        background: rgba(16, 163, 127, 0.1);
       }
 
       /* 签到按钮 */
@@ -1226,6 +1520,10 @@
     </div>
 
     <div class="chat-container">
+      <!-- 侧边栏展开按钮 -->
+      <button class="sidebar-open-btn" id="sidebarOpenBtn" onclick="toggleSidebar()" title="展开侧边栏">
+        <i data-lucide="panel-left" class="icon-sm"></i>
+      </button>
       <div class="messages" id="messages">
         <div class="welcome" id="welcome">
           <div class="welcome-icon">
@@ -1237,51 +1535,60 @@
         </div>
       </div>
 
-      <div class="input-area">
-        <!-- 图片预览区域 -->
+      <!-- 悬浮输入栏 -->
+      <div class="input-bar" id="inputBar">
+        <!-- 图片预览 -->
         <div class="image-preview-container" id="imagePreviewContainer">
           <div class="image-preview-wrapper">
-            <img class="image-preview" id="imagePreview" src="" alt="预览图片">
-            <button class="image-preview-remove" onclick="removeSelectedImage()" title="移除图片">
+            <img class="image-preview" id="imagePreview" src="" alt="">
+            <button class="image-preview-remove" onclick="removeSelectedImage()" title="移除">
               <i data-lucide="x" class="icon-sm"></i>
             </button>
-            <!-- 文档信息覆盖层 -->
             <div class="file-info-overlay" id="fileInfoOverlay" style="display: none;"></div>
-            <!-- 上传进度条 -->
             <div class="upload-progress-bar" id="uploadProgressBar" style="display: none;">
               <div class="upload-progress-fill" id="uploadProgressFill"></div>
             </div>
           </div>
         </div>
 
-        <div class="input-wrapper">
-          <!-- 左边：相机图标 -->
-          <button class="camera-btn" id="cameraBtn" onclick="handleCameraCapture()" title="拍照">
-            <i data-lucide="camera" class="icon-sm"></i>
+        <!-- 上半部：输入框 + 发送按钮 -->
+        <div class="input-top">
+          <textarea class="input-field" id="inputField" placeholder="给灵犀发消息..." rows="1"></textarea>
+          <button class="send-btn hidden" id="sendBtn" onclick="handleSendClick()" title="发送">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
           </button>
-          <!-- 中间：输入框 -->
-          <textarea class="input-field" id="inputField" placeholder="输入消息..." rows="1"></textarea>
-          <!-- 右边：动态显示（有文字显示发送，无文字显示麦克风+上传） -->
-          <div class="input-right-btns" id="inputRightBtns">
-            <!-- 默认显示麦克风和上传图标 -->
-            <button class="voice-btn" id="voiceBtn"
-                    onmousedown="startRecording()"
-                    onmouseup="stopRecordingAndSend()"
+        </div>
+
+        <!-- 下半部：左工具 + 右模型 -->
+        <div class="input-bottom">
+          <div class="input-tools-left">
+            <button class="input-icon-btn" onclick="handleCameraCapture()" title="拍照">
+              <i data-lucide="camera" class="icon-sm"></i>
+            </button>
+            <button class="input-icon-btn" onclick="document.getElementById('imageInput').click()" title="上传">
+              <i data-lucide="paperclip" class="icon-sm"></i>
+            </button>
+            <button class="input-icon-btn" id="voiceBtn"
+                    onmousedown="startRecording()" onmouseup="stopRecordingAndSend()"
                     onmouseleave="if(isRecording) stopRecordingAndSend()"
                     ontouchstart="event.preventDefault(); startRecording()"
-                    ontouchend="stopRecordingAndSend()"
-                    title="按住说话，松开发送">
+                    ontouchend="stopRecordingAndSend()" title="按住说话">
               <i data-lucide="mic" class="icon-sm"></i>
             </button>
-            <button class="image-btn" id="imageBtn" onclick="document.getElementById('imageInput').click()" title="上传图片">
-              <i data-lucide="image" class="icon-sm"></i>
+          </div>
+          <div class="input-tools-right">
+            <button class="model-pill" onclick="toggleModelDropdown()">
+              <span class="model-dot"></span>
+              <span id="currentModelName">GLM-5.1</span>
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" style="opacity:0.4;"><path d="M2.5 3.75L5 6.25L7.5 3.75" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
             </button>
           </div>
-          <button class="send-btn hidden" id="sendBtn" onclick="handleSendClick()" title="发送">
-            <i data-lucide="send" class="icon-sm"></i>
-          </button>
-          <input type="file" id="imageInput" class="image-input" accept="image/*,.pdf,.txt,.md,.html,.csv,.json" onchange="handleImageSelect(event)">
         </div>
+
+        <!-- 模型下拉 -->
+        <div class="model-dropdown" id="modelDropdown"></div>
+
+        <input type="file" id="imageInput" class="image-input" accept="image/*,.pdf,.txt,.md,.html,.csv,.json" onchange="handleImageSelect(event)">
       </div>
     </div>
 
@@ -1304,6 +1611,69 @@
         </div>
       </div>
     </div>
+
+    <!-- 设备管理视图 -->
+    <div class="skills-view" id="serversView">
+      <div class="skills-toolbar" style="padding: 16px 20px;">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <h2 style="font-size: 18px; font-weight: 600; margin: 0;">设备管理</h2>
+          <div style="display:flex;gap:8px;">
+            <button onclick="loadServersView()" style="background:none; border:1px solid #ddd; border-radius:8px; padding:6px 12px; cursor:pointer; font-size:13px; color:#666;">刷新</button>
+            <button onclick="showAddServerModal()" style="background:#10a37f; color:white; border:none; padding:6px 14px; border-radius:8px; cursor:pointer; font-size:13px;">+ 添加设备</button>
+          </div>
+        </div>
+      </div>
+      <div id="serversGridContainer" style="padding: 20px; overflow-y:auto; flex:1;">
+        <div style="text-align:center; color:#999; padding:40px;">加载中...</div>
+      </div>
+    </div>
+
+    <!-- 办公区视图 -->
+    <div class="skills-view" id="workspaceView">
+      <iframe src="agent-workspace.html" style="width:100%;height:100%;border:none;"></iframe>
+    </div>
+
+    <!-- 📱 添加/编辑设备弹框（放在 main 内部确保可达） -->
+    <div id="serverFormModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:2000;align-items:center;justify-content:center;" onclick="if(event.target===this){this.style.display='none'}">
+      <div style="background:#fff;border-radius:16px;width:90%;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid #f0f0f0;">
+          <h3 id="serverFormTitle" style="font-size:18px;margin:0;">添加设备</h3>
+          <button onclick="document.getElementById('serverFormModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:#999;">✕</button>
+        </div>
+        <div style="padding:20px 24px;">
+          <div style="margin-bottom:14px;">
+            <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px;">设备名称</label>
+            <input id="sf_name" type="text" placeholder="例：主力服务器" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box;">
+          </div>
+          <div style="display:flex;gap:12px;margin-bottom:14px;">
+            <div style="flex:3;">
+              <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px;">IP 地址 <span style="color:#e53935">*</span></label>
+              <input id="sf_ip" type="text" placeholder="192.168.1.100" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box;">
+            </div>
+            <div style="flex:1;">
+              <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px;">端口</label>
+              <input id="sf_port" type="number" placeholder="18789" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box;">
+            </div>
+          </div>
+          <div style="margin-bottom:14px;">
+            <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px;">OpenClaw Token</label>
+            <input id="sf_token" type="text" placeholder="控制令牌" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box;">
+            <div style="font-size:11px;color:#999;margin-top:3px;">在 OpenClaw 配置文件的 control.token 中找到</div>
+          </div>
+          <div style="margin-bottom:14px;">
+            <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px;">Session ID</label>
+            <input id="sf_session" type="text" placeholder="ControlUI URL 中的路径部分" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box;">
+            <div style="font-size:11px;color:#999;margin-top:3px;">例如 http://ip:18789/8eb2a992/ 中的 8eb2a992</div>
+          </div>
+          <div style="margin-bottom:20px;">
+            <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px;">备注</label>
+            <input id="sf_desc" type="text" placeholder="可选" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box;">
+          </div>
+          <button onclick="submitServerForm()" style="width:100%;padding:12px;background:#10a37f;color:white;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;" id="serverFormSubmitBtn">添加</button>
+        </div>
+      </div>
+    </div>
+    
   </main><!-- /.main-content -->
 
   <!-- 技能库弹窗 -->
@@ -1605,58 +1975,16 @@
 
     // 渲染单个会话项
     function renderSessionItem(session) {
-      // 使用 chat.js 中的 currentSessionKey（如果可访问）
       const currentKey = typeof currentSessionKey !== 'undefined' ? currentSessionKey : window.currentSessionKey;
       const isActive = session.key === currentKey;
 
-      console.log('📋 渲染会话项:', session.key, 'isActive:', isActive, 'currentKey:', currentKey);
-
-      // 生成显示名称：优先使用 label，否则从 key 识别 agent
-      let displayName = session.label || session.displayName;
-
-      // 🔧 修复：从 session key 提取 agentId 并显示 agent 名称
-      if (!displayName) {
-        // 检查是否是主会话
-        if (session.key === 'main' || session.key.endsWith(':main')) {
-          displayName = '灵犀（主会话）';
-        } else {
-          // 尝试从 key 中提取 agentId（格式: prefix:agent:agentId）
-          const agentMatch = session.key.match(/:agent:([a-z]+)$/);
-          if (agentMatch) {
-            const agentId = agentMatch[1];
-            // 从 AGENT_INFO 获取 agent 名称（如果 chat.js 已加载）
-            const agentInfo = typeof AGENT_INFO !== 'undefined' ? AGENT_INFO[agentId] : null;
-            if (agentInfo) {
-              displayName = agentInfo.name;
-            } else {
-              // 使用 lastMessage 前15个字作为名称
-              const lastMsg = session.lastMessage || session.preview || session.last_message || '';
-              if (lastMsg && lastMsg.length > 0) {
-                displayName = lastMsg.substring(0, 15) + (lastMsg.length > 15 ? '...' : '');
-              } else {
-                displayName = agentId.charAt(0).toUpperCase() + agentId.slice(1); // 首字母大写
-              }
-            }
-          } else {
-            // 非标准格式，使用 lastMessage 或时间戳
-            const lastMsg = session.lastMessage || session.preview || session.last_message || '';
-            if (lastMsg && lastMsg.length > 0) {
-              displayName = lastMsg.substring(0, 15) + (lastMsg.length > 15 ? '...' : '');
-            } else {
-              displayName = session.updatedAt
-                ? new Date(session.updatedAt).toLocaleString('zh-CN', {month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'})
-                : '对话';
-            }
-          }
-        }
-      }
+      // 🚀 使用 chat.js 的 deriveSessionTitle（零网络请求）
+      const displayName = session.title || (typeof deriveSessionTitle === 'function' ? deriveSessionTitle(session) : (session.label || '未命名会话'));
+      const time = session.relativeTime || (session.updatedAt ? new Date(session.updatedAt).toLocaleString('zh-CN', {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : '');
 
       // 预览内容
       const preview = session.lastMessage || session.preview || session.last_message || '';
       const previewText = preview.substring(0, 30) + (preview.length > 30 ? '...' : '');
-
-      // 时间
-      const time = session.updatedAt ? new Date(session.updatedAt).toLocaleString('zh-CN', {month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit'}) : '';
 
       return `
         <div class="sidebar-session ${isActive ? 'active' : ''}" onclick="switchToSession('${session.key}')" title="${escapeHtml(previewText)}">
@@ -1848,7 +2176,7 @@
 
         if (data.success && data.allowed) {
           // 显示 LumeClaw 入口
-          const entry = document.getElementById('lumeclawEntry');
+          const entry = document.getElementById('lumeclawMenuEntry');
           if (entry) entry.style.display = 'flex';
         }
 
@@ -2270,6 +2598,178 @@
       menu.classList.toggle('show');
     }
 
+    // ===== 通知系统 =====
+    var _notifPanelOpen = false;
+
+    function toggleNotificationPanel(e) {
+      if (e) e.stopPropagation();
+      var panel = document.getElementById('notificationPanel');
+      _notifPanelOpen = !_notifPanelOpen;
+      panel.style.display = _notifPanelOpen ? 'block' : 'none';
+      if (_notifPanelOpen) loadNotifications();
+    }
+
+    async function loadNotifications() {
+      var token = localStorage.getItem('lingxi_token');
+      if (!token) return;
+
+      try {
+        // 获取未读数
+        var countRes = await fetch('/api/healthcheck/notifications/unread-count', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        var countData = await resOk(countRes);
+        if (!countData) return;
+
+        var badge = document.getElementById('notificationBadge');
+        if (countData.count > 0) {
+          badge.textContent = countData.count > 99 ? '99+' : countData.count;
+          badge.style.display = '';
+        } else {
+          badge.style.display = 'none';
+        }
+
+        // 获取通知列表
+        var listRes = await fetch('/api/healthcheck/notifications', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        var listData = await resOk(listRes);
+        if (!listData) return;
+
+        var body = document.getElementById('notificationPanelBody');
+        var markAllBtn = document.getElementById('notificationMarkAll');
+        var notifs = listData.data || listData || [];
+
+        if (notifs.length === 0) {
+          body.innerHTML = '<div class="notification-empty">暂无通知</div>';
+          if (markAllBtn) markAllBtn.style.display = 'none';
+          return;
+        }
+
+        var unreadCount = notifs.filter(function(n) { return !n.read; }).length;
+        if (markAllBtn) markAllBtn.style.display = unreadCount > 0 ? '' : 'none';
+
+        var html = '';
+        for (var i = 0; i < notifs.length; i++) {
+          var n = notifs[i];
+          var cls = n.read ? '' : ' is-unread';
+          var barCls = n.type === 'server_offline' ? 'offline' : n.type === 'server_recovered' ? 'recovered' : n.type === 'reminder' ? 'reminder' : 'offline';
+          // Icon based on type
+          var notifIcon = '';
+          if (n.type === 'reminder') {
+            notifIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;flex-shrink:0;margin-right:4px;color:#667eea"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+          }
+          html += '<div class="notification-item' + cls + '" data-id="' + (n.id || '') + '" onclick="markNotificationRead(this)">';
+          html += '<div class="notification-item-bar ' + barCls + '"></div>';
+          html += '<div class="notification-item-content">';
+          html += '<div class="notification-item-msg" style="display:flex;align-items:flex-start">' + notifIcon + escapeHtml(n.message || '') + '</div>';
+          html += '<div class="notification-item-time">' + relativeTimeNotif(n.createdAt) + '</div>';
+          html += '</div></div>';
+        }
+        body.innerHTML = html;
+      } catch (err) {
+        console.warn('加载通知失败:', err);
+      }
+    }
+
+    function relativeTimeNotif(isoStr) {
+      if (!isoStr) return '';
+      var now = Date.now();
+      var then = new Date(isoStr).getTime();
+      var diff = now - then;
+      if (diff < 60000) return '刚刚';
+      if (diff < 3600000) return Math.floor(diff / 60000) + ' 分钟前';
+      if (diff < 86400000) return Math.floor(diff / 3600000) + ' 小时前';
+      if (diff < 604800000) return Math.floor(diff / 86400000) + ' 天前';
+      var d = new Date(isoStr);
+      return (d.getMonth() + 1) + '/' + d.getDate();
+    }
+
+    async function markNotificationRead(el) {
+      var id = el.dataset.id;
+      if (!id || !el.classList.contains('is-unread')) return;
+
+      var token = localStorage.getItem('lingxi_token');
+      try {
+        await fetch('/api/healthcheck/notifications/read', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ notificationId: id })
+        });
+        el.classList.remove('is-unread');
+        // 更新 badge
+        var badge = document.getElementById('notificationBadge');
+        var count = parseInt(badge.textContent) || 0;
+        if (count > 1) {
+          badge.textContent = count - 1;
+        } else {
+          badge.style.display = 'none';
+        }
+      } catch (e) { /* ignore */ }
+    }
+
+    function markAllNotificationsRead(e) {
+      if (e) e.stopPropagation();
+      var token = localStorage.getItem('lingxi_token');
+      fetch('/api/healthcheck/notifications/read', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ all: true })
+      }).then(function() {
+        loadNotifications();
+      }).catch(function() { /* ignore */ });
+    }
+
+    async function resOk(res) {
+      if (res.status === 401) return null;
+      var data = await res.json();
+      return data.success !== false ? data : null;
+    }
+
+    // 点击其他地方关闭通知面板
+    document.addEventListener('click', function(e) {
+      var bell = document.getElementById('notificationBell');
+      var panel = document.getElementById('notificationPanel');
+      if (_notifPanelOpen && bell && panel && !bell.contains(e.target) && !panel.contains(e.target)) {
+        _notifPanelOpen = false;
+        panel.style.display = 'none';
+      }
+    });
+
+    // 定时刷新未读数（每 5 分钟）
+    setInterval(function() {
+      var token = localStorage.getItem('lingxi_token');
+      if (!token) return;
+      fetch('/api/healthcheck/notifications/unread-count', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      }).then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (!d || !d.success) return;
+          var badge = document.getElementById('notificationBadge');
+          if (d.count > 0) {
+            badge.textContent = d.count > 99 ? '99+' : d.count;
+            badge.style.display = '';
+          } else {
+            badge.style.display = 'none';
+          }
+        }).catch(function() {});
+    }, 5 * 60 * 1000);
+
+    // 页面加载时立即获取一次未读数
+    (function() {
+      var token = localStorage.getItem('lingxi_token');
+      if (!token) return;
+      fetch('/api/healthcheck/notifications/unread-count', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      }).then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (!d || !d.success || d.count === 0) return;
+          var badge = document.getElementById('notificationBadge');
+          badge.textContent = d.count > 99 ? '99+' : d.count;
+          badge.style.display = '';
+        }).catch(function() {});
+    })();
+
     // 点击其他地方关闭用户菜单
     document.addEventListener('click', (e) => {
       const footer = document.querySelector('.sidebar-footer');
@@ -2291,6 +2791,15 @@
     if (autoView) {
       sessionStorage.removeItem('autoSwitchView');
       setTimeout(() => switchView(autoView), 100);
+    }
+    
+    // 🔧 从 URL 参数触发视图
+    const urlParams = new URLSearchParams(window.location.search);
+    const viewParam = urlParams.get('view');
+    if (viewParam === 'team') {
+      // 已移除 teamModal，重定向到办公区
+      setTimeout(() => switchView('workspace'), 500);
+      history.replaceState(null, '', 'chat.html');
     }
 
     // 初始化 Lucide 图标
@@ -2378,11 +2887,11 @@
 
   <!-- 文件预览模块 -->
 
-  <script src="assets/js/chat.js?v=1773569491"></script>
+  <script src="assets/js/chat.js?v=20260604b"></script>
 
     <!-- 统一组件加载器 -->
     <script src="components/load-components.js"></script>
-  <script src="assets/js/skills-tab.js?v=1772520456"></script>
+  <script src="assets/js/skills-tab.js?v=20260602a"></script>
     <script src="assets/js/subscription.js?v=1772525512"></script>
   <script src="assets/js/stripe-payment.js?v=1772524675"></script>
 </body>

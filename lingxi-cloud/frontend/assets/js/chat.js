@@ -12,7 +12,7 @@
  * 👥 Agent 模块             第 1336-1509 行
  * ⚙️ 配置模块               第 1519-1760 行
  * 🎯 技能库模块             第 2148-2698 行
- * 🚀 引导模块               第 1803-1988 行
+ * 引导模块               第 1803-1988 行
  * 🎨 UI 工具模块            第 143-1768 行
  * 📍 初始化入口             第 155-294 行
  * ─────────────────────────────────────────
@@ -222,11 +222,11 @@ let userServerInfo = null; // 用户服务器信息（IP、端口）
 // 📍 初始化入口
 // ═══════════════════════════════════════════════════════════════
 async function init() {
-  console.log('🚀 初始化聊天页面...');
+  console.log('初始化聊天页面...');
 
   const token = localStorage.getItem('lingxi_token');
   if (!token) {
-    console.log('❌ 没有 token，跳转到首页');
+    console.log('没有 token，跳转到首页');
     window.location.href = 'index.html';
     return;
   }
@@ -239,7 +239,7 @@ async function init() {
     });
 
     if (!meRes.ok) {
-      console.log('❌ 获取用户信息失败，跳转首页');
+      console.log('获取用户信息失败，跳转首页');
       localStorage.removeItem('lingxi_token');
       window.location.href = 'index.html';
       return;
@@ -247,34 +247,35 @@ async function init() {
 
     const userData = await meRes.json();
     user = userData;
+    window._userData = userData; // 缓存供后续检查使用，避免重复请求
     localStorage.setItem('lingxi_user', JSON.stringify(userData));
 
     console.log('👤 用户信息:', userData);
 
-    // ✅ 更新用户订阅徽章
+    // 更新用户订阅徽章
     if (typeof updateUserBadge === 'function') {
       updateUserBadge();
     }
 
     // 🔒 检查是否有团队（agents 不为空）
     if (!userData.agents || userData.agents.length === 0) {
-      console.log('⚠️ 用户没有团队，跳转首页领取');
+      console.log('用户没有团队，跳转首页领取');
       alert('请先在首页领取 AI 团队');
       window.location.href = 'index.html';
       return;
     }
 
-    console.log('✅ 用户已有团队:', userData.agents);
+    console.log('用户已有团队:', userData.agents);
 
   } catch (e) {
-    console.error('❌ 检查团队失败:', e);
+    console.error('检查团队失败:', e);
     window.location.href = 'index.html';
     return;
   }
 
   // 初始化用户专属会话
   if (!user.id) {
-    console.error('❌ 用户 ID 不存在');
+    console.error('用户 ID 不存在');
     alert('用户信息错误，请重新登录');
     window.location.href = 'index.html';
     return;
@@ -289,7 +290,7 @@ async function init() {
 
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      console.error('❌ 获取连接信息失败:', errorData);
+      console.error('获取连接信息失败:', errorData);
 
       // 检查是否是服务器正在创建中
       if (errorData.needServer && errorData.status === 'creating') {
@@ -326,15 +327,15 @@ async function init() {
     GATEWAY_SESSION = gatewayInfo.session;
     SESSION_PREFIX = gatewayInfo.sessionPrefix;
 
-    console.log('✅ Gateway 配置已获取');
+    console.log('Gateway 配置已获取');
 
   } catch (e) {
-    console.error('❌ 获取 Gateway 配置失败:', e);
+    console.error('获取 Gateway 配置失败:', e);
     alert('网络错误，请刷新页面');
     return;
   }
 
-  // 🔧 获取用户服务器信息（用于文件预览）
+  // 获取用户服务器信息（用于文件预览）
   try {
     console.log('📡 获取用户服务器信息...');
     const serverRes = await fetch(`${API_BASE}/api/user/server`, {
@@ -343,12 +344,12 @@ async function init() {
 
     if (serverRes.ok) {
       userServerInfo = await serverRes.json();
-      console.log('✅ 服务器信息:', userServerInfo);
+      console.log('服务器信息:', userServerInfo);
     } else {
-      console.warn('⚠️  无法获取服务器信息，文件预览可能不可用');
+      console.warn(' 无法获取服务器信息，文件预览可能不可用');
     }
   } catch (e) {
-    console.warn('⚠️  获取服务器信息失败:', e.message);
+    console.warn(' 获取服务器信息失败:', e.message);
   }
 
   // 使用用户ID生成主会话key
@@ -382,7 +383,7 @@ async function init() {
   // 初始化 agent 下拉（放在最后，确保 user 已加载）
   initAgentDropdown();
 
-  // 🎯 检查是否需要引导（放在初始化最后）
+  // 检查是否需要引导（放在初始化最后）
   await checkOnboarding();
 }
 
@@ -398,18 +399,18 @@ let statusDot = null;  // WebSocket 状态指示器（全局变量）
 function connectWebSocket() {
   const statusEl = document.getElementById('connectionStatus');
   if (!statusEl) {
-    console.warn('⚠️ connectionStatus 元素未找到，跳过 WebSocket 状态更新');
+    console.warn('connectionStatus 元素未找到，跳过 WebSocket 状态更新');
     return;
   }
   statusDot = statusEl.querySelector('.status-dot');
   if (!statusDot) {
-    console.warn('⚠️ status-dot 元素未找到，跳过 WebSocket 状态更新');
+    console.warn('status-dot 元素未找到，跳过 WebSocket 状态更新');
     return;
   }
   statusDot.className = 'status-dot';
 
   try {
-    // 🔧 修复：通过后端 WebSocket 代理连接，解决 HTTPS 混合内容问题
+    // 修复：通过后端 WebSocket 代理连接，解决 HTTPS 混合内容问题
     // 代理地址格式：wss://lumeword.com/api/ws?token=xxx
     const wsUrl = `${GATEWAY_WS}?token=${encodeURIComponent(GATEWAY_TOKEN)}`;
     console.log('🔌 连接 WebSocket 代理:', wsUrl.replace(/token=[^&]+/, 'token=***'));
@@ -506,7 +507,7 @@ function handleWebSocketMessage(data) {
 
   // 连接挑战 - 设备认证已禁用时不应该收到
   if (data.type === 'event' && data.event === 'connect.challenge') {
-    console.log('⚠️ 收到设备认证挑战，但已禁用，继续...');
+    console.log('收到设备认证挑战，但已禁用，继续...');
     // 设备认证已禁用，忽略挑战，等待 hello-ok
     return;
   }
@@ -516,7 +517,7 @@ function handleWebSocketMessage(data) {
     const statusDot = statusEl?.querySelector('.status-dot');
     if (statusDot) statusDot.className = 'status-dot connected';  // 绿色
     
-    // 🔧 检测是否是重连（已有会话数据）
+    // 检测是否是重连（已有会话数据）
     const isReconnect = window.sessions && window.sessions.length > 0;
     
     if (isReconnect) {
@@ -527,7 +528,7 @@ function handleWebSocketMessage(data) {
         loadSidebarSessions();
       }
     } else {
-      console.log('✅ 首次连接，加载会话和历史');
+      console.log('首次连接，加载会话和历史');
       // 首次连接：正常加载会话列表和历史
       loadSessions();
     }
@@ -564,12 +565,12 @@ function handleWebSocketMessage(data) {
 
     // 其他错误
     const errorMsg = data.error?.message || data.error?.error || '请求失败';
-    console.error('❌ 请求失败:', errorMsg);
+    console.error('请求失败:', errorMsg);
     removeTyping();
     isGenerating = false;
     currentRunId = null;
     updateSendButton();
-    addMessage('assistant', `❌ ${errorMsg}`, '灵犀');
+    addMessage('assistant', errorMsg, '灵犀');
 
     // 如果是认证错误，显示红色状态
     if (errorMsg.includes('auth') || errorMsg.includes('token') || errorMsg.includes('认证')) {
@@ -580,14 +581,14 @@ function handleWebSocketMessage(data) {
     isGenerating = false;
     currentRunId = null;
     updateSendButton();
-    addMessage('assistant', '❌ ' + errorMsg, '系统');
+    addMessage('assistant', errorMsg, '系统');
     return;
   }
 
-  // 🔧 工作流事件
+  // 工作流事件
   if (data.type === 'event' && data.event === 'workflow') {
     const payload = data.payload || {};
-    console.log('📋 收到工作流事件:', payload.type, payload);
+    console.log('收到工作流事件:', payload.type, payload);
     
     // 根据工作流事件类型渲染不同的卡片
     if (payload.type === 'start') {
@@ -626,7 +627,7 @@ function handleWebSocketMessage(data) {
       const payloadSuffix = payload.sessionKey.split(':').pop();
       const currentSuffix = currentSessionKey.split(':').pop();
       if (payloadSuffix !== currentSuffix && payload.sessionKey !== currentSessionKey) {
-        console.log('⚠️ 跳过非当前会话消息:', payload.sessionKey, '当前:', currentSessionKey);
+        console.log('跳过非当前会话消息:', payload.sessionKey, '当前:', currentSessionKey);
         return;
       }
     }
@@ -657,7 +658,7 @@ function handleWebSocketMessage(data) {
       isGenerating = false;
       currentRunId = null;
       updateSendButton();
-      console.log('✅ 消息完成');
+      console.log('消息完成');
 
       // 刷新侧边栏积分
       refreshSidebarCredits();
@@ -668,7 +669,7 @@ function handleWebSocketMessage(data) {
       isGenerating = false;
       currentRunId = null;
       updateSendButton();
-      addMessage('assistant', '❌ 错误: ' + (payload.errorMessage || '未知错误'), '灵犀');
+      addMessage('assistant', (payload.errorMessage || '未知错误'), '灵犀');
     }
     // aborted
     else if (payload.state === 'aborted') {
@@ -676,7 +677,7 @@ function handleWebSocketMessage(data) {
       isGenerating = false;
       currentRunId = null;
       updateSendButton();
-      console.log('⚠️ 消息已中止');
+      console.log('消息已中止');
     }
   }
 
@@ -744,7 +745,7 @@ function updateStreamingMessage(text, runId) {
     streamingMessages[runId].text = text;
     const bubble = streamingMessages[runId].element.querySelector('.bubble');
     if (bubble) {
-      // 🔧 使用 processMessageFull 解析 Markdown 图片
+      // 使用 processMessageFull 解析 Markdown 图片
       const { text: cleanText, filesHtml, imagesHtml } = processMessageFull(text, {});
       bubble.innerHTML = `${cleanText ? escapeHtml(cleanText) : ''}${imagesHtml}${filesHtml}`;
     }
@@ -766,7 +767,7 @@ function finalizeStreamingMessage(text, runId) {
     streamingMessages[runId].text = text;
     const bubble = streamingMessages[runId].element.querySelector('.bubble');
     if (bubble) {
-      // 🔧 使用 processMessageFull 解析 Markdown 图片、音频和文件
+      // 使用 processMessageFull 解析 Markdown 图片、音频和文件
       const fileOptions = userServerInfo ? {
         serverIp: userServerInfo.serverIp,
         serverPort: userServerInfo.fileServerPort || 9876,
@@ -878,7 +879,7 @@ async function handleImageSelect(event) {
   console.log('🖼️ handleImageSelect 被调用');
   const file = event.target.files[0];
   if (!file) {
-    console.log('⚠️ 没有选择文件');
+    console.log('没有选择文件');
     return;
   }
 
@@ -923,11 +924,11 @@ async function handleImageSelect(event) {
     'ppt': 'application/vnd.ms-powerpoint'
   };
   
-  // 🎯 优先使用 MIME 类型，如果没有则使用扩展名判断
+  // 优先使用 MIME 类型，如果没有则使用扩展名判断
   let mimeType = file.type;
   if (!mimeType && extensionMimeMap[fileExtension]) {
     mimeType = extensionMimeMap[fileExtension];
-    console.log(`🔧 浏览器未返回 MIME 类型，通过扩展名判断: ${fileExtension} → ${mimeType}`);
+    console.log(`浏览器未返回 MIME 类型，通过扩展名判断: ${fileExtension} → ${mimeType}`);
   }
   
   const isDocument = allowedDocMimes.includes(mimeType);
@@ -958,7 +959,7 @@ async function handleImageSelect(event) {
   imageBtn.classList.add('has-image');
   previewImg.style.opacity = '0.5';
   
-  // 🔧 添加进度条（大文件时显示）
+  // 添加进度条（大文件时显示）
   let progressBar = document.getElementById('uploadProgressBar');
   if (!progressBar && (file.size > 500 * 1024)) {  // 大于 500KB 显示进度条
     progressBar = document.createElement('div');
@@ -975,7 +976,7 @@ async function handleImageSelect(event) {
     if (isImage) {
       const FILE_SIZE_LIMIT = 200 * 1024; // 200KB（和 Flutter 一致）
       
-      // 🔧 如果大于 200KB，压缩图片（和 Flutter 逻辑一致）
+      // 如果大于 200KB，压缩图片（和 Flutter 逻辑一致）
       if (file.size > FILE_SIZE_LIMIT && (file.type === 'image/jpeg' || file.type === 'image/webp' || file.type === 'image/png')) {
         try {
           console.log(`🔄 图片大于 200KB，开始压缩: ${(file.size / 1024).toFixed(1)}KB`);
@@ -983,9 +984,9 @@ async function handleImageSelect(event) {
           // 创建新的 File 对象
           const filename = file.name.replace(/\.(png|webp)$/i, '.jpg');
           fileToUpload = new File([compressedBlob], filename, { type: 'image/jpeg' });
-          console.log('✅ 图片已压缩');
+          console.log('图片已压缩');
         } catch (e) {
-          console.warn('⚠️ 压缩失败，使用原图:', e.message);
+          console.warn('压缩失败，使用原图:', e.message);
         }
       } else if (file.size <= FILE_SIZE_LIMIT) {
         console.log(`📷 图片小于 200KB，跳过压缩: ${(file.size / 1024).toFixed(1)}KB`);
@@ -995,16 +996,16 @@ async function handleImageSelect(event) {
     // 🆕 文档上传：重新创建 File 对象，使用正确的 MIME 类型
     if (isDocument && mimeType && mimeType !== file.type) {
       fileToUpload = new File([file], file.name, { type: mimeType });
-      console.log(`🔧 文档 MIME 类型已修正: ${file.type || '(空)'} → ${mimeType}`);
+      console.log(`文档 MIME 类型已修正: ${file.type || '(空)'} → ${mimeType}`);
     }
     
-    // ✅ 用 FormData 上传
+    // 用 FormData 上传
     const formData = new FormData();
     formData.append('file', fileToUpload);
 
     console.log(`📤 开始上传${isDocument ? '文档' : '图片'}到服务器...`);
     
-    // 🎯 显示进度条（大文件）
+    // 显示进度条（大文件）
     const progressBar = document.getElementById('uploadProgressBar');
     const progressFill = document.getElementById('uploadProgressFill');
     if (progressBar && file.size > 500 * 1024) {  // 大于 500KB 显示进度
@@ -1012,7 +1013,7 @@ async function handleImageSelect(event) {
       if (progressFill) progressFill.style.width = '0%';
     }
 
-    // ✅ 使用 XMLHttpRequest 支持上传进度
+    // 使用 XMLHttpRequest 支持上传进度
     const xhr = new XMLHttpRequest();
     
     // 创建 Promise 包装 XHR
@@ -1052,9 +1053,9 @@ async function handleImageSelect(event) {
     const data = await uploadPromise;
 
     if (data.success && data.url) {
-      console.log(`✅ ${isDocument ? '文档' : '图片'}上传成功:`, data.url);
+      console.log(`${isDocument ? '文档' : '图片'}上传成功:`, data.url);
       
-      // 🎉 隐藏进度条
+      // 隐藏进度条
       const progressBar = document.getElementById('uploadProgressBar');
       if (progressBar) {
         progressBar.style.display = 'none';
@@ -1075,12 +1076,12 @@ async function handleImageSelect(event) {
         const docCard = getDocumentPreviewCard(mimeType, file.name, file.size);
         previewImg.src = docCard;
         
-        // 💡 显示文件信息提示
+        // 显示文件信息提示
         const fileSize = formatFileSize(file.size);
         const fileName = file.name.length > 20 ? file.name.substring(0, 20) + '...' : file.name;
         console.log(`📄 文档预览: ${fileName} (${fileSize})`);
         
-        // 🔧 隐藏文件信息覆盖层（卡片已包含文件名和大小）
+        // 隐藏文件信息覆盖层（卡片已包含文件名和大小）
         const fileInfoOverlay = document.getElementById('fileInfoOverlay');
         if (fileInfoOverlay) {
           fileInfoOverlay.style.display = 'none';
@@ -1099,13 +1100,13 @@ async function handleImageSelect(event) {
       previewImg.style.opacity = '1';
       previewContainer.classList.remove('uploading');
 
-      // 🔧 更新按钮显示状态（有附件了，显示发送按钮）
+      // 更新按钮显示状态（有附件了，显示发送按钮）
       updateInputButtons();
     } else {
       throw new Error(data.error || '上传失败');
     }
   } catch (e) {
-    console.error(`❌ ${isDocument ? '文档' : '图片'}上传失败:`, e);
+    console.error(`${isDocument ? '文档' : '图片'}上传失败:`, e);
     alert(`${isDocument ? '文档' : '图片'}上传失败: ` + e.message);
     removeSelectedImage();
   }
@@ -1322,7 +1323,7 @@ function removeSelectedImage() {
   previewImg.style.opacity = '1';
   imageBtn.classList.remove('has-image');
 
-  // 🔧 更新按钮显示状态
+  // 更新按钮显示状态
   updateInputButtons();
 }
 
@@ -1347,7 +1348,7 @@ async function buildMessageParamsAsync(text, attachment) {
     deliver: false
   };
   
-  // ✅ 直接传 URL，后端代理会自动下载转 base64
+  // 直接传 URL，后端代理会自动下载转 base64
   if (attachment && attachment.url) {
     params.attachments = [{
       type: attachment.type || 'image',  // 'image' 或 'document'
@@ -1377,7 +1378,7 @@ async function sendMessage() {
   console.log('🔔 selectedImage:', selectedImage ? '有图片' : '无图片');
 
   if (!currentSessionKey) {
-    console.error('❌ currentSessionKey 为空');
+    console.error('currentSessionKey 为空');
     alert('会话未初始化，请刷新页面');
     return;
   }
@@ -1389,7 +1390,7 @@ async function sendMessage() {
 
   // 允许发送图片或文本，至少要有一种
   if (!text && !selectedImage) {
-    console.log('⚠️ 文本和图片都为空，跳过发送');
+    console.log('文本和图片都为空，跳过发送');
     return;
   }
 
@@ -1408,18 +1409,18 @@ async function sendMessage() {
   const currentImage = selectedImage;  // 保存当前图片引用
   removeSelectedImage();
 
-  // 🔧 更新按钮显示状态（恢复到初始状态）
+  // 更新按钮显示状态（恢复到初始状态）
   updateInputButtons();
 
   // 通过 WebSocket 发送
   console.log('🔌 WebSocket 状态:', ws ? ws.readyState : 'null', '(OPEN=1)');
   if (ws && ws.readyState === WebSocket.OPEN) {
-    console.log('✅ 通过 WebSocket 发送消息');
+    console.log('通过 WebSocket 发送消息');
     console.log('📦 sessionKey:', currentSessionKey);
     addTyping();
 
     const reqId = `req_${requestId++}`;
-    // ✅ 使用异步版本处理图片
+    // 使用异步版本处理图片
     const params = await buildMessageParamsAsync(text, currentImage);
     const req = {
       type: 'req',
@@ -1437,7 +1438,7 @@ async function sendMessage() {
     
     try {
       ws.send(JSON.stringify(req));
-      console.log('✅ 消息已发送到 WebSocket');
+      console.log('消息已发送到 WebSocket');
       
       // 🆕 自动更新 session label（如果是第一条消息）
       if (window.sessions) {
@@ -1467,7 +1468,7 @@ async function sendMessage() {
         }
       }
     } catch (sendError) {
-      console.error('❌ WebSocket 发送失败:', sendError);
+      console.error('WebSocket 发送失败:', sendError);
     }
   } else {
     // WebSocket 未连接，使用 HTTP 代理
@@ -1527,7 +1528,7 @@ function abortChat() {
   currentRunId = null;
   updateSendButton();
   removeTyping();
-  console.log('✅ 已发送中止请求');
+  console.log('已发送中止请求');
 }
 
 // 加载聊天历史
@@ -1539,18 +1540,20 @@ async function loadChatHistory(appendOnly = false) {
   console.log('📚 loadChatHistory 开始, currentSessionKey:', currentSessionKey, '追加模式:', appendOnly);
 
   if (!ws || ws.readyState !== WebSocket.OPEN) {
-    console.log('⚠️ WebSocket 未连接，无法加载历史');
+    console.log('WebSocket 未连接，无法加载历史');
     if (!appendOnly) renderHistory([]);
     return;
   }
 
   if (!currentSessionKey) {
-    console.log('⚠️ currentSessionKey 未设置，跳过加载历史');
+    console.log('currentSessionKey 未设置，跳过加载历史');
     if (!appendOnly) renderHistory([]);
     return;
   }
 
-  console.log('📚 发送 chat.history 请求, sessionKey:', currentSessionKey);
+  // 记录请求时的 sessionKey，用于竞态检测
+  const requestSessionKey = currentSessionKey;
+  console.log('📚 发送 chat.history 请求, sessionKey:', requestSessionKey);
 
   try {
     const res = await new Promise((resolve, reject) => {
@@ -1592,31 +1595,37 @@ async function loadChatHistory(appendOnly = false) {
 
     console.log('📚 chat.history 完整响应:', JSON.stringify(res, null, 2));
 
+    // 🔒 竞态保护：如果响应回来时会话已经切走了，丢弃
+    if (currentSessionKey !== requestSessionKey) {
+      console.log('📚 ⏭️ 会话已切换，丢弃历史响应 (期望:', requestSessionKey, '当前:', currentSessionKey, ')');
+      return;
+    }
+
     if (res.ok && res.payload?.messages) {
-      console.log('✅ 加载了', res.payload.messages.length, '条历史消息');
+      console.log('加载了', res.payload.messages.length, '条历史消息');
       renderHistory(res.payload.messages);
     } else if (res.ok && res.payload?.transcript) {
       // 尝试 transcript 字段
-      console.log('✅ 使用 transcript 字段, 长度:', res.payload.transcript.length);
+      console.log('使用 transcript 字段, 长度:', res.payload.transcript.length);
       renderHistory(res.payload.transcript);
     } else {
-      console.log('⚠️ 无历史消息, res.ok:', res.ok, 'payload:', res.payload);
+      console.log('无历史消息, res.ok:', res.ok, 'payload:', res.payload);
       renderHistory([]);
     }
   } catch (e) {
-    console.error('❌ 加载历史失败:', e);
+    console.error('加载历史失败:', e);
     renderHistory([]);
   }
 }
 
 // 渲染历史消息
-// 🔧 新增 appendOnly 参数：true=只追加（重连时使用），false=清空后重新渲染（默认）
+// 新增 appendOnly 参数：true=只追加（重连时使用），false=清空后重新渲染（默认）
 function renderHistory(messages, appendOnly = false) {
   const container = document.getElementById('messages');
 
   // 如果没有消息，显示欢迎界面（带当前 Agent 的示例）
   if (!messages || messages.length === 0) {
-    // 🔧 如果是追加模式且已有消息，不清空
+    // 如果是追加模式且已有消息，不清空
     if (appendOnly && container.children.length > 0) {
       return; // 保留现有消息
     }
@@ -1645,7 +1654,7 @@ function renderHistory(messages, appendOnly = false) {
     return;
   }
 
-  // 🔧 追加模式：只添加新消息，不清空现有内容
+  // 追加模式：只添加新消息，不清空现有内容
   if (appendOnly) {
     // 获取现有消息的 ID 集合，避免重复
     const existingIds = new Set();
@@ -1714,12 +1723,12 @@ function renderHistory(messages, appendOnly = false) {
       messageKeys: Object.keys(msg)
     });
     
-    // ✅ 提取附件（图片或文档）
+    // 提取附件（图片或文档）
     let imageUrl = null;
     let documentInfo = null;
     const attachments = msg.attachments || msg.parts || [];
     
-    // 🔧 方案 A：从 attachments 字段提取
+    // 方案 A：从 attachments 字段提取
     if (Array.isArray(attachments) && attachments.length > 0) {
       console.log('📎 附件详情:', attachments);
       for (const att of attachments) {
@@ -1759,7 +1768,7 @@ function renderHistory(messages, appendOnly = false) {
       }
     }
     
-    // 🔧 方案 B：从消息文本中提取附件信息（双重保险）
+    // 方案 B：从消息文本中提取附件信息（双重保险）
     if (!imageUrl && !documentInfo && content) {
       // 格式1：前端发送格式 [附件:图片:filename:url]
       const attachmentRegex = /\[附件:(图片|文档):([^:]+):([^\]]+)\]/;
@@ -1776,7 +1785,7 @@ function renderHistory(messages, appendOnly = false) {
         const filename = match[2];
         const url = match[3];
         
-        console.log('🔧 从文本中提取附件信息(前端格式):', { type, filename, url });
+        console.log('从文本中提取附件信息(前端格式):', { type, filename, url });
         
         // 清理消息文本，移除附件标记
         const cleanContent = content.replace(attachmentRegex, '').trim();
@@ -1786,7 +1795,7 @@ function renderHistory(messages, appendOnly = false) {
           imageUrl = url;
           console.log('📷 提取到历史图片:', imageUrl);
         } else if (type === '文档') {
-          // 🎯 根据文件扩展名判断 MIME 类型（支持所有格式）
+          // 根据文件扩展名判断 MIME 类型（支持所有格式）
           const ext = filename.split('.').pop().toLowerCase();
           const mimeMap = {
             'pdf': 'application/pdf',
@@ -1824,19 +1833,19 @@ function renderHistory(messages, appendOnly = false) {
         // 从路径提取文件名
         const filename = path.split('/').pop();
         
-        console.log('🔧 从文本中提取附件信息(OpenClay格式):', { path, mimeType, url, filename });
+        console.log('从文本中提取附件信息(OpenClay格式):', { path, mimeType, url, filename });
         
         // 清理消息文本，移除附件标记
         const cleanContent = content.replace(mediaAttachedRegex, '').trim();
         content = cleanContent;  // 更新 content
         
-        // 🔧 将本地路径转换为代理 URL
+        // 将本地路径转换为代理 URL
         // /root/.openclaw/media/inbound/xxx.webp → /api/media/inbound/xxx.webp
         let proxyUrl = url;
         if (url.startsWith('/root/.openclaw/media/')) {
           const relativePath = url.replace('/root/.openclaw/media/', '');
           proxyUrl = `/api/media/${relativePath}?user_id=${currentUserId || ''}`;
-          console.log('🔧 转换本地路径为代理 URL:', proxyUrl);
+          console.log('转换本地路径为代理 URL:', proxyUrl);
         }
         
         // 判断是图片还是文档
@@ -1865,7 +1874,7 @@ function renderHistory(messages, appendOnly = false) {
 
     const name = role === 'user' ? (user?.nickname || '我') : '灵犀';
     
-    // ✅ 根据附件类型传递不同格式
+    // 根据附件类型传递不同格式
     if (imageUrl) {
       addMessage(role, { text: content || '', image: imageUrl }, name);
     } else if (documentInfo) {
@@ -1875,7 +1884,7 @@ function renderHistory(messages, appendOnly = false) {
     }
   }
 
-  console.log('✅ 渲染了', messages.length, '条历史消息');
+  console.log('渲染了', messages.length, '条历史消息');
 
   // 强制滚动到底部（延迟确保DOM渲染完成）
   const scrollToBottom = () => {
@@ -1929,22 +1938,22 @@ function isSessionDeleted(key) {
   return getDeletedSessions().includes(key);
 }
 
-// 🔧 清除所有本地会话缓存（用于用户首次领取团队后）
+// 清除所有本地会话缓存（用于用户首次领取团队后）
 function clearAllSessions() {
   window.sessions = [];
   localStorage.removeItem(DELETED_SESSIONS_KEY);
   localStorage.removeItem('lingxi_last_session_key');
-  console.log('✅ 已清除所有本地会话缓存');
+  console.log('已清除所有本地会话缓存');
 }
 
 // 加载会话列表
 async function loadSessions() {
   if (!ws || ws.readyState !== WebSocket.OPEN) {
-    console.log('⚠️ WebSocket 未连接，无法加载会话列表');
+    console.log('WebSocket 未连接，无法加载会话列表');
     return;
   }
 
-  console.log('📋 开始加载会话列表...');
+  console.log('开始加载会话列表...');
 
 
   try {
@@ -1970,11 +1979,14 @@ async function loadSessions() {
         type: 'req',
         id,
         method: 'sessions.list',
-        params: {}
+        params: {
+          includeLastMessage: true,
+          includeDerivedTitles: true
+        }
       }));
     });
 
-      console.log('📋 sessions.list 响应:', res);
+      console.log('sessions.list 响应:', res);
 
     if (res.ok && res.payload?.sessions) {
       // 过滤掉本地已删除的会话
@@ -1988,7 +2000,13 @@ async function loadSessions() {
         return !systemPatterns.some(p => key.includes(p));
       });
 
-      // 🔧 去重：基于 sessionKey 或 key
+      // 过滤掉子 agent 的孤立会话（sessionKey 包含 :subagent:），只显示用户直接交互的会话
+      allSessions = allSessions.filter(s => {
+        const key = (s.key || '').toString();
+        return !key.includes(':subagent:');
+      });
+
+      // 去重：基于 sessionKey 或 key
       const seenKeys = new Set();
       allSessions = allSessions.filter(session => {
         const key = session.sessionKey || session.key || '';
@@ -1998,14 +2016,20 @@ async function loadSessions() {
       });
 
       // 🆕 为每个 session 添加标题和预览
-      // 对于没有 label 的 session，延迟加载第一条消息
+      // 优先使用后端返回的 derivedTitle 和 lastMessagePreview，避免对每个 session 发额外请求
       const loadPromises = allSessions.slice(0, 10).map(async (session) => {
-        // 如果已经有 label 且不是默认值，直接使用
+        // 优先级：label > derivedTitle > lastMessagePreview > chat.history 兜底
         if (session.label && session.label !== '灵犀' && !session.label.includes('agent:')) {
           session.title = session.label;
-          session.preview = session.label;
+          session.preview = session.lastMessagePreview || session.label;
+        } else if (session.derivedTitle) {
+          session.title = session.derivedTitle;
+          session.preview = session.lastMessagePreview || session.derivedTitle;
+        } else if (session.lastMessagePreview) {
+          session.title = session.lastMessagePreview.substring(0, 50);
+          session.preview = session.lastMessagePreview.substring(0, 100);
         } else {
-          // 否则，加载第一条消息
+          // 兜底：加载第一条消息（仅在没有 lastMessagePreview 时）
           try {
             const history = await new Promise((resolve, reject) => {
               const id = `load-history-${session.key}`;
@@ -2051,7 +2075,7 @@ async function loadSessions() {
               session.preview = '暂无消息';
             }
           } catch (e) {
-            console.warn('⚠️ 加载会话历史失败:', session.key, e);
+            console.warn('加载会话历史失败:', session.key, e);
             const keyParts = (session.key || '').split(':');
             session.title = keyParts[keyParts.length - 1] || '未命名会话';
             session.preview = '暂无消息';
@@ -2069,12 +2093,20 @@ async function loadSessions() {
       // 等待所有加载完成
       allSessions = await Promise.all(loadPromises);
       
-      // 对于没有加载的 session（超过前 10 个），使用默认标题
+      // 对于没有加载的 session（超过前 10 个），优先用后端返回的预览字段
       allSessions.slice(10).forEach(session => {
         if (!session.title) {
-          const keyParts = (session.key || '').split(':');
-          session.title = session.label || keyParts[keyParts.length - 1] || '未命名会话';
-          session.preview = '暂无消息';
+          if (session.lastMessagePreview) {
+            session.title = session.lastMessagePreview.substring(0, 50);
+            session.preview = session.lastMessagePreview.substring(0, 100);
+          } else if (session.derivedTitle) {
+            session.title = session.derivedTitle;
+            session.preview = session.derivedTitle;
+          } else {
+            const keyParts = (session.key || '').split(':');
+            session.title = session.label || keyParts[keyParts.length - 1] || '未命名会话';
+            session.preview = '暂无消息';
+          }
         }
         const timestamp = session.updatedAt ? new Date(session.updatedAt).getTime() : Date.now();
         session.relativeTime = formatRelativeTime(timestamp);
@@ -2091,18 +2123,18 @@ async function loadSessions() {
       // 限制最多显示 50 个会话
       const maxSessions = 50;
       if (allSessions.length > maxSessions) {
-        console.log('📋 会话数量超过', maxSessions, '，只显示最近的', maxSessions, '个');
+        console.log('会话数量超过', maxSessions, '，只显示最近的', maxSessions, '个');
         allSessions = allSessions.slice(0, maxSessions);
       }
 
       window.sessions = allSessions;
-      console.log('✅ 加载了', allSessions.length, '个会话（原始:', res.payload.sessions.length, '）');
+      console.log('加载了', allSessions.length, '个会话（原始:', res.payload.sessions.length, '）');
       
       // 🆕 默认加载最新会话（按时间排序后的第一个）
       if (allSessions.length > 0) {
         const latestSession = allSessions[0];  // 已经按时间排序，第一个是最新的
         currentSessionKey = latestSession.key;
-        console.log('📋 默认加载最新会话:', currentSessionKey);
+        console.log('默认加载最新会话:', currentSessionKey);
         // 加载该会话的历史消息
         loadChatHistory();
       } else {
@@ -2118,13 +2150,13 @@ async function loadSessions() {
         console.log('📞 调用 loadSidebarSessions()');
         loadSidebarSessions();
       } else {
-        console.log('⚠️ loadSidebarSessions 不是函数，尝试 window.loadSidebarSessions');
+        console.log('loadSidebarSessions 不是函数，尝试 window.loadSidebarSessions');
         if (typeof window.loadSidebarSessions === 'function') {
           window.loadSidebarSessions();
         }
       }
     } else {
-      console.log('⚠️ 无会话数据');
+      console.log('无会话数据');
       window.sessions = [];
       renderSessionList();
       if (typeof loadSidebarSessions === 'function') {
@@ -2132,7 +2164,7 @@ async function loadSessions() {
       }
     }
   } catch (e) {
-    console.error('❌ 加载会话列表失败:', e);
+    console.error('加载会话列表失败:', e);
     window.sessions = [];
     renderSessionList();
     if (typeof loadSidebarSessions === 'function') {
@@ -2147,12 +2179,12 @@ function renderSessionList() {
 
   // 如果 sessionList 容器不存在（新布局使用侧边栏），跳过
   if (!container) {
-    console.log('📋 sessionList 容器不存在，跳过 renderSessionList');
+    console.log('sessionList 容器不存在，跳过 renderSessionList');
     return;
   }
 
-  console.log('📋 渲染会话列表, 总会话数:', window.sessions.length);
-  console.log('📋 当前会话:', currentSessionKey);
+  console.log('渲染会话列表, 总会话数:', window.sessions.length);
+  console.log('当前会话:', currentSessionKey);
 
   // 添加"新会话"按钮
   let html = `
@@ -2174,11 +2206,11 @@ function renderSessionList() {
     const preview = session.preview || session.lastMessage || '暂无消息';
     const time = session.relativeTime || '';
     
-    // 🔧 截断预览文本
+    // 截断预览文本
     const truncatedPreview = preview.substring(0, 50);
     const displayPreview = truncatedPreview + (preview.length > 50 ? '...' : '');
 
-    console.log('📋 会话:', session.key, 'displayName:', displayName, 'isActive:', isActive);
+    console.log('会话:', session.key, 'displayName:', displayName, 'isActive:', isActive);
 
     html += `
       <div class="session-item ${isActive ? 'active' : ''}" onclick="switchSession('${session.key}')">
@@ -2224,7 +2256,7 @@ async function createNewSession() {
   `;
 
   // 会话会在第一次发送消息时自动创建
-  console.log('✅ 新会话已准备就绪，等待发送第一条消息');
+  console.log('新会话已准备就绪，等待发送第一条消息');
 }
 
 // 切换会话
@@ -2284,7 +2316,7 @@ async function switchSession(sessionKey) {
     loadSidebarSessions();
   }
 
-  console.log('✅ 会话切换完成, currentSessionKey:', currentSessionKey);
+  console.log('会话切换完成, currentSessionKey:', currentSessionKey);
 }
 
 // 删除会话
@@ -2335,7 +2367,7 @@ async function deleteSession(sessionKey) {
         ws.send(JSON.stringify(deleteReq));
       });
 
-      console.log('📋 sessions.delete 响应:', res);
+      console.log('sessions.delete 响应:', res);
 
       if (res.ok) {
         // 记录到本地已删除列表（防止刷新后重新出现）
@@ -2344,7 +2376,7 @@ async function deleteSession(sessionKey) {
         // 从本地列表中移除
         window.sessions = window.sessions.filter(s => s.key !== sessionKey);
         renderSessionList();
-        console.log('✅ 删除会话成功:', sessionKey);
+        console.log('删除会话成功:', sessionKey);
 
         // 刷新侧边栏
         if (typeof loadSidebarSessions === 'function') {
@@ -2352,11 +2384,11 @@ async function deleteSession(sessionKey) {
         }
       } else {
         const errorMsg = res.error?.message || JSON.stringify(res.error) || '未知错误';
-        console.error('❌ 删除失败:', errorMsg);
+        console.error('删除失败:', errorMsg);
         alert('删除失败: ' + errorMsg);
       }
     } else {
-      console.log('⚠️ WebSocket 未连接，只删除本地');
+      console.log('WebSocket 未连接，只删除本地');
       // WebSocket 未连接，只删除本地
       addDeletedSession(sessionKey);
       window.sessions = window.sessions.filter(s => s.key !== sessionKey);
@@ -2368,7 +2400,7 @@ async function deleteSession(sessionKey) {
       }
     }
   } catch (e) {
-    console.error('❌ 删除会话异常:', e);
+    console.error('删除会话异常:', e);
     // 失败时也删除本地
     addDeletedSession(sessionKey);
     window.sessions = window.sessions.filter(s => s.key !== sessionKey);
@@ -2438,7 +2470,7 @@ function addMessage(role, content, name) {
   // 处理消息内容（支持图片、文档、音频、文件和工作流）
   let bubbleContent = '';
   if (typeof content === 'object') {
-    // 🔧 工作流消息类型
+    // 工作流消息类型
     if (content.workflow || content.type?.startsWith('workflow')) {
       bubbleContent = renderWorkflowMessage(content);
     }
@@ -2488,7 +2520,7 @@ function addMessage(role, content, name) {
       token: userServerInfo.fileServerToken // 添加文件服务 token
     } : {};
     
-    // 🔧 使用 processMessageFull 同时处理 Markdown 图片、音频和文件路径
+    // 使用 processMessageFull 同时处理 Markdown 图片、音频和文件路径
     const { text: cleanText, filesHtml, imagesHtml, audioHtml } = processMessageFull(text, fileOptions);
 
     // 渲染文本、图片、音频和文件附件
@@ -2539,7 +2571,7 @@ function removeTyping() {
   if (el) el.remove();
 }
 
-// 🔧 渲染工作流消息
+// 渲染工作流消息
 function renderWorkflowMessage(content) {
   // 工作流数据结构
   const workflow = content.workflow || content;
@@ -2581,7 +2613,7 @@ function renderWorkflowStartCard(data) {
     <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin:12px 0;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
         <div style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:18px;">📋</span>
+          
           <span style="font-size:15px;font-weight:600;color:#1f2937;">${data.workflowName || '工作流'}</span>
         </div>
         <span style="font-size:12px;color:#6b7280;background:#f3f4f6;padding:4px 10px;border-radius:12px;">${modeLabels[data.mode] || '执行中'}</span>
@@ -2617,7 +2649,7 @@ function renderWorkflowProgressCard(data) {
   return `
     <div style="padding:10px 12px;margin:8px 0;background:#f9fafb;border-left:3px solid ${isComplete ? '#10a37f' : '#3b82f6'};border-radius:4px;">
       <div style="display:flex;align-items:center;gap:8px;">
-        <span style="font-size:14px;">${isComplete ? '✅' : '⏳'}</span>
+        <span style="font-size:14px;"></span>
         <span style="font-size:13px;color:${isComplete ? '#10a37f' : '#3b82f6'};font-weight:500;">
           ${isComplete ? '完成：' : '执行中：'}${stepName}
         </span>
@@ -2649,7 +2681,7 @@ function renderWorkflowCompleteCard(data) {
   return `
     <div style="background:#ffffff;border:1px solid #10a37f;border-radius:8px;padding:16px;margin:12px 0;">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
-        <span style="font-size:24px;">🎉</span>
+        
         <div>
           <div style="font-size:16px;font-weight:600;color:#1f2937;">完成！</div>
           <div style="font-size:12px;color:#6b7280;">${data.workflowName || '工作流'} 执行成功</div>
@@ -2677,7 +2709,7 @@ function renderWorkflowErrorCard(data) {
   return `
     <div style="background:#ffffff;border:1px solid #ef4444;border-radius:8px;padding:16px;margin:12px 0;">
       <div style="display:flex;align-items:center;gap:10px;">
-        <span style="font-size:20px;">❌</span>
+        
         <div>
           <div style="font-size:15px;font-weight:600;color:#1f2937;margin-bottom:4px;">工作流执行失败</div>
           <div style="font-size:13px;color:#6b7280;">${data.error || '未知错误'}</div>
@@ -2739,15 +2771,14 @@ async function showMyTeam() {
   if (dropdown) dropdown.classList.remove('show');
   const userMenu = document.getElementById('sidebarUserMenu');
   if (userMenu) userMenu.classList.remove('show');
-  renderMyTeam();
-  await renderAvailableAgents();
-  document.getElementById('teamModal').classList.add('show');
+  // 团队管理已迁移到办公区，直接跳转
+  if (typeof switchView === 'function') {
+    switchView('workspace');
+  }
 }
 
-// 关闭团队弹窗
-function closeTeamModal() {
-  document.getElementById('teamModal').classList.remove('show');
-}
+// 关闭团队弹窗（已废弃，保留空函数避免调用报错）
+function closeTeamModal() {}
 
 // 渲染我的团队
 function renderMyTeam() {
@@ -2797,7 +2828,7 @@ function renderMyTeam() {
   if (!user?.agents || user.agents.length === 0) {
     container.innerHTML += `
       <div style="text-align:center;padding:16px;color:#6b7280;font-size:13px;margin-top:12px;border-top:1px solid #e5e7eb;">
-        💡 你还没有领取完整团队<br>邀请好友获得积分后即可领取
+        你还没有领取完整团队<br>邀请好友获得积分后即可领取
       </div>
     `;
   }
@@ -2941,7 +2972,7 @@ async function addAgent(agentId) {
       await renderAvailableAgents();
       renderTeamTags();
       initAgentDropdown();
-      console.log('✅ 成员添加成功:', agentId);
+      console.log('成员添加成功:', agentId);
     } else {
       alert('添加失败：' + (data.error || '未知错误'));
     }
@@ -2990,7 +3021,7 @@ async function removeAgent(agentId) {
       await renderAvailableAgents();
       renderTeamTags();
       initAgentDropdown();
-      console.log('✅ 成员移除成功:', agentId);
+      console.log('成员移除成功:', agentId);
     } else {
       alert('移除失败：' + (data.error || '未知错误'));
     }
@@ -3192,12 +3223,12 @@ async function confirmApplyTemplate() {
       renderMyTeam();
       await renderAvailableAgents();
       renderTeamTags();
-      initAgentDropdown();  // ✅ 刷新顶部 agent 下拉列表
+      initAgentDropdown();  // 刷新顶部 agent 下拉列表
       
       // 显示成功提示
-      showToast('success', `✅ 已应用模板：${templateName}`);
+      showToast('success', `已应用模板：${templateName}`);
       
-      console.log('✅ 模板应用成功:', templateId);
+      console.log('模板应用成功:', templateId);
     } else {
       alert('应用失败: ' + (data.error || '未知错误'));
     }
@@ -3290,7 +3321,7 @@ async function loadFeishuStatus() {
     const data = await res.json();
 
     if (data.config?.feishu?.configured) {
-      statusEl.innerHTML = `<span style="color:#4ade80">✅ 已配置</span>`;
+      statusEl.innerHTML = `<span style="color:#4ade80">已配置</span>`;
       document.getElementById('feishuWebhook').style.display = 'block';
       document.getElementById('feishuWebhookUrl').value = data.config.feishu.webhookUrl || '';
     } else {
@@ -3331,7 +3362,7 @@ async function saveFeishuConfig(e) {
     const data = await res.json();
 
     if (data.success) {
-      alert(`✅ 飞书配置成功！\n\n请在飞书开放平台配置：\n1. 进入应用管理 → 事件订阅\n2. 选择 WebSocket 连接方式\n3. 订阅事件：im.message.receive_v1\n4. 点击"保存"\n\n配置完成后即可在飞书里与机器人对话！`);
+      alert(`飞书配置成功！\n\n请在飞书开放平台配置：\n1. 进入应用管理 → 事件订阅\n2. 选择 WebSocket 连接方式\n3. 订阅事件：im.message.receive_v1\n4. 点击"保存"\n\n配置完成后即可在飞书里与机器人对话！`);
 
       loadFeishuStatus();
       closeFeishuModal(); // 关闭弹窗
@@ -3382,7 +3413,7 @@ async function loadWecomStatus() {
     const data = await res.json();
 
     if (data.config?.wecom?.configured) {
-      statusEl.innerHTML = `<span style="color:#4ade80">✅ 已配置</span>`;
+      statusEl.innerHTML = `<span style="color:#4ade80">已配置</span>`;
       document.getElementById('wecomWebhook').style.display = 'block';
       document.getElementById('wecomWebhookUrl').value = data.config.wecom.callbackUrl || '';
     } else {
@@ -3524,9 +3555,9 @@ function escapeHtml(text) {
 try {
   init();
   updateNavUserName();
-  console.log('✅ 页面初始化完成');
+  console.log('页面初始化完成');
 } catch (e) {
-  console.error('❌ 页面初始化失败:', e);
+  console.error('页面初始化失败:', e);
   alert('页面初始化失败: ' + e.message);
 }
 
@@ -3551,7 +3582,7 @@ let recommendationData = null;
 // 检查并启动引导
 
 // ═══════════════════════════════════════════════════════════════
-// 🚀 引导模块
+// 引导模块
 // ═══════════════════════════════════════════════════════════════
 async function checkOnboarding() {
   try {
@@ -3572,6 +3603,10 @@ async function checkOnboarding() {
       startOnboarding();
       return false;
     }
+
+    // 引导已完成，检查是否需要订阅后 onboarding（P1-2.3）
+    // 异步检查，不阻塞页面加载
+    showSubOnboardingIfNeeded().catch(e => console.warn('订阅 onboarding 检测失败:', e));
 
     return true;
   } catch (e) {
@@ -3746,8 +3781,131 @@ function startChat() {
   renderTeamTags();
   initAgentDropdown();
 
-  console.log('✅ 引导完成，开始对话');
+  console.log('引导完成，开始对话');
 }
+
+// ═══════════════════════════════════════════════════════════════
+// 订阅后 Onboarding 检测（P1-2.3）
+// 处理"已订阅但未完成 onboarding"的用户
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * 检查订阅后 onboarding 状态
+ * 调用 GET /api/subscription/status
+ * 如果 subscribed === true 且 onboardingCompleted === false，弹出引导
+ */
+async function checkSubscriptionOnboarding() {
+  const token = localStorage.getItem('lingxi_token');
+  if (!token) return null;
+
+  try {
+    // 利用 init() 已缓存的用户数据判断是否需要调 subscription/status
+    const cached = window._userData;
+    if (cached && cached.onboardingCompleted === true) {
+      // 已完成 onboarding，无需检查订阅状态
+      return null;
+    }
+
+    const res = await fetch(`${API_BASE}/api/subscription/status`, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    const data = await res.json();
+    if (data.success && data.data) {
+      return data.data; // { subscribed, onboardingCompleted, hasServer, ... }
+    }
+  } catch (e) {
+    console.warn('检查订阅 onboarding 状态失败:', e);
+  }
+  return null;
+}
+
+/**
+ * 显示订阅后 onboarding 引导弹窗
+ * 条件：已订阅 && 未完成 onboarding && 24小时内未关闭
+ */
+async function showSubOnboardingIfNeeded() {
+  const status = await checkSubscriptionOnboarding();
+  if (!status) return;
+
+  if (status && typeof status.subscribed === 'boolean' && status.subscribed && !status.onboardingCompleted) {
+    // 检查是否在 24 小时内关闭过
+    const dismissedAt = localStorage.getItem('lume_onboarding_dismissed_at');
+    if (dismissedAt) {
+      const elapsed = Date.now() - parseInt(dismissedAt, 10);
+      if (elapsed < 24 * 60 * 60 * 1000) {
+        // 24 小时内关闭过，不弹窗，但显示 banner
+        showOnboardingBanner();
+        return;
+      }
+    }
+
+    // 显示弹窗
+    const modal = document.getElementById('subOnboardingModal');
+    if (modal) {
+      modal.style.display = 'flex';
+      if (window.lucide) lucide.createIcons();
+    }
+  }
+}
+
+/**
+ * 跳转到订阅配置页面
+ */
+function goToSubscriptionSetup() {
+  // 关闭弹窗
+  const modal = document.getElementById('subOnboardingModal');
+  if (modal) modal.style.display = 'none';
+
+  window.location.href = '/subscription.html';
+}
+
+/**
+ * 稍后配置 — 关闭弹窗，记录时间，24h 内不再自动弹出
+ */
+function dismissSubOnboarding() {
+  // 关闭弹窗
+  const modal = document.getElementById('subOnboardingModal');
+  if (modal) modal.style.display = 'none';
+
+  // 记录关闭时间
+  localStorage.setItem('lume_onboarding_dismissed_at', String(Date.now()));
+
+  // 显示 banner
+  showOnboardingBanner();
+}
+
+/**
+ * 显示未完成配置提示条
+ */
+function showOnboardingBanner() {
+  // 检查是否被永久关闭
+  if (localStorage.getItem('lume_onboarding_banner_dismissed') === 'true') return;
+
+  const banner = document.getElementById('onboardingBanner');
+  if (banner) {
+    banner.style.display = 'flex';
+    if (window.lucide) lucide.createIcons();
+  }
+}
+
+/**
+ * 永久关闭 banner
+ */
+function permanentlyDismissBanner() {
+  localStorage.setItem('lume_onboarding_banner_dismissed', 'true');
+  const banner = document.getElementById('onboardingBanner');
+  if (banner) banner.style.display = 'none';
+}
+
+// ESC 键关闭 subOnboardingModal
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    var modal = document.getElementById('subOnboardingModal');
+    if (modal && modal.style.display !== 'none') {
+      dismissSubOnboarding();
+    }
+  }
+});
 
 function toggleAgentDropdown() {
   const dropdown = document.getElementById('agentDropdown');
@@ -3834,13 +3992,13 @@ async function switchAgent(agentId) {
   // 更新列表
   renderAgentDropdown();
 
-  // 🎯 每个 agent 有独立的会话
+  // 每个 agent 有独立的会话
   const targetAgentId = agent.agentId || agentId;
   const targetSessionKey = `${SESSION_PREFIX}:agent:${targetAgentId}`;
 
   console.log('🔄 切换到 agent:', agentId, 'agentId:', targetAgentId, '会话:', targetSessionKey);
 
-  // 🔧 检查是否需要创建新 session
+  // 检查是否需要创建新 session
   const existingSession = window.sessions?.find(s => s.key === targetSessionKey);
 
   if (!existingSession) {
@@ -3876,7 +4034,7 @@ async function switchAgent(agentId) {
 // 创建 agent 专属 session
 async function createAgentSession(sessionKey, agentName) {
   if (!ws || ws.readyState !== WebSocket.OPEN) {
-    console.warn('⚠️ WebSocket 未连接，无法创建 session');
+    console.warn('WebSocket 未连接，无法创建 session');
     return false;
   }
 
@@ -3914,7 +4072,7 @@ async function createAgentSession(sessionKey, agentName) {
     });
 
     if (res.ok) {
-      console.log('✅ Agent session 创建成功:', sessionKey);
+      console.log('Agent session 创建成功:', sessionKey);
       // 添加到本地列表
       if (!window.sessions) window.sessions = [];
       if (!window.sessions.find(s => s.key === sessionKey)) {
@@ -3926,11 +4084,11 @@ async function createAgentSession(sessionKey, agentName) {
       }
       return true;
     } else {
-      console.error('❌ 创建 session 失败:', res.error);
+      console.error('创建 session 失败:', res.error);
       return false;
     }
   } catch (e) {
-    console.error('❌ 创建 session 异常:', e);
+    console.error('创建 session 异常:', e);
     return false;
   }
 }
@@ -4006,13 +4164,13 @@ let localSkillsCache = [];
  */
 
 // ═══════════════════════════════════════════════════════════════
-// 🎯 技能库模块
+// 技能库模块
 // ═══════════════════════════════════════════════════════════════
 function showSkillLibrary() {
   // 关闭其他弹窗
   document.getElementById('userDropdown')?.classList.remove('show');
   document.getElementById('sidebarUserMenu')?.classList.remove('show');
-  document.getElementById('teamModal')?.classList.remove('show');
+  // teamModal 已移除
 
   // 加载技能数据
   loadSkillLibrary();
@@ -4041,9 +4199,9 @@ async function loadSkillLibrary() {
     if (res.ok) {
       const data = await res.json();
       localSkillsCache = data.skills || [];
-      console.log('📋 已加载本地技能数量:', localSkillsCache.length);
+      console.log('已加载本地技能数量:', localSkillsCache.length);
     } else {
-      console.error('❌ 加载本地技能失败:', res.statusText);
+      console.error('加载本地技能失败:', res.statusText);
       localSkillsCache = [];
     }
 
@@ -4613,11 +4771,11 @@ async function refreshSidebarCredits() {
       const creditsEl = document.getElementById('sidebarUserCredits');
       if (creditsEl) {
         creditsEl.textContent = `💎 ${result.data.total}`;
-        console.log('✅ 侧边栏积分已更新:', result.data.total);
+        console.log('侧边栏积分已更新:', result.data.total);
       }
     }
   } catch (e) {
-    console.error('❌ 刷新积分失败:', e);
+    console.error('刷新积分失败:', e);
   }
 }
 
@@ -4984,7 +5142,7 @@ function stopRecording() {
 document.addEventListener('DOMContentLoaded', () => {
   initVoiceRecognition();
 
-  // 🔧 监听输入框文字变化，动态切换按钮显示（豆包风格）
+  // 监听输入框文字变化，动态切换按钮显示（豆包风格）
   const inputField = document.getElementById('inputField');
   if (inputField) {
     inputField.addEventListener('input', updateInputButtons);
@@ -5035,7 +5193,7 @@ async function handleCameraCapture() {
 
     input.click();
   } catch (error) {
-    console.error('❌ 打开摄像头失败:', error);
+    console.error('打开摄像头失败:', error);
     alert('无法打开摄像头，请检查权限设置');
   }
 }

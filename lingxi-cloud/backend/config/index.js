@@ -8,6 +8,7 @@ import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 const require = createRequire(import.meta.url);
+const fs = require('fs');
 const __dirname = dirname(fileURLToPath(import.meta.url));
 require('dotenv').config({ path: join(__dirname, '..', '.env') });
 
@@ -29,7 +30,7 @@ export const config = {
   
   // 安全配置
   security: {
-    jwtSecret: process.env.JWT_SECRET || crypto.randomUUID(),
+    jwtSecret: process.env.JWT_SECRET,
     adminKey: process.env.ADMIN_KEY || 'lingxi-admin-2026',
   },
   

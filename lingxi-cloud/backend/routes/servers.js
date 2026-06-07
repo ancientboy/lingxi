@@ -106,10 +106,28 @@ router.post('/:userId', async (req, res) => {
     await saveDB(db);
     
     // 自动做一次健康检查
-    checkServerHealth(server).then(healthy => {
+    checkServerHealth(server).then(async healthy => {
       server.status = healthy ? 'running' : 'offline';
       server.lastCheck = new Date().toISOString();
-      saveDB(db);
+      
+      // 🆕 设备在线时自动推送默认团队配置（通过 OpenClaw HTTP API）
+      if (healthy) {
+        try {
+          const { pushAgentsViaHttpApi } = await import('./agents.js');
+          const defaultAgents = user.agents || ['lingxi', 'coder', 'noter'];
+          await pushAgentsViaHttpApi(server, defaultAgents);
+          console.log(`✅ 已自动推送团队配置到 ${ip}`);
+          
+          // 同时更新用户的 agents 记录
+          if (!user.agents || user.agents.length === 0) {
+            user.agents = defaultAgents;
+          }
+        } catch (err) {
+          console.log(`⚠️ 推送团队配置失败（不影响使用）: ${err.message}`);
+        }
+      }
+      
+      await saveDB(db);
     });
     
     res.json({ server, message: '设备添加成功' });

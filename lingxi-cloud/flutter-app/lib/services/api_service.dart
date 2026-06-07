@@ -244,6 +244,90 @@ class ApiService {
     }
   }
   
+  // ============ 办公区 ============
+  
+  /// 获取团队成员
+  Future<Map<String, dynamic>?> getTeam() async {
+    try {
+      final response = await get('/api/agent-workspace/team');
+      final data = response.data;
+      if (data is Map && data['success'] == true && data['team'] != null) {
+        return {'team': data['team']};
+      }
+      if (data is Map && data['team'] != null) {
+        return data as Map<String, dynamic>;
+      }
+      debugPrint('⚠️ 团队 API 返回格式异常');
+      return null;
+    } catch (e) {
+      debugPrint('❌ 获取团队失败: $e');
+      return null;
+    }
+  }
+  
+  // ============ 设备管理 ============
+  
+  /// 获取服务器列表
+  Future<Map<String, dynamic>?> getServers() async {
+    try {
+      final response = await get('/api/agent-workspace/servers');
+      final data = response.data;
+      if (data is Map) {
+        return data as Map<String, dynamic>;
+      }
+      return null;
+    } catch (e) {
+      debugPrint('❌ 获取服务器列表失败: $e');
+      return null;
+    }
+  }
+  
+  /// 激活服务器设备
+  Future<bool> activateServer(String serverId) async {
+    try {
+      final response = await post('/api/agent-workspace/servers/activate', data: {
+        'serverId': serverId,
+      });
+      final data = response.data;
+      return data is Map && data['success'] == true;
+    } catch (e) {
+      debugPrint('❌ 激活服务器失败: $e');
+      return false;
+    }
+  }
+  
+  // ============ 文件管理器 ============
+  
+  /// 列出目录内容
+  Future<Map<String, dynamic>> listFiles(String path) async {
+    try {
+      final response = await get('/api/file-explorer/list', queryParameters: {
+        'path': path,
+      });
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      debugPrint('❌ 列出目录失败: $e');
+      rethrow;
+    }
+  }
+  
+  /// 读取文件内容
+  Future<Map<String, dynamic>?> getFile(String path) async {
+    try {
+      final response = await get('/api/file-explorer/get', queryParameters: {
+        'path': path,
+      });
+      final data = response.data;
+      if (data is Map) {
+        return data as Map<String, dynamic>;
+      }
+      return null;
+    } catch (e) {
+      debugPrint('❌ 读取文件失败: $e');
+      return null;
+    }
+  }
+  
   // ============ 飞书配置 ============
   
   Future<Map<String, dynamic>?> getFeishuConfig(String userId) async {

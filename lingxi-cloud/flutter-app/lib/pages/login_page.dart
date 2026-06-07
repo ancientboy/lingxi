@@ -2,7 +2,7 @@ import 'package:lingxicloud/utils/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lingxicloud/providers/app_provider.dart';
-import 'package:lingxicloud/pages/chat_page.dart';
+import 'package:lingxicloud/pages/main_shell.dart';
 import 'package:lingxicloud/pages/team_intro_page.dart';
 import 'package:lingxicloud/pages/register_page.dart';
 
@@ -46,7 +46,7 @@ class _LoginPageState extends State<LoginPage> {
 
         if (success) {
           Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const ChatPage()),
+            MaterialPageRoute(builder: (_) => const MainShell()),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
