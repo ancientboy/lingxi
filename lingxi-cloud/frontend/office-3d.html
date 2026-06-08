@@ -1180,6 +1180,246 @@ function drawChar(ch) {
   }
 }
 
+// ==================== OFFICE CAT ====================
+// Orange tabby cat that wanders corridors and naps
+const CAT_STATES = { WANDER: 'wander', NAP: 'nap' };
+
+const officeCat = {
+  x: 260, y: 214,  // start in main corridor
+  tx: 260, ty: 214,
+  state: CAT_STATES.WANDER,
+  anim: Math.random() * 100,
+  speed: 1.8,
+  timer: rand(3, 8),
+  angle: 0,
+  dreamBubble: null, // { text, timer }
+  route: [],
+  // Wander targets: corridor points only (x=260 or x=520 or x=740)
+  targets: [
+    { x:260, y:80 }, { x:260, y:214 }, { x:260, y:414 },
+    { x:260, y:614 }, { x:260, y:820 },
+    { x:520, y:185 }, { x:520, y:414 }, { x:520, y:735 },
+    { x:740, y:185 }, { x:740, y:555 }, { x:740, y:785 },
+    { x:150, y:218 }, // near coffee area
+    { x:130, y:657 }, // near sofa
+  ],
+
+  pickTarget() {
+    const t = this.targets[Math.floor(Math.random() * this.targets.length)];
+    this.route = buildRoute(this.x, this.y, t.x, t.y);
+    if (this.route.length > 0) {
+      const first = this.route.shift();
+      this.tx = first.x; this.ty = first.y;
+    } else {
+      this.tx = t.x; this.ty = t.y;
+    }
+  },
+
+  update(dt) {
+    this.anim += dt;
+
+    if (this.state === CAT_STATES.WANDER) {
+      const d = dist(this.x, this.y, this.tx, this.ty);
+      if (d < 3) {
+        if (this.route.length > 0) {
+          const next = this.route.shift();
+          this.tx = next.x; this.ty = next.y;
+        } else {
+          // Arrived — maybe nap, maybe pick new target
+          this.timer -= dt;
+          if (this.timer <= 0) {
+            if (Math.random() < 0.35) {
+              // Take a nap!
+              this.state = CAT_STATES.NAP;
+              this.timer = rand(8, 20);
+              const dreams = ['🐟','🧶','🐱','🐾','★','♥','🐾','🐭','💤','🐟'];
+              this.dreamBubble = { text: dreams[Math.floor(Math.random()*dreams.length)], timer: 0 };
+            } else {
+              this.pickTarget();
+              this.timer = rand(2, 6);
+            }
+          }
+        }
+      } else {
+        const dx = this.tx-this.x, dy = this.ty-this.y;
+        const len = Math.hypot(dx,dy);
+        this.x += dx/len * Math.min(this.speed, len);
+        this.y += dy/len * Math.min(this.speed, len);
+        this.angle = Math.atan2(dy, dx);
+      }
+    } else if (this.state === CAT_STATES.NAP) {
+      this.timer -= dt;
+      // Dream bubble animation
+      if (this.dreamBubble) {
+        this.dreamBubble.timer += dt;
+      }
+      if (this.timer <= 0) {
+        this.state = CAT_STATES.WANDER;
+        this.dreamBubble = null;
+        this.pickTarget();
+        this.timer = rand(3, 8);
+      }
+    }
+  }
+};
+
+function drawCat() {
+  const cat = officeCat;
+  const p = W(cat.x, cat.y);
+  const s = S * 1.2; // smaller than characters
+
+  ctx.save();
+  ctx.translate(p.x, p.y);
+
+  if (cat.state === CAT_STATES.NAP) {
+    // Sleeping cat: curled up oval
+    // Body (curled)
+    ctx.fillStyle = '#e8922a';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 10*s, 7*s, 0, 0, Math.PI*2);
+    ctx.fill();
+    // Darker stripes
+    ctx.fillStyle = '#c47818';
+    ctx.beginPath(); ctx.ellipse(-3*s, -2*s, 2*s, 5*s, 0.2, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(4*s, -1*s, 1.8*s, 4*s, -0.1, 0, Math.PI*2); ctx.fill();
+    // Head tucked
+    ctx.fillStyle = '#e8922a';
+    ctx.beginPath(); ctx.arc(8*s, -2*s, 4.5*s, 0, Math.PI*2); ctx.fill();
+    // Ears
+    ctx.beginPath(); ctx.moveTo(6*s, -6*s); ctx.lineTo(4*s, -10*s); ctx.lineTo(9*s, -7*s); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(10*s, -6*s); ctx.lineTo(12*s, -10*s); ctx.lineTo(13*s, -6*s); ctx.fill();
+    // Inner ears
+    ctx.fillStyle = '#f5b87a';
+    ctx.beginPath(); ctx.moveTo(6.5*s, -6.5*s); ctx.lineTo(5*s, -9*s); ctx.lineTo(8.5*s, -7*s); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(10.5*s, -6.5*s); ctx.lineTo(11.5*s, -9*s); ctx.lineTo(12.5*s, -6.5*s); ctx.fill();
+    // Closed eyes
+    ctx.strokeStyle = '#555'; ctx.lineWidth = 0.8*s; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.arc(7*s, -2.5*s, 1.5*s, Math.PI+0.3, -0.3); ctx.stroke();
+    ctx.beginPath(); ctx.arc(11*s, -2.5*s, 1.5*s, Math.PI+0.3, -0.3); ctx.stroke();
+    // Nose
+    ctx.fillStyle = '#d4726a';
+    ctx.beginPath(); ctx.arc(9.5*s, -0.5*s, 0.8*s, 0, Math.PI*2); ctx.fill();
+    // Tail (curled around)
+    ctx.strokeStyle = '#e8922a'; ctx.lineWidth = 2.5*s; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-8*s, 2*s);
+    ctx.quadraticCurveTo(-12*s, -5*s, -6*s, -8*s);
+    ctx.stroke();
+    // Tail tip (darker)
+    ctx.strokeStyle = '#c47818'; ctx.lineWidth = 2*s;
+    ctx.beginPath();
+    ctx.moveTo(-7*s, -6*s);
+    ctx.quadraticCurveTo(-6*s, -8*s, -4*s, -7*s);
+    ctx.stroke();
+
+    // Dream bubble
+    if (cat.dreamBubble && cat.dreamBubble.timer > 1) {
+      const by = -16*s - Math.sin(cat.anim*2)*2*s;
+      // Bubble circles
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.beginPath(); ctx.arc(14*s, by+6*s, 2*s, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(16*s, by+2*s, 3*s, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(18*s, by-4*s, 6*s, 0, Math.PI*2); ctx.fill();
+      // Dream text
+      ctx.fillStyle = '#555';
+      ctx.font = `${5*s}px sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(cat.dreamBubble.text, 18*s, by-4*s);
+    }
+  } else {
+    // Walking cat
+    const bobY = Math.abs(Math.sin(cat.anim*10))*1.5*s;
+    ctx.translate(0, -bobY);
+
+    // Body
+    ctx.fillStyle = '#e8922a';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 10*s, 6*s, 0, 0, Math.PI*2);
+    ctx.fill();
+    // Stripes
+    ctx.fillStyle = '#c47818';
+    ctx.beginPath(); ctx.ellipse(-3*s, -1*s, 1.8*s, 4*s, 0.2, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(3*s, -0.5*s, 1.5*s, 3.5*s, -0.1, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(7*s, 0, 1.3*s, 3*s, 0, 0, Math.PI*2); ctx.fill();
+
+    // Legs (4 small stubs)
+    const legOff = Math.sin(cat.anim*10)*2*s;
+    ctx.fillStyle = '#e8922a';
+    ctx.beginPath(); ctx.ellipse(-5*s, 6*s+legOff, 2.5*s, 1.8*s, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-1*s, 6*s-legOff, 2.5*s, 1.8*s, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(4*s, 6*s-legOff, 2.5*s, 1.8*s, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(8*s, 6*s+legOff, 2.5*s, 1.8*s, 0, 0, Math.PI*2); ctx.fill();
+    // Paws (white tips)
+    ctx.fillStyle = '#f5deb3';
+    ctx.beginPath(); ctx.ellipse(-5*s, 7*s+legOff, 1.5*s, 1*s, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-1*s, 7*s-legOff, 1.5*s, 1*s, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(4*s, 7*s-legOff, 1.5*s, 1*s, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(8*s, 7*s+legOff, 1.5*s, 1*s, 0, 0, Math.PI*2); ctx.fill();
+
+    // Tail (up, curved)
+    ctx.strokeStyle = '#e8922a'; ctx.lineWidth = 2.5*s; ctx.lineCap = 'round';
+    const tailWag = Math.sin(cat.anim*6)*3*s;
+    ctx.beginPath();
+    ctx.moveTo(-8*s, 0);
+    ctx.quadraticCurveTo(-14*s+tailWag, -8*s, -10*s+tailWag, -14*s);
+    ctx.stroke();
+    ctx.strokeStyle = '#c47818'; ctx.lineWidth = 2*s;
+    ctx.beginPath();
+    ctx.moveTo(-11*s+tailWag, -12*s);
+    ctx.quadraticCurveTo(-10*s+tailWag, -15*s, -8*s+tailWag, -13*s);
+    ctx.stroke();
+
+    // Head
+    ctx.fillStyle = '#e8922a';
+    ctx.beginPath(); ctx.arc(10*s, -4*s, 5.5*s, 0, Math.PI*2); ctx.fill();
+    // Ears
+    ctx.beginPath(); ctx.moveTo(6*s, -7*s); ctx.lineTo(4*s, -13*s); ctx.lineTo(10*s, -8*s); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(13*s, -7*s); ctx.lineTo(16*s, -13*s); ctx.lineTo(16*s, -7*s); ctx.fill();
+    // Inner ears
+    ctx.fillStyle = '#f5b87a';
+    ctx.beginPath(); ctx.moveTo(6.5*s, -8*s); ctx.lineTo(5*s, -12*s); ctx.lineTo(9.5*s, -8.5*s); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(13.5*s, -7.5*s); ctx.lineTo(15*s, -12*s); ctx.lineTo(15.5*s, -7.5*s); ctx.fill();
+    // Eyes (big green eyes)
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(8*s, -4.5*s, 2.5*s, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(14*s, -4.5*s, 2.5*s, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#4a8';
+    ctx.beginPath(); ctx.arc(8.5*s, -4*s, 1.8*s, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(14.5*s, -4*s, 1.8*s, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#111';
+    ctx.beginPath(); ctx.ellipse(9*s, -3.8*s, 0.8*s, 1.2*s, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(15*s, -3.8*s, 0.8*s, 1.2*s, 0, 0, Math.PI*2); ctx.fill();
+    // Highlight
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(8*s, -5*s, 0.6*s, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(14*s, -5*s, 0.6*s, 0, Math.PI*2); ctx.fill();
+    // Nose
+    ctx.fillStyle = '#d4726a';
+    ctx.beginPath();
+    ctx.moveTo(11*s, -2.5*s); ctx.lineTo(10.5*s, -1.5*s); ctx.lineTo(11.5*s, -1.5*s);
+    ctx.fill();
+    // Mouth
+    ctx.strokeStyle = '#c4685a'; ctx.lineWidth = 0.5*s;
+    ctx.beginPath(); ctx.moveTo(11*s, -1.5*s); ctx.lineTo(10*s, -0.5*s); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(11*s, -1.5*s); ctx.lineTo(12*s, -0.5*s); ctx.stroke();
+    // Whiskers
+    ctx.strokeStyle = '#aaa'; ctx.lineWidth = 0.4*s;
+    ctx.beginPath(); ctx.moveTo(7*s, -1.5*s); ctx.lineTo(2*s, -2.5*s); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(7*s, -1*s); ctx.lineTo(2*s, -0.5*s); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(15*s, -1.5*s); ctx.lineTo(20*s, -2.5*s); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(15*s, -1*s); ctx.lineTo(20*s, -0.5*s); ctx.stroke();
+  }
+
+  ctx.restore();
+
+  // "Mochi" name tag
+  ctx.fillStyle = 'rgba(232,146,42,0.6)';
+  ctx.font = `600 ${WS(8)}px -apple-system, sans-serif`;
+  ctx.textAlign = 'center';
+  const np = W(cat.x, cat.y + 22);
+  ctx.fillText('Mochi', np.x, np.y);
+}
+
 // ==================== STATUS BAR ====================
 const bar = document.getElementById('status-bar');
 chars.forEach(ch => {
@@ -1242,25 +1482,28 @@ function loop(ts) {
     drawDesk(d.x, d.y);
     drawMonitor(d.x, d.y-45, active);
     drawChair(d.x, d.y+CHAIR_OFFSET);
-    // Nameplate on desk (工牌)
+    // Nameplate on desk (工牌) — top-left corner
     const agent = AGENTS.find(a => a.deskIdx === i);
     if (agent) {
-      const np = W(d.x, d.y + 15); // bottom area of desk
-      const npW = WS(38), npH = WS(14);
-      // Card background
+      const deskP = W(d.x, d.y);
+      const dw = WS(150), dh = WS(100);
+      const npW = WS(36), npH = WS(12);
+      const npX = deskP.x - dw/2 + WS(6) + npW/2;
+      const npY = deskP.y - dh/2 + WS(6) + npH/2;
+      // Card
       ctx.fillStyle = '#fff';
-      rrect(np.x-npW/2, np.y-npH/2, npW, npH, WS(3)); ctx.fill();
+      rrect(npX-npW/2, npY-npH/2, npW, npH, WS(2.5)); ctx.fill();
       ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = WS(0.5); ctx.stroke();
-      // Color accent bar on left
+      // Color accent bar
       ctx.fillStyle = agent.scarf;
       ctx.beginPath();
-      ctx.roundRect(np.x-npW/2, np.y-npH/2, WS(3), npH, [WS(3),0,0,WS(3)]);
+      ctx.roundRect(npX-npW/2, npY-npH/2, WS(2.5), npH, [WS(2.5),0,0,WS(2.5)]);
       ctx.fill();
-      // Name text
+      // Name
       ctx.fillStyle = '#333';
-      ctx.font = `600 ${WS(8)}px -apple-system, sans-serif`;
+      ctx.font = `600 ${WS(7)}px -apple-system, sans-serif`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(agent.name, np.x+WS(1), np.y+WS(0.5));
+      ctx.fillText(agent.name, npX+WS(1), npY);
     }
   });
 
@@ -1268,8 +1511,14 @@ function loop(ts) {
   drawTreadmill();
   drawSofa();
 
+  // Update cat
+  officeCat.update(dt);
+
   // Characters sorted by y (back to front for isometric)
   [...chars].sort((a,b)=>a.y-b.y).forEach(c => drawChar(c));
+
+  // Draw cat (on top of everything, cute priority)
+  drawCat();
 
   requestAnimationFrame(loop);
 }
