@@ -110,12 +110,12 @@ const CHAIR_OFFSET = 75;
 
 // Special locations — character stands IN FRONT of furniture
 // Break area: bx=60, by=145, bh=55, depth=12 → front at y=212, stand at y=218
-// Treadmill: belt center at tx+tw/2=140, ty+14 to ty+th-10 → belt y=401~432, center y=417
+// Treadmill: belt at ty+14 to ty+th-10 → belt y=401~432, center y=416
 // Sofa: cushion center at sx+sw/2=130, sy+sh/2 → y=657
 const LOC = {
   coffee:    { x:150, y:218 },
   sofa:      { x:130, y:657 },
-  treadmill: { x:140, y:420 },
+  treadmill: { x:140, y:410 },
 };
 
 // ==================== HELPERS ====================
@@ -564,8 +564,8 @@ edge('c6','i6');  // y=614
 wp('bk', 150, 218);
 edge('c0','bk'); edge('bk','c1');
 
-// Treadmill: furniture at (70,387)-(210,442), belt center ~(140,420)
-wp('tm', 140, 420);
+// Treadmill: furniture at (70,387)-(210,442), belt center ~(140,410)
+wp('tm', 140, 410);
 edge('c4','tm'); edge('tm','c5');
 
 // Sofa: furniture at (70,630)-(190,685), cushion center ~(130,657)
