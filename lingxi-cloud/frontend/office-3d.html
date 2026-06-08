@@ -77,9 +77,12 @@ function W(x, y) { return { x: OX + x * S, y: OY + y * S }; }
 function WS(v) { return v * S; }
 
 // 6 workstations (like Marvis: 2 rows × 3 columns)
+// 8 workstations (4 rows × 2 columns)
 const DESKS = [
-  { x:400, y:220 }, { x:600, y:220 }, { x:800, y:220 },
-  { x:400, y:520 }, { x:600, y:520 }, { x:800, y:520 },
+  { x:420, y:140 }, { x:620, y:140 },
+  { x:420, y:320 }, { x:620, y:320 },
+  { x:420, y:500 }, { x:620, y:500 },
+  { x:420, y:680 }, { x:620, y:680 },
 ];
 
 // Special locations
@@ -139,7 +142,7 @@ function drawZones() {
   rrect(45,560,210,105,12); ctx.fill();
   // Work zone
   ctx.fillStyle = 'rgba(66,133,244,0.02)';
-  rrect(270,80,660,590,16); ctx.fill();
+  rrect(300,50,460,750,16); ctx.fill();
 }
 
 function drawLabels() {
@@ -150,7 +153,7 @@ function drawLabels() {
   ctx.fillText('Break Area', p(150,135).x, p(150,135).y);
   ctx.fillText('Wellness Zone', p(140,375).x, p(140,375).y);
   ctx.fillText('Relax Zone', p(130,670).x, p(130,670).y);
-  ctx.fillText('Work Zone', p(600,410).x, p(600,410).y);
+  ctx.fillText('Work Zone', p(530,410).x, p(530,410).y);
 }
 
 function drawDesk(dx, dy) {
