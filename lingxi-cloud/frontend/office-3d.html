@@ -256,26 +256,72 @@ function drawBreakArea() {
   const bx=60, by=70, bw=180, bh=55;
   const p = W(bx+bw/2, by+bh/2);
   const pw = WS(bw), ph = WS(bh);
-
-  shadow(p.x, p.y, pw, ph, 0.06);
-
-  // Cabinet
-  ctx.fillStyle = '#f8f8f8';
   const sx = W(bx, by);
+  const depth = WS(12); // cabinet height visible from top
+
+  shadow(p.x, p.y+depth/2, pw, ph, 0.08);
+
+  // Cabinet right side (depth)
+  ctx.fillStyle = '#ddd';
+  ctx.beginPath();
+  ctx.moveTo(sx.x+pw, sx.y);
+  ctx.lineTo(sx.x+pw, sx.y+ph);
+  ctx.lineTo(sx.x+pw, sx.y+ph+depth);
+  ctx.lineTo(sx.x, sx.y+ph+depth);
+  ctx.lineTo(sx.x, sx.y+ph);
+  ctx.closePath(); ctx.fill();
+
+  // Cabinet front side (depth)
+  ctx.fillStyle = '#e8e8e8';
+  ctx.beginPath();
+  ctx.moveTo(sx.x, sx.y+ph);
+  ctx.lineTo(sx.x+pw, sx.y+ph);
+  ctx.lineTo(sx.x+pw, sx.y+ph+depth);
+  ctx.lineTo(sx.x, sx.y+ph+depth);
+  ctx.closePath(); ctx.fill();
+
+  // Cabinet top surface
+  ctx.fillStyle = '#f8f8f8';
   rrect(sx.x, sx.y, pw, ph, WS(8)); ctx.fill();
   ctx.strokeStyle = '#e2e2e2'; ctx.lineWidth = WS(1); ctx.stroke();
 
-  // Coffee machine
-  const cmx = W(bx+bw-40, by+bh/2);
-  ctx.fillStyle = '#c8c8c8';
-  rrect(cmx.x-WS(14), cmx.y-WS(16), WS(28), WS(32), WS(4)); ctx.fill();
-  ctx.strokeStyle = '#aaa'; ctx.lineWidth = WS(0.8); ctx.stroke();
-  ctx.fillStyle = '#999'; ctx.fillRect(cmx.x-WS(3), cmx.y-WS(12), WS(6), WS(5));
-  ctx.fillStyle = '#E74C3C'; ctx.beginPath(); ctx.arc(cmx.x, cmx.y+WS(8), WS(3), 0, Math.PI*2); ctx.fill();
+  // Drawers (front face details)
+  ctx.strokeStyle = '#d0d0d0'; ctx.lineWidth = WS(0.5);
+  ctx.beginPath(); ctx.moveTo(sx.x+WS(10), sx.y+ph+depth*0.5); ctx.lineTo(sx.x+pw-WS(10), sx.y+ph+depth*0.5); ctx.stroke();
+  // Drawer knobs
+  ctx.fillStyle = '#bbb';
+  ctx.beginPath(); ctx.arc(sx.x+pw/2-WS(15), sx.y+ph+depth*0.5, WS(2), 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(sx.x+pw/2+WS(15), sx.y+ph+depth*0.5, WS(2), 0, Math.PI*2); ctx.fill();
 
-  // Cups
+  // Coffee machine (3D box on top)
+  const cmx = W(bx+bw-40, by+bh/2);
+  const cmw = WS(28), cmh = WS(32), cmd = WS(10);
+  // Coffee machine side
+  ctx.fillStyle = '#aaa';
+  ctx.fillRect(cmx.x-cmw/2+cmw, cmx.y-cmh/2, cmd, cmh);
+  // Coffee machine front
+  ctx.fillStyle = '#c8c8c8';
+  ctx.fillRect(cmx.x-cmw/2, cmx.y-cmh/2+cmd, cmw, cmh-cmd);
+  // Coffee machine top
+  rrect(cmx.x-cmw/2, cmx.y-cmh/2, cmw, cmd, WS(4)); ctx.fill();
+  ctx.strokeStyle = '#aaa'; ctx.lineWidth = WS(0.8); ctx.stroke();
+  // Details
+  ctx.fillStyle = '#999'; ctx.fillRect(cmx.x-WS(3), cmx.y-cmh/2+cmd+WS(2), WS(6), WS(5));
+  ctx.fillStyle = '#E74C3C'; ctx.beginPath(); ctx.arc(cmx.x, cmx.y-cmh/2+cmd+WS(18), WS(3), 0, Math.PI*2); ctx.fill();
+
+  // Cups (3D trapezoids with depth)
   for (let row=0;row<2;row++) for (let col=0;col<4;col++) {
     const cx = W(bx+28+col*28, by+16+row*24);
+    const cupD = WS(4);
+    // Cup side
+    ctx.fillStyle = '#6B4F12';
+    ctx.beginPath();
+    ctx.moveTo(cx.x+WS(3), cx.y+WS(8));
+    ctx.lineTo(cx.x+WS(3), cx.y+WS(8)+cupD);
+    ctx.lineTo(cx.x-WS(3), cx.y+WS(8)+cupD);
+    ctx.lineTo(cx.x-WS(3), cx.y+WS(8));
+    ctx.closePath(); ctx.fill();
+    // Cup top
     ctx.fillStyle = '#8B6914';
     ctx.beginPath();
     ctx.moveTo(cx.x-WS(5), cx.y-WS(2));
@@ -292,37 +338,70 @@ function drawTreadmill() {
   const sx = W(tx, ty);
   const pw = WS(tw), ph = WS(th);
   const cx = W(tx+tw/2, ty+th/2);
+  const depth = WS(10);
 
-  shadow(cx.x, cx.y, pw, ph, 0.06);
+  shadow(cx.x, cx.y+depth/2, pw, ph, 0.08);
 
-  // Base
+  // Base right side
+  ctx.fillStyle = '#ddd';
+  ctx.beginPath();
+  ctx.moveTo(sx.x+pw, sx.y+WS(8));
+  ctx.lineTo(sx.x+pw, sx.y+ph-WS(12));
+  ctx.lineTo(sx.x+pw, sx.y+ph-WS(12)+depth);
+  ctx.lineTo(sx.x, sx.y+ph-WS(12)+depth);
+  ctx.lineTo(sx.x, sx.y+ph-WS(12));
+  ctx.closePath(); ctx.fill();
+
+  // Base front side
+  ctx.fillStyle = '#e5e5e5';
+  ctx.beginPath();
+  ctx.moveTo(sx.x, sx.y+ph-WS(12));
+  ctx.lineTo(sx.x+pw, sx.y+ph-WS(12));
+  ctx.lineTo(sx.x+pw, sx.y+ph-WS(12)+depth);
+  ctx.lineTo(sx.x, sx.y+ph-WS(12)+depth);
+  ctx.closePath(); ctx.fill();
+
+  // Base top
   ctx.fillStyle = '#fafafa';
   rrect(sx.x, sx.y+WS(8), pw, ph-WS(12), WS(6)); ctx.fill();
   ctx.strokeStyle = '#e5e5e5'; ctx.lineWidth = WS(1); ctx.stroke();
 
-  // Belt
-  ctx.fillStyle = '#666';
+  // Belt (dark inset on top)
+  ctx.fillStyle = '#555';
   rrect(sx.x+WS(8), sx.y+WS(14), pw-WS(16), ph-WS(24), WS(3)); ctx.fill();
 
   // Belt lines
-  ctx.strokeStyle = '#555'; ctx.lineWidth = WS(0.5);
+  ctx.strokeStyle = '#444'; ctx.lineWidth = WS(0.5);
   for (let i=tx+16;i<tx+tw-16;i+=10) {
     const lp = W(i, ty);
     ctx.beginPath(); ctx.moveTo(lp.x, sx.y+WS(16)); ctx.lineTo(lp.x, sx.y+ph-WS(16)); ctx.stroke();
   }
 
-  // Handlebars
-  ctx.strokeStyle = '#ccc'; ctx.lineWidth = WS(2.5); ctx.lineCap = 'round';
-  const l1 = W(tx+15, ty), l2 = W(tx+10, ty-8), l3 = W(tx+tw/2-5, ty-8);
-  ctx.beginPath(); ctx.moveTo(l1.x, l1.y+WS(8)); ctx.lineTo(l2.x, l2.y); ctx.lineTo(l3.x, l3.y); ctx.stroke();
-  const r1 = W(tx+tw-15, ty), r2 = W(tx+tw-10, ty-8), r3 = W(tx+tw/2+5, ty-8);
-  ctx.beginPath(); ctx.moveTo(r1.x, r1.y+WS(8)); ctx.lineTo(r2.x, r2.y); ctx.lineTo(r3.x, r3.y); ctx.stroke();
+  // Handlebar posts (vertical, 3D)
+  ctx.strokeStyle = '#bbb'; ctx.lineWidth = WS(3); ctx.lineCap = 'round';
+  const posts = [
+    { x: tx+15, y1: ty+8, y2: ty-15 },
+    { x: tx+tw-15, y1: ty+8, y2: ty-15 },
+  ];
+  posts.forEach(post => {
+    const bot = W(post.x, post.y1);
+    const top = W(post.x, post.y2);
+    ctx.beginPath(); ctx.moveTo(bot.x, bot.y); ctx.lineTo(top.x, top.y); ctx.stroke();
+  });
 
-  // Panel
-  const pc = W(tx+tw/2, ty);
+  // Handlebar (horizontal bar connecting posts at top)
+  const hl = W(tx+15, ty-15);
+  const hr = W(tx+tw-15, ty-15);
+  ctx.strokeStyle = '#bbb'; ctx.lineWidth = WS(3);
+  ctx.beginPath(); ctx.moveTo(hl.x, hl.y); ctx.lineTo(hr.x, hr.y); ctx.stroke();
+
+  // Control panel (3D box on handlebar center)
+  const pc = W(tx+tw/2, ty-10);
+  ctx.fillStyle = '#555';
+  rrect(pc.x-WS(10), pc.y-WS(4), WS(20), WS(8), WS(3)); ctx.fill();
   ctx.fillStyle = '#444';
-  rrect(pc.x-WS(8), pc.y-WS(5), WS(16), WS(10), WS(3)); ctx.fill();
-  ctx.fillStyle = '#2ECC71'; ctx.beginPath(); ctx.arc(pc.x, pc.y, WS(2), 0, Math.PI*2); ctx.fill();
+  rrect(pc.x-WS(10), pc.y-WS(4), WS(20), WS(4), WS(3)); ctx.fill();
+  ctx.fillStyle = '#2ECC71'; ctx.beginPath(); ctx.arc(pc.x, pc.y-WS(1), WS(2), 0, Math.PI*2); ctx.fill();
 }
 
 function drawSofa() {
@@ -330,20 +409,50 @@ function drawSofa() {
   const p = W(sx+sw/2, sy+sh/2);
   const pw = WS(sw), ph = WS(sh);
   const start = W(sx, sy);
+  const depth = WS(14);
 
-  shadow(p.x, p.y, pw, ph, 0.08);
+  shadow(p.x, p.y+depth/2, pw, ph, 0.1);
 
-  // Body
+  // Sofa right side (depth)
+  ctx.fillStyle = '#d5d5d5';
+  ctx.beginPath();
+  ctx.moveTo(start.x+pw, start.y);
+  ctx.lineTo(start.x+pw, start.y+ph);
+  ctx.lineTo(start.x+pw, start.y+ph+depth);
+  ctx.lineTo(start.x, start.y+ph+depth);
+  ctx.lineTo(start.x, start.y+ph);
+  ctx.closePath(); ctx.fill();
+
+  // Sofa front side (depth)
+  ctx.fillStyle = '#ddd';
+  ctx.beginPath();
+  ctx.moveTo(start.x, start.y+ph);
+  ctx.lineTo(start.x+pw, start.y+ph);
+  ctx.lineTo(start.x+pw, start.y+ph+depth);
+  ctx.lineTo(start.x, start.y+ph+depth);
+  ctx.closePath(); ctx.fill();
+
+  // Sofa top surface
   ctx.fillStyle = '#f5f5f5';
   rrect(start.x, start.y, pw, ph, WS(10)); ctx.fill();
   ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = WS(1); ctx.stroke();
 
-  // Back
+  // Backrest (raised cushion on top)
+  const bkH = WS(18);
   ctx.fillStyle = '#ebebeb';
-  rrect(start.x+WS(5), start.y-WS(5), pw-WS(10), ph-WS(30), WS(6)); ctx.fill();
+  rrect(start.x+WS(5), start.y-WS(2), pw-WS(10), bkH, WS(6)); ctx.fill();
   ctx.strokeStyle = '#d8d8d8'; ctx.lineWidth = WS(0.8); ctx.stroke();
 
-  // Arms
+  // Backrest depth (right side)
+  ctx.fillStyle = '#ccc';
+  ctx.beginPath();
+  ctx.moveTo(start.x+pw-WS(5), start.y-WS(2));
+  ctx.lineTo(start.x+pw-WS(5), start.y-WS(2)+bkH);
+  ctx.lineTo(start.x+pw-WS(5)+WS(4), start.y-WS(2)+bkH+WS(3));
+  ctx.lineTo(start.x+pw-WS(5)+WS(4), start.y-WS(2)+WS(3));
+  ctx.closePath(); ctx.fill();
+
+  // Arms (raised sides with depth)
   ctx.fillStyle = '#eaeaea';
   rrect(start.x-WS(5), start.y+WS(8), WS(12), ph-WS(20), WS(5)); ctx.fill();
   rrect(start.x+pw-WS(7), start.y+WS(8), WS(12), ph-WS(20), WS(5)); ctx.fill();
@@ -352,8 +461,13 @@ function drawSofa() {
   ctx.strokeStyle = '#e5e5e5'; ctx.lineWidth = WS(0.5);
   ctx.beginPath(); ctx.moveTo(start.x+pw/2, start.y+WS(15)); ctx.lineTo(start.x+pw/2, start.y+ph-WS(10)); ctx.stroke();
 
-  // Side table
+  // Side table (3D)
   const tp = W(sx+sw+18, sy+sh/2);
+  const tDepth = WS(8);
+  // Table side
+  ctx.fillStyle = '#ddd';
+  ctx.fillRect(tp.x-WS(12), tp.y-WS(12)+tDepth, WS(24)+WS(3), tDepth);
+  // Table top
   ctx.fillStyle = '#f8f8f8';
   rrect(tp.x-WS(12), tp.y-WS(12), WS(24), WS(24), WS(5)); ctx.fill();
   ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = WS(0.8); ctx.stroke();
