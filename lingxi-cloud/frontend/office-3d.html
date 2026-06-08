@@ -100,14 +100,14 @@ const CHAIR_OFFSET = 75;
 // Row2 chair y=385, Row3 desk top y=460 → aisle y=422
 // Row3 chair y=585, Row4 desk top y=660 → aisle y=622
 
-// Special locations — centered ON the actual furniture
-// Break area: bx=60, by=50, bw=180, bh=55 → center (150, 77)
-// Treadmill:  tx=70, ty=230, tw=140, th=55 → center (140, 257)
-// Sofa:       sx=70, sy=630, sw=120, sh=60 → center (130, 660)
+// Special locations — character stands IN FRONT of furniture
+// Break area: bx=60, by=145, bh=55, depth=12 → front at y=212, stand at y=218
+// Treadmill: belt center at tx+tw/2=140, ty+14 to ty+th-10 → belt y=401~432, center y=417
+// Sofa: cushion center at sx+sw/2=130, sy+sh/2 → y=657
 const LOC = {
-  coffee:    { x:150, y:77 },
-  sofa:      { x:130, y:660 },
-  treadmill: { x:140, y:257 },
+  coffee:    { x:150, y:218 },
+  sofa:      { x:130, y:657 },
+  treadmill: { x:140, y:420 },
 };
 
 // ==================== HELPERS ====================
@@ -135,15 +135,15 @@ function shadow(x,y,w,h,a=0.1) {
 // ==================== DRAW FUNCTIONS ====================
 
 function drawZones() {
-  // Break area (top-left, above row 1)
+  // Break area (row 1 level, left)
   ctx.fillStyle = 'rgba(139,105,20,0.03)';
-  rrect(45,20,210,110,12); ctx.fill();
-  // Wellness (mid-left, between row 1-2)
+  rrect(45,135,210,85,12); ctx.fill();
+  // Wellness (row 2 level, left)
   ctx.fillStyle = 'rgba(100,180,100,0.03)';
-  rrect(45,200,210,100,12); ctx.fill();
-  // Relax (bottom-left, between row 3-4)
+  rrect(45,377,210,85,12); ctx.fill();
+  // Relax (row 3-4 level, left)
   ctx.fillStyle = 'rgba(155,89,182,0.03)';
-  rrect(45,600,210,110,12); ctx.fill();
+  rrect(45,620,210,80,12); ctx.fill();
   // Work zone
   ctx.fillStyle = 'rgba(66,133,244,0.02)';
   rrect(300,30,480,810,16); ctx.fill();
@@ -154,9 +154,9 @@ function drawLabels() {
   ctx.font = `${WS(11)}px -apple-system, sans-serif`;
   ctx.textAlign = 'center';
   const p = (x,y) => W(x,y);
-  ctx.fillText('Break Area', p(150,110).x, p(150,110).y);
-  ctx.fillText('Wellness Zone', p(140,260).x, p(140,260).y);
-  ctx.fillText('Relax Zone', p(130,660).x, p(130,660).y);
+  ctx.fillText('Break Area', p(150,195).x, p(150,195).y);
+  ctx.fillText('Wellness Zone', p(140,435).x, p(140,435).y);
+  ctx.fillText('Relax Zone', p(130,675).x, p(130,675).y);
   ctx.fillText('Work Zone', p(530,420).x, p(530,420).y);
 }
 
@@ -268,7 +268,7 @@ function drawChair(cx, cy) {
 }
 
 function drawBreakArea() {
-  const bx=60, by=50, bw=180, bh=55;
+  const bx=60, by=145, bw=180, bh=55;
   const p = W(bx+bw/2, by+bh/2);
   const pw = WS(bw), ph = WS(bh);
   const sx = W(bx, by);
@@ -349,7 +349,7 @@ function drawBreakArea() {
 }
 
 function drawTreadmill() {
-  const tx=70, ty=230, tw=140, th=55;
+  const tx=70, ty=387, tw=140, th=55;
   const sx = W(tx, ty);
   const pw = WS(tw), ph = WS(th);
   const cx = W(tx+tw/2, ty+th/2);
@@ -420,7 +420,7 @@ function drawTreadmill() {
 }
 
 function drawSofa() {
-  const sx=70, sy=630, sw=120, sh=60;
+  const sx=70, sy=630, sw=120, sh=55;
   const p = W(sx+sw/2, sy+sh/2);
   const pw = WS(sw), ph = WS(sh);
   const start = W(sx, sy);
@@ -552,17 +552,17 @@ edge('c4','i4');  // y=414
 edge('c6','i6');  // y=614
 
 // === Left area connections ===
-// Break area: furniture at (60,50)-(240,105), center (150,77)
-wp('bk', 150, 77);   // break area (on the furniture)
-edge('c0','bk'); edge('bk','c1');  // connect via top and row1 corridor
+// Break area: furniture at (60,145)-(240,200), character stands at (150,218)
+wp('bk', 150, 218);
+edge('c0','bk'); edge('bk','c1');
 
-// Treadmill: furniture at (70,230)-(210,285), center (140,257)
-wp('tm', 140, 257);  // treadmill (on the furniture)
-edge('c2','tm'); edge('tm','c3');  // connect via between-row aisles
+// Treadmill: furniture at (70,387)-(210,442), belt center ~(140,420)
+wp('tm', 140, 420);
+edge('c4','tm'); edge('tm','c5');
 
-// Sofa: furniture at (70,630)-(190,690), center (130,660)
-wp('sf', 130, 660);  // sofa (on the furniture)
-edge('c6','sf'); edge('sf','c7');  // connect via between-row aisles
+// Sofa: furniture at (70,630)-(190,685), cushion center ~(130,657)
+wp('sf', 130, 657);
+edge('c6','sf'); edge('sf','c7');
 
 // Bottom loop
 edge('c8','r4');
