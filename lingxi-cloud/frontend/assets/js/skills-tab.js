@@ -191,32 +191,76 @@ function _useSkill(skillId) {
   const allSkills = [...skillsState.allSkills, ...skillsState.builtinSkills];
   const skill = allSkills.find(s => s.id === skillId);
   const skillName = skill?.name || skillId;
-  const example = skill?.example || '';
+  const agentConfig = skill?.agent ? SKILLS_AGENT_CONFIG[skill.agent] : null;
+  const icon = agentConfig?.icon || 'package';
 
-  // Build message: skill name + example
-  let msg = '';
-  if (example) {
-    msg = `使用技能[${skillName}] ${example}`;
-  } else {
-    msg = `使用技能[${skillName}]`;
-  }
-
-  // Switch to chat view and fill input
+  // Switch to chat view
   switchView('chat');
+
   setTimeout(() => {
+    // Add skill tag to input area
+    _addSkillTag(skillId, skillName, icon);
+
+    // Focus input
     const input = document.getElementById('inputField');
-    if (input) {
-      input.value = msg;
-      input.focus();
-      // Auto-resize
-      input.style.height = 'auto';
-      input.style.height = Math.min(input.scrollHeight, 150) + 'px';
-      // Show send button
-      const sendBtn = document.getElementById('sendBtn');
-      if (sendBtn) sendBtn.classList.remove('hidden');
-    }
+    if (input) input.focus();
   }, 150);
 }
+
+// ===== Skill Tag Management =====
+function _addSkillTag(skillId, skillName, icon) {
+  const area = document.getElementById('skillTagsArea');
+  if (!area) return;
+
+  // Remove existing tag with same skillId
+  const existing = area.querySelector(`[data-skill-id="${skillId}"]`);
+  if (existing) existing.remove();
+
+  const tag = document.createElement('span');
+  tag.className = 'skill-tag';
+  tag.dataset.skillId = skillId;
+  tag.innerHTML = `<i data-lucide="${icon}"></i>${skillName}<button class="skill-tag-close" onclick="_removeSkillTag('${skillId}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>`;
+
+  area.appendChild(tag);
+  if (window.lucide) lucide.createIcons();
+
+  // Show send button
+  const sendBtn = document.getElementById('sendBtn');
+  if (sendBtn) sendBtn.classList.remove('hidden');
+}
+
+function _removeSkillTag(skillId) {
+  const area = document.getElementById('skillTagsArea');
+  if (!area) return;
+  const tag = area.querySelector(`[data-skill-id="${skillId}"]`);
+  if (tag) tag.remove();
+
+  // Hide send button if no tags and no text
+  const input = document.getElementById('inputField');
+  const sendBtn = document.getElementById('sendBtn');
+  if (sendBtn && (!input || !input.value.trim()) && !area.children.length) {
+    sendBtn.classList.add('hidden');
+  }
+}
+
+function _getSkillTags() {
+  const area = document.getElementById('skillTagsArea');
+  if (!area) return [];
+  return Array.from(area.querySelectorAll('.skill-tag')).map(tag => ({
+    id: tag.dataset.skillId,
+    name: tag.textContent.replace('×', '').trim()
+  }));
+}
+
+function _clearSkillTags() {
+  const area = document.getElementById('skillTagsArea');
+  if (area) area.innerHTML = '';
+}
+
+window._addSkillTag = _addSkillTag;
+window._removeSkillTag = _removeSkillTag;
+window._getSkillTags = _getSkillTags;
+window._clearSkillTags = _clearSkillTags;
 
 async function _installAndUse(skillId, skillName, btn) {
   const originalHTML = btn?.innerHTML || '';

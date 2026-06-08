@@ -1387,8 +1387,18 @@ async function sendMessage() {
   }
 
   const input = document.getElementById('inputField');
-  const text = (input && input.value) ? String(input.value).trim() : '';
+  let text = (input && input.value) ? String(input.value).trim() : '';
   console.log('📝 输入文本:', text ? `"${text}"` : '(空)');
+
+  // Prepend skill tags to message
+  const skillTags = (typeof _getSkillTags === 'function') ? _getSkillTags() : [];
+  if (skillTags.length > 0) {
+    const tagText = skillTags.map(t => `[${t.name}]`).join(' ');
+    text = tagText + (text ? ' ' + text : '');
+    if (typeof _clearSkillTags === 'function') _clearSkillTags();
+  }
+
+  console.log('📝 最终文本:', text ? `"${text}"` : '(空)');
   console.log('📝 text 类型:', typeof text);
 
   // 允许发送图片或文本，至少要有一种

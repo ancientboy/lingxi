@@ -803,3 +803,31 @@ body {
 }
 .scroll-bottom-btn:hover { background: var(--bg-hover); color: var(--accent); transform: translateX(-50%) translateY(-2px); box-shadow: var(--shadow-lg); }
 .scroll-bottom-btn.hidden { display: none; }
+
+/* Skill Tags in input */
+.skill-tags-area {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  padding: 10px 12px 0; min-height: 0;
+}
+.skill-tags-area:empty { padding: 0; min-height: 0; }
+
+.skill-tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 8px 4px 10px;
+  background: var(--accent-soft); border: 1px solid rgba(16,163,127,0.2);
+  border-radius: 14px; font-size: 12px; font-weight: 500;
+  color: var(--accent); font-family: var(--font-display);
+  white-space: nowrap; line-height: 1.4;
+  animation: tagIn 0.2s ease-out;
+}
+@keyframes tagIn { from { opacity:0; transform:scale(0.9); } to { opacity:1; transform:scale(1); } }
+
+.skill-tag svg { width: 13px; height: 13px; opacity: 0.7; }
+.skill-tag-close {
+  width: 16px; height: 16px; border: none; background: transparent;
+  color: var(--accent); cursor: pointer; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0.5; transition: opacity 0.15s, background 0.15s; padding: 0;
+}
+.skill-tag-close:hover { opacity: 1; background: rgba(16,163,127,0.15); }
+.skill-tag-close svg { width: 10px; height: 10px; }
