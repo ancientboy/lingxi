@@ -886,6 +886,12 @@ const POSES = {
 function drawChar(ch) {
   const p = W(ch.x, ch.y);
   const pose = POSES[ch.state] || POSES.idle;
+  let facing = pose.facing || 'front';
+  // Walking: show back when moving up (away from viewer), front when moving down
+  if (ch.state === STATES.WALKING) {
+    const dy = ch.ty - ch.y;
+    if (dy < -1) facing = 'back';  // walking up = show back
+  }
   let { bodySY, oxBase, oyBase } = pose;
   let ox = oxBase * S;
   let oy = oyBase * S;
@@ -957,8 +963,6 @@ function drawChar(ch) {
   ctx.bezierCurveTo(16*s, -4*s, 16*s, -20*s, 0, -20*s);
   ctx.closePath();
   ctx.fill();
-
-  const facing = pose.facing || 'front';
 
   // Colored ribbon — horizontal band around neck for all views
   ctx.fillStyle = ch.scarf;
@@ -1185,23 +1189,24 @@ function drawChar(ch) {
 const CAT_STATES = { WANDER: 'wander', NAP: 'nap' };
 
 const officeCat = {
-  x: 260, y: 214,  // start in main corridor
+  x: 260, y: 214,
   tx: 260, ty: 214,
   state: CAT_STATES.WANDER,
   anim: Math.random() * 100,
   speed: 1.8,
+  baseSpeed: 1.8,
   timer: rand(3, 8),
-  angle: 0,
-  dreamBubble: null, // { text, timer }
+  facingX: 1, // 1=right, -1=left
+  facingY: 1, // 1=down(front), -1=up(back)
+  dreamBubble: null,
   route: [],
-  // Wander targets: corridor points only (x=260 or x=520 or x=740)
   targets: [
     { x:260, y:80 }, { x:260, y:214 }, { x:260, y:414 },
     { x:260, y:614 }, { x:260, y:820 },
     { x:520, y:185 }, { x:520, y:414 }, { x:520, y:735 },
     { x:740, y:185 }, { x:740, y:555 }, { x:740, y:785 },
-    { x:150, y:218 }, // near coffee area
-    { x:130, y:657 }, // near sofa
+    { x:150, y:218 },
+    { x:130, y:657 },
   ],
 
   pickTarget() {
@@ -1213,6 +1218,8 @@ const officeCat = {
     } else {
       this.tx = t.x; this.ty = t.y;
     }
+    // Random speed: slow saunter or fast trot
+    this.speed = Math.random() < 0.3 ? this.baseSpeed * 2.2 : this.baseSpeed;
   },
 
   update(dt) {
@@ -1225,11 +1232,9 @@ const officeCat = {
           const next = this.route.shift();
           this.tx = next.x; this.ty = next.y;
         } else {
-          // Arrived — maybe nap, maybe pick new target
           this.timer -= dt;
           if (this.timer <= 0) {
             if (Math.random() < 0.35) {
-              // Take a nap!
               this.state = CAT_STATES.NAP;
               this.timer = rand(8, 20);
               const dreams = ['🐟','🧶','🐱','🐾','★','♥','🐾','🐭','💤','🐟'];
@@ -1245,14 +1250,13 @@ const officeCat = {
         const len = Math.hypot(dx,dy);
         this.x += dx/len * Math.min(this.speed, len);
         this.y += dy/len * Math.min(this.speed, len);
-        this.angle = Math.atan2(dy, dx);
+        // Update facing direction
+        if (Math.abs(dx) > 0.5) this.facingX = dx > 0 ? 1 : -1;
+        if (Math.abs(dy) > 0.5) this.facingY = dy > 0 ? 1 : -1;
       }
     } else if (this.state === CAT_STATES.NAP) {
       this.timer -= dt;
-      // Dream bubble animation
-      if (this.dreamBubble) {
-        this.dreamBubble.timer += dt;
-      }
+      if (this.dreamBubble) this.dreamBubble.timer += dt;
       if (this.timer <= 0) {
         this.state = CAT_STATES.WANDER;
         this.dreamBubble = null;
@@ -1266,10 +1270,13 @@ const officeCat = {
 function drawCat() {
   const cat = officeCat;
   const p = W(cat.x, cat.y);
-  const s = S * 1.2; // smaller than characters
+  const s = S * 1.2;
+  const isRunning = cat.speed > cat.baseSpeed * 1.5;
 
   ctx.save();
   ctx.translate(p.x, p.y);
+  // Flip horizontally based on facing direction
+  ctx.scale(cat.facingX, 1);
 
   if (cat.state === CAT_STATES.NAP) {
     // Sleeping cat: curled up oval
@@ -1327,8 +1334,9 @@ function drawCat() {
       ctx.fillText(cat.dreamBubble.text, 18*s, by-4*s);
     }
   } else {
-    // Walking cat
-    const bobY = Math.abs(Math.sin(cat.anim*10))*1.5*s;
+    // Walking/running cat
+    const moveSpeed = isRunning ? 14 : 10;
+    const bobY = Math.abs(Math.sin(cat.anim*moveSpeed))*(isRunning?2.5:1.5)*s;
     ctx.translate(0, -bobY);
 
     // Body
@@ -1343,7 +1351,7 @@ function drawCat() {
     ctx.beginPath(); ctx.ellipse(7*s, 0, 1.3*s, 3*s, 0, 0, Math.PI*2); ctx.fill();
 
     // Legs (4 small stubs)
-    const legOff = Math.sin(cat.anim*10)*2*s;
+    const legOff = Math.sin(cat.anim*moveSpeed)*(isRunning?3:2)*s;
     ctx.fillStyle = '#e8922a';
     ctx.beginPath(); ctx.ellipse(-5*s, 6*s+legOff, 2.5*s, 1.8*s, 0, 0, Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.ellipse(-1*s, 6*s-legOff, 2.5*s, 1.8*s, 0, 0, Math.PI*2); ctx.fill();
@@ -1358,7 +1366,7 @@ function drawCat() {
 
     // Tail (up, curved)
     ctx.strokeStyle = '#e8922a'; ctx.lineWidth = 2.5*s; ctx.lineCap = 'round';
-    const tailWag = Math.sin(cat.anim*6)*3*s;
+    const tailWag = Math.sin(cat.anim*(isRunning?10:6))*(isRunning?5:3)*s;
     ctx.beginPath();
     ctx.moveTo(-8*s, 0);
     ctx.quadraticCurveTo(-14*s+tailWag, -8*s, -10*s+tailWag, -14*s);
