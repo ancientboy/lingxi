@@ -733,14 +733,14 @@ const chars = AGENTS.map((a, i) => {
 // ==================== DRAW CHARACTER ====================
 function drawChar(ch) {
   const p = W(ch.x, ch.y);
-  let ox=0, oy=0, bodySY=1, rot=0;
+  let ox=0, oy=0, bodySY=1;
 
   if (ch.state===STATES.IDLE) {
     oy = Math.sin(ch.anim*3)*2*S;
     ox = Math.sin(ch.anim*2)*1*S;
   } else if (ch.state===STATES.WALKING) {
+    // Body stays upright — only bounce, no rotation
     oy = Math.abs(Math.sin(ch.anim*10))*2.5*S;
-    rot = ch.angle;
   } else if (ch.state===STATES.SLEEPING) {
     bodySY = 0.6;
     oy = Math.sin(ch.anim*1.5)*1.5*S;
@@ -749,17 +749,24 @@ function drawChar(ch) {
 
   ctx.save();
   ctx.translate(p.x+ox, p.y+oy);
-  ctx.rotate(rot);
+  // NOTE: no ctx.rotate — silhouette always faces upright
 
   const s = S * 1.5;
 
   // === Lume: Cute silhouette (penguin/ghost-like) ===
 
-  // Feet (two small rounded bumps at bottom)
+  // Walking leg swing (剪影风格：双腿左右摆动)
+  const walkCycle = ch.state===STATES.WALKING ? ch.anim*10 : 0;
+  const legSwing = ch.state===STATES.WALKING ? Math.sin(walkCycle)*6*s : 0;
+  const legBounce = ch.state===STATES.WALKING ? Math.abs(Math.sin(walkCycle))*2*s : 0;
+
+  // Feet (two small rounded bumps, swing left-right when walking)
   ctx.fillStyle = '#1a1a1a';
   const legOff = ch.state===STATES.WALKING ? Math.sin(ch.anim*10)*3*s : 0;
-  ctx.beginPath(); ctx.ellipse(-6*s, 16*s+legOff, 5*s, 3*s, 0, 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(6*s, 16*s-legOff, 5*s, 3*s, 0, 0, Math.PI*2); ctx.fill();
+  // Left foot — swings forward (positive x) when right goes back
+  ctx.beginPath(); ctx.ellipse(-6*s+legSwing, 16*s-legBounce, 6*s, 3.5*s, legSwing*0.05, 0, Math.PI*2); ctx.fill();
+  // Right foot — opposite phase
+  ctx.beginPath(); ctx.ellipse(6*s-legSwing, 16*s-legBounce, 6*s, 3.5*s, -legSwing*0.05, 0, Math.PI*2); ctx.fill();
 
   // Main body (large teardrop/egg shape, pure black)
   ctx.fillStyle = '#1a1a1a';
@@ -802,11 +809,12 @@ function drawChar(ch) {
     ctx.ellipse(14*s, -2*s-tOff, 5*s, 4*s, 0.3, 0, Math.PI*2);
     ctx.fill();
   } else if (ch.state===STATES.WALKING) {
+    // Arms swing opposite to legs
     ctx.beginPath();
-    ctx.ellipse(-14*s, -2*s+legOff*0.5, 5*s, 4*s, -0.2, 0, Math.PI*2);
+    ctx.ellipse(-14*s, -2*s-legSwing*0.3, 5*s, 4*s, -0.2, 0, Math.PI*2);
     ctx.fill();
     ctx.beginPath();
-    ctx.ellipse(14*s, -2*s-legOff*0.5, 5*s, 4*s, 0.2, 0, Math.PI*2);
+    ctx.ellipse(14*s, -2*s+legSwing*0.3, 5*s, 4*s, 0.2, 0, Math.PI*2);
     ctx.fill();
   } else {
     ctx.beginPath();
