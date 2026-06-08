@@ -50,6 +50,10 @@ function switchView(view) {
   } else if (view === 'workspace') {
     if (chatContainer) chatContainer.classList.add('hidden');
     if (workspaceView) workspaceView.classList.add('active');
+  } else if (view === 'cron') {
+    if (chatContainer) chatContainer.classList.add('hidden');
+    const cronView = document.getElementById('cronView');
+    if (cronView) cronView.classList.add('active');
   }
 }
 

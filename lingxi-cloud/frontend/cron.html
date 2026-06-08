@@ -293,6 +293,9 @@
       .freq-tabs { flex-wrap: wrap; }
       .freq-tab { font-size: 11px; padding: 6px 0; }
     }
+    /* When embedded as iframe in chat page */
+    body.in-iframe .top-bar { display: none; }
+    body.in-iframe .main-content { padding-top: 20px; }
   </style>
   <script src="assets/js/i18n.js?v=20260608"></script>
   <script src="assets/libs/lucide.min.js"></script>
@@ -1380,5 +1383,6 @@ document.getElementById('reminderCreateModal').addEventListener('click', functio
 })();
 </script>
 <script>if(window.lucide)lucide.createIcons();</script>
+<script>if(window.parent!==window)document.body.classList.add("in-iframe");</script>
 </body>
 </html>
