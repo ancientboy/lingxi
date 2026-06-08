@@ -1287,16 +1287,16 @@ function drawScreenContent(mx, my, active, deskIdx) {
 let coffeeSteamAnim = 0;
 function drawCoffeeMachineSteam() {
   coffeeSteamAnim += 0.02;
-  const cp = W(60, 145);
-  const sx = cp.x + WS(30), sy = cp.y - WS(15);
-  // Steam puffs
-  ctx.fillStyle = 'rgba(200,200,200,0.15)';
-  for (let i = 0; i < 3; i++) {
-    const t = (coffeeSteamAnim + i * 0.7) % 2;
-    const px = sx + Math.sin(t * 3 + i) * WS(5);
-    const py = sy - t * WS(20);
-    const r = WS(3 + t * 4);
-    if (t < 1.5) {
+  // Coffee machine: bx=60, by=145, bw=180, bh=55 → top-center at (150, 145)
+  const top = W(150, 140);
+  const sx = top.x, sy = top.y;
+  ctx.fillStyle = 'rgba(200,200,200,0.18)';
+  for (let i = 0; i < 4; i++) {
+    const t = (coffeeSteamAnim + i * 0.6) % 2.5;
+    const px = sx + Math.sin(t * 2.5 + i * 1.2) * WS(8);
+    const py = sy - t * WS(18);
+    const r = WS(3 + t * 5);
+    if (t < 2) {
       ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI*2); ctx.fill();
     }
   }
