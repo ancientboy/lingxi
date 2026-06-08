@@ -664,9 +664,9 @@ class Char {
     this.x = d.x; this.y = d.y + CHAIR_OFFSET;
     this.tx = this.x; this.ty = this.y;
     this.anim = 0;
-    this.stateTimer = rand(4,10);
+    this.stateTimer = rand(5,15);
     this.taskTimer = 0;
-    this.speed = 5.5;
+    this.speed = 5;
     this.angle = 0;
     this._next = null;
     this.route = []; // waypoint path for current walk
@@ -709,15 +709,15 @@ class Char {
 
     if (this.state !== STATES.WALKING && this.taskTimer <= 0) {
       this.stateTimer -= dt;
-      if (this.stateTimer <= 0) { this.autoSwitch(); }
+      if (this.stateTimer <= 0) { this.autoSwitch(); this.stateTimer = rand(5,15); }
     }
   }
 
   setState(s) {
     this.state = s; this.anim = 0; this.updateUI();
-    if (s===STATES.TYPING) this.stateTimer = rand(4,8);
-    else if (s===STATES.IDLE) this.stateTimer = rand(3,6);
-    else if (s===STATES.SLEEPING || s===STATES.SITTING || s===STATES.RUNNING || s===STATES.DRINKING) this.stateTimer = rand(8,18);
+    if (s===STATES.TYPING) this.stateTimer = rand(5,10);
+    else if (s===STATES.IDLE) this.stateTimer = rand(4,8);
+    else if (s===STATES.SLEEPING || s===STATES.SITTING || s===STATES.RUNNING || s===STATES.DRINKING) this.stateTimer = rand(6,12);
   }
 
   walkTo(tx,ty,next) {
@@ -738,20 +738,13 @@ class Char {
     let occupants = 0;
     for (const other of chars) {
       if (other === this) continue;
-      // Already at area
-      if (dist(other.x, other.y, areaLoc.x, areaLoc.y) < 60 && other.state !== STATES.WALKING) {
-        occupants++;
-      }
-      // Walking toward this area
+      if (dist(other.x, other.y, areaLoc.x, areaLoc.y) < 55 && other.state !== STATES.WALKING) occupants++;
       if (other.state === STATES.WALKING) {
         const dest = other.route.length > 0 ? other.route[other.route.length - 1] : { x: other.tx, y: other.ty };
-        if (dist(dest.x, dest.y, areaLoc.x, areaLoc.y) < 60) {
-          occupants++;
-        }
+        if (dist(dest.x, dest.y, areaLoc.x, areaLoc.y) < 55) occupants++;
       }
     }
-    if (occupants >= 2) return true; // max 2 per area
-    // Add slight random offset so 2 chars don't stack
+    if (occupants >= 2) return true;
     const ox = (Math.random()-0.5) * 30;
     const oy = (Math.random()-0.5) * 20;
     this.walkTo(areaLoc.x + ox, areaLoc.y + oy, targetState);
@@ -762,8 +755,8 @@ class Char {
     const r = Math.random();
     switch(this.state) {
       case STATES.IDLE:
-        // Idle at desk → go to left area (70%) or back to typing (30%)
-        if (r<0.3) this.setState(STATES.TYPING);
+        // Idle at desk → go back to typing or go to a left area
+        if (r<0.5) this.setState(STATES.TYPING);
         else {
           const choices = [
             { loc: LOC.coffee, state: STATES.DRINKING },
@@ -782,10 +775,8 @@ class Char {
         }
         break;
       case STATES.TYPING:
-        // Typing → take a break: idle (20%) or go to area (50%) or keep typing (30%)
-        if (r<0.2) {
-          this.setState(STATES.IDLE);
-        } else if (r<0.7) {
+        // Typing → keep typing or take a break (go to left area)
+        {
           const choices = [
             { loc: LOC.coffee, state: STATES.DRINKING },
             { loc: LOC.sofa, state: STATES.SITTING },
@@ -799,9 +790,8 @@ class Char {
           for (const c of choices) {
             if (!this.tryGoToArea(c.loc, c.state)) { went = true; break; }
           }
-          if (!went) { this.stateTimer = rand(3,6); }
-        } else {
-          this.stateTimer = rand(4,8);
+          // All areas occupied → stay typing
+          if (!went) { this.stateTimer = rand(5,10); }
         }
         break;
       case STATES.SLEEPING:
@@ -824,7 +814,6 @@ class Char {
     chip.textContent = STATE_LABELS[this.state];
   }
 }
-
 // Create characters — all start typing at desk (max 1 in left area)
 const usedAreas = new Set();
 // Initialize with default agents (non-embedded mode)
