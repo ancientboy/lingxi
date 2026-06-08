@@ -666,7 +666,7 @@ class Char {
     this.anim = 0;
     this.stateTimer = rand(5,15);
     this.taskTimer = 0;
-    this.speed = 5;
+    this.speed = 2.8;
     this.angle = 0;
     this._next = null;
     this.route = []; // waypoint path for current walk
@@ -715,9 +715,9 @@ class Char {
 
   setState(s) {
     this.state = s; this.anim = 0; this.updateUI();
-    if (s===STATES.TYPING) this.stateTimer = rand(5,10);
-    else if (s===STATES.IDLE) this.stateTimer = rand(4,8);
-    else if (s===STATES.SLEEPING || s===STATES.SITTING || s===STATES.RUNNING || s===STATES.DRINKING) this.stateTimer = rand(6,12);
+    if (s===STATES.TYPING) this.stateTimer = rand(10,20);
+    else if (s===STATES.IDLE) this.stateTimer = rand(8,15);
+    else if (s===STATES.SLEEPING || s===STATES.SITTING || s===STATES.RUNNING || s===STATES.DRINKING) this.stateTimer = rand(12,25);
   }
 
   walkTo(tx,ty,next) {
@@ -734,7 +734,8 @@ class Char {
   }
 
   // Try to go to a left-side area; returns true if full
-  tryGoToArea(areaLoc, targetState) {
+  tryGoToArea(areaLoc, targetState, maxOccupants) {
+    maxOccupants = maxOccupants || 1;
     let occupants = 0;
     for (const other of chars) {
       if (other === this) continue;
@@ -744,10 +745,15 @@ class Char {
         if (dist(dest.x, dest.y, areaLoc.x, areaLoc.y) < 55) occupants++;
       }
     }
-    if (occupants >= 2) return true;
-    const ox = (Math.random()-0.5) * 30;
-    const oy = (Math.random()-0.5) * 20;
-    this.walkTo(areaLoc.x + ox, areaLoc.y + oy, targetState);
+    if (occupants >= maxOccupants) return true;
+    // Offset based on occupant index to avoid overlap
+    const offsets = [
+      { x: 0, y: 0 },
+      { x: 28, y: 12 },
+      { x: -25, y: 15 },
+    ];
+    const o = offsets[Math.min(occupants, offsets.length - 1)];
+    this.walkTo(areaLoc.x + o.x, areaLoc.y + o.y, targetState);
     return false;
   }
 
@@ -755,13 +761,13 @@ class Char {
     const r = Math.random();
     switch(this.state) {
       case STATES.IDLE:
-        // Idle at desk → go back to typing or go to a left area
-        if (r<0.5) this.setState(STATES.TYPING);
+        // Idle → mostly back to typing (70%), sometimes go to area (30%)
+        if (r<0.7) this.setState(STATES.TYPING);
         else {
           const choices = [
-            { loc: LOC.coffee, state: STATES.DRINKING },
-            { loc: LOC.sofa, state: STATES.SITTING },
-            { loc: LOC.treadmill, state: STATES.RUNNING },
+            { loc: LOC.coffee, state: STATES.DRINKING, max: 3 },
+            { loc: LOC.sofa, state: STATES.SITTING, max: 1 },
+            { loc: LOC.treadmill, state: STATES.RUNNING, max: 1 },
           ];
           for (let i=choices.length-1; i>0; i--) {
             const j = Math.floor(Math.random()*(i+1));
@@ -769,18 +775,19 @@ class Char {
           }
           let went = false;
           for (const c of choices) {
-            if (!this.tryGoToArea(c.loc, c.state)) { went = true; break; }
+            if (!this.tryGoToArea(c.loc, c.state, c.max)) { went = true; break; }
           }
           if (!went) this.setState(STATES.TYPING);
         }
         break;
       case STATES.TYPING:
-        // Typing → keep typing or take a break (go to left area)
-        {
+        // Typing → mostly keep typing (70%), sometimes take a break (30%)
+        if (r<0.7) { this.stateTimer = rand(10,20); }
+        else {
           const choices = [
-            { loc: LOC.coffee, state: STATES.DRINKING },
-            { loc: LOC.sofa, state: STATES.SITTING },
-            { loc: LOC.treadmill, state: STATES.RUNNING },
+            { loc: LOC.coffee, state: STATES.DRINKING, max: 3 },
+            { loc: LOC.sofa, state: STATES.SITTING, max: 1 },
+            { loc: LOC.treadmill, state: STATES.RUNNING, max: 1 },
           ];
           for (let i=choices.length-1; i>0; i--) {
             const j = Math.floor(Math.random()*(i+1));
@@ -788,10 +795,9 @@ class Char {
           }
           let went = false;
           for (const c of choices) {
-            if (!this.tryGoToArea(c.loc, c.state)) { went = true; break; }
+            if (!this.tryGoToArea(c.loc, c.state, c.max)) { went = true; break; }
           }
-          // All areas occupied → stay typing
-          if (!went) { this.stateTimer = rand(5,10); }
+          if (!went) { this.stateTimer = rand(10,20); }
         }
         break;
       case STATES.SLEEPING:
