@@ -5308,16 +5308,19 @@ function formatRelativeTime(dateStr) {
   if (!dateStr) return '';
   const now = Date.now();
   const then = new Date(dateStr).getTime();
+  if (isNaN(then)) return '';
   const diff = now - then;
-  if (diff < 0) return '刚刚';
+  if (diff < 0) return 'just now';
   const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return '刚刚';
-  if (minutes < 60) return `${minutes} 分钟前`;
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} 小时前`;
+  if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
-  if (days < 30) return `${days} 天前`;
-  return dateStr.slice(0, 10);
+  if (days < 7) return `${days}d ago`;
+  if (days < 30) return `${Math.floor(days/7)}w ago`;
+  const d = new Date(then);
+  return `${d.getMonth()+1}/${d.getDate()}`;
 }
 
 /** HTML 转义 */
