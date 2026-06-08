@@ -1136,12 +1136,10 @@
   </div>
 </div>
 
-<!-- ===== Overview Tab (办公桌视图) ===== -->
+<!-- ===== Overview Tab (办公室场景) ===== -->
 <div class="tab-content active" id="tabOverview">
-  <div class="room-wrapper" class="mt-92">
-    <div class="perspective-container">
-      <div class="desk-rows" id="deskRows"></div>
-    </div>
+  <div class="room-wrapper mt-92" style="height:calc(100vh - 92px);display:flex;flex-direction:column;">
+    <iframe id="officeFrame" src="office-3d.html" style="flex:1;border:none;width:100%;min-height:400px;"></iframe>
   </div>
   <!-- Bottom Panels (only in overview) -->
   <div class="bottom-panels" id="bottomPanels">
@@ -1477,41 +1475,8 @@ function initState() {
 }
 
 function renderDesks() {
-  const el = document.getElementById('deskRows');
-  if (!AGENTS.length) { el.innerHTML = '<div class="empty-state">暂无 Agent，请在管理页添加</div>'; return; }
-  let h = '';
-  // 动态分行：每 2 个 agent 一行，中间每 4 个插一个休息区
-  for (let i = 0; i < AGENTS.length; i++) {
-    // 每 4 个 agent 后插入休息区
-    if (i > 0 && i % 4 === 0) {
-      h += `<div class="break-row">
-        <div class="break-obj"><svg width="50" height="55" viewBox="0 0 50 55"><rect x="8" y="8" width="34" height="30" rx="3" fill="#666" opacity="0.5"/><rect x="6" y="4" width="38" height="6" rx="2" fill="#777" opacity="0.45"/><rect x="14" y="13" width="14" height="6" rx="1" fill="#1a3a2a" opacity="0.5"/><text x="21" y="18" font-size="3" fill="#4facfe" text-anchor="middle" opacity="0.7">READY</text><circle cx="34" cy="15" r="2" fill="#43e97b" opacity="0.5"/><rect x="18" y="28" width="14" height="2" rx="1" fill="#888" opacity="0.35"/><rect x="21" y="24" width="8" height="6" rx="1" fill="#fff" opacity="0.45"/><rect x="5" y="38" width="40" height="3" rx="1" fill="#d4a574" opacity="0.4"/><rect x="5" y="41" width="40" height="12" rx="1" fill="#c9956a" opacity="0.3"/></svg><span class="break-lbl">Coffee</span></div>
-        <div class="break-obj"><svg width="40" height="55" viewBox="0 0 40 55"><rect x="6" y="18" width="28" height="25" rx="2" fill="#e0e0e0" opacity="0.35"/><path d="M10 5 L9 18 L31 18 L30 5 Q20 1 10 5" fill="#cce5ff" opacity="0.35"/><rect x="12" y="8" width="16" height="7" rx="1" fill="#aad4ff" opacity="0.2"><animate attributeName="height" values="7;5;7" dur="8s" repeatCount="indefinite"/></rect><rect x="14" y="28" width="4" height="6" rx="1" fill="#4facfe" opacity="0.35"/><rect x="22" y="28" width="4" height="6" rx="1" fill="#f5576c" opacity="0.3"/><rect x="4" y="43" width="32" height="3" rx="1" fill="#d4a574" opacity="0.35"/></svg><span class="break-lbl">Water</span></div>
-        <div class="break-obj"><svg width="40" height="55" viewBox="0 0 40 55"><rect x="4" y="20" width="32" height="25" rx="2" fill="#fff" opacity="0.4"/><text x="20" y="34" text-anchor="middle" font-size="5" fill="#bbb" opacity="0.5">SNACKS</text><rect x="4" y="15" width="32" height="7" rx="1" fill="#ffd93d" opacity="0.25"/><text x="20" y="21" text-anchor="middle" font-size="3" fill="#b0a060" opacity="0.5">OPEN</text></svg><span class="break-lbl">Snacks</span></div>
-      </div>`;
-    }
-    // 每 2 个一行开头
-    if (i % 2 === 0) h += `<div class="desk-row row-${Math.floor(i/2)}">`;
-    const a = AGENTS[i];
-    const s = S[a.id] || { status:'idle', task:null };
-    const st = s.status, t = s.task, it = a.items || {coffee:false,plant:false,paper:true};
-    h += `<div class="desk status-${st}">
-      <div class="nameplate"><div class="nameplate-avatar" style="background:${a.color}">${a.abbr}</div><div class="nameplate-text"><span class="nameplate-name">${a.name}</span><span class="nameplate-role">${a.role}</span></div></div>
-      <div class="agent-char anim-${st}" onclick="openDrawer('${a.id}')">${avatar(a)}</div>
-      ${buildThoughtBubble(a, s)}
-      ${st==='working'?`<div class="work-fx"><span class="fx-p" class="fx-p-0">${a.abbr}</span><span class="fx-p" class="fx-p-1"></span><span class="fx-p" class="fx-p-2"></span></div>`:''}
-      <div class="chair-body"><svg viewBox="0 0 56 62" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="chSeat" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#686868"/><stop offset="100%" stop-color="#525252"/></linearGradient></defs><rect x="4" y="0" width="48" height="9" rx="3" fill="url(#chSeat)"/><rect x="26" y="9" width="4" height="18" rx="1" fill="#6a6a6a"/><ellipse cx="28" cy="29" rx="5" ry="2" fill="#777"/><line x1="28" y1="29" x2="6" y2="44" stroke="#6a6a6a" stroke-width="2.5" stroke-linecap="round"/><line x1="28" y1="29" x2="50" y2="44" stroke="#6a6a6a" stroke-width="2.5" stroke-linecap="round"/><line x1="28" y1="29" x2="28" y2="48" stroke="#6a6a6a" stroke-width="2.5" stroke-linecap="round"/><line x1="28" y1="29" x2="15" y2="47" stroke="#6a6a6a" stroke-width="2" stroke-linecap="round"/><line x1="28" y1="29" x2="41" y2="47" stroke="#6a6a6a" stroke-width="2" stroke-linecap="round"/><circle cx="6" cy="45" r="3" fill="#4a4a4a" stroke="#333" stroke-width="0.8"/><circle cx="50" cy="45" r="3" fill="#4a4a4a" stroke="#333" stroke-width="0.8"/><circle cx="28" cy="49" r="3" fill="#4a4a4a" stroke="#333" stroke-width="0.8"/><circle cx="15" cy="48" r="3" fill="#4a4a4a" stroke="#333" stroke-width="0.8"/><circle cx="41" cy="48" r="3" fill="#4a4a4a" stroke="#333" stroke-width="0.8"/></svg></div>
-      <div class="chair-back"></div>
-      <div class="desk-surface"></div><div class="desk-front"></div><div class="desk-leg l"></div><div class="desk-leg r"></div>
-      <div class="monitor"><div class="monitor-frame"><div class="monitor-screen">${t?`<div class="screen-task"><div class="screen-task-header"><div class="screen-task-dot" style="background:${a.color}"></div><div class="screen-task-title">${t.title}</div></div><div class="screen-task-step">${t.step}/${t.totalSteps} ${t.stepName}</div><div class="screen-task-bar"><div class="screen-task-fill" style="width:${t.progress}%;background:linear-gradient(90deg,${a.gradient[0]},${a.gradient[1]})"></div></div><div class="screen-task-pct">${t.progress}%</div></div>`:`<div class="screen-idle"><div class="screen-idle-time" id="scrTime-${a.id}">${new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})}</div><div class="screen-idle-date">${new Date().toLocaleDateString('zh-CN',{month:'short',day:'numeric',weekday:'short'})}</div><div class="scr-line" class="scr-line-60"></div><div class="scr-line" class="scr-line-40"></div></div>`}</div></div><div class="monitor-neck"></div><div class="monitor-base"></div></div>
-      ${it.coffee?'<div class="d-item coffee"><div class="steam-wrap"><div class="stm"></div><div class="stm"></div><div class="stm"></div></div></div>':''}
-      ${it.plant?`<div class="d-item plant">${it.plant}</div>`:''}
-      ${it.paper?'<div class="d-item paper"></div>':''}
-    </div>`;
-    // 每 2 个或最后一个闭合行
-    if (i % 2 === 1 || i === AGENTS.length - 1) h += '</div>';
-  }
-  el.innerHTML = h;
+  // Office scene is now rendered via iframe (office-3d.html canvas)
+  // This function is kept as a no-op to avoid breaking render() calls
 }
 
 function renderTasks() {
