@@ -920,11 +920,15 @@ function drawChar(ch) {
 
   // === Feet ===
   const walkCycle = ch.anim*10;
-const runCycle = footMode==='run' ? ch.anim*14 : 0;
-  // Walking/running: feet alternate forward/back (y-axis)
-  const legStep = footMode==='walk' ? Math.sin(walkCycle)*5*s : 0;
+  const runCycle = footMode==='run' ? ch.anim*14 : 0;
+  // Direction: vertical (y-step) or horizontal (x-step)
+  const dx = ch.tx - ch.x, dy = ch.ty - ch.y;
+  const isVertical = Math.abs(dy) > Math.abs(dx);
+  const legStepY = (footMode==='walk' && isVertical) ? Math.sin(walkCycle)*5*s : 0;
+  const legStepX = (footMode==='walk' && !isVertical) ? Math.sin(walkCycle)*5*s : 0;
   const legBounce = footMode==='walk' ? Math.abs(Math.sin(walkCycle))*1.5*s : 0;
-  const runStep = footMode==='run' ? Math.sin(runCycle)*7*s : 0;
+  const runStepY = (footMode==='run' && isVertical) ? Math.sin(runCycle)*7*s : 0;
+  const runStepX = (footMode==='run' && !isVertical) ? Math.sin(runCycle)*7*s : 0;
   const runBounce = footMode==='run' ? Math.abs(Math.sin(runCycle))*3*s : 0;
 
   ctx.fillStyle = '#1a1a1a';
@@ -935,11 +939,12 @@ const runCycle = footMode==='run' ? ch.anim*14 : 0;
     ctx.beginPath(); ctx.ellipse(-4*s, 14*s, 4*s, 2.5*s, 0, 0, Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.ellipse(4*s, 14*s, 4*s, 2.5*s, 0, 0, Math.PI*2); ctx.fill();
   } else if (footMode === 'walk') {
-    ctx.beginPath(); ctx.ellipse(-5*s, 15*s+legStep-legBounce, 5*s, 3.5*s, 0, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(5*s, 15*s-legStep-legBounce, 5*s, 3.5*s, 0, 0, Math.PI*2); ctx.fill();
+    // Vertical: y-step, Horizontal: x-step
+    ctx.beginPath(); ctx.ellipse(-5*s+legStepX, 15*s+legStepY-legBounce, 5*s, 3.5*s, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(5*s-legStepX, 15*s-legStepY-legBounce, 5*s, 3.5*s, 0, 0, Math.PI*2); ctx.fill();
   } else if (footMode === 'run') {
-    ctx.beginPath(); ctx.ellipse(-5*s, 15*s+runStep-runBounce, 5.5*s, 3.5*s, 0, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(5*s, 15*s-runStep-runBounce, 5.5*s, 3.5*s, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-5*s+runStepX, 15*s+runStepY-runBounce, 5.5*s, 3.5*s, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(5*s-runStepX, 15*s-runStepY-runBounce, 5.5*s, 3.5*s, 0, 0, Math.PI*2); ctx.fill();
   } else {
     // Normal (idle/drinking): side by side
     ctx.beginPath(); ctx.ellipse(-5*s, 15*s, 5*s, 3*s, 0, 0, Math.PI*2); ctx.fill();
@@ -993,18 +998,18 @@ const runCycle = footMode==='run' ? ch.anim*14 : 0;
   } else if (footMode === 'run') {
     // Running: arms pumping (bigger swing than walking)
     ctx.beginPath();
-    ctx.ellipse(-13*s, -2*s-runStep*0.5, 5*s, 4*s, -0.3, 0, Math.PI*2);
+    ctx.ellipse(-13*s, -2*s-runStepX*0.5, 5*s, 4*s, -0.3, 0, Math.PI*2);
     ctx.fill();
     ctx.beginPath();
-    ctx.ellipse(13*s, -2*s+runStep*0.5, 5*s, 4*s, 0.3, 0, Math.PI*2);
+    ctx.ellipse(13*s, -2*s+runStepX*0.5, 5*s, 4*s, 0.3, 0, Math.PI*2);
     ctx.fill();
   } else if (footMode === 'walk') {
     // Walking: arms swing opposite to legs
     ctx.beginPath();
-    ctx.ellipse(-14*s, -2*s-legStep*0.4, 5*s, 4*s, -0.2, 0, Math.PI*2);
+    ctx.ellipse(-14*s, -2*s-legStepX*0.4, 5*s, 4*s, -0.2, 0, Math.PI*2);
     ctx.fill();
     ctx.beginPath();
-    ctx.ellipse(14*s, -2*s+legStep*0.4, 5*s, 4*s, 0.2, 0, Math.PI*2);
+    ctx.ellipse(14*s, -2*s+legStepX*0.4, 5*s, 4*s, 0.2, 0, Math.PI*2);
     ctx.fill();
   } else if (ch.state===STATES.TYPING) {
     // Typing: arms reaching forward, alternating
@@ -1180,17 +1185,16 @@ const runCycle = footMode==='run' ? ch.anim*14 : 0;
 
 // ==================== EVENTS & EFFECTS ====================
 // Monitor screen content — draws different screen types per desk
-const SCREEN_SEEDS = ['code','terminal','chart','design','chat','terminal','code','chart'];
+const SCREEN_TYPES = ['code','terminal','chart','design','chat','review','deploy','docs'];
 let globalTime = 0;
 
-function drawScreenContent(mx, my, active) {
+function drawScreenContent(mx, my, active, deskIdx) {
   if (!active) return;
   const p = W(mx, my);
   const mw = WS(50), mh = WS(32);
   const sx = p.x - mw/2 + WS(5), sy = p.y - mh/2 + WS(9);
   const sw = mw - WS(10), sh = mh - WS(12);
-  const seed = Math.round(mx * 7 + my * 3) % SCREEN_SEEDS.length;
-  const type = SCREEN_SEEDS[seed];
+  const type = SCREEN_TYPES[deskIdx % SCREEN_TYPES.length];
   ctx.save();
   ctx.beginPath(); ctx.rect(sx, sy, sw, sh); ctx.clip();
 
@@ -1224,11 +1228,57 @@ function drawScreenContent(mx, my, active) {
     ctx.fillRect(sx + sw * 0.45, sy + WS(2), sw * 0.5, sh * 0.3);
     ctx.fillStyle = '#f84';
     ctx.fillRect(sx + WS(2), sy + sh * 0.4, sw - WS(4), sh * 0.55);
-  } else {
+  } else if (type === 'chat') {
     // Chat bubbles
     ctx.fillStyle = 'rgba(255,255,255,0.2)';
     rrect(sx + WS(2), sy + WS(3), sw * 0.6, WS(8), WS(2)); ctx.fill();
     rrect(sx + sw * 0.3, sy + WS(14), sw * 0.65, WS(8), WS(2)); ctx.fill();
+  } else if (type === 'review') {
+    // Code review: red/green diff lines
+    ctx.font = `${WS(4.5)}px monospace`;
+    const diffLines = ['- return null;','+ return data;','+ // fixed!','  ✓ tests pass'];
+    diffLines.forEach((line, i) => {
+      const ly = sy + WS(6) + i * WS(6);
+      ctx.fillStyle = line.startsWith('-') ? 'rgba(255,100,100,0.3)' : line.startsWith('+') ? 'rgba(100,255,100,0.3)' : 'transparent';
+      ctx.fillRect(sx, ly - WS(4), sw, WS(6));
+      ctx.fillStyle = line.startsWith('-') ? '#faa' : line.startsWith('+') ? '#afa' : '#aaa';
+      ctx.fillText(line, sx + WS(2), ly);
+    });
+  } else if (type === 'deploy') {
+    // Deployment pipeline
+    const stages = ['Build','Test','Deploy'];
+    const prog = (globalTime * 0.15) % 3;
+    stages.forEach((name, i) => {
+      const bx = sx + WS(2) + i * (sw / 3);
+      const bw = sw / 3 - WS(4);
+      ctx.fillStyle = i < Math.floor(prog) ? '#4a4' : i === Math.floor(prog) ? '#aa4' : '#555';
+      rrect(bx, sy + WS(4), bw, sh * 0.4, WS(2)); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.font = `bold ${WS(4)}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText(name, bx + bw/2, sy + WS(4) + sh * 0.25);
+      if (i === Math.floor(prog)) {
+        // Spinning
+        const spin = globalTime * 5;
+        ctx.strokeStyle = '#ff0'; ctx.lineWidth = WS(1);
+        ctx.beginPath(); ctx.arc(bx + bw/2, sy + sh * 0.7, WS(4), spin, spin + Math.PI*1.5); ctx.stroke();
+      } else if (i < Math.floor(prog)) {
+        ctx.fillStyle = '#fff';
+        ctx.fillText('✓', bx + bw/2, sy + sh * 0.75);
+      }
+    });
+    ctx.textAlign = 'left';
+  } else if (type === 'docs') {
+    // Documentation: paragraphs + heading
+    ctx.fillStyle = '#ddd';
+    ctx.font = `bold ${WS(5)}px sans-serif`;
+    ctx.fillText('API Docs', sx + WS(2), sy + WS(7));
+    ctx.font = `${WS(4)}px sans-serif`;
+    ctx.fillStyle = '#aaa';
+    for (let i = 0; i < 4; i++) {
+      const w = sw * (0.5 + Math.random() * 0.4);
+      ctx.fillRect(sx + WS(2), sy + WS(12) + i * WS(5), w, WS(2));
+    }
   }
   ctx.restore();
 }
@@ -1678,7 +1728,7 @@ function loop(ts) {
     });
     drawDesk(d.x, d.y);
     drawMonitor(d.x, d.y-45, active);
-    drawScreenContent(d.x, d.y-45, active);
+    drawScreenContent(d.x, d.y-45, active, i);
     drawChair(d.x, d.y+CHAIR_OFFSET);
     // Nameplate on desk (工牌) — top-right corner
     const agent = AGENTS.find(a => a.deskIdx === i);
