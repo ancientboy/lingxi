@@ -1138,19 +1138,10 @@
 
 <!-- ===== Overview Tab (办公室场景) ===== -->
 <div class="tab-content active" id="tabOverview">
-  <div class="room-wrapper mt-92" style="height:calc(100vh - 92px);display:flex;flex-direction:column;">
-    <iframe id="officeFrame" src="office-3d.html" style="flex:1;border:none;width:100%;min-height:400px;"></iframe>
-  </div>
-  <!-- Bottom Panels (only in overview) -->
-  <div class="bottom-panels" id="bottomPanels">
-    <div class="panel-handle" onclick="togglePanel()">
-      <span id="panelArrow">▲</span> Tasks &amp; Logs
-    </div>
-    <div class="panel" id="tasksPanel"></div>
-    <div class="panel" id="logsPanel"></div>
+  <div style="height:calc(100vh - 48px);margin-top:48px;overflow:hidden;">
+    <iframe id="officeFrame" src="office-3d.html" style="width:100%;height:100%;border:none;display:block;"></iframe>
   </div>
 </div>
-
 <!-- ===== Manage Tab ===== -->
 <div class="tab-content" id="tabManage">
   <div class="manage-panel">
@@ -2639,8 +2630,16 @@ function init(){
   // Try to load real data from API
   fetchRealStatus();
   setInterval(simulate,5000);
-  setInterval(fetchRealStatus,30000); // Refresh real data every 30s
+  setInterval(fetchRealStatus,30000);
   setInterval(()=>{const a=pick(AGENTS.filter(x=>S[x.id].status==='idle'));if(a){addLog('captain','dispatch',`${a.name} 待命中`);renderLogs();}},12000);
+
+  // Listen for clicks from office canvas iframe
+  window.addEventListener('message', (e) => {
+    if (e.data && e.data.type === 'officeAgentClick') {
+      const agentId = e.data.agentId;
+      if (agentId) openDrawer(agentId);
+    }
+  });
 }
 
 // ===== Fetch real agent status from API =====

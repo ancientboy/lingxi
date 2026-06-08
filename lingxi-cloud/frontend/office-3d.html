@@ -1783,6 +1783,9 @@ function loop(ts) {
 
 // ==================== INTERACTION ====================
 // Click interactions
+// Detect if embedded in iframe
+const isEmbedded = window.self !== window.top;
+
 canvas.addEventListener('click', (e) => {
   const rect = canvas.getBoundingClientRect();
   const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
@@ -1797,12 +1800,23 @@ canvas.addEventListener('click', (e) => {
     const cp = W(ch.x, ch.y);
     if (dist(cx, cy, cp.x, cp.y) < WS(25)) {
       spawnCelebration(ch.x, ch.y);
-      const msgs = ['Keep going! 💪','Almost done!','Nice code!','Focus time!','Loading...','💡 Idea!','Bug fixed!','Ship it! 🚀'];
-      showToast(`${ch.agent.name}: ${msgs[Math.floor(Math.random()*msgs.length)]}`);
+      if (isEmbedded) {
+        // Send to parent page to open agent drawer
+        window.parent.postMessage({ type:'officeAgentClick', agentId: ch.agent.id }, '*');
+      } else {
+        const msgs = ['Keep going! 💪','Almost done!','Nice code!','Focus time!','Loading...','💡 Idea!','Bug fixed!','Ship it! 🚀'];
+        showToast(`${ch.agent.name}: ${msgs[Math.floor(Math.random()*msgs.length)]}`);
+      }
       return;
     }
   }
 });
+
+// Hide status bar when embedded
+if (isEmbedded) {
+  const bar = document.getElementById('status-bar');
+  if (bar) bar.style.display = 'none';
+}
 
 canvas.addEventListener('dblclick', () => { onResize(); showToast('View reset'); });
 
