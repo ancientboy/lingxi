@@ -1899,11 +1899,12 @@ canvas.addEventListener('click', (e) => {
     const cp = W(ch.x, ch.y);
     const hitRadius = Math.max(WS(30), 25);
     if (dist(cx, cy, cp.x, cp.y) < hitRadius) {
-      spawnCelebration(ch.x, ch.y);
-      if (window.self !== window.top) {
-        // Embedded: send to parent page to open agent drawer
+      if (isEmbedded) {
+        // Embedded: open agent drawer in parent page (no confetti)
         window.parent.postMessage({ type:'officeAgentClick', agentId: ch.agent.id }, '*');
       } else {
+        // Standalone: show celebration + toast
+        spawnCelebration(ch.x, ch.y);
         const msgs = ['Keep going! 💪','Almost done!','Nice code!','Focus time!','Loading...','💡 Idea!','Bug fixed!','Ship it! 🚀'];
         showToast(`${ch.agent.name}: ${msgs[Math.floor(Math.random()*msgs.length)]}`);
       }
