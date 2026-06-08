@@ -60,16 +60,23 @@ const STATES = { IDLE: 'idle', TYPING: 'typing', WALKING: 'walking', SLEEPING: '
 const STATE_COLORS = { idle: '#F1C40F', typing: '#2ECC71', walking: '#3498DB', sleeping: '#9B59B6', sitting: '#E67E22', running: '#E74C3C', drinking: '#3498DB' };
 const STATE_LABELS = { idle: 'Idle', typing: 'Typing', walking: 'Walking', sleeping: 'Sleeping', sitting: 'Sitting', running: 'Running', drinking: 'Coffee' };
 
-const AGENTS = [
-  { id:'lingxi', name:'Lingxi',  scarf:'#6366f1', deskIdx:0 },
-  { id:'spark',  name:'Spark',   scarf:'#10a37f', deskIdx:1 },
-  { id:'pulse',  name:'Pulse',   scarf:'#f59e0b', deskIdx:2 },
-  { id:'nova',   name:'Nova',    scarf:'#8b5cf6', deskIdx:3 },
-  { id:'scope',  name:'Scope',   scarf:'#06b6d4', deskIdx:4 },
-  { id:'echo',   name:'Echo',    scarf:'#ef4444', deskIdx:5 },
-  { id:'prism',  name:'Prism',   scarf:'#ec4899', deskIdx:6 },
-  { id:'nest',   name:'Nest',    scarf:'#3b82f6', deskIdx:7 },
+// Default agents (used when not embedded, or before receiving team data)
+const DEFAULT_AGENTS = [
+  { id:'lingxi', name:'Lingxi',  scarf:'#6366f1' },
+  { id:'spark',  name:'Spark',   scarf:'#10a37f' },
+  { id:'pulse',  name:'Pulse',   scarf:'#f59e0b' },
+  { id:'nova',   name:'Nova',    scarf:'#8b5cf6' },
+  { id:'scope',  name:'Scope',   scarf:'#06b6d4' },
+  { id:'echo',   name:'Echo',    scarf:'#ef4444' },
+  { id:'prism',  name:'Prism',   scarf:'#ec4899' },
+  { id:'nest',   name:'Nest',    scarf:'#3b82f6' },
 ];
+
+// Agent color palette for auto-assignment
+const AGENT_COLORS = ['#6366f1','#10a37f','#f59e0b','#8b5cf6','#06b6d4','#ef4444','#ec4899','#3b82f6','#e67e22','#9b59b6','#1abc9c','#e74c3c'];
+
+let AGENTS = [...DEFAULT_AGENTS];
+let chars = [];
 
 // Scale factor — fit the ~850×850 world content to fill the screen
 // Content spans roughly x:45-780, y:30-830 → ~735 wide, ~800 tall
@@ -90,12 +97,8 @@ function WS(v) { return v * S * cam.scale; }
 // 6 workstations (like Marvis: 2 rows × 3 columns)
 // 8 workstations (4 rows × 2 columns)
 // Spaced wider apart so aisles are clear
-const DESKS = [
-  { x:420, y:110 }, { x:620, y:110 },   // Row 1
-  { x:420, y:310 }, { x:620, y:310 },   // Row 2
-  { x:420, y:510 }, { x:620, y:510 },   // Row 3
-  { x:420, y:710 }, { x:620, y:710 },   // Row 4
-];
+let DESKS = [];
+// DESKS will be populated by rebuildTeam() or the default init below
 
 // Desk dimensions: 150w × 100h, side depth 8px
 // Desk visual bottom = desk.y + 50 + 8 = desk.y + 58
@@ -861,10 +864,22 @@ class Char {
 
 // Create characters — all start typing at desk (max 1 in left area)
 const usedAreas = new Set();
-const chars = AGENTS.map((a, i) => {
+// Initialize with default agents (non-embedded mode)
+// Add deskIdx to default agents
+DEFAULT_AGENTS.forEach((a, i) => a.deskIdx = i);
+AGENTS = [...DEFAULT_AGENTS];
+// Set up DESKS for default 8 agents
+for (let r = 0; r < 4; r++) {
+  for (let c = 0; c < 2; c++) {
+    DESKS.push({ x: 420 + c * 200, y: 110 + r * 200 });
+  }
+}
+// Build initial characters
+const _initAreas = new Set();
+chars = AGENTS.map((a, i) => {
   let state = STATES.TYPING;
-  if (i === 3 && !usedAreas.has('coffee')) { state = STATES.DRINKING; usedAreas.add('coffee'); }
-  else if (i === 6 && !usedAreas.has('sofa')) { state = STATES.SITTING; usedAreas.add('sofa'); }
+  if (i === 3 && !_initAreas.has('coffee')) { state = STATES.DRINKING; _initAreas.add('coffee'); }
+  else if (i === 6 && !_initAreas.has('sofa')) { state = STATES.SITTING; _initAreas.add('sofa'); }
   const ch = new Char(a, state);
   if (state === STATES.DRINKING) { ch.x = LOC.coffee.x; ch.y = LOC.coffee.y; }
   if (state === STATES.SITTING) { ch.x = LOC.sofa.x; ch.y = LOC.sofa.y; }
@@ -1667,19 +1682,103 @@ function drawCat() {
   ctx.fillText('Mochi', np.x, np.y);
 }
 
-// ==================== STATUS BAR ====================
-const bar = document.getElementById('status-bar');
-chars.forEach(ch => {
-  const div = document.createElement('div');
-  div.className = 'status-item';
-  div.id = 'st-'+ch.agent.id;
-  div.innerHTML = `<span style="font-weight:600">${ch.agent.name}</span>
-    <span class="status-dot" style="background:${STATE_COLORS[ch.state]};color:${STATE_COLORS[ch.state]}"></span>
-    <span class="status-chip">${STATE_LABELS[ch.state]}</span>
-    <span class="status-scarf" style="background:${ch.scarf}"></span>`;
-  bar.appendChild(div);
-  ch.updateUI();
+// ==================== DYNAMIC TEAM ====================
+// Receive team members from parent page and rebuild characters
+function rebuildTeam(members) {
+  if (!members || !members.length) return;
+
+  // Assign desk indices and colors
+  AGENTS = members.map((m, i) => ({
+    id: m.id,
+    name: m.name || m.id,
+    scarf: m.color || AGENT_COLORS[i % AGENT_COLORS.length],
+    deskIdx: i,
+  }));
+
+  // Rebuild DESKS array to match agent count
+  // Layout: 2 columns, N rows
+  const cols = 2;
+  const rows = Math.ceil(AGENTS.length / cols);
+  DESKS.length = 0;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const idx = r * cols + c;
+      if (idx >= AGENTS.length) break;
+      DESKS.push({ x: 420 + c * 200, y: 110 + r * 200 });
+    }
+  }
+
+  // Recreate characters
+  const usedAreas = new Set();
+  chars = AGENTS.map((a, i) => {
+    let state = STATES.TYPING;
+    // First 2 non-typing agents go to left areas
+    if (i === Math.min(3, AGENTS.length - 1) && !usedAreas.has('coffee')) {
+      state = STATES.DRINKING; usedAreas.add('coffee');
+    } else if (i === Math.min(6, AGENTS.length - 1) && !usedAreas.has('sofa')) {
+      state = STATES.SITTING; usedAreas.add('sofa');
+    }
+    const ch = new Char(a, state);
+    if (state === STATES.DRINKING) { ch.x = LOC.coffee.x; ch.y = LOC.coffee.y; }
+    if (state === STATES.SITTING) { ch.x = LOC.sofa.x; ch.y = LOC.sofa.y; }
+    return ch;
+  });
+
+  // Update cat targets for new desk layout
+  const catTargets = [
+    { x:260, y:80 }, { x:260, y:214 }, { x:260, y:414 },
+    { x:260, y:614 }, { x:260, y:820 },
+    { x:520, y:185 }, { x:520, y:414 }, { x:520, y:735 },
+  ];
+  // Add desk aisle waypoints for new rows
+  officeCat.targets = catTargets;
+
+  // Update status bar
+  updateStatusBar();
+}
+
+function updateStatusBar() {
+  const bar = document.getElementById('status-bar');
+  if (!bar) return;
+  bar.innerHTML = '';
+  chars.forEach(ch => {
+    const div = document.createElement('div');
+    div.className = 'status-item';
+    div.id = 'st-'+ch.agent.id;
+    div.innerHTML = `<span style="font-weight:600">${ch.agent.name}</span>
+      <span class="status-dot" style="background:${STATE_COLORS[ch.state]};color:${STATE_COLORS[ch.state]}"></span>
+      <span class="status-chip">${STATE_LABELS[ch.state]}</span>
+      <span class="status-scarf" style="background:${ch.scarf}"></span>`;
+    bar.appendChild(div);
+    ch.updateUI();
+  });
+}
+
+// Listen for team data from parent
+window.addEventListener('message', (e) => {
+  if (e.data && e.data.type === 'teamUpdate' && e.data.members) {
+    rebuildTeam(e.data.members);
+  }
 });
+
+// ==================== STATUS BAR ====================
+// Build initial status bar
+function initStatusBar() {
+  const bar = document.getElementById('status-bar');
+  if (!bar) return;
+  chars.forEach(ch => {
+    const div = document.createElement('div');
+    div.className = 'status-item';
+    div.id = 'st-'+ch.agent.id;
+    div.innerHTML = `<span style="font-weight:600">${ch.agent.name}</span>
+      <span class="status-dot" style="background:${STATE_COLORS[ch.state]};color:${STATE_COLORS[ch.state]}"></span>
+      <span class="status-chip">${STATE_LABELS[ch.state]}</span>
+      <span class="status-scarf" style="background:${ch.scarf}"></span>`;
+    bar.appendChild(div);
+    ch.updateUI();
+  });
+}
+initStatusBar();
 
 // ==================== TOAST ====================
 let toastT = null;

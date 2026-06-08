@@ -1139,7 +1139,7 @@
 <!-- ===== Overview Tab (办公室场景) ===== -->
 <div class="tab-content active" id="tabOverview">
   <div style="height:calc(100vh - 48px);margin-top:48px;overflow:hidden;">
-    <iframe id="officeFrame" src="office-3d.html" style="width:100%;height:100%;border:none;display:block;"></iframe>
+    <iframe id="officeFrame" src="office-3d.html" style="width:100%;height:100%;border:none;display:block;" onload="sendTeamToOffice()"></iframe>
   </div>
 </div>
 <!-- ===== Manage Tab ===== -->
@@ -1483,7 +1483,24 @@ function renderLogs() {
   p.innerHTML = logs.slice(-20).reverse().map(l=>`<div class="l-row"><span class="l-time">${l.time}</span><span class="l-icon">${l.icon}</span><span class="l-agent" style="color:${l.ac}">${l.an}</span><span class="l-msg">${l.m}</span></div>`).join('');
 }
 
-function render() { renderDesks(); renderTasks(); renderLogs(); }
+function render() {
+  renderDesks();
+  renderTasks();
+  renderLogs();
+  sendTeamToOffice();
+}
+
+// Send current team members to the office iframe
+function sendTeamToOffice() {
+  const frame = document.getElementById('officeFrame');
+  if (!frame || !frame.contentWindow) return;
+  const members = AGENTS.map(a => ({
+    id: a.id,
+    name: a.name,
+    color: a.color,
+  }));
+  frame.contentWindow.postMessage({ type: 'teamUpdate', members }, '*');
+}
 
 function pick(a) { return a[Math.floor(Math.random()*a.length)]; }
 function addLog(id,type,msg) {
