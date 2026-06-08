@@ -6,553 +6,612 @@
 <title>Lume Office</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; background: #f5f5f5; overflow: hidden; height: 100vh; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f0f0f0; overflow: hidden; height: 100vh; user-select: none; }
 
-/* Top bar */
-.top-bar {
-  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-  background: rgba(255,255,255,0.95); backdrop-filter: blur(12px);
-  padding: 10px 24px; display: flex; align-items: center; gap: 20px;
-  border-bottom: 1px solid #eee;
+/* Status bar */
+#status-bar {
+  position: fixed; top: 0; left: 0; right: 0; height: 44px;
+  background: rgba(30,30,30,0.78); backdrop-filter: blur(12px);
+  display: flex; align-items: center; justify-content: center; gap: 24px;
+  z-index: 100; border-bottom: 1px solid rgba(255,255,255,0.1);
 }
-.top-bar h1 { font-size: 16px; font-weight: 700; color: #1a1a1a; }
-.top-bar h1 span { color: #10a37f; }
-
-.agent-pills { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
-.agent-pill {
-  display: flex; align-items: center; gap: 5px;
-  padding: 3px 10px; border-radius: 12px;
-  background: #f5f5f5; font-size: 11px; font-weight: 500; color: #555;
+.status-item {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; color: #ddd;
 }
-.agent-pill.offline { opacity: 0.35; }
-.agent-pill .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-.agent-pill .st { color: #aaa; font-size: 10px; }
-
-/* 3D canvas */
-canvas#c { display: block; width: 100vw; height: 100vh; }
-
-/* Agent name labels (CSS2D) */
-.label-wrap { position: absolute; top: 0; left: 0; pointer-events: none; overflow: visible; }
-.lbl {
-  position: absolute; transform: translate(-50%, -120%);
-  background: rgba(255,255,255,0.92); backdrop-filter: blur(4px);
-  padding: 1px 7px 2px; border-radius: 6px;
-  font-size: 10px; font-weight: 600; color: #333; white-space: nowrap;
-  box-shadow: 0 1px 6px rgba(0,0,0,0.08);
-  border: 1px solid rgba(0,0,0,0.05);
-}
-.lbl::after {
-  content:''; position:absolute; bottom:-3px; left:50%; transform:translateX(-50%);
-  border-left:3px solid transparent; border-right:3px solid transparent;
-  border-top:3px solid rgba(255,255,255,0.92);
+.status-dot { width: 7px; height: 7px; border-radius: 50%; box-shadow: 0 0 6px currentColor; }
+.status-scarf { width: 14px; height: 5px; border-radius: 2px; }
+.status-chip {
+  font-size: 11px; padding: 2px 8px; border-radius: 10px;
+  background: rgba(255,255,255,0.12); color: #ccc;
 }
 
-/* Zone labels */
-.zone-lbl {
-  position: absolute; transform: translate(-50%, -50%);
-  font-size: 10px; font-weight: 600; color: #bbb;
-  text-transform: uppercase; letter-spacing: 1px; white-space: nowrap;
+/* Toast */
+#toast {
+  position: fixed; top: 56px; left: 50%; transform: translateX(-50%);
+  background: rgba(30,30,30,0.88); backdrop-filter: blur(8px);
+  color: #fff; padding: 8px 20px; border-radius: 20px;
+  font-size: 13px; z-index: 200; pointer-events: none;
+  opacity: 0; transition: opacity 0.3s, transform 0.3s;
 }
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(4px); }
+
+canvas { display: block; }
 </style>
 </head>
 <body>
 
-<div class="top-bar">
-  <h1><span>●</span> Lume Office</h1>
-  <div class="agent-pills" id="pills"></div>
-</div>
-<div class="label-wrap" id="labels"></div>
-<canvas id="c"></canvas>
+<div id="status-bar"></div>
+<div id="toast"></div>
+<canvas id="canvas"></canvas>
 
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"
-  }
-}
-</script>
-<script type="module">
-import * as THREE from 'three';
+<script>
+// ==================== CONFIG ====================
+const CW = window.innerWidth, CH = window.innerHeight;
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+canvas.width = CW; canvas.height = CH;
 
-// ─── CONFIG ───
+const STATES = { IDLE: 'idle', TYPING: 'typing', WALKING: 'walking', SLEEPING: 'sleeping' };
+const STATE_COLORS = { idle: '#F1C40F', typing: '#2ECC71', walking: '#3498DB', sleeping: '#9B59B6' };
+const STATE_LABELS = { idle: 'Idle', typing: 'Typing', walking: 'Walking', sleeping: 'Sleeping' };
+
 const AGENTS = [
-  { name:'Lingxi', color:0x6366f1, state:'working',  zone:'workstation' },
-  { name:'Spark',  color:0x10a37f, state:'working',  zone:'workstation' },
-  { name:'Pulse',  color:0xf59e0b, state:'working',  zone:'workstation' },
-  { name:'Nova',   color:0x8b5cf6, state:'idle',     zone:'lounge' },
-  { name:'Scope',  color:0x06b6d4, state:'working',  zone:'workstation' },
-  { name:'Echo',   color:0xef4444, state:'working',  zone:'workstation' },
-  { name:'Prism',  color:0xec4899, state:'working',  zone:'workstation' },
-  { name:'Nest',   color:0x3b82f6, state:'working',  zone:'workstation' },
+  { id:'lingxi', name:'Lingxi',  scarf:'#6366f1', deskIdx:0 },
+  { id:'spark',  name:'Spark',   scarf:'#10a37f', deskIdx:1 },
+  { id:'pulse',  name:'Pulse',   scarf:'#f59e0b', deskIdx:2 },
+  { id:'nova',   name:'Nova',    scarf:'#8b5cf6', deskIdx:3 },
+  { id:'scope',  name:'Scope',   scarf:'#06b6d4', deskIdx:4 },
+  { id:'echo',   name:'Echo',    scarf:'#ef4444', deskIdx:5 },
+  { id:'prism',  name:'Prism',   scarf:'#ec4899', deskIdx:6 },
+  { id:'nest',   name:'Nest',    scarf:'#3b82f6', deskIdx:7 },
 ];
 
-// Zone centers (x, z) for navigation
-// LEFT: top→bottom = lounge, fitness, meeting  |  RIGHT: workstations
-const ZONES = {
-  lounge:      { x: -5.5, z: -3.5 },
-  fitness:     { x: -5.5, z: 2.5 },
-  meeting:     { x: 0, z: 5 },
-  workstation: { x: 4.5, z: 0 },
-};
+// Layout — reference Marvis: left column functional areas, right workstations
+// Scale factor to fit different screen sizes
+const S = Math.min(CW / 1200, CH / 800);
+const OX = (CW - 1200 * S) / 2;
+const OY = (CH - 800 * S) / 2 + 20;
 
-// Desk positions — RIGHT side, 2 per row, 4 rows = 8 desks
+function W(x, y) { return { x: OX + x * S, y: OY + y * S }; }
+function WS(v) { return v * S; }
+
+// 6 workstations (like Marvis: 2 rows × 3 columns)
 const DESKS = [
-  { x: 3.5, z: -5 },   { x: 6, z: -5 },
-  { x: 3.5, z: -1.7 }, { x: 6, z: -1.7 },
-  { x: 3.5, z: 1.7 },  { x: 6, z: 1.7 },
-  { x: 3.5, z: 5 },    { x: 6, z: 5 },
+  { x:400, y:220 }, { x:600, y:220 }, { x:800, y:220 },
+  { x:400, y:520 }, { x:600, y:520 }, { x:800, y:520 },
 ];
 
-// ─── RENDERER ───
-const canvas = document.getElementById('c');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.0;
-renderer.outputColorSpace = THREE.SRGBColorSpace;
-
-// ─── SCENE ───
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xf0f0f0);
-
-// ─── CAMERA — Marvis-style elevated front view ───
-// Look from front-top, office aligned with screen edges (no rotation)
-const frustumSize = 16;
-const aspect = window.innerWidth / window.innerHeight;
-const camera = new THREE.OrthographicCamera(
-  -frustumSize * aspect / 2, frustumSize * aspect / 2,
-  frustumSize / 2, -frustumSize / 2,
-  0.1, 200
-);
-camera.position.set(0, 24, 14);
-camera.lookAt(0.5, 0, 0.5);
-
-// ─── LIGHTS ───
-// Soft ambient fill
-scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-// Main directional (sun-like)
-const sun = new THREE.DirectionalLight(0xffffff, 0.8);
-sun.position.set(8, 20, 10);
-sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
-sun.shadow.camera.left = -18; sun.shadow.camera.right = 18;
-sun.shadow.camera.top = 18; sun.shadow.camera.bottom = -18;
-sun.shadow.camera.near = 1; sun.shadow.camera.far = 50;
-sun.shadow.bias = -0.001;
-scene.add(sun);
-// Hemisphere for soft fill
-scene.add(new THREE.HemisphereLight(0xffffff, 0xe0e0e0, 0.3));
-
-// ─── MATERIALS ───
-const mat = {
-  floor:      new THREE.MeshStandardMaterial({ color: 0xfafafa, roughness: 0.95 }),
-  zone_ws:    new THREE.MeshStandardMaterial({ color: 0xe8e8e8, roughness: 0.9 }),
-  zone_l:     new THREE.MeshStandardMaterial({ color: 0xe8e8e8, roughness: 0.9 }),
-  zone_f:     new THREE.MeshStandardMaterial({ color: 0xe8e8e8, roughness: 0.9 }),
-  zone_m:     new THREE.MeshStandardMaterial({ color: 0xe8e8e8, roughness: 0.9 }),
-  white:      new THREE.MeshStandardMaterial({ color: 0xf8f8f8, roughness: 0.4 }),
-  desk:       new THREE.MeshStandardMaterial({ color: 0xf8f8f8, roughness: 0.3 }),
-  deskEdge:   new THREE.MeshStandardMaterial({ color: 0xe2e2e2, roughness: 0.5 }),
-  deskLeg:    new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.4 }),
-  chair:      new THREE.MeshStandardMaterial({ color: 0xe8e8e8, roughness: 0.6 }),
-  chairBack:  new THREE.MeshStandardMaterial({ color: 0xbbbbbb, roughness: 0.6 }),
-  monitor:    new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.15 }),
-  screen:     new THREE.MeshStandardMaterial({ color: 0x1a1a2e, emissive: 0x4285F4, emissiveIntensity: 0.5, roughness: 0.1 }),
-  screenOff:  new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.3 }),
-  sofa:       new THREE.MeshStandardMaterial({ color: 0xe8e8e8, roughness: 0.7 }),
-  table:      new THREE.MeshStandardMaterial({ color: 0xeaeaea, roughness: 0.5 }),
-  plant:      new THREE.MeshStandardMaterial({ color: 0x6b9b6b, roughness: 0.8 }),
-  pot:        new THREE.MeshStandardMaterial({ color: 0x8B6914, roughness: 0.7 }),
-  potLight:   new THREE.MeshStandardMaterial({ color: 0x9B7924, roughness: 0.7 }),
-  yoga:       new THREE.MeshStandardMaterial({ color: 0xb8d4c8, roughness: 0.9 }),
-  metal:      new THREE.MeshStandardMaterial({ color: 0xc0c0c0, roughness: 0.2, metalness: 0.6 }),
-  board:      new THREE.MeshStandardMaterial({ color: 0xf5f5f5, roughness: 0.2 }),
-  boardFrame: new THREE.MeshStandardMaterial({ color: 0xe0e0e0, roughness: 0.3 }),
-  coffee:     new THREE.MeshStandardMaterial({ color: 0xc0c0c0, roughness: 0.2, metalness: 0.5 }),
-  treadmill:  new THREE.MeshStandardMaterial({ color: 0xe8e8e8, roughness: 0.6 }),
-  treadmillBelt: new THREE.MeshStandardMaterial({ color: 0xf5f5f5, roughness: 0.9 }),
+// Special locations
+const LOC = {
+  coffee:    { x:140, y:130 },
+  sofa:      { x:130, y:640 },
+  treadmill: { x:140, y:360 },
 };
 
-// ─── BUILDING HELPERS ───
-function addBox(w, h, d, material, x, y, z) {
-  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
-  mesh.position.set(x, y, z);
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
-  scene.add(mesh);
-  return mesh;
+// ==================== CAMERA ====================
+const cam = { ox: CW/2, oy: CH/2, scale: 1, target: 1 };
+
+function applyCam() {
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.clearRect(0,0,CW,CH);
+  const tx = CW/2 - cam.ox * cam.scale;
+  const ty = CH/2 - cam.oy * cam.scale;
+  ctx.save();
+  ctx.translate(tx, ty);
+  ctx.scale(cam.scale, cam.scale);
 }
-function addCyl(rT, rB, h, material, x, y, z, segs=12) {
-  const mesh = new THREE.Mesh(new THREE.CylinderGeometry(rT, rB, h, segs), material);
-  mesh.position.set(x, y, z);
-  mesh.castShadow = true;
-  scene.add(mesh);
-  return mesh;
-}
-function addSphere(r, material, x, y, z) {
-  const mesh = new THREE.Mesh(new THREE.SphereGeometry(r, 10, 8), material);
-  mesh.position.set(x, y, z);
-  mesh.castShadow = true;
-  scene.add(mesh);
-  return mesh;
+function restoreCam() { ctx.restore(); }
+
+// ==================== HELPERS ====================
+function lerp(a,b,t) { return a+(b-a)*t; }
+function dist(x1,y1,x2,y2) { return Math.hypot(x2-x1,y2-y1); }
+function rand(a,b) { return Math.random()*(b-a)+a; }
+
+function rrect(x,y,w,h,r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.lineTo(x+w-r,y); ctx.arcTo(x+w,y,x+w,y+r,r);
+  ctx.lineTo(x+w,y+h-r); ctx.arcTo(x+w,y+h,x+w-r,y+h,r);
+  ctx.lineTo(x+r,y+h); ctx.arcTo(x,y+h,x,y+h-r,r);
+  ctx.lineTo(x,y+r); ctx.arcTo(x,y,x+r,y,r);
+  ctx.closePath();
 }
 
-// ─── FLOOR ───
-const floor = new THREE.Mesh(new THREE.PlaneGeometry(32, 22), mat.floor);
-floor.rotation.x = -Math.PI / 2;
-floor.receiveShadow = true;
-scene.add(floor);
-
-// Zone patches
-function addZone(x, z, w, d, material) {
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), material);
-  m.rotation.x = -Math.PI / 2;
-  m.position.set(x, 0.005, z);
-  m.receiveShadow = true;
-  scene.add(m);
+function shadow(x,y,w,h,a=0.1) {
+  ctx.fillStyle = `rgba(0,0,0,${a})`;
+  ctx.beginPath();
+  ctx.ellipse(x, y+2, w/2, h/3, 0, 0, Math.PI*2);
+  ctx.fill();
 }
-// Zone patches — LEFT column (lounge/fitness/meeting), RIGHT column (workstation)
-addZone(-5.5, -3.5, 7, 7, mat.zone_l);   // Lounge (top-left)
-addZone(-5.5, 2.5,  7, 6, mat.zone_f);   // Fitness (bottom-left)
-addZone(0, 5,        5, 5, mat.zone_m);   // Meeting (bottom-center)
-addZone(4.5, 0,      7, 14, mat.zone_ws); // Workstation (right column, full height)
 
-// ─── WORKSTATION AREA ───
-// 6 desks: 2 per row × 3 rows on RIGHT side
-// Monitor on far side (z+), chair & character on near side (z-), facing monitor
-const screenLights = [];
-DESKS.forEach((pos, i) => {
-  const { x, z } = pos;
+// ==================== DRAW FUNCTIONS ====================
+
+function drawZones() {
+  // Break area
+  ctx.fillStyle = 'rgba(139,105,20,0.03)';
+  rrect(45,45,210,110,12); ctx.fill();
+  // Wellness
+  ctx.fillStyle = 'rgba(100,180,100,0.03)';
+  rrect(45,285,210,95,12); ctx.fill();
+  // Relax
+  ctx.fillStyle = 'rgba(155,89,182,0.03)';
+  rrect(45,560,210,105,12); ctx.fill();
+  // Work zone
+  ctx.fillStyle = 'rgba(66,133,244,0.02)';
+  rrect(270,80,660,590,16); ctx.fill();
+}
+
+function drawLabels() {
+  ctx.fillStyle = 'rgba(0,0,0,0.18)';
+  ctx.font = `${WS(11)}px -apple-system, sans-serif`;
+  ctx.textAlign = 'center';
+  const p = (x,y) => W(x,y);
+  ctx.fillText('Break Area', p(150,135).x, p(150,135).y);
+  ctx.fillText('Wellness Zone', p(140,375).x, p(140,375).y);
+  ctx.fillText('Relax Zone', p(130,670).x, p(130,670).y);
+  ctx.fillText('Work Zone', p(600,410).x, p(600,410).y);
+}
+
+function drawDesk(dx, dy) {
+  const p = W(dx, dy);
+  const dw = WS(150), dh = WS(100), r = WS(10);
+
+  shadow(p.x, p.y, dw, dh, 0.08);
+
   // Desk surface
-  addBox(1.4, 0.05, 0.7, mat.desk, x, 0.74, z);
-  // Desk legs (#ccc)
-  [[-0.6,-0.28],[0.6,-0.28],[-0.6,0.28],[0.6,0.28]].forEach(([lx,lz]) =>
-    addBox(0.04, 0.72, 0.04, mat.deskLeg, x+lx, 0.36, z+lz)
-  );
-  // Monitor on far side (small z = back, away from camera)
-  addBox(0.9, 0.55, 0.03, mat.monitor, x, 1.08, z-0.26);
-  const scrMat = i < 3 ? mat.screen : mat.screenOff;
-  addBox(0.82, 0.48, 0.015, scrMat, x, 1.08, z-0.28);
-  addBox(0.06, 0.22, 0.06, mat.monitor, x, 0.85, z-0.26);
-  // Chair seat (#e8e8e8) on near side
-  addCyl(0.22, 0.22, 0.06, mat.chair, x, 0.52, z+0.4, 16);
-  // Chair back (#bbb)
-  addBox(0.4, 0.35, 0.04, mat.chairBack, x, 0.72, z+0.6);
-  addCyl(0.03, 0.03, 0.48, mat.metal, x, 0.24, z+0.4, 8);
-  // Screen glow (in front of monitor)
-  const sl = new THREE.PointLight(0x4488cc, 0.15, 2);
-  sl.position.set(x, 1.1, z-0.1);
-  scene.add(sl);
-  screenLights.push(sl);
-});
+  ctx.fillStyle = '#fafafa';
+  rrect(p.x-dw/2, p.y-dh/2, dw, dh, r);
+  ctx.fill();
+  ctx.strokeStyle = '#e0e0e0';
+  ctx.lineWidth = WS(1.2);
+  ctx.stroke();
 
-// ─── LOUNGE AREA (top-left) ───
-// L-shaped sofa
-addBox(2.4, 0.35, 0.8, mat.sofa, -5.5, 0.22, -5);
-addBox(0.8, 0.35, 1.4, mat.sofa, -6.7, 0.22, -4);
-addBox(2.4, 0.12, 0.7, mat.sofa, -5.5, 0.44, -5);
-addBox(0.7, 0.12, 1.3, mat.sofa, -6.7, 0.44, -4);
-// Back cushions
-addBox(2.4, 0.3, 0.12, mat.sofa, -5.5, 0.62, -5.45);
-addBox(0.12, 0.3, 1.4, mat.sofa, -7.15, 0.62, -4);
-// Coffee table
-addBox(1.0, 0.04, 0.55, mat.desk, -4.5, 0.38, -3.2);
-addBox(0.04, 0.36, 0.04, mat.desk, -4.9, 0.19, -3.0);
-addBox(0.04, 0.36, 0.04, mat.desk, -4.1, 0.19, -3.0);
-addBox(0.04, 0.36, 0.04, mat.desk, -4.9, 0.19, -3.4);
-addBox(0.04, 0.36, 0.04, mat.desk, -4.1, 0.19, -3.4);
-// Coffee cups
-addCyl(0.05, 0.04, 0.07, mat.white, -4.6, 0.44, -3.2, 10);
-addCyl(0.05, 0.04, 0.07, mat.white, -4.4, 0.44, -3.1, 10);
-// Plants
-addCyl(0.18, 0.13, 0.28, mat.pot, -3.2, 0.14, -5.5);
-addSphere(0.35, mat.plant, -3.2, 0.5, -5.5);
-addCyl(0.12, 0.08, 0.2, mat.pot, -7.5, 0.1, -5.5);
-addSphere(0.25, mat.plant, -7.5, 0.35, -5.5);
-// Warm light
-const loungeLight = new THREE.PointLight(0xffeedd, 0.3, 5);
-loungeLight.position.set(-5, 2, -4);
-scene.add(loungeLight);
+  // Highlight
+  ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+  ctx.lineWidth = WS(1);
+  ctx.beginPath();
+  ctx.moveTo(p.x-dw/2+r, p.y-dh/2+1);
+  ctx.lineTo(p.x+dw/2-r, p.y-dh/2+1);
+  ctx.stroke();
+}
 
-// ─── FITNESS AREA (bottom-left) ───
-// Yoga mats
-addBox(0.7, 0.02, 1.4, mat.yoga, -5.5, 0.01, 2);
-addBox(0.7, 0.02, 1.4, new THREE.MeshStandardMaterial({ color: 0xd4b8c8, roughness: 0.9 }), -4, 0.01, 2);
-// Dumbbells
-addCyl(0.05, 0.05, 0.35, mat.metal, -5, 0.07, 0.8, 8);
-addSphere(0.08, mat.metal, -5, 0.07, 0.6);
-addSphere(0.08, mat.metal, -5, 0.07, 1.0);
-addCyl(0.05, 0.05, 0.25, mat.metal, -6, 0.07, 0.8, 8);
-addSphere(0.06, mat.metal, -6, 0.07, 0.65);
-addSphere(0.06, mat.metal, -6, 0.07, 0.95);
-// Treadmill
-addBox(0.55, 0.07, 1.2, mat.treadmill, -7, 0.26, 2.5);
-addBox(0.45, 0.02, 1.1, mat.treadmillBelt, -7, 0.3, 2.5);
-addBox(0.04, 0.7, 0.04, mat.treadmill, -7.3, 0.62, 3.0);
-addBox(0.04, 0.7, 0.04, mat.treadmill, -6.7, 0.62, 3.0);
-addBox(0.6, 0.04, 0.04, mat.treadmill, -7, 0.97, 3.0);
-// Water bottle
-addCyl(0.04, 0.04, 0.16, new THREE.MeshStandardMaterial({ color:0x6699cc, roughness:0.2 }), -3.5, 0.09, 3.2, 8);
-// Punching bag
-addCyl(0.15, 0.12, 0.5, mat.metal, -3.5, 0.8, 1, 8);
+function drawMonitor(mx, my, active) {
+  const p = W(mx, my);
+  const mw = WS(50), mh = WS(32), mr = WS(4);
 
-// ─── MEETING AREA (bottom-center) ───
-// Long table
-addBox(2.4, 0.05, 0.9, mat.desk, 0.5, 0.72, 5);
-// Table legs
-[[-1.0,-0.35],[1.0,-0.35],[-1.0,0.35],[1.0,0.35]].forEach(([lx,lz]) =>
-  addBox(0.04, 0.7, 0.04, mat.deskLeg, 0.5+lx, 0.35, 5+lz)
-);
-// Chairs around table
-[[-0.7,4.0],[0,4.0],[0.7,4.0],[-0.7,6.0],[0,6.0],[0.7,6.0]].forEach(([cx,cz]) => {
-  addCyl(0.16, 0.16, 0.05, mat.chair, 0.5+cx, 0.46, cz, 14);
-  addBox(0.28, 0.28, 0.03, mat.chair, 0.5+cx, 0.62, cz+0.16);
-  addCyl(0.02, 0.02, 0.42, mat.metal, 0.5+cx, 0.21, cz, 8);
-});
-// Whiteboard
-addBox(2.0, 1.2, 0.03, mat.board, 0.5, 1.4, 7.2);
-addBox(2.1, 1.3, 0.02, mat.boardFrame, 0.5, 1.4, 7.18);
-// Markers
-addBox(0.4, 0.02, 0.01, new THREE.MeshStandardMaterial({ color:0x4285F4 }), 0.3, 1.6, 7.23);
-addBox(0.25, 0.02, 0.01, new THREE.MeshStandardMaterial({ color:0xcc4444 }), 0.8, 1.3, 7.23);
+  // Stand
+  ctx.fillStyle = '#c8c8c8';
+  rrect(p.x-WS(14), p.y+mh/2-WS(2), WS(28), WS(8), WS(3)); ctx.fill();
 
-// ─── CHARACTER BUILDER ───
-class AgentCharacter {
-  constructor(name, color, state, zone) {
-    this.name = name;
-    this.color = color;
-    this.state = state;
-    this.group = new THREE.Group();
-    this.group.visible = state !== 'offline';
-    this.walkTarget = null;
-    this.walkSpeed = 1.8;
-    this.idleTimer = 0;
-    this.idleInterval = 5 + Math.random() * 8;
-    this.bobPhase = Math.random() * Math.PI * 2;
+  // Pole
+  ctx.fillStyle = '#b0b0b0';
+  ctx.fillRect(p.x-WS(2), p.y-mh/2, WS(4), mh);
 
-    // Marvis-style: black body + colored scarf
-    const matBody = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.6 });
-    const matScarf = new THREE.MeshStandardMaterial({ color, roughness: 0.5 });
-    const matEye = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
+  // Frame
+  ctx.fillStyle = '#2a2a2a';
+  rrect(p.x-mw/2, p.y-mh/2, mw, mh, mr); ctx.fill();
 
-    // Head (black)
-    this.head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), matBody);
-    this.head.position.y = 0.85;
-    this.head.castShadow = true;
-    this.group.add(this.head);
+  // Screen
+  if (active) {
+    ctx.save();
+    ctx.shadowColor = 'rgba(66,133,244,0.6)';
+    ctx.shadowBlur = WS(10);
+    ctx.fillStyle = '#4285F4';
+    rrect(p.x-mw/2+WS(3), p.y-mh/2+WS(3), mw-WS(6), mh-WS(6), mr-WS(1)); ctx.fill();
+    ctx.restore();
+    // Code lines
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    for (let i=0;i<3;i++) ctx.fillRect(p.x-mw/2+WS(8), p.y-mh/2+WS(8)+i*WS(7), WS(15), WS(2));
+  } else {
+    ctx.fillStyle = '#1a1a1a';
+    rrect(p.x-mw/2+WS(3), p.y-mh/2+WS(3), mw-WS(6), mh-WS(6), mr-WS(1)); ctx.fill();
+  }
+}
 
-    // Eyes (white dots)
-    const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 6), matEye);
-    eyeL.position.set(-0.07, 0.88, 0.18);
-    this.group.add(eyeL);
-    const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 6), matEye);
-    eyeR.position.set(0.07, 0.88, 0.18);
-    this.group.add(eyeR);
+function drawChair(cx, cy) {
+  const p = W(cx, cy);
+  const cr = WS(18);
 
-    // Scarf (colored ring around neck)
-    const scarf = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.04, 6, 12), matScarf);
-    scarf.position.y = 0.7;
-    scarf.rotation.x = Math.PI / 2;
-    this.group.add(scarf);
+  shadow(p.x, p.y, cr*2, cr*2, 0.1);
 
-    // Body (black)
-    this.body = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.14, 0.18, 0.35, 8),
-      matBody
-    );
-    this.body.position.y = 0.52;
-    this.body.castShadow = true;
-    this.group.add(this.body);
+  // Seat
+  ctx.fillStyle = '#e8e8e8';
+  ctx.beginPath(); ctx.ellipse(p.x, p.y, cr, cr*0.8, 0, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#d0d0d0'; ctx.lineWidth = WS(0.8); ctx.stroke();
 
-    // Arms (black)
-    this.armL = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.22, 6), matBody);
-    this.armL.position.set(-0.2, 0.55, 0);
-    this.group.add(this.armL);
+  // Back
+  ctx.fillStyle = '#dcdcdc';
+  ctx.beginPath(); ctx.arc(p.x, p.y-cr*0.65, cr*0.7, Math.PI, 0); ctx.fill();
+  ctx.strokeStyle = '#c8c8c8'; ctx.lineWidth = WS(0.6); ctx.stroke();
 
-    this.armR = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.22, 6), matBody);
-    this.armR.position.set(0.2, 0.55, 0);
-    this.group.add(this.armR);
+  // 5-star base
+  ctx.strokeStyle = '#b8b8b8'; ctx.lineWidth = WS(1.5);
+  for (let i=0;i<5;i++) {
+    const a = (i/5)*Math.PI*2;
+    ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(p.x+Math.cos(a)*cr*1.2, p.y+Math.sin(a)*cr*1.2); ctx.stroke();
+  }
+  ctx.fillStyle = '#999'; ctx.beginPath(); ctx.arc(p.x, p.y, WS(4), 0, Math.PI*2); ctx.fill();
+}
 
-    // Legs (black)
-    this.legL = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.25, 6), matBody);
-    this.legL.position.set(-0.07, 0.14, 0);
-    this.group.add(this.legL);
+function drawBreakArea() {
+  const bx=60, by=70, bw=180, bh=55;
+  const p = W(bx+bw/2, by+bh/2);
+  const pw = WS(bw), ph = WS(bh);
 
-    this.legR = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.25, 6), matBody);
-    this.legR.position.set(0.07, 0.14, 0);
-    this.group.add(this.legR);
+  shadow(p.x, p.y, pw, ph, 0.06);
 
-    // Place at initial zone
-    const zonePos = ZONES[zone] || { x: 0, z: 0 };
-    const offset = (Math.random() - 0.5) * 2;
-    this.group.position.set(zonePos.x + offset, 0, zonePos.z + offset);
+  // Cabinet
+  ctx.fillStyle = '#f8f8f8';
+  const sx = W(bx, by);
+  rrect(sx.x, sx.y, pw, ph, WS(8)); ctx.fill();
+  ctx.strokeStyle = '#e2e2e2'; ctx.lineWidth = WS(1); ctx.stroke();
 
-    if (state === 'working') {
-      this.sitAtDesk();
-    }
+  // Coffee machine
+  const cmx = W(bx+bw-40, by+bh/2);
+  ctx.fillStyle = '#c8c8c8';
+  rrect(cmx.x-WS(14), cmx.y-WS(16), WS(28), WS(32), WS(4)); ctx.fill();
+  ctx.strokeStyle = '#aaa'; ctx.lineWidth = WS(0.8); ctx.stroke();
+  ctx.fillStyle = '#999'; ctx.fillRect(cmx.x-WS(3), cmx.y-WS(12), WS(6), WS(5));
+  ctx.fillStyle = '#E74C3C'; ctx.beginPath(); ctx.arc(cmx.x, cmx.y+WS(8), WS(3), 0, Math.PI*2); ctx.fill();
 
-    scene.add(this.group);
+  // Cups
+  for (let row=0;row<2;row++) for (let col=0;col<4;col++) {
+    const cx = W(bx+28+col*28, by+16+row*24);
+    ctx.fillStyle = '#8B6914';
+    ctx.beginPath();
+    ctx.moveTo(cx.x-WS(5), cx.y-WS(2));
+    ctx.lineTo(cx.x+WS(5), cx.y-WS(2));
+    ctx.lineTo(cx.x+WS(3), cx.y+WS(8));
+    ctx.lineTo(cx.x-WS(3), cx.y+WS(8));
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#6B4F12'; ctx.lineWidth = WS(0.6); ctx.stroke();
+  }
+}
+
+function drawTreadmill() {
+  const tx=70, ty=310, tw=140, th=55;
+  const sx = W(tx, ty);
+  const pw = WS(tw), ph = WS(th);
+  const cx = W(tx+tw/2, ty+th/2);
+
+  shadow(cx.x, cx.y, pw, ph, 0.06);
+
+  // Base
+  ctx.fillStyle = '#fafafa';
+  rrect(sx.x, sx.y+WS(8), pw, ph-WS(12), WS(6)); ctx.fill();
+  ctx.strokeStyle = '#e5e5e5'; ctx.lineWidth = WS(1); ctx.stroke();
+
+  // Belt
+  ctx.fillStyle = '#666';
+  rrect(sx.x+WS(8), sx.y+WS(14), pw-WS(16), ph-WS(24), WS(3)); ctx.fill();
+
+  // Belt lines
+  ctx.strokeStyle = '#555'; ctx.lineWidth = WS(0.5);
+  for (let i=tx+16;i<tx+tw-16;i+=10) {
+    const lp = W(i, ty);
+    ctx.beginPath(); ctx.moveTo(lp.x, sx.y+WS(16)); ctx.lineTo(lp.x, sx.y+ph-WS(16)); ctx.stroke();
   }
 
-  sitAtDesk() {
-    // Assign desk index based on agent order
-    if (this._deskIdx === undefined) {
-      const workingAgents = AGENTS.filter(a => a.state === 'working');
-      const myIndex = workingAgents.findIndex(a => a.name === this.name);
-      this._deskIdx = myIndex >= 0 ? myIndex : 0;
-    }
-    const desk = DESKS[this._deskIdx] || DESKS[0];
-    // Character sits at chair position (near side of desk, z+)
-    this.group.position.set(desk.x, -0.15, desk.z + 0.3);
-    // Face the monitor (face towards negative z)
-    this.group.rotation.y = Math.PI;
-    this.state = 'working';
+  // Handlebars
+  ctx.strokeStyle = '#ccc'; ctx.lineWidth = WS(2.5); ctx.lineCap = 'round';
+  const l1 = W(tx+15, ty), l2 = W(tx+10, ty-8), l3 = W(tx+tw/2-5, ty-8);
+  ctx.beginPath(); ctx.moveTo(l1.x, l1.y+WS(8)); ctx.lineTo(l2.x, l2.y); ctx.lineTo(l3.x, l3.y); ctx.stroke();
+  const r1 = W(tx+tw-15, ty), r2 = W(tx+tw-10, ty-8), r3 = W(tx+tw/2+5, ty-8);
+  ctx.beginPath(); ctx.moveTo(r1.x, r1.y+WS(8)); ctx.lineTo(r2.x, r2.y); ctx.lineTo(r3.x, r3.y); ctx.stroke();
+
+  // Panel
+  const pc = W(tx+tw/2, ty);
+  ctx.fillStyle = '#444';
+  rrect(pc.x-WS(8), pc.y-WS(5), WS(16), WS(10), WS(3)); ctx.fill();
+  ctx.fillStyle = '#2ECC71'; ctx.beginPath(); ctx.arc(pc.x, pc.y, WS(2), 0, Math.PI*2); ctx.fill();
+}
+
+function drawSofa() {
+  const sx=70, sy=580, sw=120, sh=60;
+  const p = W(sx+sw/2, sy+sh/2);
+  const pw = WS(sw), ph = WS(sh);
+  const start = W(sx, sy);
+
+  shadow(p.x, p.y, pw, ph, 0.08);
+
+  // Body
+  ctx.fillStyle = '#f5f5f5';
+  rrect(start.x, start.y, pw, ph, WS(10)); ctx.fill();
+  ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = WS(1); ctx.stroke();
+
+  // Back
+  ctx.fillStyle = '#ebebeb';
+  rrect(start.x+WS(5), start.y-WS(5), pw-WS(10), ph-WS(30), WS(6)); ctx.fill();
+  ctx.strokeStyle = '#d8d8d8'; ctx.lineWidth = WS(0.8); ctx.stroke();
+
+  // Arms
+  ctx.fillStyle = '#eaeaea';
+  rrect(start.x-WS(5), start.y+WS(8), WS(12), ph-WS(20), WS(5)); ctx.fill();
+  rrect(start.x+pw-WS(7), start.y+WS(8), WS(12), ph-WS(20), WS(5)); ctx.fill();
+
+  // Cushion line
+  ctx.strokeStyle = '#e5e5e5'; ctx.lineWidth = WS(0.5);
+  ctx.beginPath(); ctx.moveTo(start.x+pw/2, start.y+WS(15)); ctx.lineTo(start.x+pw/2, start.y+ph-WS(10)); ctx.stroke();
+
+  // Side table
+  const tp = W(sx+sw+18, sy+sh/2);
+  ctx.fillStyle = '#f8f8f8';
+  rrect(tp.x-WS(12), tp.y-WS(12), WS(24), WS(24), WS(5)); ctx.fill();
+  ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = WS(0.8); ctx.stroke();
+}
+
+// ==================== CHARACTER ====================
+class Char {
+  constructor(agent, initState) {
+    this.agent = agent;
+    this.scarf = agent.scarf;
+    this.state = initState;
+    const d = DESKS[agent.deskIdx % DESKS.length];
+    this.x = d.x; this.y = d.y + 55; // start at chair position
+    this.tx = this.x; this.ty = this.y;
+    this.anim = 0;
+    this.stateTimer = rand(5,15);
+    this.taskTimer = 0;
+    this.speed = 3.5;
+    this.angle = 0;
+    this._next = null;
   }
 
-  walkTo(x, z) {
-    this.walkTarget = new THREE.Vector3(x, 0, z);
-    // Face direction
-    const dx = x - this.group.position.x;
-    const dz = z - this.group.position.z;
-    if (Math.abs(dx) > 0.1 || Math.abs(dz) > 0.1) {
-      this.group.rotation.y = Math.atan2(dx, dz);
-    }
+  get homeDesk() {
+    const d = DESKS[this.agent.deskIdx % DESKS.length];
+    return { x: d.x, y: d.y + 55 };
   }
 
   update(dt) {
-    if (!this.group.visible) return;
+    this.anim += dt;
 
-    const t = performance.now() / 1000;
+    if (this.taskTimer > 0) {
+      this.taskTimer -= dt;
+      if (this.taskTimer <= 0 && this.state === STATES.TYPING) this.setState(STATES.IDLE);
+    }
 
-    if (this.walkTarget) {
-      const pos = this.group.position;
-      const dir = new THREE.Vector3().subVectors(this.walkTarget, pos);
-      dir.y = 0;
-      const dist = dir.length();
-      if (dist < 0.15) {
-        this.walkTarget = null;
-        this.state = 'idle';
+    if (this.state === STATES.WALKING) {
+      const d = dist(this.x, this.y, this.tx, this.ty);
+      if (d < 2) {
+        this.x = this.tx; this.y = this.ty;
+        if (this._next) { this.setState(this._next); this._next = null; }
       } else {
-        dir.normalize();
-        pos.x += dir.x * this.walkSpeed * dt;
-        pos.z += dir.z * this.walkSpeed * dt;
-        // Face walk direction
-        this.group.rotation.y = Math.atan2(dir.x, dir.z);
-        // Walk animation — legs swing, arms swing, body bob
-        const swing = Math.sin(t * 8) * 0.4;
-        this.legL.rotation.x = swing;
-        this.legR.rotation.x = -swing;
-        this.armL.rotation.x = -swing * 0.6;
-        this.armR.rotation.x = swing * 0.6;
-        this.group.position.y = Math.abs(Math.sin(t * 8)) * 0.04;
-        return;
+        const dx = this.tx-this.x, dy = this.ty-this.y;
+        const len = Math.hypot(dx,dy);
+        this.x += dx/len * Math.min(this.speed, len);
+        this.y += dy/len * Math.min(this.speed, len);
+        this.angle = Math.atan2(dy, dx);
       }
     }
 
-    // Working animation — subtle typing
-    if (this.state === 'working') {
-      this.body.rotation.z = Math.sin(t * 2 + this.bobPhase) * 0.02;
-      this.armL.rotation.x = -0.3 + Math.sin(t * 6) * 0.08;
-      this.armR.rotation.x = -0.3 + Math.sin(t * 6 + 1) * 0.08;
-      this.legL.rotation.x = 0;
-      this.legR.rotation.x = 0;
-      this.group.position.y = -0.2;
-      return;
+    if (this.state !== STATES.WALKING && this.taskTimer <= 0) {
+      this.stateTimer -= dt;
+      if (this.stateTimer <= 0) { this.autoSwitch(); this.stateTimer = rand(5,15); }
     }
+  }
 
-    // Idle animation — gentle sway
-    this.body.rotation.z = Math.sin(t * 1.5 + this.bobPhase) * 0.03;
-    this.group.position.y = Math.sin(t * 2 + this.bobPhase) * 0.02;
-    this.armL.rotation.x = Math.sin(t * 1.2 + this.bobPhase) * 0.1;
-    this.armR.rotation.x = Math.sin(t * 1.2 + this.bobPhase + 1) * 0.1;
-    this.legL.rotation.x = 0;
-    this.legR.rotation.x = 0;
+  setState(s) {
+    this.state = s; this.anim = 0; this.updateUI();
+    if (s===STATES.TYPING) this.stateTimer = rand(5,10);
+    else if (s===STATES.IDLE) this.stateTimer = rand(4,8);
+    else if (s===STATES.SLEEPING) this.stateTimer = rand(6,12);
+  }
 
-    // Random walk for idle agents
-    this.idleTimer += dt;
-    if (this.idleTimer > this.idleInterval) {
-      this.idleTimer = 0;
-      this.idleInterval = 5 + Math.random() * 8;
-      const zoneKeys = Object.keys(ZONES).filter(k => k !== 'workstation');
-      const zone = ZONES[zoneKeys[Math.floor(Math.random() * zoneKeys.length)]];
-      const rx = zone.x + (Math.random() - 0.5) * 3;
-      const rz = zone.z + (Math.random() - 0.5) * 3;
-      this.walkTo(rx, rz);
+  walkTo(tx,ty,next) { this.tx=tx; this.ty=ty; this._next=next; this.setState(STATES.WALKING); }
+
+  autoSwitch() {
+    const r = Math.random();
+    switch(this.state) {
+      case STATES.IDLE:
+        if (r<0.7) this.setState(STATES.TYPING);
+        else { const d=r<0.85?LOC.coffee:LOC.sofa; this.walkTo(d.x,d.y,r<0.85?STATES.IDLE:STATES.SLEEPING); }
+        break;
+      case STATES.TYPING:
+        if (r<0.55) this.setState(STATES.IDLE);
+        else if (r<0.8) this.walkTo(LOC.coffee.x,LOC.coffee.y,STATES.IDLE);
+        else this.walkTo(LOC.sofa.x,LOC.sofa.y,STATES.SLEEPING);
+        break;
+      case STATES.SLEEPING:
+        if (r<0.8) { const h=this.homeDesk; this.walkTo(h.x,h.y,STATES.TYPING); }
+        else this.setState(STATES.SLEEPING);
+        break;
     }
+  }
+
+  updateUI() {
+    const el = document.getElementById('st-'+this.agent.id);
+    if (!el) return;
+    const dot = el.querySelector('.status-dot');
+    const chip = el.querySelector('.status-chip');
+    const c = STATE_COLORS[this.state];
+    dot.style.background = c; dot.style.color = c;
+    chip.textContent = STATE_LABELS[this.state];
   }
 }
 
-// ─── CREATE AGENTS ───
-const agentObjects = AGENTS.map(a => new AgentCharacter(a.name, a.color, a.state, a.zone));
-
-// ─── TOP BAR PILLS ───
-const pillsEl = document.getElementById('pills');
-AGENTS.forEach(a => {
-  const hex = '#' + new THREE.Color(a.color).getHexString();
-  const pill = document.createElement('div');
-  pill.className = 'agent-pill' + (a.state === 'offline' ? ' offline' : '');
-  pill.innerHTML = `<span class="dot" style="background:${hex}"></span>${a.name}<span class="st">${a.state}</span>`;
-  pillsEl.appendChild(pill);
+// Create characters — mostly typing, 1-2 idle/outside
+const chars = AGENTS.map((a, i) => {
+  const state = i === 3 ? STATES.IDLE : (i === 6 ? STATES.SLEEPING : STATES.TYPING);
+  const ch = new Char(a, state);
+  if (state === STATES.IDLE) { ch.x = LOC.coffee.x; ch.y = LOC.coffee.y; }
+  if (state === STATES.SLEEPING) { ch.x = LOC.sofa.x; ch.y = LOC.sofa.y; }
+  return ch;
 });
 
-// ─── LABELS ───
-const labelsEl = document.getElementById('labels');
-const labelDivs = agentObjects.map(a => {
+// ==================== DRAW CHARACTER ====================
+function drawChar(ch) {
+  const p = W(ch.x, ch.y);
+  let ox=0, oy=0, bodySY=1, headOY=0, rot=0;
+
+  if (ch.state===STATES.IDLE) {
+    oy = Math.sin(ch.anim*4)*3*S;
+    ox = Math.sin(ch.anim*2.7)*1.5*S;
+  } else if (ch.state===STATES.WALKING) {
+    oy = Math.abs(Math.sin(ch.anim*10))*2.5*S;
+    rot = ch.angle;
+  } else if (ch.state===STATES.SLEEPING) {
+    rot = Math.PI/4;
+    bodySY = 0.55;
+    headOY = 8*S;
+    oy = Math.sin(ch.anim*1.5)*2*S;
+    ox = -6*S;
+  }
+
+  ctx.save();
+  ctx.translate(p.x+ox, p.y+oy);
+  ctx.rotate(rot);
+
+  const s = S;
+
+  // Tail
+  ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 2.5*s; ctx.lineCap = 'round';
+  const tail = ch.state===STATES.IDLE ? Math.sin(ch.anim*5)*6*s : 0;
+  ctx.beginPath(); ctx.moveTo(0,14*s);
+  ctx.quadraticCurveTo(8*s+tail, 22*s, 4*s+tail, 28*s); ctx.stroke();
+
+  // Back legs
+  ctx.lineWidth = 3*s;
+  const legOff = ch.state===STATES.WALKING ? Math.sin(ch.anim*10)*4*s : 0;
+  ctx.beginPath(); ctx.moveTo(-10*s,10*s); ctx.lineTo(-14*s,22*s+legOff); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(10*s,10*s); ctx.lineTo(14*s,22*s-legOff); ctx.stroke();
+
+  // Body
+  ctx.fillStyle = '#1a1a1a';
+  ctx.beginPath(); ctx.ellipse(0,0,15*s,12*s*bodySY,0,0,Math.PI*2); ctx.fill();
+
+  // Front legs
+  ctx.lineWidth = 3*s;
+  if (ch.state===STATES.TYPING) {
+    const tOff = Math.sin(ch.anim*18)*5*s;
+    ctx.beginPath(); ctx.moveTo(-9*s,-8*s); ctx.lineTo(-12*s,-18*s+tOff); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(9*s,-8*s); ctx.lineTo(12*s,-18*s-tOff); ctx.stroke();
+  } else if (ch.state===STATES.WALKING) {
+    ctx.beginPath(); ctx.moveTo(-9*s,-8*s); ctx.lineTo(-13*s,-20*s+legOff); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(9*s,-8*s); ctx.lineTo(13*s,-20*s-legOff); ctx.stroke();
+  } else {
+    ctx.beginPath(); ctx.moveTo(-9*s,-8*s); ctx.lineTo(-12*s,-19*s); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(9*s,-8*s); ctx.lineTo(12*s,-19*s); ctx.stroke();
+  }
+
+  // Scarf
+  ctx.fillStyle = ch.scarf;
+  ctx.beginPath(); ctx.ellipse(0,-10*s,14*s,4.5*s,0,0,Math.PI*2); ctx.fill();
+  const sf = ch.state===STATES.IDLE ? Math.sin(ch.anim*3.5)*3*s : 0;
+  ctx.beginPath();
+  ctx.moveTo(-7*s,-8*s);
+  ctx.quadraticCurveTo(-16*s+sf,-4*s,-14*s+sf,6*s);
+  ctx.lineTo(-10*s,2*s);
+  ctx.quadraticCurveTo(-12*s+sf,-4*s,-5*s,-7*s);
+  ctx.fill();
+
+  // Head
+  ctx.fillStyle = '#1a1a1a';
+  ctx.beginPath(); ctx.ellipse(0,-18*s+headOY,10*s,9.5*s,0,0,Math.PI*2); ctx.fill();
+
+  // Ears
+  ctx.beginPath(); ctx.moveTo(-4*s,-27*s+headOY); ctx.lineTo(-7*s,-34*s+headOY); ctx.lineTo(-1*s,-28*s+headOY); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(4*s,-27*s+headOY); ctx.lineTo(7*s,-34*s+headOY); ctx.lineTo(1*s,-28*s+headOY); ctx.fill();
+
+  // Eyes
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(-4*s,-20*s+headOY,3.2*s,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(4*s,-20*s+headOY,3.2*s,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#111';
+  ctx.beginPath(); ctx.arc(-3.5*s,-20*s+headOY,1.6*s,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(4.5*s,-20*s+headOY,1.6*s,0,Math.PI*2); ctx.fill();
+
+  // Name tag
+  ctx.restore();
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  ctx.font = `${WS(9)}px -apple-system, sans-serif`;
+  ctx.textAlign = 'center';
+  const np = W(ch.x, ch.y - 40);
+  ctx.fillText(ch.agent.name, np.x, np.y);
+}
+
+// ==================== STATUS BAR ====================
+const bar = document.getElementById('status-bar');
+chars.forEach(ch => {
   const div = document.createElement('div');
-  div.className = 'lbl';
-  const hex = '#' + new THREE.Color(a.color).getHexString();
-  div.innerHTML = `<span style="color:${hex}">●</span> ${a.name}`;
-  labelsEl.appendChild(div);
-  return div;
+  div.className = 'status-item';
+  div.id = 'st-'+ch.agent.id;
+  div.innerHTML = `<span style="font-weight:600">${ch.agent.name}</span>
+    <span class="status-dot" style="background:${STATE_COLORS[ch.state]};color:${STATE_COLORS[ch.state]}"></span>
+    <span class="status-chip">${STATE_LABELS[ch.state]}</span>
+    <span class="status-scarf" style="background:${ch.scarf}"></span>`;
+  bar.appendChild(div);
+  ch.updateUI();
 });
 
-function updateLabels() {
-  const w = window.innerWidth, h = window.innerHeight;
-  agentObjects.forEach((agent, i) => {
-    if (!agent.group.visible) {
-      labelDivs[i].style.display = 'none';
-      return;
-    }
-    const pos = new THREE.Vector3();
-    agent.head.getWorldPosition(pos);
-    pos.y += 0.3;
-    pos.project(camera);
-    const x = (pos.x * 0.5 + 0.5) * w;
-    const y = (-pos.y * 0.5 + 0.5) * h;
-    labelDivs[i].style.display = '';
-    labelDivs[i].style.left = x + 'px';
-    labelDivs[i].style.top = y + 'px';
+// ==================== TOAST ====================
+let toastT = null;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  if (toastT) clearTimeout(toastT);
+  toastT = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+// ==================== MAIN LOOP ====================
+let lastT = 0;
+function loop(ts) {
+  const dt = lastT ? Math.min((ts-lastT)/1000, 0.1) : 0.016;
+  lastT = ts;
+
+  chars.forEach(c => c.update(dt));
+
+  applyCam();
+
+  // Background
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, CW, CH);
+
+  drawZones();
+  drawLabels();
+
+  // Desks, monitors, chairs
+  DESKS.forEach((d, i) => {
+    let active = false;
+    chars.forEach(ch => {
+      if (ch.state===STATES.TYPING && dist(ch.x,ch.y,d.x,d.y+55)<10) active=true;
+    });
+    drawDesk(d.x, d.y);
+    drawMonitor(d.x, d.y-45, active);
+    drawChair(d.x, d.y+55);
   });
+
+  drawBreakArea();
+  drawTreadmill();
+  drawSofa();
+
+  // Characters sorted by y
+  [...chars].sort((a,b)=>a.y-b.y).forEach(c => drawChar(c));
+
+  restoreCam();
+  requestAnimationFrame(loop);
 }
 
-// ─── ANIMATE ───
-let lastTime = performance.now();
-function animate(now) {
-  requestAnimationFrame(animate);
-  const dt = Math.min((now - lastTime) / 1000, 0.1);
-  lastTime = now;
+// ==================== INTERACTION ====================
+let dragging = false, dsx=0, dsy=0, cox=0, coy=0;
+canvas.addEventListener('mousedown', e => { dragging=true; dsx=e.clientX; dsy=e.clientY; cox=cam.ox; coy=cam.oy; });
+window.addEventListener('mousemove', e => { if(!dragging) return; cam.ox=cox-(e.clientX-dsx)/cam.scale; cam.oy=coy-(e.clientY-dsy)/cam.scale; });
+window.addEventListener('mouseup', () => dragging=false);
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  cam.target = Math.max(0.5, Math.min(2, cam.target * (e.deltaY<0?1.08:0.93)));
+}, { passive: false });
+canvas.addEventListener('dblclick', () => { cam.ox=CW/2; cam.oy=CH/2; cam.target=1; showToast('View reset'); });
 
-  agentObjects.forEach(a => a.update(dt));
-  updateLabels();
+// Touch
+canvas.addEventListener('touchstart', e => { if(e.touches.length===1){ dragging=true; dsx=e.touches[0].clientX; dsy=e.touches[0].clientY; cox=cam.ox; coy=cam.oy; } }, {passive:false});
+canvas.addEventListener('touchmove', e => { e.preventDefault(); if(!dragging||e.touches.length!==1) return; cam.ox=cox-(e.touches[0].clientX-dsx)/cam.scale; cam.oy=coy-(e.touches[0].clientY-dsy)/cam.scale; }, {passive:false});
+canvas.addEventListener('touchend', () => dragging=false);
 
-  renderer.render(scene, camera);
-}
-animate(performance.now());
-
-// ─── RESIZE ───
-window.addEventListener('resize', () => {
-  const w = window.innerWidth, h = window.innerHeight;
-  const a = w / h;
-  camera.left = -frustumSize * a / 2;
-  camera.right = frustumSize * a / 2;
-  camera.top = frustumSize / 2;
-  camera.bottom = -frustumSize / 2;
-  camera.updateProjectionMatrix();
-  renderer.setSize(w, h);
-});
+// ==================== INIT ====================
+cam.ox = CW/2; cam.oy = CH/2;
+showToast('Lume Office ready ✨');
+requestAnimationFrame(loop);
 </script>
 </body>
 </html>
