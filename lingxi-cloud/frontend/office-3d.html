@@ -12,8 +12,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 #status-bar {
   position: fixed; top: 0; left: 0; right: 0; height: 44px;
   background: rgba(30,30,30,0.78); backdrop-filter: blur(12px);
-  display: flex; align-items: center; justify-content: center; gap: 24px;
+  display: flex; align-items: center; justify-content: center; gap: 12px;
   z-index: 100; border-bottom: 1px solid rgba(255,255,255,0.1);
+  overflow-x: auto; overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 8px;
+  flex-wrap: nowrap;
 }
 .status-item {
   display: flex; align-items: center; gap: 6px;
@@ -47,7 +51,7 @@ canvas { display: block; }
 
 <script>
 // ==================== CONFIG ====================
-const CW = window.innerWidth, CH = window.innerHeight;
+let CW = window.innerWidth, CH = window.innerHeight;
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 canvas.width = CW; canvas.height = CH;
@@ -67,11 +71,15 @@ const AGENTS = [
   { id:'nest',   name:'Nest',    scarf:'#3b82f6', deskIdx:7 },
 ];
 
-// Scale factor
-const S = Math.min(CW / 1200, CH / 800);
+// Scale factor — fit the ~850×850 world content to fill the screen
+// Content spans roughly x:45-780, y:30-830 → ~735 wide, ~800 tall
+// Add padding so edges aren't clipped
+const WORLD_W = 820, WORLD_H = 870;
+let S = Math.min(CW / WORLD_W, CH / WORLD_H) * 0.95;
 
 // ==================== CAMERA ====================
-const cam = { ox: CW/2, oy: CH/2, scale: 1, target: 1 };
+// Center the world on screen
+const cam = { ox: CW/2 - (WORLD_W/2)*S, oy: CH/2 - (WORLD_H/2)*S, scale: 1, target: 1 };
 
 // World → screen (top-down, with camera pan)
 function W(wx, wy) {
@@ -1084,6 +1092,17 @@ function showToast(msg) {
   toastT = setTimeout(() => el.classList.remove('show'), 2200);
 }
 
+// ==================== RESIZE ====================
+function onResize() {
+  CW = window.innerWidth; CH = window.innerHeight;
+  canvas.width = CW; canvas.height = CH;
+  S = Math.min(CW / WORLD_W, CH / WORLD_H) * 0.95;
+  cam.ox = CW/2 - (WORLD_W/2)*S;
+  cam.oy = CH/2 - (WORLD_H/2)*S;
+}
+window.addEventListener('resize', onResize);
+window.addEventListener('orientationchange', () => setTimeout(onResize, 200));
+
 // ==================== MAIN LOOP ====================
 let lastT = 0;
 function loop(ts) {
@@ -1133,7 +1152,7 @@ canvas.addEventListener('wheel', e => {
   e.preventDefault();
   cam.target = Math.max(0.5, Math.min(2, cam.target * (e.deltaY<0?1.08:0.93)));
 }, { passive: false });
-canvas.addEventListener('dblclick', () => { cam.ox=0; cam.oy=0; cam.target=1; showToast('View reset'); });
+canvas.addEventListener('dblclick', () => { onResize(); showToast('View reset'); });
 
 // Touch
 canvas.addEventListener('touchstart', e => { if(e.touches.length===1){ dragging=true; dsx=e.touches[0].clientX; dsy=e.touches[0].clientY; cox=cam.ox; coy=cam.oy; } }, {passive:false});
