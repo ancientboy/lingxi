@@ -577,113 +577,132 @@ function drawChar(ch) {
   let ox=0, oy=0, bodySY=1, rot=0;
 
   if (ch.state===STATES.IDLE) {
-    oy = Math.sin(ch.anim*3)*3*S;
-    ox = Math.sin(ch.anim*2)*1.5*S;
+    oy = Math.sin(ch.anim*3)*2*S;
+    ox = Math.sin(ch.anim*2)*1*S;
   } else if (ch.state===STATES.WALKING) {
-    oy = Math.abs(Math.sin(ch.anim*10))*3*S;
+    oy = Math.abs(Math.sin(ch.anim*10))*2.5*S;
     rot = ch.angle;
   } else if (ch.state===STATES.SLEEPING) {
-    rot = Math.PI/4;
-    bodySY = 0.55;
-    oy = Math.sin(ch.anim*1.5)*2*S;
-    ox = -8*S;
+    bodySY = 0.6;
+    oy = Math.sin(ch.anim*1.5)*1.5*S;
+    ox = -5*S;
   }
 
   ctx.save();
   ctx.translate(p.x+ox, p.y+oy);
   ctx.rotate(rot);
 
-  const s = S * 1.4; // 40% bigger
+  const s = S * 1.5;
 
-  // === Lume Character: Marvis极简风纯黑剪影 + 彩色腰带 ===
-  // 扁平化矢量风格，无渐变无阴影，圆润无尖角
+  // === Lume: Cute silhouette (penguin/ghost-like) ===
 
-  // Legs (chunky blocks)
+  // Feet (two small rounded bumps at bottom)
   ctx.fillStyle = '#1a1a1a';
-  const legOff = ch.state===STATES.WALKING ? Math.sin(ch.anim*10)*5*s : 0;
-  // Left leg
-  rrect(-10*s, 6*s, 6*s, 16*s+legOff, 3*s); ctx.fill();
-  // Right leg
-  rrect(4*s, 6*s, 6*s, 16*s-legOff, 3*s); ctx.fill();
+  const legOff = ch.state===STATES.WALKING ? Math.sin(ch.anim*10)*3*s : 0;
+  ctx.beginPath(); ctx.ellipse(-6*s, 16*s+legOff, 5*s, 3*s, 0, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(6*s, 16*s-legOff, 5*s, 3*s, 0, 0, Math.PI*2); ctx.fill();
 
-  // Body (large rounded rectangle, pure black)
+  // Main body (large teardrop/egg shape, pure black)
   ctx.fillStyle = '#1a1a1a';
-  rrect(-14*s, -10*s, 28*s, 20*s*bodySY, 10*s); ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(0, -20*s);
+  // Left curve (head to body)
+  ctx.bezierCurveTo(-16*s, -20*s, -16*s, -4*s, -14*s, 8*s*bodySY);
+  // Bottom curve
+  ctx.quadraticCurveTo(0, 20*s*bodySY, 14*s, 8*s*bodySY);
+  // Right curve (body to head)
+  ctx.bezierCurveTo(16*s, -4*s, 16*s, -20*s, 0, -20*s);
+  ctx.closePath();
+  ctx.fill();
 
-  // Belt (high saturation color band around waist)
+  // Colored ribbon/band around neck area
   ctx.fillStyle = ch.scarf;
-  rrect(-14*s, 2*s*bodySY, 28*s, 6*s, 0); ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(0, -4*s, 13*s, 3.5*s, 0, 0, Math.PI*2);
+  ctx.fill();
 
-  // Belt buckle (small white square)
-  ctx.fillStyle = '#fff';
-  ctx.fillRect(-2*s, 3*s*bodySY, 4*s, 4*s);
+  // Tiny ribbon tail (dangling bit)
+  ctx.beginPath();
+  ctx.moveTo(-8*s, -2*s);
+  ctx.quadraticCurveTo(-12*s, 4*s, -10*s, 8*s);
+  ctx.lineTo(-7*s, 6*s);
+  ctx.quadraticCurveTo(-9*s, 2*s, -5*s, -1*s);
+  ctx.closePath();
+  ctx.fill();
 
-  // Arms (chunky blocks)
+  // Arms/flippers (small rounded bumps on sides)
   ctx.fillStyle = '#1a1a1a';
   if (ch.state===STATES.TYPING) {
-    const tOff = Math.sin(ch.anim*18)*6*s;
-    rrect(-20*s, -8*s, 7*s, 14*s+tOff, 3*s); ctx.fill();
-    rrect(13*s, -8*s, 7*s, 14*s-tOff, 3*s); ctx.fill();
+    const tOff = Math.sin(ch.anim*18)*4*s;
+    // Left arm reaching forward
+    ctx.beginPath();
+    ctx.ellipse(-14*s, -2*s+tOff, 5*s, 4*s, -0.3, 0, Math.PI*2);
+    ctx.fill();
+    // Right arm
+    ctx.beginPath();
+    ctx.ellipse(14*s, -2*s-tOff, 5*s, 4*s, 0.3, 0, Math.PI*2);
+    ctx.fill();
   } else if (ch.state===STATES.WALKING) {
-    rrect(-20*s, -6*s, 7*s, 12*s+legOff, 3*s); ctx.fill();
-    rrect(13*s, -6*s, 7*s, 12*s-legOff, 3*s); ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(-14*s, -2*s+legOff*0.5, 5*s, 4*s, -0.2, 0, Math.PI*2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(14*s, -2*s-legOff*0.5, 5*s, 4*s, 0.2, 0, Math.PI*2);
+    ctx.fill();
   } else {
-    rrect(-20*s, -8*s, 7*s, 14*s, 3*s); ctx.fill();
-    rrect(13*s, -8*s, 7*s, 14*s, 3*s); ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(-14*s, -2*s, 5*s, 4*s, -0.3, 0, Math.PI*2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(14*s, -2*s, 5*s, 4*s, 0.3, 0, Math.PI*2);
+    ctx.fill();
   }
 
-  // Head (rounded square with iconic curved corners/horns)
-  ctx.fillStyle = '#1a1a1a';
-  rrect(-13*s, -30*s, 26*s, 22*s, 8*s); ctx.fill();
-  // Left horn/ear (rounded bump)
-  ctx.beginPath();
-  ctx.moveTo(-10*s, -30*s);
-  ctx.quadraticCurveTo(-12*s, -40*s, -4*s, -38*s);
-  ctx.lineTo(-2*s, -30*s);
-  ctx.closePath(); ctx.fill();
-  // Right horn/ear
-  ctx.beginPath();
-  ctx.moveTo(10*s, -30*s);
-  ctx.quadraticCurveTo(12*s, -40*s, 4*s, -38*s);
-  ctx.lineTo(2*s, -30*s);
-  ctx.closePath(); ctx.fill();
-
-  // Eyes (pure white ellipses + small black pupils)
+  // Eyes (big round white circles with black pupils - the cute factor!)
+  const eyeY = -12*s;
+  // White part
   ctx.fillStyle = '#fff';
-  ctx.beginPath(); ctx.ellipse(-5*s, -22*s, 4.5*s, 5.5*s, 0, 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(5*s, -22*s, 4.5*s, 5.5*s, 0, 0, Math.PI*2); ctx.fill();
-
-  // Pupils
+  ctx.beginPath(); ctx.arc(-5.5*s, eyeY, 5*s, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(5.5*s, eyeY, 5*s, 0, Math.PI*2); ctx.fill();
+  // Pupils (offset slightly down for cute look)
   ctx.fillStyle = '#111';
-  ctx.beginPath(); ctx.arc(-4*s, -21*s, 2*s, 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(6*s, -21*s, 2*s, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(-4.5*s, eyeY+1*s, 2.5*s, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(6.5*s, eyeY+1*s, 2.5*s, 0, Math.PI*2); ctx.fill();
+  // Eye highlight (tiny white dot)
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(-3.5*s, eyeY-0.5*s, 1*s, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(7.5*s, eyeY-0.5*s, 1*s, 0, Math.PI*2); ctx.fill();
 
-  // Sleeping: X eyes + Zzz
+  // Blush (two faint pink circles on cheeks)
+  ctx.fillStyle = 'rgba(255,150,150,0.25)';
+  ctx.beginPath(); ctx.arc(-9*s, -7*s, 3*s, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(9*s, -7*s, 3*s, 0, Math.PI*2); ctx.fill();
+
+  // Sleeping: closed eyes (curved lines instead of open eyes)
   if (ch.state===STATES.SLEEPING) {
-    // Cover normal eyes
+    // Cover the eyes with body color
     ctx.fillStyle = '#1a1a1a';
-    ctx.beginPath(); ctx.ellipse(-5*s, -22*s, 4.5*s, 5.5*s, 0, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(5*s, -22*s, 4.5*s, 5.5*s, 0, 0, Math.PI*2); ctx.fill();
-    // Draw X eyes
-    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5*s; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.moveTo(-7*s, -24*s); ctx.lineTo(-3*s, -20*s); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(-3*s, -24*s); ctx.lineTo(-7*s, -20*s); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(3*s, -24*s); ctx.lineTo(7*s, -20*s); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(7*s, -24*s); ctx.lineTo(3*s, -20*s); ctx.stroke();
+    ctx.beginPath(); ctx.arc(-5.5*s, eyeY, 5.2*s, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(5.5*s, eyeY, 5.2*s, 0, Math.PI*2); ctx.fill();
+    // Draw happy closed eyes (^_^)
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.8*s; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.arc(-5.5*s, eyeY+1*s, 3*s, Math.PI+0.3, -0.3); ctx.stroke();
+    ctx.beginPath(); ctx.arc(5.5*s, eyeY+1*s, 3*s, Math.PI+0.3, -0.3); ctx.stroke();
     // Zzz
-    ctx.fillStyle = '#666';
+    ctx.fillStyle = '#888';
     ctx.font = `bold ${6*s}px -apple-system, sans-serif`;
-    ctx.fillText('z', 10*s, -34*s);
-    ctx.font = `bold ${5*s}px -apple-system, sans-serif`;
-    ctx.fillText('z', 15*s, -40*s);
+    ctx.textAlign = 'left';
+    ctx.fillText('z', 12*s, -18*s);
+    ctx.font = `bold ${4.5*s}px -apple-system, sans-serif`;
+    ctx.fillText('z', 16*s, -24*s);
   }
 
-  // Name tag (below character)
+  // Name tag
   ctx.restore();
   ctx.fillStyle = 'rgba(0,0,0,0.5)';
   ctx.font = `600 ${WS(10)}px -apple-system, sans-serif`;
   ctx.textAlign = 'center';
-  const np = W(ch.x, ch.y + 32);
+  const np = W(ch.x, ch.y + 30);
   ctx.fillText(ch.agent.name, np.x, np.y);
 }
 
