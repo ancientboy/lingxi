@@ -76,14 +76,14 @@ import * as THREE from 'three';
 
 // ─── CONFIG ───
 const AGENTS = [
-  { name:'Lingxi', color:0x6366f1, state:'idle',    zone:'lounge' },
+  { name:'Lingxi', color:0x6366f1, state:'working',  zone:'workstation' },
   { name:'Spark',  color:0x10a37f, state:'working',  zone:'workstation' },
-  { name:'Pulse',  color:0xf59e0b, state:'idle',    zone:'fitness' },
-  { name:'Nova',   color:0x8b5cf6, state:'idle',    zone:'meeting' },
+  { name:'Pulse',  color:0xf59e0b, state:'working',  zone:'workstation' },
+  { name:'Nova',   color:0x8b5cf6, state:'idle',     zone:'lounge' },
   { name:'Scope',  color:0x06b6d4, state:'working',  zone:'workstation' },
-  { name:'Echo',   color:0xef4444, state:'idle',    zone:'lounge' },
+  { name:'Echo',   color:0xef4444, state:'working',  zone:'workstation' },
   { name:'Prism',  color:0xec4899, state:'offline',  zone:null },
-  { name:'Nest',   color:0x3b82f6, state:'working',  zone:'workstation' },
+  { name:'Nest',   color:0x3b82f6, state:'idle',     zone:'fitness' },
 ];
 
 // Zone centers (x, z) for navigation
@@ -115,7 +115,7 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 // ─── SCENE ───
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xfaf8f5);
+scene.background = new THREE.Color(0xfdfbf7);
 
 // ─── CAMERA — Marvis-style elevated front view ───
 // Look from front-top, office aligned with screen edges (no rotation)
@@ -131,7 +131,7 @@ camera.lookAt(0, 0, 0);
 
 // ─── LIGHTS ───
 // Soft ambient fill
-scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+scene.add(new THREE.AmbientLight(0xfff8f0, 0.8));
 // Main directional (sun-like)
 const sun = new THREE.DirectionalLight(0xffffff, 0.8);
 sun.position.set(8, 20, 10);
@@ -143,23 +143,23 @@ sun.shadow.camera.near = 1; sun.shadow.camera.far = 50;
 sun.shadow.bias = -0.001;
 scene.add(sun);
 // Hemisphere for soft fill
-scene.add(new THREE.HemisphereLight(0xffffff, 0xe0e0e0, 0.3));
+scene.add(new THREE.HemisphereLight(0xfff5ee, 0xede4d8, 0.4));
 
 // ─── MATERIALS ───
 const mat = {
-  floor:    new THREE.MeshStandardMaterial({ color: 0xfaf8f5, roughness: 0.9 }),
-  zone_ws:  new THREE.MeshStandardMaterial({ color: 0xf5f3ef, roughness: 0.9 }),
-  zone_l:   new THREE.MeshStandardMaterial({ color: 0xf8f5f0, roughness: 0.9 }),
-  zone_f:   new THREE.MeshStandardMaterial({ color: 0xf0f5f2, roughness: 0.9 }),
-  zone_m:   new THREE.MeshStandardMaterial({ color: 0xf2f4f8, roughness: 0.9 }),
+  floor:    new THREE.MeshStandardMaterial({ color: 0xfdfbf7, roughness: 0.9 }),
+  zone_ws:  new THREE.MeshStandardMaterial({ color: 0xfaf7f2, roughness: 0.9 }),
+  zone_l:   new THREE.MeshStandardMaterial({ color: 0xfcf9f4, roughness: 0.9 }),
+  zone_f:   new THREE.MeshStandardMaterial({ color: 0xf4f9f6, roughness: 0.9 }),
+  zone_m:   new THREE.MeshStandardMaterial({ color: 0xf6f4f2, roughness: 0.9 }),
   white:    new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 }),
-  desk:     new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.25 }),
-  chair:    new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.6 }),
-  monitor:  new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.2 }),
+  desk:     new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.15 }),
+  chair:    new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 0.5 }),
+  monitor:  new THREE.MeshStandardMaterial({ color: 0x444444, roughness: 0.15 }),
   screen:   new THREE.MeshStandardMaterial({ color: 0x1a1a2a, emissive: 0x3366aa, emissiveIntensity: 0.4, roughness: 0.1 }),
   screenOff:new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.3 }),
-  sofa:     new THREE.MeshStandardMaterial({ color: 0xd4c8b8, roughness: 0.7 }),
-  table:    new THREE.MeshStandardMaterial({ color: 0xc4b8a0, roughness: 0.5 }),
+  sofa:     new THREE.MeshStandardMaterial({ color: 0xd8cbb8, roughness: 0.7 }),
+  table:    new THREE.MeshStandardMaterial({ color: 0xd4c8b0, roughness: 0.5 }),
   plant:    new THREE.MeshStandardMaterial({ color: 0x6b9b6b, roughness: 0.8 }),
   pot:      new THREE.MeshStandardMaterial({ color: 0xd4a574, roughness: 0.7 }),
   yoga:     new THREE.MeshStandardMaterial({ color: 0xb8d4c8, roughness: 0.9 }),
@@ -394,17 +394,13 @@ class AgentCharacter {
   }
 
   sitAtDesk() {
-    // Find an unused desk
-    const usedDesks = AGENTS.filter(a => a.state === 'working').map(a => a._deskIdx);
-    let deskIdx = this._deskIdx;
-    if (deskIdx === undefined) {
-      for (let i = 0; i < DESKS.length; i++) {
-        if (!usedDesks.includes(i)) { deskIdx = i; break; }
-      }
-      if (deskIdx === undefined) deskIdx = 0;
-      this._deskIdx = deskIdx;
+    // Assign desk index based on agent order
+    if (this._deskIdx === undefined) {
+      const workingAgents = AGENTS.filter(a => a.state === 'working');
+      const myIndex = workingAgents.findIndex(a => a.name === this.name);
+      this._deskIdx = myIndex >= 0 ? myIndex : 0;
     }
-    const desk = DESKS[deskIdx] || DESKS[0];
+    const desk = DESKS[this._deskIdx] || DESKS[0];
     // Character sits at chair position (near side of desk, z+)
     this.group.position.set(desk.x, -0.15, desk.z + 0.3);
     // Face the monitor (face towards negative z)
