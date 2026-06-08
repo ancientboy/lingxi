@@ -1482,28 +1482,28 @@ function loop(ts) {
     drawDesk(d.x, d.y);
     drawMonitor(d.x, d.y-45, active);
     drawChair(d.x, d.y+CHAIR_OFFSET);
-    // Nameplate on desk (工牌) — top-left corner
+    // Nameplate on desk (工牌) — top-right corner
     const agent = AGENTS.find(a => a.deskIdx === i);
     if (agent) {
       const deskP = W(d.x, d.y);
       const dw = WS(150), dh = WS(100);
       const npW = WS(36), npH = WS(12);
-      const npX = deskP.x - dw/2 + WS(6) + npW/2;
+      const npX = deskP.x + dw/2 - WS(6) - npW/2;
       const npY = deskP.y - dh/2 + WS(6) + npH/2;
       // Card
       ctx.fillStyle = '#fff';
       rrect(npX-npW/2, npY-npH/2, npW, npH, WS(2.5)); ctx.fill();
       ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = WS(0.5); ctx.stroke();
-      // Color accent bar
+      // Color accent bar on right side
       ctx.fillStyle = agent.scarf;
       ctx.beginPath();
-      ctx.roundRect(npX-npW/2, npY-npH/2, WS(2.5), npH, [WS(2.5),0,0,WS(2.5)]);
+      ctx.roundRect(npX+npW/2-WS(2.5), npY-npH/2, WS(2.5), npH, [0,WS(2.5),WS(2.5),0]);
       ctx.fill();
       // Name
       ctx.fillStyle = '#333';
       ctx.font = `600 ${WS(7)}px -apple-system, sans-serif`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(agent.name, npX+WS(1), npY);
+      ctx.fillText(agent.name, npX-WS(1), npY);
     }
   });
 
