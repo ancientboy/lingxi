@@ -82,24 +82,25 @@ const AGENTS = [
   { name:'Nova',   color:0x8b5cf6, state:'idle',     zone:'lounge' },
   { name:'Scope',  color:0x06b6d4, state:'working',  zone:'workstation' },
   { name:'Echo',   color:0xef4444, state:'working',  zone:'workstation' },
-  { name:'Prism',  color:0xec4899, state:'offline',  zone:null },
-  { name:'Nest',   color:0x3b82f6, state:'idle',     zone:'fitness' },
+  { name:'Prism',  color:0xec4899, state:'working',  zone:'workstation' },
+  { name:'Nest',   color:0x3b82f6, state:'working',  zone:'workstation' },
 ];
 
 // Zone centers (x, z) for navigation
 // LEFT: top→bottom = lounge, fitness, meeting  |  RIGHT: workstations
 const ZONES = {
-  lounge:      { x: -5, z: -4 },
-  fitness:     { x: -5, z: 0 },
-  meeting:     { x: -5, z: 4 },
-  workstation: { x: 4, z: 0 },
+  lounge:      { x: -5.5, z: -3.5 },
+  fitness:     { x: -5.5, z: 2.5 },
+  meeting:     { x: 0, z: 5 },
+  workstation: { x: 4.5, z: 0 },
 };
 
-// Desk positions — RIGHT side, 2 per row, 3 rows
+// Desk positions — RIGHT side, 2 per row, 4 rows = 8 desks
 const DESKS = [
-  { x: 3, z: -3.5 }, { x: 5.5, z: -3.5 },
-  { x: 3, z: 0 },    { x: 5.5, z: 0 },
-  { x: 3, z: 3.5 },  { x: 5.5, z: 3.5 },
+  { x: 3.5, z: -5 },   { x: 6, z: -5 },
+  { x: 3.5, z: -1.7 }, { x: 6, z: -1.7 },
+  { x: 3.5, z: 1.7 },  { x: 6, z: 1.7 },
+  { x: 3.5, z: 5 },    { x: 6, z: 5 },
 ];
 
 // ─── RENDERER ───
@@ -119,15 +120,15 @@ scene.background = new THREE.Color(0xf0f0f0);
 
 // ─── CAMERA — Marvis-style elevated front view ───
 // Look from front-top, office aligned with screen edges (no rotation)
-const frustumSize = 14;
+const frustumSize = 16;
 const aspect = window.innerWidth / window.innerHeight;
 const camera = new THREE.OrthographicCamera(
   -frustumSize * aspect / 2, frustumSize * aspect / 2,
   frustumSize / 2, -frustumSize / 2,
   0.1, 200
 );
-camera.position.set(0, 22, 12);
-camera.lookAt(0, 0, 0);
+camera.position.set(0, 24, 14);
+camera.lookAt(0.5, 0, 0.5);
 
 // ─── LIGHTS ───
 // Soft ambient fill
@@ -200,7 +201,7 @@ function addSphere(r, material, x, y, z) {
 }
 
 // ─── FLOOR ───
-const floor = new THREE.Mesh(new THREE.PlaneGeometry(28, 20), mat.floor);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(32, 22), mat.floor);
 floor.rotation.x = -Math.PI / 2;
 floor.receiveShadow = true;
 scene.add(floor);
@@ -214,10 +215,10 @@ function addZone(x, z, w, d, material) {
   scene.add(m);
 }
 // Zone patches — LEFT column (lounge/fitness/meeting), RIGHT column (workstation)
-addZone(-5, -4, 6, 5, mat.zone_l);   // Lounge (top-left)
-addZone(-5, 0,  6, 5, mat.zone_f);   // Fitness (mid-left)
-addZone(-5, 4,  6, 5, mat.zone_m);   // Meeting (bottom-left)
-addZone(4, 0,   6, 12, mat.zone_ws); // Workstation (right column)
+addZone(-5.5, -3.5, 7, 7, mat.zone_l);   // Lounge (top-left)
+addZone(-5.5, 2.5,  7, 6, mat.zone_f);   // Fitness (bottom-left)
+addZone(0, 5,        5, 5, mat.zone_m);   // Meeting (bottom-center)
+addZone(4.5, 0,      7, 14, mat.zone_ws); // Workstation (right column, full height)
 
 // ─── WORKSTATION AREA ───
 // 6 desks: 2 per row × 3 rows on RIGHT side
@@ -276,45 +277,47 @@ const loungeLight = new THREE.PointLight(0xffeedd, 0.3, 5);
 loungeLight.position.set(-5, 2, -4);
 scene.add(loungeLight);
 
-// ─── FITNESS AREA (mid-left) ───
+// ─── FITNESS AREA (bottom-left) ───
 // Yoga mats
-addBox(0.7, 0.02, 1.4, mat.yoga, -5, 0.01, 0.5);
-addBox(0.7, 0.02, 1.4, new THREE.MeshStandardMaterial({ color: 0xd4b8c8, roughness: 0.9 }), -3.5, 0.01, 0.5);
+addBox(0.7, 0.02, 1.4, mat.yoga, -5.5, 0.01, 2);
+addBox(0.7, 0.02, 1.4, new THREE.MeshStandardMaterial({ color: 0xd4b8c8, roughness: 0.9 }), -4, 0.01, 2);
 // Dumbbells
-addCyl(0.05, 0.05, 0.35, mat.metal, -4.5, 0.07, -0.3, 8);
-addSphere(0.08, mat.metal, -4.5, 0.07, -0.5);
-addSphere(0.08, mat.metal, -4.5, 0.07, -0.1);
-addCyl(0.05, 0.05, 0.25, mat.metal, -5.5, 0.07, -0.3, 8);
-addSphere(0.06, mat.metal, -5.5, 0.07, -0.45);
-addSphere(0.06, mat.metal, -5.5, 0.07, -0.15);
+addCyl(0.05, 0.05, 0.35, mat.metal, -5, 0.07, 0.8, 8);
+addSphere(0.08, mat.metal, -5, 0.07, 0.6);
+addSphere(0.08, mat.metal, -5, 0.07, 1.0);
+addCyl(0.05, 0.05, 0.25, mat.metal, -6, 0.07, 0.8, 8);
+addSphere(0.06, mat.metal, -6, 0.07, 0.65);
+addSphere(0.06, mat.metal, -6, 0.07, 0.95);
 // Treadmill
-addBox(0.55, 0.07, 1.2, mat.treadmill, -6.5, 0.26, 0.8);
-addBox(0.45, 0.02, 1.1, mat.treadmillBelt, -6.5, 0.3, 0.8);
-addBox(0.04, 0.7, 0.04, mat.treadmill, -6.8, 0.62, 1.3);
-addBox(0.04, 0.7, 0.04, mat.treadmill, -6.2, 0.62, 1.3);
-addBox(0.6, 0.04, 0.04, mat.treadmill, -6.5, 0.97, 1.3);
+addBox(0.55, 0.07, 1.2, mat.treadmill, -7, 0.26, 2.5);
+addBox(0.45, 0.02, 1.1, mat.treadmillBelt, -7, 0.3, 2.5);
+addBox(0.04, 0.7, 0.04, mat.treadmill, -7.3, 0.62, 3.0);
+addBox(0.04, 0.7, 0.04, mat.treadmill, -6.7, 0.62, 3.0);
+addBox(0.6, 0.04, 0.04, mat.treadmill, -7, 0.97, 3.0);
 // Water bottle
-addCyl(0.04, 0.04, 0.16, new THREE.MeshStandardMaterial({ color:0x6699cc, roughness:0.2 }), -3, 0.09, 1.5, 8);
+addCyl(0.04, 0.04, 0.16, new THREE.MeshStandardMaterial({ color:0x6699cc, roughness:0.2 }), -3.5, 0.09, 3.2, 8);
+// Punching bag
+addCyl(0.15, 0.12, 0.5, mat.metal, -3.5, 0.8, 1, 8);
 
-// ─── MEETING AREA (bottom-left) ───
+// ─── MEETING AREA (bottom-center) ───
 // Long table
-addBox(2.4, 0.05, 0.9, mat.desk, -5, 0.72, 4.5);
+addBox(2.4, 0.05, 0.9, mat.desk, 0.5, 0.72, 5);
 // Table legs
 [[-1.0,-0.35],[1.0,-0.35],[-1.0,0.35],[1.0,0.35]].forEach(([lx,lz]) =>
-  addBox(0.04, 0.7, 0.04, mat.deskLeg, -5+lx, 0.35, 4.5+lz)
+  addBox(0.04, 0.7, 0.04, mat.deskLeg, 0.5+lx, 0.35, 5+lz)
 );
 // Chairs around table
-[[-0.7,3.5],[0,3.5],[0.7,3.5],[-0.7,5.5],[0,5.5],[0.7,5.5]].forEach(([cx,cz]) => {
-  addCyl(0.16, 0.16, 0.05, mat.chair, -5+cx, 0.46, cz, 14);
-  addBox(0.28, 0.28, 0.03, mat.chair, -5+cx, 0.62, cz+0.16);
-  addCyl(0.02, 0.02, 0.42, mat.metal, -5+cx, 0.21, cz, 8);
+[[-0.7,4.0],[0,4.0],[0.7,4.0],[-0.7,6.0],[0,6.0],[0.7,6.0]].forEach(([cx,cz]) => {
+  addCyl(0.16, 0.16, 0.05, mat.chair, 0.5+cx, 0.46, cz, 14);
+  addBox(0.28, 0.28, 0.03, mat.chair, 0.5+cx, 0.62, cz+0.16);
+  addCyl(0.02, 0.02, 0.42, mat.metal, 0.5+cx, 0.21, cz, 8);
 });
-// Whiteboard on far wall
-addBox(2.0, 1.2, 0.03, mat.board, -5, 1.4, 6.8);
-addBox(2.1, 1.3, 0.02, mat.boardFrame, -5, 1.4, 6.78);
+// Whiteboard
+addBox(2.0, 1.2, 0.03, mat.board, 0.5, 1.4, 7.2);
+addBox(2.1, 1.3, 0.02, mat.boardFrame, 0.5, 1.4, 7.18);
 // Markers
-addBox(0.4, 0.02, 0.01, new THREE.MeshStandardMaterial({ color:0x4488cc }), -5.2, 1.6, 6.83);
-addBox(0.25, 0.02, 0.01, new THREE.MeshStandardMaterial({ color:0xcc4444 }), -4.7, 1.3, 6.83);
+addBox(0.4, 0.02, 0.01, new THREE.MeshStandardMaterial({ color:0x4285F4 }), 0.3, 1.6, 7.23);
+addBox(0.25, 0.02, 0.01, new THREE.MeshStandardMaterial({ color:0xcc4444 }), 0.8, 1.3, 7.23);
 
 // ─── CHARACTER BUILDER ───
 class AgentCharacter {
