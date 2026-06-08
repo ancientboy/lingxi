@@ -1086,6 +1086,7 @@
   </style>
   <script src="assets/js/i18n.js?v=20260608"></script>
   <script src="assets/libs/lucide.min.js"></script>
+  <script src="assets/js/office-engine.js?v=20260608"></script>
 </head>
 <body>
 
@@ -1138,8 +1139,8 @@
 
 <!-- ===== Overview Tab (办公室场景) ===== -->
 <div class="tab-content active" id="tabOverview">
-  <div style="height:calc(100vh - 48px);margin-top:48px;overflow:hidden;">
-    <iframe id="officeFrame" src="office-3d.html" style="width:100%;height:100%;border:none;display:block;" onload="sendTeamToOffice()"></iframe>
+  <div style="height:calc(100vh - 48px);margin-top:48px;overflow:hidden;position:relative;">
+    <canvas id="officeCanvas" style="width:100%;height:100%;display:block;"></canvas>
   </div>
 </div>
 <!-- ===== Manage Tab ===== -->
@@ -1487,19 +1488,36 @@ function render() {
   renderDesks();
   renderTasks();
   renderLogs();
-  sendTeamToOffice();
+  updateOfficeTeam();
 }
 
-// Send current team members to the office iframe
-function sendTeamToOffice() {
-  const frame = document.getElementById('officeFrame');
-  if (!frame || !frame.contentWindow) return;
+// Office engine instance
+let _officeEngine = null;
+
+// Send current team members to the office canvas engine
+function updateOfficeTeam() {
   const members = AGENTS.map(a => ({
     id: a.id,
     name: a.name,
     color: a.color,
   }));
-  frame.contentWindow.postMessage({ type: 'teamUpdate', members }, '*');
+  if (_officeEngine) _officeEngine.updateTeam(members);
+}
+
+// Initialize office canvas
+function initOfficeCanvas() {
+  const canvas = document.getElementById('officeCanvas');
+  if (!canvas || typeof initOffice !== 'function') return;
+  _officeEngine = initOffice(canvas, {
+    onAgentClick: function(agentId) {
+      openDrawer(agentId);
+    },
+    showToast: function(msg) {
+      showToast(msg);
+    },
+    hideStatusBar: true,
+  });
+  updateOfficeTeam();
 }
 
 function pick(a) { return a[Math.floor(Math.random()*a.length)]; }
@@ -2650,16 +2668,8 @@ function init(){
   setInterval(fetchRealStatus,30000);
   setInterval(()=>{const a=pick(AGENTS.filter(x=>S[x.id].status==='idle'));if(a){addLog('captain','dispatch',`${a.name} 待命中`);renderLogs();}},12000);
 
-  // Listen for clicks from office canvas iframe
-  window.addEventListener('message', (e) => {
-    if (e.data && e.data.type === 'officeAgentClick') {
-      let agentId = e.data.agentId;
-      // Map office-3d agent IDs to workspace IDs
-      const idMap = { lingxi:'main', spark:'coder', pulse:'ops', nova:'inventor', scope:'pm', echo:'noter', prism:'media', nest:'smart' };
-      if (idMap[agentId]) agentId = idMap[agentId];
-      if (agentId) openDrawer(agentId);
-    }
-  });
+  // Initialize office canvas (same page, no iframe)
+  initOfficeCanvas();
 }
 
 // ===== Fetch real agent status from API =====
