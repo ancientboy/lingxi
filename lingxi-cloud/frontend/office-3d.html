@@ -81,18 +81,30 @@ function WS(v) { return v * S * cam.scale; }
 
 // 6 workstations (like Marvis: 2 rows × 3 columns)
 // 8 workstations (4 rows × 2 columns)
+// Spaced wider apart so aisles are clear
 const DESKS = [
-  { x:420, y:140 }, { x:620, y:140 },
-  { x:420, y:320 }, { x:620, y:320 },
-  { x:420, y:500 }, { x:620, y:500 },
-  { x:420, y:680 }, { x:620, y:680 },
+  { x:420, y:110 }, { x:620, y:110 },   // Row 1
+  { x:420, y:310 }, { x:620, y:310 },   // Row 2
+  { x:420, y:510 }, { x:620, y:510 },   // Row 3
+  { x:420, y:710 }, { x:620, y:710 },   // Row 4
 ];
 
-// Special locations
+// Desk dimensions: 150w × 100h, side depth 8px
+// Desk visual bottom = desk.y + 50 + 8 = desk.y + 58
+// Row 1 visual: y=60~168, Row 2: y=260~368, Row 3: y=460~568, Row 4: y=660~768
+
+// CHAIR_Y = desk.y + 75 (well below desk visual bottom +58, 17px gap)
+const CHAIR_OFFSET = 75;
+// Between-row aisle Y (midpoint between one row's chair and next row's desk top)
+// Row1 chair y=185, Row2 desk top y=260 → aisle y=222
+// Row2 chair y=385, Row3 desk top y=460 → aisle y=422
+// Row3 chair y=585, Row4 desk top y=660 → aisle y=622
+
+// Special locations — use chair-y for same-row access
 const LOC = {
-  coffee:    { x:140, y:130 },
-  sofa:      { x:130, y:640 },
-  treadmill: { x:140, y:360 },
+  coffee:    { x:140, y:185 },
+  sofa:      { x:130, y:585 },
+  treadmill: { x:140, y:385 },
 };
 
 // ==================== HELPERS ====================
@@ -120,18 +132,18 @@ function shadow(x,y,w,h,a=0.1) {
 // ==================== DRAW FUNCTIONS ====================
 
 function drawZones() {
-  // Break area
+  // Break area (top-left, above row 1)
   ctx.fillStyle = 'rgba(139,105,20,0.03)';
-  rrect(45,45,210,110,12); ctx.fill();
-  // Wellness
+  rrect(45,20,210,110,12); ctx.fill();
+  // Wellness (mid-left, between row 1-2)
   ctx.fillStyle = 'rgba(100,180,100,0.03)';
-  rrect(45,285,210,95,12); ctx.fill();
-  // Relax
+  rrect(45,200,210,100,12); ctx.fill();
+  // Relax (bottom-left, between row 3-4)
   ctx.fillStyle = 'rgba(155,89,182,0.03)';
-  rrect(45,560,210,105,12); ctx.fill();
+  rrect(45,600,210,110,12); ctx.fill();
   // Work zone
   ctx.fillStyle = 'rgba(66,133,244,0.02)';
-  rrect(300,50,460,750,16); ctx.fill();
+  rrect(300,30,480,810,16); ctx.fill();
 }
 
 function drawLabels() {
@@ -139,10 +151,10 @@ function drawLabels() {
   ctx.font = `${WS(11)}px -apple-system, sans-serif`;
   ctx.textAlign = 'center';
   const p = (x,y) => W(x,y);
-  ctx.fillText('Break Area', p(150,135).x, p(150,135).y);
-  ctx.fillText('Wellness Zone', p(140,375).x, p(140,375).y);
-  ctx.fillText('Relax Zone', p(130,670).x, p(130,670).y);
-  ctx.fillText('Work Zone', p(530,410).x, p(530,410).y);
+  ctx.fillText('Break Area', p(150,110).x, p(150,110).y);
+  ctx.fillText('Wellness Zone', p(140,260).x, p(140,260).y);
+  ctx.fillText('Relax Zone', p(130,660).x, p(130,660).y);
+  ctx.fillText('Work Zone', p(530,420).x, p(530,420).y);
 }
 
 function drawDesk(dx, dy) {
@@ -253,7 +265,7 @@ function drawChair(cx, cy) {
 }
 
 function drawBreakArea() {
-  const bx=60, by=70, bw=180, bh=55;
+  const bx=60, by=50, bw=180, bh=55;
   const p = W(bx+bw/2, by+bh/2);
   const pw = WS(bw), ph = WS(bh);
   const sx = W(bx, by);
@@ -334,7 +346,7 @@ function drawBreakArea() {
 }
 
 function drawTreadmill() {
-  const tx=70, ty=310, tw=140, th=55;
+  const tx=70, ty=230, tw=140, th=55;
   const sx = W(tx, ty);
   const pw = WS(tw), ph = WS(th);
   const cx = W(tx+tw/2, ty+th/2);
@@ -405,7 +417,7 @@ function drawTreadmill() {
 }
 
 function drawSofa() {
-  const sx=70, sy=580, sw=120, sh=60;
+  const sx=70, sy=630, sw=120, sh=60;
   const p = W(sx+sw/2, sy+sh/2);
   const pw = WS(sw), ph = WS(sh);
   const start = W(sx, sy);
@@ -474,100 +486,83 @@ function drawSofa() {
 }
 
 // ==================== PATHFINDING ====================
-// Full road network: axis-aligned paths between all furniture.
-// Furniture blocks:
-//   Desk(i): center DESKS[i].x, DESKS[i].y, size ~150×100
-//   Break:   (60,70) to (240,125)
-//   Treadmill: (70,310) to (210,365)
-//   Sofa:    (70,580) to (190,640)
-// Chairs are at DESKS[i].y + 55 (just past desk edge)
-
-// Lanes (walkable paths):
-//   Vertical:   x=260 (main corridor), x=520 (between desk cols), x=740 (right edge)
-//   Horizontal: y=100 (top), y=195/375/555/735 (chair rows), y=230/410/590 (between rows), y=770 (bottom)
+// Road network based on actual furniture boundaries.
+// Desk visual: center y, height 100, side 8px → bottom = y+58
+// Row 1 desk y=110 → visual 60~168,  Row 2 y=310 → 260~368
+// Row 3 desk y=510 → visual 460~568, Row 4 y=710 → 660~768
+// Chairs at desk.y+75 = 185, 385, 585, 785 (17px below desk visual bottom)
+// Desk col1 x=420 → visual 345~495,  Col2 x=620 → visual 545~695
+// Corridors: x=260 (left of desks), x=520 (between cols, gap 495~545), x=740 (right of desks)
 
 const _W = [];
 const _E = {};
 function wp(id, x, y) { _W.push({ id, x, y }); _E[id] = []; }
 function edge(a, b) { _E[a].push(b); _E[b].push(a); }
 
-// Main corridor (x=260) — full height, left of all desks
-wp('c0', 260, 100);
-wp('c1', 260, 195);
-wp('c2', 260, 230);  // between row 1-2
-wp('c3', 260, 375);
-wp('c4', 260, 410);  // between row 2-3
-wp('c5', 260, 555);
-wp('c6', 260, 590);  // between row 3-4
-wp('c7', 260, 735);
-wp('c8', 260, 770);
-// Connect vertically
+// === Main corridor x=260 (left of desk col1 at x=345) ===
+wp('c0', 260, 80);
+wp('c1', 260, 185);  // row 1 chair level
+wp('c2', 260, 214);  // between row 1-2
+wp('c3', 260, 385);  // row 2 chair level
+wp('c4', 260, 414);  // between row 2-3
+wp('c5', 260, 585);  // row 3 chair level
+wp('c6', 260, 614);  // between row 3-4
+wp('c7', 260, 785);  // row 4 chair level
+wp('c8', 260, 820);
 edge('c0','c1'); edge('c1','c2'); edge('c2','c3'); edge('c3','c4');
 edge('c4','c5'); edge('c5','c6'); edge('c6','c7'); edge('c7','c8');
 
-// Inner aisle (x=520) — between the two desk columns
-wp('i1', 520, 195);
-wp('i2', 520, 230);
-wp('i3', 520, 375);
-wp('i4', 520, 410);
-wp('i5', 520, 555);
-wp('i6', 520, 590);
-wp('i7', 520, 735);
-// Connect vertically
+// === Inner aisle x=520 (between col1 x=495 and col2 x=545) ===
+wp('i1', 520, 185);
+wp('i2', 520, 214);
+wp('i3', 520, 385);
+wp('i4', 520, 414);
+wp('i5', 520, 585);
+wp('i6', 520, 614);
+wp('i7', 520, 785);
 edge('i1','i2'); edge('i2','i3'); edge('i3','i4');
 edge('i4','i5'); edge('i5','i6'); edge('i6','i7');
 
-// Right edge (x=740) — for circulation around desk col 2
-wp('r1', 740, 195);
-wp('r2', 740, 375);
-wp('r3', 740, 555);
-wp('r4', 740, 735);
+// === Right edge x=740 (right of col2 at x=695) ===
+wp('r1', 740, 185);
+wp('r2', 740, 385);
+wp('r3', 740, 585);
+wp('r4', 740, 785);
 edge('r1','r2'); edge('r2','r3'); edge('r3','r4');
 
-// Desk chair positions (where characters sit/stand)
-// Row 1 (desk y=140, chair y=195)
-wp('d0', 420, 195); wp('d1', 620, 195);
-// Row 2 (desk y=320, chair y=375)
-wp('d2', 420, 375); wp('d3', 620, 375);
-// Row 3 (desk y=500, chair y=555)
-wp('d4', 420, 555); wp('d5', 620, 555);
-// Row 4 (desk y=680, chair y=735)
-wp('d6', 420, 735); wp('d7', 620, 735);
+// === Chair positions (y = desk.y + 75) ===
+wp('d0', 420, 185); wp('d1', 620, 185);
+wp('d2', 420, 385); wp('d3', 620, 385);
+wp('d4', 420, 585); wp('d5', 620, 585);
+wp('d6', 420, 785); wp('d7', 620, 785);
 
-// Chair → corridor connections (horizontal along chair-row aisle)
-// Col 1 chairs (x=420) → corridor (x=260): walk at chair y-level
-edge('d0','c1'); edge('d2','c3'); edge('d4','c5'); edge('d6','c7');
-// Col 1 chairs (x=420) → inner aisle (x=520)
-edge('d0','i1'); edge('d2','i3'); edge('d4','i5'); edge('d6','i7');
-// Col 2 chairs (x=620) → inner aisle (x=520)
-edge('d1','i1'); edge('d3','i3'); edge('d5','i5'); edge('d7','i7');
-// Col 2 chairs (x=620) → right edge (x=740)
-edge('d1','r1'); edge('d3','r2'); edge('d5','r3'); edge('d7','r4');
+// === Horizontal: chair row aisles (same y, along chair level) ===
+// d0→c1→...→i1→...→d1→r1  (row 1 at y=185)
+edge('d0','c1'); edge('c1','i1'); edge('i1','d1'); edge('d1','r1');
+edge('d2','c3'); edge('c3','i3'); edge('i3','d3'); edge('d3','r2');
+edge('d4','c5'); edge('c5','i5'); edge('i5','d5'); edge('d5','r3');
+edge('d6','c7'); edge('c7','i7'); edge('i7','d7'); edge('d7','r4');
 
-// Horizontal connections at between-row aisles (y=230,410,590)
-// These let characters walk between rows without crossing desks
-edge('c2','i2'); // y=230 corridor↔inner
-edge('c4','i4'); // y=410
-edge('c6','i6'); // y=590
+// === Between-row aisles (to change rows, must go through these) ===
+edge('c2','i2');  // y=214
+edge('c4','i4');  // y=414
+edge('c6','i6');  // y=614
 
-// Left area: approach points
-// Break area: accessible from y=100 top path and y=195 row1 aisle
-wp('bk', 140, 100);   // break area entry (top)
-wp('ba', 140, 195);   // break area (row 1 aisle level)
+// === Left area connections ===
+wp('bk', 140, 80);   // break area top entry
+wp('ba', 140, 185);  // break area (row 1 level)
 edge('c0','bk'); edge('bk','ba'); edge('ba','c1');
 
-// Treadmill: accessible from y=375 (row2 aisle) and y=410 (between rows)
-wp('tm', 140, 375);   // treadmill entry (row 2 aisle)
-wp('ta', 140, 410);   // treadmill approach (between rows)
+wp('tm', 140, 385);  // treadmill (row 2 level)
+wp('ta', 140, 414);  // treadmill (between-row)
 edge('c3','tm'); edge('tm','ta'); edge('ta','c4');
 
-// Sofa: accessible from y=555 (row3 aisle) and y=590 (between rows)
-wp('sf', 130, 555);   // sofa entry (row 3 aisle)
-wp('sa', 130, 590);   // sofa approach (between rows)
+wp('sf', 130, 585);  // sofa (row 3 level)
+wp('sa', 130, 614);  // sofa (between-row)
 edge('c5','sf'); edge('sf','sa'); edge('sa','c6');
 
-// Bottom path connects to top via right side (full loop)
-edge('c8','r4'); // bottom-right corner
+// Bottom loop
+edge('c8','r4');
 
 // Build lookup maps
 const WP_BY_ID = {};
@@ -600,7 +595,7 @@ function findPath(fromId, toId) {
   return [];
 }
 
-// Build route: sequence of (x,y) waypoints from current pos to target
+// Build route from pos to target
 function buildRoute(x1, y1, x2, y2) {
   if (dist(x1, y1, x2, y2) < 40) return [{ x: x2, y: y2 }];
   const from = nearestWP(x1, y1);
@@ -617,13 +612,14 @@ function buildRoute(x1, y1, x2, y2) {
 }
 
 // ==================== CHARACTER ====================
+// ==================== CHARACTER ====================
 class Char {
   constructor(agent, initState) {
     this.agent = agent;
     this.scarf = agent.scarf;
     this.state = initState;
     const d = DESKS[agent.deskIdx % DESKS.length];
-    this.x = d.x; this.y = d.y + 55;
+    this.x = d.x; this.y = d.y + CHAIR_OFFSET;
     this.tx = this.x; this.ty = this.y;
     this.anim = 0;
     this.stateTimer = rand(5,15);
@@ -636,7 +632,7 @@ class Char {
 
   get homeDesk() {
     const d = DESKS[this.agent.deskIdx % DESKS.length];
-    return { x: d.x, y: d.y + 55 };
+    return { x: d.x, y: d.y + CHAIR_OFFSET };
   }
 
   update(dt) {
@@ -915,11 +911,11 @@ function loop(ts) {
   DESKS.forEach((d, i) => {
     let active = false;
     chars.forEach(ch => {
-      if (ch.state===STATES.TYPING && dist(ch.x,ch.y,d.x,d.y+55)<10) active=true;
+      if (ch.state===STATES.TYPING && dist(ch.x,ch.y,d.x,d.y+CHAIR_OFFSET)<10) active=true;
     });
     drawDesk(d.x, d.y);
     drawMonitor(d.x, d.y-45, active);
-    drawChair(d.x, d.y+55);
+    drawChair(d.x, d.y+CHAIR_OFFSET);
   });
 
   drawBreakArea();
