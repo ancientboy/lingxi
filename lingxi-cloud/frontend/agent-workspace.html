@@ -1086,7 +1086,7 @@
   </style>
   <script src="assets/js/i18n.js?v=20260608"></script>
   <script src="assets/libs/lucide.min.js"></script>
-  <script src="assets/js/office-engine.js?v=20260608"></script>
+  <script src="assets/js/office-engine.js?v=20260608b"></script>
 </head>
 <body>
 
@@ -1461,9 +1461,9 @@ let S = {}, logs = [];
 
 function initState() {
   const ss = ['idle','working','idle','working','idle','queued','error','idle'];
-  AGENTS.forEach((a,i) => { S[a.id] = { status: ss[i], task: null }; });
-  S['coder'].task = { id:'#43', title:'优化数据库查询', step:1, totalSteps:3, stepName:'分析慢查询', progress:20 };
-  S['inventor'].task = { id:'#42', title:'写AI趋势文章', step:2, totalSteps:5, stepName:'撰写初稿', progress:40 };
+  AGENTS.forEach((a,i) => { S[a.id] = { status: ss[i] || 'idle', task: null }; });
+  if (S['coder']) S['coder'].task = { id:'#43', title:'优化数据库查询', step:1, totalSteps:3, stepName:'分析慢查询', progress:20 };
+  if (S['inventor']) S['inventor'].task = { id:'#42', title:'写AI趋势文章', step:2, totalSteps:5, stepName:'撰写初稿', progress:40 };
 }
 
 function renderDesks() {
@@ -1473,13 +1473,15 @@ function renderDesks() {
 
 function renderTasks() {
   const p = document.getElementById('tasksPanel');
-  const tasks = AGENTS.map(a=>({a,s:S[a.id]})).filter(({s})=>s.status==='working'&&s.task).map(({a,s})=>({a,t:s.task}));
+  if (!p) return;
+  const tasks = AGENTS.map(a=>({a,s:S[a.id]})).filter(({s})=>s&&s.status==='working'&&s.task).map(({a,s})=>({a,t:s.task}));
   if (!tasks.length) { p.innerHTML='<div class="empty-msg">暂无进行中任务</div>'; return; }
-  p.innerHTML = tasks.map(({a,t})=>`<div class="t-row"><div class="t-top">  <span class="t-id">${t.id}</span> ${t.title} <span class="t-agent" style="background:${a.color}15;color:${a.color}">${a.abbr}${a.name}</span></div><div class="t-step">${t.step}/${t.totalSteps} ${t.stepName}</div><div class="t-bar"><div class="t-fill" style="width:${t.progress}%;background:linear-gradient(90deg,${a.gradient[0]},${a.gradient[1]})"></div></div></div>`).join('');
+  p.innerHTML = tasks.map(({a,t})=>`<div class="t-row"><div class="t-top">  <span class="t-id">${t.id}</span> ${t.title} <span class="t-agent" style="background:${a.color}15;color:${a.color}">${a.abbr||''}${a.name}</span></div><div class="t-step">${t.step}/${t.totalSteps} ${t.stepName}</div><div class="t-bar"><div class="t-fill" style="width:${t.progress}%;background:linear-gradient(90deg,${a.gradient?a.gradient[0]:'#667eea'},${a.gradient?a.gradient[1]:'#764ba2'})"></div></div></div>`).join('');
 }
 
 function renderLogs() {
   const p = document.getElementById('logsPanel');
+  if (!p) return;
   if (!logs.length) { p.innerHTML='<div class="empty-msg">暂无记录</div>'; return; }
   p.innerHTML = logs.slice(-20).reverse().map(l=>`<div class="l-row"><span class="l-time">${l.time}</span><span class="l-icon">${l.icon}</span><span class="l-agent" style="color:${l.ac}">${l.an}</span><span class="l-msg">${l.m}</span></div>`).join('');
 }
@@ -1509,17 +1511,24 @@ function initOfficeCanvas() {
   // Delay to next frame so CSS layout is complete and canvas has dimensions
   requestAnimationFrame(function() {
     const canvas = document.getElementById('officeCanvas');
-    if (!canvas || typeof initOffice !== 'function') return;
-    _officeEngine = initOffice(canvas, {
-      onAgentClick: function(agentId) {
-        openDrawer(agentId);
-      },
-      showToast: function(msg) {
-        showToast(msg);
-      },
-      hideStatusBar: true,
-    });
-    updateOfficeTeam();
+    console.log('[office] canvas:', !!canvas, 'initOffice:', typeof initOffice);
+    if (!canvas) { console.error('[office] canvas not found'); return; }
+    if (typeof initOffice !== 'function') { console.error('[office] engine not loaded'); return; }
+    try {
+      _officeEngine = initOffice(canvas, {
+        onAgentClick: function(agentId) {
+          openDrawer(agentId);
+        },
+        showToast: function(msg) {
+          showToast(msg);
+        },
+        hideStatusBar: true,
+      });
+      console.log('[office] engine:', !!_officeEngine, 'canvas:', canvas.width, 'x', canvas.height);
+      updateOfficeTeam();
+    } catch(e) {
+      console.error('[office] init error:', e.message, e.stack);
+    }
   });
 }
 
@@ -1558,7 +1567,7 @@ function simulate() {
 function initLogs() {
   const now=Date.now();
   [{a:'coder',t:'start',m:'开始优化数据库查询...',o:4},{a:'inventor',t:'complete',m:'完成选题策划',o:5},{a:'captain',t:'dispatch',m:'派发任务给紫萱',o:6},{a:'notes',t:'error',m:'翻译超时，重试中...',o:7},{a:'coder',t:'complete',m:'完成代码重构',o:8},{a:'inventor',t:'start',m:'开始撰写AI文章',o:9},{a:'operator',t:'complete',m:'完成数据周报',o:11},{a:'captain',t:'dispatch',m:'调度全局队列',o:12},{a:'media',t:'start',m:'开始设计封面',o:15},{a:'media',t:'complete',m:'封面图完成',o:16}]
-  .forEach(l=>{const time=new Date(now-l.o*60000);const ag=AGENTS.find(x=>x.id===l.a);const ic={start:'▸',progress:'◌',complete:'✓',error:'✗',dispatch:'→'};logs.push({time:time.toTimeString().slice(0,5),type:l.t,icon:ic[l.t],an:ag.name,ac:ag.color,m:l.m});});
+  .forEach(l=>{const time=new Date(now-l.o*60000);const ag=AGENTS.find(x=>x.id===l.a);const ic={start:'▸',progress:'◌',complete:'✓',error:'✗',dispatch:'→'};logs.push({time:time.toTimeString().slice(0,5),type:l.t,icon:ic[l.t],an:ag?ag.name:l.a,ac:ag?ag.color:'#999',m:l.m});});
 }
 
 function showToast(m){const c=document.getElementById('toastBox'),t=document.createElement('div');t.className='toast';t.textContent=m;c.appendChild(t);setTimeout(()=>{t.classList.add('out');setTimeout(()=>t.remove(),300)},2500);}

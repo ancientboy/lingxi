@@ -4,6 +4,7 @@
  */
 function initOffice(canvas, opts) {
   opts = opts || {};
+  if (!canvas || !canvas.getContext) { console.error('[office] no canvas'); return null; }
 // ==================== CONFIG ====================
 let CW = canvas.clientWidth || window.innerWidth, CH = canvas.clientHeight || window.innerHeight;
 // canvas provided by caller
