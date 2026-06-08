@@ -377,6 +377,8 @@ async function init() {
   document.getElementById('inputField').addEventListener('input', function() {
     this.style.height = 'auto';
     this.style.height = Math.min(this.scrollHeight, 150) + 'px';
+    // Update send button visibility
+    if (typeof _updateSendBtnVisibility === 'function') _updateSendBtnVisibility();
   });
 
   // 初始化 agent 下拉（放在最后，确保 user 已加载）
@@ -1504,14 +1506,18 @@ function handleSendClick() {
 // 更新发送按钮状态
 function updateSendButton() {
   const btn = document.getElementById('sendBtn');
+  if (!btn) return;
   if (isGenerating) {
-    btn.textContent = '■';
+    btn.innerHTML = `<svg class="stop-spin-ring" width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="40 20" stroke-linecap="round"/></svg><svg class="stop-icon" width="10" height="10" viewBox="0 0 10 10"><rect x="2" y="2" width="6" height="6" rx="1" fill="currentColor"/></svg>`;
     btn.classList.add('stopping');
-    btn.title = '停止生成';
+    btn.classList.remove('hidden');
+    btn.title = 'Stop generating';
   } else {
-    btn.textContent = '➤';
+    btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>`;
     btn.classList.remove('stopping');
-    btn.title = '发送';
+    btn.title = 'Send';
+    // Re-check visibility
+    if (typeof _updateSendBtnVisibility === 'function') _updateSendBtnVisibility();
   }
 }
 

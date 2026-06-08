@@ -191,6 +191,7 @@ function _useSkill(skillId) {
   const allSkills = [...skillsState.allSkills, ...skillsState.builtinSkills];
   const skill = allSkills.find(s => s.id === skillId);
   const skillName = skill?.name || skillId;
+  const example = skill?.example || '';
   const agentConfig = skill?.agent ? SKILLS_AGENT_CONFIG[skill.agent] : null;
   const icon = agentConfig?.icon || 'package';
 
@@ -201,8 +202,13 @@ function _useSkill(skillId) {
     // Add skill tag to input area
     _addSkillTag(skillId, skillName, icon);
 
-    // Focus input
+    // Fill example text into input
     const input = document.getElementById('inputField');
+    if (input && example) {
+      input.value = example;
+      input.style.height = 'auto';
+      input.style.height = Math.min(input.scrollHeight, 150) + 'px';
+    }
     if (input) input.focus();
   }, 150);
 }
@@ -224,9 +230,8 @@ function _addSkillTag(skillId, skillName, icon) {
   area.appendChild(tag);
   if (window.lucide) lucide.createIcons();
 
-  // Show send button
-  const sendBtn = document.getElementById('sendBtn');
-  if (sendBtn) sendBtn.classList.remove('hidden');
+  // Show send button (tags count as content)
+  _updateSendBtnVisibility();
 }
 
 function _removeSkillTag(skillId) {
@@ -234,11 +239,21 @@ function _removeSkillTag(skillId) {
   if (!area) return;
   const tag = area.querySelector(`[data-skill-id="${skillId}"]`);
   if (tag) tag.remove();
+  _updateSendBtnVisibility();
+}
 
-  // Hide send button if no tags and no text
+function _updateSendBtnVisibility() {
   const input = document.getElementById('inputField');
+  const area = document.getElementById('skillTagsArea');
   const sendBtn = document.getElementById('sendBtn');
-  if (sendBtn && (!input || !input.value.trim()) && !area.children.length) {
+  if (!sendBtn) return;
+  
+  const hasText = input && input.value.trim().length > 0;
+  const hasTags = area && area.children.length > 0;
+  
+  if (hasText || hasTags) {
+    sendBtn.classList.remove('hidden');
+  } else {
     sendBtn.classList.add('hidden');
   }
 }
