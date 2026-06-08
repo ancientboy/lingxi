@@ -269,7 +269,7 @@ function drawChair(cx, cy) {
   ctx.beginPath(); ctx.ellipse(p.x, p.y, cr, cr*0.8, 0, 0, Math.PI*2); ctx.fill();
   ctx.strokeStyle = '#d0d0d0'; ctx.lineWidth = WS(0.8); ctx.stroke();
 
-  // Backrest — faces toward us (bottom), so character sits with back to us
+  // Backrest — faces toward us (bottom), normal size (character draws overlay when sitting)
   ctx.fillStyle = '#dcdcdc';
   ctx.beginPath(); ctx.arc(p.x, p.y+cr*0.65, cr*0.7, 0, Math.PI); ctx.fill();
   ctx.strokeStyle = '#c8c8c8'; ctx.lineWidth = WS(0.6); ctx.stroke();
@@ -889,27 +889,14 @@ function drawChar(ch) {
 
   const facing = pose.facing || 'front';
 
-  // Colored ribbon — different for front vs back view
+  // Colored ribbon — horizontal band around neck for all views
   ctx.fillStyle = ch.scarf;
-  if (facing === 'back') {
-    // Back view: vertical stripe down the back
-    ctx.beginPath();
-    ctx.roundRect(-3*s, -16*s, 6*s, 22*s*bodySY, 2*s);
-    ctx.fill();
-    // Small circle emblem on back
-    ctx.beginPath();
-    ctx.arc(0, -6*s, 4*s, 0, Math.PI*2);
-    ctx.fill();
-    // White "L" in emblem
-    ctx.fillStyle = '#fff';
-    ctx.font = `bold ${5*s}px -apple-system, sans-serif`;
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('L', 0, -5.5*s);
-  } else {
-    // Front view: band around neck + dangling tail
-    ctx.beginPath();
-    ctx.ellipse(0, -4*s, 13*s, 3.5*s, 0, 0, Math.PI*2);
-    ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(0, -4*s, 13*s, 3.5*s, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  if (facing !== 'back') {
+    // Front view: dangling tail
     ctx.beginPath();
     ctx.moveTo(-8*s, -2*s);
     ctx.quadraticCurveTo(-12*s, 4*s, -10*s, 8*s);
@@ -1086,6 +1073,20 @@ function drawChar(ch) {
 
   // Name tag
   ctx.restore();
+
+  // Chair backrest overlay (drawn ON TOP of character when typing)
+  // This covers the character's lower body like a real chair backrest
+  if (facing === 'back') {
+    const bp = W(ch.x, ch.y);
+    const bcr = WS(18);
+    ctx.fillStyle = '#dcdcdc';
+    ctx.beginPath();
+    ctx.arc(bp.x, bp.y + bcr*0.9, bcr*0.85, 0, Math.PI);
+    ctx.fill();
+    ctx.strokeStyle = '#c8c8c8'; ctx.lineWidth = WS(0.6);
+    ctx.stroke();
+  }
+
   ctx.fillStyle = 'rgba(0,0,0,0.5)';
   ctx.font = `600 ${WS(10)}px -apple-system, sans-serif`;
   ctx.textAlign = 'center';
