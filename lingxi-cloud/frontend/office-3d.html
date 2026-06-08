@@ -52,9 +52,9 @@ const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 canvas.width = CW; canvas.height = CH;
 
-const STATES = { IDLE: 'idle', TYPING: 'typing', WALKING: 'walking', SLEEPING: 'sleeping', SITTING: 'sitting' };
-const STATE_COLORS = { idle: '#F1C40F', typing: '#2ECC71', walking: '#3498DB', sleeping: '#9B59B6', sitting: '#E67E22' };
-const STATE_LABELS = { idle: 'Idle', typing: 'Typing', walking: 'Walking', sleeping: 'Sleeping', sitting: 'Sitting' };
+const STATES = { IDLE: 'idle', TYPING: 'typing', WALKING: 'walking', SLEEPING: 'sleeping', SITTING: 'sitting', RUNNING: 'running', DRINKING: 'drinking' };
+const STATE_COLORS = { idle: '#F1C40F', typing: '#2ECC71', walking: '#3498DB', sleeping: '#9B59B6', sitting: '#E67E22', running: '#E74C3C', drinking: '#3498DB' };
+const STATE_LABELS = { idle: 'Idle', typing: 'Typing', walking: 'Walking', sleeping: 'Sleeping', sitting: 'Sitting', running: 'Running', drinking: 'Coffee' };
 
 const AGENTS = [
   { id:'lingxi', name:'Lingxi',  scarf:'#6366f1', deskIdx:0 },
@@ -100,11 +100,14 @@ const CHAIR_OFFSET = 75;
 // Row2 chair y=385, Row3 desk top y=460 → aisle y=422
 // Row3 chair y=585, Row4 desk top y=660 → aisle y=622
 
-// Special locations — use chair-y for same-row access
+// Special locations — centered ON the actual furniture
+// Break area: bx=60, by=50, bw=180, bh=55 → center (150, 77)
+// Treadmill:  tx=70, ty=230, tw=140, th=55 → center (140, 257)
+// Sofa:       sx=70, sy=630, sw=120, sh=60 → center (130, 660)
 const LOC = {
-  coffee:    { x:140, y:185 },
-  sofa:      { x:130, y:585 },
-  treadmill: { x:140, y:385 },
+  coffee:    { x:150, y:77 },
+  sofa:      { x:130, y:660 },
+  treadmill: { x:140, y:257 },
 };
 
 // ==================== HELPERS ====================
@@ -549,17 +552,17 @@ edge('c4','i4');  // y=414
 edge('c6','i6');  // y=614
 
 // === Left area connections ===
-wp('bk', 140, 80);   // break area top entry
-wp('ba', 140, 185);  // break area (row 1 level)
-edge('c0','bk'); edge('bk','ba'); edge('ba','c1');
+// Break area: furniture at (60,50)-(240,105), center (150,77)
+wp('bk', 150, 77);   // break area (on the furniture)
+edge('c0','bk'); edge('bk','c1');  // connect via top and row1 corridor
 
-wp('tm', 140, 385);  // treadmill (row 2 level)
-wp('ta', 140, 414);  // treadmill (between-row)
-edge('c3','tm'); edge('tm','ta'); edge('ta','c4');
+// Treadmill: furniture at (70,230)-(210,285), center (140,257)
+wp('tm', 140, 257);  // treadmill (on the furniture)
+edge('c2','tm'); edge('tm','c3');  // connect via between-row aisles
 
-wp('sf', 130, 585);  // sofa (row 3 level)
-wp('sa', 130, 614);  // sofa (between-row)
-edge('c5','sf'); edge('sf','sa'); edge('sa','c6');
+// Sofa: furniture at (70,630)-(190,690), center (130,660)
+wp('sf', 130, 660);  // sofa (on the furniture)
+edge('c6','sf'); edge('sf','c7');  // connect via between-row aisles
 
 // Bottom loop
 edge('c8','r4');
@@ -675,7 +678,7 @@ class Char {
     this.state = s; this.anim = 0; this.updateUI();
     if (s===STATES.TYPING) this.stateTimer = rand(5,10);
     else if (s===STATES.IDLE) this.stateTimer = rand(4,8);
-    else if (s===STATES.SLEEPING || s===STATES.SITTING) this.stateTimer = rand(6,12);
+    else if (s===STATES.SLEEPING || s===STATES.SITTING || s===STATES.RUNNING || s===STATES.DRINKING) this.stateTimer = rand(6,12);
   }
 
   walkTo(tx,ty,next) {
@@ -708,44 +711,52 @@ class Char {
     const r = Math.random();
     switch(this.state) {
       case STATES.IDLE:
-        if (r<0.7) this.setState(STATES.TYPING);
+        if (r<0.65) this.setState(STATES.TYPING);
         else {
-          // Try coffee first, then sofa
-          if (r<0.85) {
-            if (this.tryGoToArea(LOC.coffee, STATES.IDLE)) {
-              // Coffee occupied, try sofa
-              if (this.tryGoToArea(LOC.sofa, STATES.SITTING)) {
-                // Both occupied, go back to typing
-                this.setState(STATES.TYPING);
-              }
-            }
-          } else {
-            if (this.tryGoToArea(LOC.sofa, STATES.SITTING)) {
-              if (this.tryGoToArea(LOC.coffee, STATES.IDLE)) {
-                this.setState(STATES.TYPING);
-              }
-            }
+          // Try coffee, sofa, or treadmill
+          const choices = [
+            { loc: LOC.coffee, state: STATES.DRINKING },
+            { loc: LOC.sofa, state: STATES.SITTING },
+            { loc: LOC.treadmill, state: STATES.RUNNING },
+          ];
+          // Shuffle
+          for (let i=choices.length-1; i>0; i--) {
+            const j = Math.floor(Math.random()*(i+1));
+            [choices[i], choices[j]] = [choices[j], choices[i]];
           }
+          let went = false;
+          for (const c of choices) {
+            if (!this.tryGoToArea(c.loc, c.state)) { went = true; break; }
+          }
+          if (!went) this.setState(STATES.TYPING);
         }
         break;
       case STATES.TYPING:
-        if (r<0.55) this.setState(STATES.IDLE);
-        else if (r<0.8) {
-          if (this.tryGoToArea(LOC.coffee, STATES.IDLE)) {
-            this.setState(STATES.IDLE); // coffee occupied, just idle at desk
+        if (r<0.5) this.setState(STATES.IDLE);
+        else {
+          const choices = [
+            { loc: LOC.coffee, state: STATES.DRINKING },
+            { loc: LOC.sofa, state: STATES.SITTING },
+            { loc: LOC.treadmill, state: STATES.RUNNING },
+          ];
+          for (let i=choices.length-1; i>0; i--) {
+            const j = Math.floor(Math.random()*(i+1));
+            [choices[i], choices[j]] = [choices[j], choices[i]];
           }
-        } else {
-          if (this.tryGoToArea(LOC.sofa, STATES.SITTING)) {
-            if (this.tryGoToArea(LOC.treadmill, STATES.IDLE)) {
-              this.setState(STATES.IDLE); // both occupied
-            }
+          let went = false;
+          for (const c of choices) {
+            if (!this.tryGoToArea(c.loc, c.state)) { went = true; break; }
           }
+          if (!went) this.setState(STATES.IDLE);
         }
         break;
       case STATES.SLEEPING:
       case STATES.SITTING:
-        if (r<0.8) { const h=this.homeDesk; this.walkTo(h.x,h.y,STATES.TYPING); }
-        else this.setState(STATES.SITTING);
+      case STATES.RUNNING:
+      case STATES.DRINKING:
+        // Done resting, go back to work
+        if (r<0.85) { const h=this.homeDesk; this.walkTo(h.x,h.y,STATES.TYPING); }
+        else this.setState(STATES.IDLE);
         break;
     }
   }
@@ -777,11 +788,13 @@ const chars = AGENTS.map((a, i) => {
 // ==================== DRAW CHARACTER ====================
 // Pre-defined poses for each state
 const POSES = {
-  idle:     { bodySY:1,   oxBase:0,    oyBase:0,    footMode:'normal' },
-  typing:   { bodySY:0.92, oxBase:0,   oyBase:-2,   footMode:'tucked' },
-  walking:  { bodySY:1,   oxBase:0,    oyBase:0,    footMode:'walk' },
-  sitting:  { bodySY:0.55, oxBase:4,   oyBase:8,    footMode:'forward' },
-  sleeping: { bodySY:0.55, oxBase:-6,  oyBase:0,    footMode:'tucked' },
+  idle:     { bodySY:1,    oxBase:0,   oyBase:0,   footMode:'normal' },
+  typing:   { bodySY:0.92, oxBase:0,   oyBase:-2,  footMode:'tucked' },
+  walking:  { bodySY:1,    oxBase:0,   oyBase:0,   footMode:'walk' },
+  sitting:  { bodySY:0.55, oxBase:4,   oyBase:8,   footMode:'forward' },
+  sleeping: { bodySY:0.55, oxBase:-6,  oyBase:0,   footMode:'tucked' },
+  running:  { bodySY:0.9,  oxBase:0,   oyBase:0,   footMode:'run' },
+  drinking: { bodySY:0.95, oxBase:0,   oyBase:0,   footMode:'normal' },
 };
 
 function drawChar(ch) {
@@ -799,6 +812,12 @@ function drawChar(ch) {
     oy += Math.abs(Math.sin(ch.anim*10))*2.5*S;
   } else if (ch.state===STATES.SLEEPING) {
     oy += Math.sin(ch.anim*1.5)*1.5*S;
+  } else if (ch.state===STATES.RUNNING) {
+    // Running bounce (faster, higher)
+    oy += Math.abs(Math.sin(ch.anim*14))*4*S;
+  } else if (ch.state===STATES.DRINKING) {
+    // Gentle sway, holding cup
+    oy += Math.sin(ch.anim*2)*1*S;
   }
 
   ctx.save();
@@ -809,8 +828,11 @@ function drawChar(ch) {
 
   // === Feet ===
   const walkCycle = ch.anim*10;
+  const runCycle = footMode==='run' ? ch.anim*14 : 0;
   const legSwing = footMode==='walk' ? Math.sin(walkCycle)*6*s : 0;
   const legBounce = footMode==='walk' ? Math.abs(Math.sin(walkCycle))*2*s : 0;
+  const runSwing = footMode==='run' ? Math.sin(runCycle)*8*s : 0;
+  const runBounce = footMode==='run' ? Math.abs(Math.sin(runCycle))*4*s : 0;
 
   ctx.fillStyle = '#1a1a1a';
   if (footMode === 'forward') {
@@ -825,8 +847,12 @@ function drawChar(ch) {
     // Walking: left-right swing
     ctx.beginPath(); ctx.ellipse(-6*s+legSwing, 16*s-legBounce, 6*s, 3.5*s, legSwing*0.05, 0, Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.ellipse(6*s-legSwing, 16*s-legBounce, 6*s, 3.5*s, -legSwing*0.05, 0, Math.PI*2); ctx.fill();
+  } else if (footMode === 'run') {
+    // Running: bigger swing, higher bounce (on treadmill)
+    ctx.beginPath(); ctx.ellipse(-4*s+runSwing, 15*s-runBounce, 5.5*s, 3*s, runSwing*0.08, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(4*s-runSwing, 15*s-runBounce, 5.5*s, 3*s, -runSwing*0.08, 0, Math.PI*2); ctx.fill();
   } else {
-    // Normal (idle): side by side
+    // Normal (idle/drinking): side by side
     ctx.beginPath(); ctx.ellipse(-5*s, 15*s, 5*s, 3*s, 0, 0, Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.ellipse(5*s, 15*s, 5*s, 3*s, 0, 0, Math.PI*2); ctx.fill();
   }
@@ -862,12 +888,21 @@ function drawChar(ch) {
   // Arms/flippers — different pose per state
   ctx.fillStyle = '#1a1a1a';
   if (footMode === 'forward') {
-    // Sitting: arms resting on "knees" (forward and down)
+    // Sitting: arms resting on "knees"
     ctx.beginPath();
     ctx.ellipse(8*s, 4*s, 5*s, 3.5*s, 0.4, 0, Math.PI*2);
     ctx.fill();
     ctx.beginPath();
     ctx.ellipse(10*s, 8*s, 5*s, 3.5*s, 0.3, 0, Math.PI*2);
+    ctx.fill();
+  } else if (footMode === 'run') {
+    // Running: arms pumping (bigger swing than walking)
+    const runArmSwing = Math.sin(ch.anim*14)*8*s;
+    ctx.beginPath();
+    ctx.ellipse(-13*s, -2*s-runArmSwing, 5*s, 4*s, -0.3, 0, Math.PI*2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(13*s, -2*s+runArmSwing, 5*s, 4*s, 0.3, 0, Math.PI*2);
     ctx.fill();
   } else if (footMode === 'walk') {
     // Walking: arms swing opposite to legs
@@ -878,7 +913,7 @@ function drawChar(ch) {
     ctx.ellipse(14*s, -2*s+legSwing*0.3, 5*s, 4*s, 0.2, 0, Math.PI*2);
     ctx.fill();
   } else if (ch.state===STATES.TYPING) {
-    // Typing: arms reaching forward, alternating up/down
+    // Typing: arms reaching forward, alternating
     const tOff = Math.sin(ch.anim*18)*4*s;
     ctx.beginPath();
     ctx.ellipse(-14*s, -2*s+tOff, 5*s, 4*s, -0.3, 0, Math.PI*2);
@@ -894,6 +929,26 @@ function drawChar(ch) {
     ctx.beginPath();
     ctx.ellipse(12*s, 2*s, 4*s, 3*s, 0.4, 0, Math.PI*2);
     ctx.fill();
+  } else if (ch.state===STATES.DRINKING) {
+    // Drinking: one arm up holding cup
+    ctx.beginPath();
+    ctx.ellipse(-13*s, -2*s, 5*s, 4*s, -0.3, 0, Math.PI*2);
+    ctx.fill();
+    // Right arm raised with "cup"
+    ctx.beginPath();
+    ctx.ellipse(12*s, -10*s, 4*s, 3.5*s, 0.5, 0, Math.PI*2);
+    ctx.fill();
+    // Cup (tiny rectangle above the hand)
+    ctx.fillStyle = '#888';
+    ctx.fillRect(10*s, -16*s, 5*s, 6*s);
+    // Steam wisp
+    ctx.strokeStyle = 'rgba(200,200,200,0.5)';
+    ctx.lineWidth = 1*s;
+    const steamY = Math.sin(ch.anim*3)*2*s;
+    ctx.beginPath();
+    ctx.moveTo(12.5*s, -17*s);
+    ctx.quadraticCurveTo(14*s, -20*s+steamY, 12*s, -22*s+steamY);
+    ctx.stroke();
   } else {
     // Idle: arms at sides, gentle sway
     const iOff = Math.sin(ch.anim*3)*1.5*s;
@@ -924,7 +979,7 @@ function drawChar(ch) {
     ctx.font = `bold ${4.5*s}px -apple-system, sans-serif`;
     ctx.fillText('z', 16*s, -24*s);
   } else if (ch.state===STATES.SITTING) {
-    // Happy relaxed eyes (slightly squinted, like smiling)
+    // Happy relaxed eyes
     ctx.fillStyle = '#fff';
     ctx.beginPath(); ctx.arc(-5.5*s, eyeY, 5*s, 0, Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.arc(5.5*s, eyeY, 5*s, 0, Math.PI*2); ctx.fill();
@@ -934,10 +989,29 @@ function drawChar(ch) {
     ctx.fillStyle = '#fff';
     ctx.beginPath(); ctx.arc(-4*s, eyeY-0.5*s, 1*s, 0, Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.arc(7*s, eyeY-0.5*s, 1*s, 0, Math.PI*2); ctx.fill();
-    // Extra blush (more happy)
     ctx.fillStyle = 'rgba(255,150,150,0.35)';
     ctx.beginPath(); ctx.arc(-9*s, -7*s, 3.5*s, 0, Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.arc(9*s, -7*s, 3.5*s, 0, Math.PI*2); ctx.fill();
+  } else if (ch.state===STATES.RUNNING) {
+    // Determined eyes — slightly squinted, pupils forward
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(-5.5*s, eyeY, 4.5*s, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(5.5*s, eyeY, 4.5*s, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#111';
+    ctx.beginPath(); ctx.arc(-4*s, eyeY, 2.2*s, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(7*s, eyeY, 2.2*s, 0, Math.PI*2); ctx.fill();
+  } else if (ch.state===STATES.DRINKING) {
+    // Happy closed-smile eyes (^_^) — enjoying coffee
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath(); ctx.arc(-5.5*s, eyeY, 5.2*s, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(5.5*s, eyeY, 5.2*s, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.8*s; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.arc(-5.5*s, eyeY+1*s, 3*s, Math.PI+0.3, -0.3); ctx.stroke();
+    ctx.beginPath(); ctx.arc(5.5*s, eyeY+1*s, 3*s, Math.PI+0.3, -0.3); ctx.stroke();
+    // Extra blush
+    ctx.fillStyle = 'rgba(255,150,150,0.4)';
+    ctx.beginPath(); ctx.arc(-10*s, -6*s, 3*s, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(10*s, -6*s, 3*s, 0, Math.PI*2); ctx.fill();
   } else if (ch.state===STATES.TYPING) {
     // Focused eyes — pupils look down (at screen)
     ctx.fillStyle = '#fff';
@@ -962,8 +1036,8 @@ function drawChar(ch) {
     ctx.beginPath(); ctx.arc(7.5*s, eyeY-0.5*s, 1*s, 0, Math.PI*2); ctx.fill();
   }
 
-  // Blush (skip if sleeping or sitting — sitting has its own)
-  if (ch.state !== STATES.SLEEPING && ch.state !== STATES.SITTING) {
+  // Blush (skip if state has custom blush)
+  if (![STATES.SLEEPING, STATES.SITTING, STATES.DRINKING].includes(ch.state)) {
     ctx.fillStyle = 'rgba(255,150,150,0.25)';
     ctx.beginPath(); ctx.arc(-9*s, -7*s, 3*s, 0, Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.arc(9*s, -7*s, 3*s, 0, Math.PI*2); ctx.fill();
