@@ -473,6 +473,89 @@ function drawSofa() {
   ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = WS(0.8); ctx.stroke();
 }
 
+// ==================== PATHFINDING ====================
+// Main corridors: vertical corridor at x=300, horizontal aisles between desk rows
+// Characters walk along corridors instead of clipping through furniture
+
+// Waypoints: key intersection points on the corridor network
+const WAYPOINTS = [
+  // Vertical corridor (x=300) intersections
+  { id:'v1', x:300, y:195 },  // Row 1 aisle
+  { id:'v2', x:300, y:375 },  // Row 2 aisle
+  { id:'v3', x:300, y:555 },  // Row 3 aisle
+  { id:'v4', x:300, y:735 },  // Row 4 aisle
+  // Left area connections (via aisles)
+  { id:'l1', x:140, y:195 },  // Break area via row 1 aisle
+  { id:'l2', x:140, y:375 },  // Treadmill via row 2 aisle
+  { id:'l3', x:130, y:555 },  // Sofa via row 3 aisle
+  // Desk positions (aisle side)
+  { id:'d0', x:420, y:195 }, { id:'d1', x:620, y:195 },
+  { id:'d2', x:420, y:375 }, { id:'d3', x:620, y:375 },
+  { id:'d4', x:420, y:555 }, { id:'d5', x:620, y:555 },
+  { id:'d6', x:420, y:735 }, { id:'d7', x:620, y:735 },
+];
+
+// Build adjacency: each WP connects to nearest WPs on same x or same y
+const WP_EDGES = {};
+WAYPOINTS.forEach(wp => {
+  WP_EDGES[wp.id] = [];
+  WAYPOINTS.forEach(other => {
+    if (wp.id === other.id) return;
+    // Connect if same x (vertical corridor) or same y (horizontal aisle)
+    if (Math.abs(wp.x - other.x) < 5 || Math.abs(wp.y - other.y) < 5) {
+      WP_EDGES[wp.id].push(other.id);
+    }
+  });
+});
+
+function wpDist(a, b) {
+  return dist(a.x, a.y, b.x, b.y);
+}
+
+// Find nearest waypoint to a position
+function nearestWP(x, y) {
+  let best = null, bestD = Infinity;
+  WAYPOINTS.forEach(wp => {
+    const d = dist(x, y, wp.x, wp.y);
+    if (d < bestD) { bestD = d; best = wp; }
+  });
+  return best;
+}
+
+// BFS shortest path between two waypoint IDs
+function findPath(fromId, toId) {
+  if (fromId === toId) return [];
+  const visited = new Set([fromId]);
+  const queue = [[fromId]];
+  while (queue.length > 0) {
+    const path = queue.shift();
+    const cur = path[path.length - 1];
+    for (const nb of (WP_EDGES[cur] || [])) {
+      if (nb === toId) return [...path.slice(1), nb];
+      if (visited.has(nb)) continue;
+      visited.add(nb);
+      queue.push([...path, nb]);
+    }
+  }
+  return []; // fallback: no path
+}
+
+// Build waypoint path from (x1,y1) to (x2,y2)
+function buildRoute(x1, y1, x2, y2) {
+  const from = nearestWP(x1, y1);
+  const to = nearestWP(x2, y2);
+  if (!from || !to) return [{ x: x2, y: y2 }];
+  const wpPath = findPath(from.id, to.id);
+  // Return as coordinate list: fromWP → waypoints → toWP → final destination
+  const route = [];
+  wpPath.forEach(id => {
+    const wp = WAYPOINTS.find(w => w.id === id);
+    if (wp) route.push({ x: wp.x, y: wp.y });
+  });
+  route.push({ x: x2, y: y2 });
+  return route;
+}
+
 // ==================== CHARACTER ====================
 class Char {
   constructor(agent, initState) {
@@ -480,7 +563,7 @@ class Char {
     this.scarf = agent.scarf;
     this.state = initState;
     const d = DESKS[agent.deskIdx % DESKS.length];
-    this.x = d.x; this.y = d.y + 55; // start at chair position
+    this.x = d.x; this.y = d.y + 55;
     this.tx = this.x; this.ty = this.y;
     this.anim = 0;
     this.stateTimer = rand(5,15);
@@ -488,6 +571,7 @@ class Char {
     this.speed = 3.5;
     this.angle = 0;
     this._next = null;
+    this.route = []; // waypoint path for current walk
   }
 
   get homeDesk() {
@@ -505,9 +589,17 @@ class Char {
 
     if (this.state === STATES.WALKING) {
       const d = dist(this.x, this.y, this.tx, this.ty);
-      if (d < 2) {
-        this.x = this.tx; this.y = this.ty;
-        if (this._next) { this.setState(this._next); this._next = null; }
+      if (d < 3) {
+        // Reached current target waypoint
+        if (this.route.length > 0) {
+          // Move to next waypoint in route
+          const next = this.route.shift();
+          this.tx = next.x; this.ty = next.y;
+        } else {
+          // Final destination reached
+          this.x = this.tx; this.y = this.ty;
+          if (this._next) { this.setState(this._next); this._next = null; }
+        }
       } else {
         const dx = this.tx-this.x, dy = this.ty-this.y;
         const len = Math.hypot(dx,dy);
@@ -530,7 +622,18 @@ class Char {
     else if (s===STATES.SLEEPING) this.stateTimer = rand(6,12);
   }
 
-  walkTo(tx,ty,next) { this.tx=tx; this.ty=ty; this._next=next; this.setState(STATES.WALKING); }
+  walkTo(tx,ty,next) {
+    // Build route through waypoints instead of walking through furniture
+    this.route = buildRoute(this.x, this.y, tx, ty);
+    if (this.route.length > 0) {
+      const first = this.route.shift();
+      this.tx = first.x; this.ty = first.y;
+    } else {
+      this.tx = tx; this.ty = ty;
+    }
+    this._next = next;
+    this.setState(STATES.WALKING);
+  }
 
   autoSwitch() {
     const r = Math.random();
