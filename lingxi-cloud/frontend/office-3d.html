@@ -264,14 +264,14 @@ function drawChair(cx, cy) {
   }
   ctx.fillStyle = '#999'; ctx.beginPath(); ctx.arc(p.x, p.y, WS(4), 0, Math.PI*2); ctx.fill();
 
-  // Seat cushion (top view, with slight depth)
+  // Seat cushion (top view)
   ctx.fillStyle = '#e8e8e8';
   ctx.beginPath(); ctx.ellipse(p.x, p.y, cr, cr*0.8, 0, 0, Math.PI*2); ctx.fill();
   ctx.strokeStyle = '#d0d0d0'; ctx.lineWidth = WS(0.8); ctx.stroke();
 
-  // Backrest (visible as arc at top)
+  // Backrest — faces toward us (bottom), so character sits with back to us
   ctx.fillStyle = '#dcdcdc';
-  ctx.beginPath(); ctx.arc(p.x, p.y-cr*0.65, cr*0.7, Math.PI, 0); ctx.fill();
+  ctx.beginPath(); ctx.arc(p.x, p.y+cr*0.65, cr*0.7, 0, Math.PI); ctx.fill();
   ctx.strokeStyle = '#c8c8c8'; ctx.lineWidth = WS(0.6); ctx.stroke();
 }
 
@@ -803,13 +803,13 @@ const chars = AGENTS.map((a, i) => {
 // ==================== DRAW CHARACTER ====================
 // Pre-defined poses for each state
 const POSES = {
-  idle:     { bodySY:1,    oxBase:0,   oyBase:0,   footMode:'normal' },
-  typing:   { bodySY:0.92, oxBase:0,   oyBase:-2,  footMode:'tucked' },
-  walking:  { bodySY:1,    oxBase:0,   oyBase:0,   footMode:'walk' },
-  sitting:  { bodySY:0.55, oxBase:4,   oyBase:8,   footMode:'forward' },
-  sleeping: { bodySY:0.55, oxBase:-6,  oyBase:0,   footMode:'tucked' },
-  running:  { bodySY:0.9,  oxBase:0,   oyBase:0,   footMode:'run' },
-  drinking: { bodySY:0.95, oxBase:0,   oyBase:0,   footMode:'normal' },
+  idle:     { bodySY:1,    oxBase:0,   oyBase:0,   footMode:'normal',  facing:'front' },
+  typing:   { bodySY:0.92, oxBase:0,   oyBase:-2,  footMode:'tucked',  facing:'back' },
+  walking:  { bodySY:1,    oxBase:0,   oyBase:0,   footMode:'walk',    facing:'front' },
+  sitting:  { bodySY:0.55, oxBase:4,   oyBase:8,   footMode:'forward', facing:'front' },
+  sleeping: { bodySY:0.55, oxBase:-6,  oyBase:0,   footMode:'tucked',  facing:'front' },
+  running:  { bodySY:0.9,  oxBase:0,   oyBase:0,   footMode:'run',     facing:'front' },
+  drinking: { bodySY:0.95, oxBase:0,   oyBase:0,   footMode:'normal',  facing:'front' },
 };
 
 function drawChar(ch) {
@@ -887,24 +887,45 @@ function drawChar(ch) {
   ctx.closePath();
   ctx.fill();
 
-  // Colored ribbon/band around neck area
-  ctx.fillStyle = ch.scarf;
-  ctx.beginPath();
-  ctx.ellipse(0, -4*s, 13*s, 3.5*s, 0, 0, Math.PI*2);
-  ctx.fill();
+  const facing = pose.facing || 'front';
 
-  // Tiny ribbon tail (dangling bit)
-  ctx.beginPath();
-  ctx.moveTo(-8*s, -2*s);
-  ctx.quadraticCurveTo(-12*s, 4*s, -10*s, 8*s);
-  ctx.lineTo(-7*s, 6*s);
-  ctx.quadraticCurveTo(-9*s, 2*s, -5*s, -1*s);
-  ctx.closePath();
-  ctx.fill();
+  // Colored ribbon — different for front vs back view
+  ctx.fillStyle = ch.scarf;
+  if (facing === 'back') {
+    // Back view: vertical stripe down the back
+    ctx.beginPath();
+    ctx.roundRect(-3*s, -16*s, 6*s, 22*s*bodySY, 2*s);
+    ctx.fill();
+    // Small circle emblem on back
+    ctx.beginPath();
+    ctx.arc(0, -6*s, 4*s, 0, Math.PI*2);
+    ctx.fill();
+    // White "L" in emblem
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${5*s}px -apple-system, sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('L', 0, -5.5*s);
+  } else {
+    // Front view: band around neck + dangling tail
+    ctx.beginPath();
+    ctx.ellipse(0, -4*s, 13*s, 3.5*s, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(-8*s, -2*s);
+    ctx.quadraticCurveTo(-12*s, 4*s, -10*s, 8*s);
+    ctx.lineTo(-7*s, 6*s);
+    ctx.quadraticCurveTo(-9*s, 2*s, -5*s, -1*s);
+    ctx.closePath();
+    ctx.fill();
+  }
 
   // Arms/flippers — different pose per state
   ctx.fillStyle = '#1a1a1a';
-  if (footMode === 'forward') {
+  if (facing === 'back') {
+    // Back view: arms barely visible on sides (just bumps)
+    ctx.beginPath(); ctx.ellipse(-13*s, 2*s, 4*s, 3*s, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(13*s, 2*s, 4*s, 3*s, 0, 0, Math.PI*2); ctx.fill();
+  } else if (footMode === 'forward') {
     // Sitting: arms resting on "knees"
     ctx.beginPath();
     ctx.ellipse(8*s, 4*s, 5*s, 3.5*s, 0.4, 0, Math.PI*2);
@@ -976,6 +997,8 @@ function drawChar(ch) {
     ctx.fill();
   }
 
+  // Eyes & blush — only for front-facing states
+  if (facing !== 'back') {
   // Eyes — different style per state
   const eyeY = -12*s;
 
@@ -1058,6 +1081,8 @@ function drawChar(ch) {
     ctx.beginPath(); ctx.arc(-9*s, -7*s, 3*s, 0, Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.arc(9*s, -7*s, 3*s, 0, Math.PI*2); ctx.fill();
   }
+
+  } // end facing !== 'back'
 
   // Name tag
   ctx.restore();
