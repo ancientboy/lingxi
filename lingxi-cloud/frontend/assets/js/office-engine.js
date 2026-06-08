@@ -100,18 +100,19 @@ function shadow(x,y,w,h,a=0.1) {
 // ==================== DRAW FUNCTIONS ====================
 
 function drawZones() {
-  // Break area (row 1 level, left)
-  ctx.fillStyle = 'rgba(139,105,20,0.03)';
-  rrect(45,135,210,85,12); ctx.fill();
-  // Wellness (row 2 level, left)
-  ctx.fillStyle = 'rgba(100,180,100,0.03)';
-  rrect(45,377,210,85,12); ctx.fill();
-  // Relax (row 3-4 level, left)
-  ctx.fillStyle = 'rgba(155,89,182,0.03)';
-  rrect(45,620,210,80,12); ctx.fill();
-  // Work zone
-  ctx.fillStyle = 'rgba(66,133,244,0.02)';
-  rrect(300,30,480,810,16); ctx.fill();
+  // Background zone highlights — aligned to actual furniture positions
+  // Break Area (around drawBreakArea at 60,145,180x55) + space for character
+  ctx.fillStyle = 'rgba(139,105,20,0.05)';
+  rrect(40,130,215,110,14); ctx.fill();
+  // Wellness (around drawTreadmill at 70,387,140x55) + space
+  ctx.fillStyle = 'rgba(100,180,100,0.05)';
+  rrect(40,370,210,100,14); ctx.fill();
+  // Relax (around drawSofa at 70,630,120x55) + space
+  ctx.fillStyle = 'rgba(155,89,182,0.05)';
+  rrect(40,615,210,100,14); ctx.fill();
+  // Work zone (encompasses all desks)
+  ctx.fillStyle = 'rgba(66,133,244,0.025)';
+  rrect(295,25,490,820,16); ctx.fill();
 }
 
 function drawLabels() {
@@ -663,9 +664,9 @@ class Char {
     this.x = d.x; this.y = d.y + CHAIR_OFFSET;
     this.tx = this.x; this.ty = this.y;
     this.anim = 0;
-    this.stateTimer = rand(5,15);
+    this.stateTimer = rand(4,10);
     this.taskTimer = 0;
-    this.speed = 3.5;
+    this.speed = 5.5;
     this.angle = 0;
     this._next = null;
     this.route = []; // waypoint path for current walk
@@ -708,7 +709,7 @@ class Char {
 
     if (this.state !== STATES.WALKING && this.taskTimer <= 0) {
       this.stateTimer -= dt;
-      if (this.stateTimer <= 0) { this.autoSwitch(); this.stateTimer = rand(5,15); }
+      if (this.stateTimer <= 0) { this.autoSwitch(); this.stateTimer = rand(3,8); }
     }
   }
 
@@ -756,8 +757,8 @@ class Char {
     const r = Math.random();
     switch(this.state) {
       case STATES.IDLE:
-        // Idle at desk → go back to typing or go to a left area
-        if (r<0.5) this.setState(STATES.TYPING);
+        // Idle at desk → go to left area (70%) or back to typing (30%)
+        if (r<0.3) this.setState(STATES.TYPING);
         else {
           const choices = [
             { loc: LOC.coffee, state: STATES.DRINKING },
@@ -776,8 +777,10 @@ class Char {
         }
         break;
       case STATES.TYPING:
-        // Typing → keep typing or take a break (go to left area)
-        {
+        // Typing → take a break: idle (30%) or go to area (40%) or keep typing (30%)
+        if (r<0.3) {
+          this.setState(STATES.IDLE);
+        } else if (r<0.7) {
           const choices = [
             { loc: LOC.coffee, state: STATES.DRINKING },
             { loc: LOC.sofa, state: STATES.SITTING },
@@ -791,8 +794,9 @@ class Char {
           for (const c of choices) {
             if (!this.tryGoToArea(c.loc, c.state)) { went = true; break; }
           }
-          // All areas occupied → stay typing
-          if (!went) { this.stateTimer = rand(5,10); }
+          if (!went) { this.stateTimer = rand(3,6); }
+        } else {
+          this.stateTimer = rand(4,8);
         }
         break;
       case STATES.SLEEPING:
