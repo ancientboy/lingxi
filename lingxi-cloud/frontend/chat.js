@@ -560,7 +560,7 @@ function handleWebSocketMessage(data) {
       if (typeof showSubscription === 'function') {
         showSubscription();
       } else {
-        addMessage('assistant', '💎 积分不足，请订阅或充值以继续', '灵犀');
+        addMessage('assistant', 'Credits insufficient. Please subscribe to continue.', '灵犀');
       }
       return;
     }
@@ -694,7 +694,7 @@ function handleWebSocketMessage(data) {
 
 // 从消息对象中提取文本
 function extractText(message) {
-  if (!message) return null;
+  if (!message) return { id: skillId, name: skillId, description: `Use skill ${skillId}`, example: `Use skill ${skillId}` };
   if (typeof message === 'string') return cleanMessageText(message);
   if (message.text) return cleanMessageText(message.text);
   if (message.content) {
@@ -706,7 +706,7 @@ function extractText(message) {
         .join('');
     }
   }
-  return null;
+  return { id: skillId, name: skillId, description: `Use skill ${skillId}`, example: `Use skill ${skillId}` };
 }
 
 // 清理消息文本，过滤掉元数据等技术信息
@@ -1129,7 +1129,7 @@ function getDocumentPreviewCard(mimeType, filename, fileSize) {
     'text/plain': { type: 'TXT', icon: 'TXT', gradient: ['#757575', '#9E9E9E'], color: '#757575' }
   };
   
-  const config = typeConfig[mimeType] || { type: 'FILE', icon: 'FILE', gradient: ['#667eea', '#764ba2'], color: '#667eea' };
+  const config = typeConfig[mimeType] || { type: 'FILE', icon: 'FILE', gradient: ['#10a37f', '#764ba2'], color: '#10a37f' };
   const displayName = filename.length > 20 ? filename.substring(0, 20) + '...' : filename;
   const displaySize = fileSize ? formatFileSize(fileSize) : '';
   
@@ -1187,7 +1187,7 @@ function getDocumentPreviewCardHTML(mimeType, filename, fileSize) {
     'application/vnd.ms-powerpoint': { type: 'PPT', icon: 'P', gradient: 'linear-gradient(135deg, #FF9800 0%, #FFA726 100%)', color: '#E65100' }
   };
   
-  const config = typeConfig[mimeType] || { type: 'FILE', icon: 'FILE', gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: '#667eea' };
+  const config = typeConfig[mimeType] || { type: 'FILE', icon: 'FILE', gradient: 'linear-gradient(135deg, #10a37f 0%, #764ba2 100%)', color: '#10a37f' };
   const displayName = filename.length > 20 ? filename.substring(0, 20) + '...' : filename;
   const displaySize = fileSize ? formatFileSize(fileSize) : '';
   
@@ -1295,15 +1295,15 @@ function formatRelativeTime(timestamp) {
   const now = Date.now();
   const diff = now - timestamp;
   
-  if (diff < 60000) return '刚刚';
-  if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`;
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`;
-  if (diff < 172800000) return '昨天';
-  if (diff < 604800000) return `${Math.floor(diff / 86400000)} 天前`;
+  if (diff < 60000) return 'just now';
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+  if (diff < 172800000) return 'yesterday';
+  if (diff < 604800000) return `${Math.floor(diff / 86400000)}d ago`;
   
   // 超过一周，显示绝对时间
   const date = new Date(timestamp);
-  return `${date.getMonth() + 1}月${date.getDate()}日`;
+  return `${date.getMonth() + 1}/${date.getDate()}`;
 }
 
 // 移除选中的图片
@@ -2050,14 +2050,14 @@ async function loadSessions() {
             } else {
               // 没有消息，使用 session key 的最后一部分
               const keyParts = (session.key || '').split(':');
-              session.title = keyParts[keyParts.length - 1] || '未命名会话';
-              session.preview = '暂无消息';
+              session.title = keyParts[keyParts.length - 1] || 'Untitled';
+              session.preview = 'No messages';
             }
           } catch (e) {
             console.warn('加载会话历史失败:', session.key, e);
             const keyParts = (session.key || '').split(':');
-            session.title = keyParts[keyParts.length - 1] || '未命名会话';
-            session.preview = '暂无消息';
+            session.title = keyParts[keyParts.length - 1] || 'Untitled';
+            session.preview = 'No messages';
           }
         }
         
@@ -2076,8 +2076,8 @@ async function loadSessions() {
       allSessions.slice(10).forEach(session => {
         if (!session.title) {
           const keyParts = (session.key || '').split(':');
-          session.title = session.label || keyParts[keyParts.length - 1] || '未命名会话';
-          session.preview = '暂无消息';
+          session.title = session.label || keyParts[keyParts.length - 1] || 'Untitled';
+          session.preview = 'No messages';
         }
         const timestamp = session.updatedAt ? new Date(session.updatedAt).getTime() : Date.now();
         session.relativeTime = formatRelativeTime(timestamp);
@@ -2173,8 +2173,8 @@ function renderSessionList() {
     const isActive = session.key === currentSessionKey;
     
     // 🆕 使用提取的标题、预览和时间
-    const displayName = session.title || session.label || '未命名会话';
-    const preview = session.preview || session.lastMessage || '暂无消息';
+    const displayName = session.title || session.label || 'Untitled';
+    const preview = session.preview || session.lastMessage || 'No messages';
     const time = session.relativeTime || '';
     
     // 截断预览文本
@@ -2199,7 +2199,7 @@ function renderSessionList() {
   if (window.sessions.length === 0) {
     html += `
       <div style="text-align:center;padding:20px;color:rgba(255,255,255,0.5);font-size:13px;">
-        暂无历史会话<br>点击"新会话"开始
+        No history yet<br>点击"新会话"开始
       </div>
     `;
   }
@@ -4189,15 +4189,7 @@ async function renderSkillGrid(agentId) {
         </div>
         <div class="skill-agent-tag">来自 ${agentName}</div>
         <div class="skill-actions">
-          ${installed
-            ? `<span class="skill-badge installed" onclick="event.stopPropagation();">
-                 <i data-lucide="check-circle" class="icon-sm"></i>
-                 已安装
-               </span>`
-            : `<button class="skill-btn install" onclick="event.stopPropagation(); installSkill('${skill.id}', this)">
-                 <i data-lucide="download" class="icon-sm"></i>
-                 安装
-               </button>`
+          ${installed ? `<span class="skill-badge installed" onclick="event.stopPropagation()"><i data-lucide="check-circle" class="icon-sm"></i> Installed</span><button class="skill-btn use" onclick="event.stopPropagation(); useSkill('${skill.id}')">Use</button>` : `<button class="skill-btn install" onclick="event.stopPropagation(); installAndUseSkill('${skill.id}', this)"><i data-lucide="download" class="icon-sm"></i> Install & Use</button>`}
           }
         </div>
       </div>
@@ -4280,15 +4272,7 @@ function handleSkillSearch() {
           </div>
         </div>
         <div class="skill-actions">
-          ${installed
-            ? `<span class="skill-badge installed" onclick="event.stopPropagation();">
-                 <i data-lucide="check-circle" class="icon-sm"></i>
-                 已安装
-               </span>`
-            : `<button class="skill-btn install" onclick="event.stopPropagation(); installSkill('${skill.id}', this)">
-                 <i data-lucide="download" class="icon-sm"></i>
-                 安装
-               </button>`
+          ${installed ? `<span class="skill-badge installed" onclick="event.stopPropagation()"><i data-lucide="check-circle" class="icon-sm"></i> Installed</span><button class="skill-btn use" onclick="event.stopPropagation(); useSkill('${skill.id}')">Use</button>` : `<button class="skill-btn install" onclick="event.stopPropagation(); installAndUseSkill('${skill.id}', this)"><i data-lucide="download" class="icon-sm"></i> Install & Use</button>`}
           }
         </div>
       </div>
@@ -4433,7 +4417,7 @@ function renderSkills(skills, installedSet, source = 'local') {
     noter: { name: '晓琳', icon: 'file-text', color: '#ef4444' },
     media: { name: '音韵', icon: 'palette', color: '#ec4899' },
     smart: { name: '智家', icon: 'home', color: '#3b82f6' },
-    lingxi: { name: '灵犀', icon: 'zap', color: '#6366f1' }
+    lingxi: { name: '灵犀', icon: 'zap', color: '#10a37f' }
   };
 
   const getAgentColor = (agent) => agentMap[agent]?.color || '#10a37f';
@@ -4456,7 +4440,7 @@ function renderSkills(skills, installedSet, source = 'local') {
             <div style="display:flex;gap:8px;margin-top:6px;">
               <span class="skill-agent-tag"><i data-lucide="user" class="icon-sm"></i> ${skill.agent || '通用'}</span>
               ${source === 'local'
-                ? `<span class="skill-source-tag" style="background:rgba(16,163,127,0.1);color:#10a37f;"><i data-lucide="database" class="icon-sm"></i> 本地</span>`
+                ? `<span class="skill-source-tag" style="background:rgba(16, 163, 127,0.1);color:#10a37f;"><i data-lucide="database" class="icon-sm"></i> 本地</span>`
                 : `<span class="skill-source-tag skill-source-hot"><i data-lucide="star" class="icon-sm"></i> 热门</span>`
               }
             </div>
@@ -4464,8 +4448,8 @@ function renderSkills(skills, installedSet, source = 'local') {
         </div>
         <div class="skill-actions">
           ${isInstalled
-            ? `<span class="skill-badge installed" onclick="event.stopPropagation();"><i data-lucide="check-circle" class="icon-sm"></i> 已安装</span>`
-            : `<button class="skill-btn install" onclick="event.stopPropagation(); installSkill('${skill.id}', this)"><i data-lucide="download" class="icon-sm"></i> 安装</button>`
+            ? `<span class="skill-badge installed" onclick="event.stopPropagation();"><i data-lucide="check-circle" class="icon-sm"></i> Installed</span><button class="skill-btn use" onclick="event.stopPropagation(); useSkill('${skill.id}')">Use</button>`
+            : `<button class="skill-btn install" onclick="event.stopPropagation(); installAndUseSkill('${skill.id}', this)"><i data-lucide="download" class="icon-sm"></i> Install & Use</button>`
           }
         </div>
       </div>
@@ -4494,7 +4478,7 @@ function renderPopularSkills(skills, installedSet) {
     noter: { name: '晓琳', icon: 'file-text', color: '#ef4444' },
     media: { name: '音韵', icon: 'palette', color: '#ec4899' },
     smart: { name: '智家', icon: 'home', color: '#3b82f6' },
-    lingxi: { name: '灵犀', icon: 'zap', color: '#6366f1' }
+    lingxi: { name: '灵犀', icon: 'zap', color: '#10a37f' }
   };
 
   const getAgentColor = (agent) => agentMap[agent]?.color || '#10a37f';
@@ -4522,8 +4506,8 @@ function renderPopularSkills(skills, installedSet) {
         </div>
         <div class="skill-actions">
           ${isInstalled
-            ? `<span class="skill-badge installed" onclick="event.stopPropagation();"><i data-lucide="check-circle" class="icon-sm"></i> 已安装</span>`
-            : `<button class="skill-btn install" onclick="event.stopPropagation(); installSkill('${skill.id}', this)"><i data-lucide="download" class="icon-sm"></i> 安装</button>`
+            ? `<span class="skill-badge installed" onclick="event.stopPropagation();"><i data-lucide="check-circle" class="icon-sm"></i> Installed</span><button class="skill-btn use" onclick="event.stopPropagation(); useSkill('${skill.id}')">Use</button>`
+            : `<button class="skill-btn install" onclick="event.stopPropagation(); installAndUseSkill('${skill.id}', this)"><i data-lucide="download" class="icon-sm"></i> Install & Use</button>`
           }
         </div>
       </div>
@@ -4534,28 +4518,141 @@ function renderPopularSkills(skills, installedSet) {
 }
 
 // ===== 安装本地技能 =====
-function installSkill(skillId, btnElement) {
-  // 获取技能名称（从父元素中找）
-  const card = btnElement?.closest('.skill-card');
-  const skillNameEl = card?.querySelector('.skill-name');
-  const skillName = skillNameEl?.textContent || skillId;
 
-  // 填入输入框（不自动发送，让用户确认）
-  const input = document.getElementById('inputField');
-  if (input) {
-    input.value = `安装技能 ${skillId}`;
-    input.focus();
-    // 将光标移到末尾
-    input.setSelectionRange(input.value.length, input.value.length);
-  }
+// ========== 技能安装 + 使用 ==========
 
-  // 关闭技能库弹窗
+/**
+ * 一键使用技能（已安装）
+ * 跳转聊天 → 填入 @agent + 技能示例
+ */
+function useSkill(skillId) {
+  // 从技能缓存中找到技能信息
+  const skill = findSkillById(skillId);
+  if (!skill) return;
+
+  // 关闭技能库面板
   closeSkillLibrary();
+
+  // 切换到聊天输入
+  const input = document.getElementById('inputField');
+  if (!input) return;
+
+  // 构造使用消息
+  const exampleText = skill.example || skill.description || `使用技能 ${skill.name}`;
+  input.value = exampleText;
+  input.focus();
+  input.setSelectionRange(input.value.length, input.value.length);
+
+  // 触发输入框自动增高
+  input.dispatchEvent(new Event('input'));
 }
 
-// 暴露到全局作用域（供 onclick 调用）
-window.installSkill = installSkill;
+/**
+ * 一键安装并使用技能（未安装）
+ * 1. 通过 chat.send RPC 让 Agent 执行 clawhub install
+ * 2. 安装完成后跳转聊天填入示例
+ */
+async function installAndUseSkill(skillId, btnElement) {
+  const skill = findSkillById(skillId);
+  if (!skill) return;
 
+  const btn = btnElement;
+  const originalHTML = btn?.innerHTML || '';
+  
+  // 更新按钮状态
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:2px;margin-right:4px"></span> Installing...';
+  }
+
+  try {
+    const token = localStorage.getItem('lingxi_token');
+    
+    // 调用后端 API 安装技能（后端通过 chat.send RPC 让 Agent 执行 clawhub install）
+    const res = await fetch(`${API_BASE}/api/skills/install-and-use`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        skillId,
+        skillName: skill.name || skillId
+      })
+    });
+
+    const data = await res.json();
+    
+    if (data.success) {
+      // 更新本地安装状态
+      installedSkills.add(skillId);
+      
+      // 关闭技能库面板
+      closeSkillLibrary();
+
+      // 跳转聊天 → 填入使用示例
+      const input = document.getElementById('inputField');
+      if (input) {
+        const exampleText = skill.example || skill.description || `使用技能 ${skill.name}`;
+        input.value = exampleText;
+        input.focus();
+        input.dispatchEvent(new Event('input'));
+      }
+      
+      showToast('✅ Skill installed!');
+    } else {
+      // 安装失败 → 退而求其次，填入安装指令让用户自己发
+      closeSkillLibrary();
+      const input = document.getElementById('inputField');
+      if (input) {
+        input.value = `请使用 clawhub 安装技能 "${skill.name || skillId}"`;
+        input.focus();
+        input.dispatchEvent(new Event('input'));
+      }
+      showToast('⚠️ ' + (data.error || 'Install failed, please try manually'));
+    }
+  } catch (err) {
+    console.error('Install skill error:', err);
+    // 网络错误 → 填入手动安装指令
+    closeSkillLibrary();
+    const input = document.getElementById('inputField');
+    if (input) {
+      input.value = `请使用 clawhub 安装技能 "${skill.name || skillId}"`;
+      input.focus();
+      input.dispatchEvent(new Event('input'));
+    }
+    showToast('⚠️ Network error, please install manually');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = originalHTML;
+    }
+  }
+}
+
+/**
+ * 在技能缓存中查找技能
+ */
+function findSkillById(skillId) {
+  // 搜索所有缓存
+  const allCaches = [localSkillsCache, popularSkillsCache, clawHubSkillsCache];
+  for (const cache of allCaches) {
+    if (!cache) continue;
+    for (const skill of cache) {
+      if (skill.id === skillId) return skill;
+    }
+  }
+  return { id: skillId, name: skillId, description: `Use skill ${skillId}`, example: `Use skill ${skillId}` };
+}
+
+// 保留旧函数名兼容
+function installSkill(skillId, btnElement) {
+  return installAndUseSkill(skillId, btnElement);
+}
+
+window.installSkill = installSkill;
+window.useSkill = useSkill;
+window.installAndUseSkill = installAndUseSkill;
 // 初始化时渲染 agent 下拉
 function initAgentDropdown() {
   console.log('🎯 initAgentDropdown 调用，user:', user);
@@ -5124,7 +5221,7 @@ async function loadNotificationList() {
       let icon = '';
       if (n.type === 'reminder') {
         barClass = 'reminder';
-        icon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;flex-shrink:0;margin-right:4px;color:#667eea"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+        icon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;flex-shrink:0;margin-right:4px;color:#10a37f"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
       } else if (n.type === 'server_offline') {
         barClass = 'offline';
         icon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;flex-shrink:0;margin-right:4px;color:#f5576c"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>';

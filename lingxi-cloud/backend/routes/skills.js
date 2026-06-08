@@ -536,3 +536,71 @@ router.get('/builtin', async (req, res) => {
     res.status(500).json({ error: '获取内置技能失败', message: error.message });
   }
 });
+
+/**
+ * POST /install-and-use
+ * 一键安装技能（通过 OpenClaw chat.send RPC）
+ * 让 Agent 自己执行 clawhub install
+ */
+router.post('/install-and-use', authenticateUser, async (req, res) => {
+  const { skillId, skillName } = req.body;
+  const userId = req.user.id;
+  
+  if (!skillId) {
+    return res.status(400).json({ success: false, error: 'skillId required' });
+  }
+
+  try {
+    const db = await getDB();
+    
+    // 获取用户服务器信息
+    const userServer = db.userServers?.find(s => s.userId === userId);
+    if (!userServer || !userServer.ip) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'No server found. Please add a device first.' 
+      });
+    }
+
+    // 导入 RPC 工具
+    const { callOpenClawRPC } = await import('../utils/openclaw-rpc.js');
+
+    // 通过 chat.send 让 Agent 执行 clawhub install
+    const installMessage = `请执行以下操作：使用 clawhub 安装技能 "${skillName || skillId}"（ID: ${skillId}）。执行安装即可，安装完成后告诉我结果。`;
+    
+    try {
+      const rpcResult = await callOpenClawRPC(userServer, 'chat.send', {
+        message: installMessage,
+      }, { timeout: 30000 });
+
+      if (!rpcResult?.ok) {
+        console.warn('[skills] RPC install failed:', rpcResult?.error);
+        // RPC 失败 → 降级：只记录安装状态，让用户手动发
+      }
+    } catch (rpcErr) {
+      console.warn('[skills] RPC error:', rpcErr.message);
+      // RPC 连接失败 → 降级
+    }
+
+    // 记录安装状态（无论 RPC 是否成功都记录）
+    if (!db.userSkills) db.userSkills = {};
+    if (!db.userSkills[userId]) db.userSkills[userId] = [];
+    if (!db.userSkills[userId].includes(skillId)) {
+      db.userSkills[userId].push(skillId);
+      await saveDB(db);
+    }
+
+    res.json({
+      success: true,
+      skillId,
+      message: 'Install command sent to your AI team'
+    });
+    
+  } catch (error) {
+    console.error('Install-and-use error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Install failed' 
+    });
+  }
+});

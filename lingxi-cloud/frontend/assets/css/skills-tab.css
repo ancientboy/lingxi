@@ -460,3 +460,46 @@
   font-size: 13px;
   font-weight: 600;
 }
+
+/* Skill action buttons */
+.skill-actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.skill-badge { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 500; }
+.skill-badge.installed { background: var(--accent-soft); color: var(--accent); }
+.skill-btn { display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px; border: none; border-radius: 6px; font-size: 11px; font-weight: 600; font-family: var(--font-display); cursor: pointer; transition: all var(--transition); }
+.skill-btn.install { background: var(--accent); color: white; }
+.skill-btn.install:hover { background: var(--accent-h); transform: translateY(-1px); }
+.skill-btn.use { background: var(--bg-hover); color: var(--accent); border: 1px solid var(--accent); }
+.skill-btn.use:hover { background: var(--accent-soft); transform: translateY(-1px); }
+
+/* ===== New Skill Action Buttons ===== */
+.skill-status-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 10px; border-radius: 6px;
+  font-size: 11px; font-weight: 600; font-family: var(--font-display);
+}
+.skill-status-badge.builtin { background: var(--bg-hover); color: var(--text-3); }
+.skill-status-badge.installed { background: var(--accent-soft); color: var(--accent); }
+
+.skill-use-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 5px 14px; border: 1px solid var(--accent); border-radius: 6px;
+  background: transparent; color: var(--accent);
+  font-size: 11px; font-weight: 600; font-family: var(--font-display);
+  cursor: pointer; transition: all var(--transition);
+}
+.skill-use-btn:hover { background: var(--accent-soft); transform: translateY(-1px); }
+
+.skill-install-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 5px 14px; border: none; border-radius: 6px;
+  background: var(--accent); color: white;
+  font-size: 11px; font-weight: 600; font-family: var(--font-display);
+  cursor: pointer; transition: all var(--transition);
+}
+.skill-install-btn:hover { background: var(--accent-h); transform: translateY(-1px); }
+
+.skill-icon {
+  width: 40px; height: 40px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}

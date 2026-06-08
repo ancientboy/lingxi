@@ -133,6 +133,25 @@ async function fetchCurrentAgentsAsMembers(userServer) {
  * @returns {Object|null} 模板对象，附带 isCustom 标记
  */
 function findTemplateById(templateId, db, userId) {
+  // 0. 特殊处理：配置快照
+  if (templateId === 'my-snapshot') {
+    const snapshot = (db.userTemplates || []).find(
+      t => t.userId === userId && t.id === 'my-snapshot'
+    );
+    if (snapshot) {
+      return {
+        templateId: 'my-snapshot',
+        templateName: '我的配置',
+        description: snapshot.description || '当前 Agent 配置快照',
+        category: 'snapshot',
+        tags: [],
+        members: snapshot.members || [],
+        isSnapshot: true,
+        isCustom: false,
+      };
+    }
+  }
+
   // 1. 先查预设模板
   const preset = TEAM_TEMPLATES.find(t => t.templateId === templateId);
   if (preset) {
@@ -524,6 +543,7 @@ router.get('/templates', async (req, res) => {
 
   // 尝试识别登录用户，合并自定义模板
   let customList = [];
+  let snapshotTemplate = null;
   try {
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -541,13 +561,35 @@ router.get('/templates', async (req, res) => {
           memberCount: (t.members || []).length,
           isCustom: true
         }));
+      // 检查是否有快照
+      const snapshot = (db.userTemplates || []).find(
+        t => t.userId === decoded.userId && t.id === 'my-snapshot'
+      );
+      if (snapshot) {
+        snapshotTemplate = {
+          templateId: 'my-snapshot',
+          templateName: '我的配置',
+          description: snapshot.description || '当前 Agent 配置快照',
+          category: 'snapshot',
+          tags: [],
+          memberCount: (snapshot.members || []).length,
+          isSnapshot: true,
+          isCustom: false,
+          updatedAt: snapshot.updatedAt,
+        };
+      }
     }
   } catch (e) {
     // Token 无效或过期 → 忽略，只返回预设模板
   }
 
+  // 快照排在最前面
+  const allTemplates = snapshotTemplate
+    ? [snapshotTemplate, ...presetTemplates, ...customList]
+    : [...presetTemplates, ...customList];
+
   success(res, {
-    templates: [...presetTemplates, ...customList]
+    templates: allTemplates
   });
 });
 
@@ -670,6 +712,210 @@ router.post('/templates/save', authAndCheckOwnership, async (req, res) => {
   }
 });
 
+// ============ 配置快照（模板切换前自动保存） ============
+
+/**
+ * 保存当前 OpenClaw Agent 配置为"我的配置"快照
+ * POST /api/team/templates/snapshot
+ *
+ * 逻辑：
+ * 1. 通过 RPC 读 OpenClaw config.get 获取 agents.list
+ * 2. 提取每个 agent 的关键信息
+ * 3. 存到 db.userTemplates（覆盖已有的 my-snapshot）
+ */
+router.post('/templates/snapshot', verifyToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const db = await getDB();
+    const userServer = getActiveServer(db, userId);
+
+    if (!userServer?.ip) {
+      return res.status(400).json({ success: false, error: '没有可用的服务器' });
+    }
+
+    // 读 OpenClaw 当前 Agent 列表
+    const configRes = await callOpenClawRPC(userServer, 'config.get', {}, {
+      displayName: '灵犀云快照',
+    });
+    if (!configRes.ok) {
+      return res.status(500).json({ success: false, error: '读取配置失败' });
+    }
+
+    const agentsList = configRes.payload?.config?.agents?.list || [];
+
+    const snapshot = {
+      id: 'my-snapshot',
+      userId,
+      name: '我的配置',
+      description: '当前 OpenClaw Agent 配置快照',
+      isSnapshot: true,
+      members: agentsList
+        .filter(a => a.id !== 'main')
+        .map(a => ({
+          id: a.id,
+          agentId: a.id,
+          name: a.identity?.name || a.name || a.id,
+          icon: a.identity?.emoji || '🤖',
+          role: a.identity?.name || a.id,
+          desc: '',
+          triggers: [a.id],
+          model: a.model || '',
+          workspace: a.workspace || '',
+        })),
+      agents: agentsList.map(a => ({
+        id: a.id,
+        name: a.identity?.name || a.name || a.id,
+        model: a.model,
+        workspace: a.workspace,
+        default: a.default === true,
+        subagents: a.subagents || {},
+      })),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    // 存到 userTemplates（覆盖已有的 my-snapshot）
+    if (!db.userTemplates) db.userTemplates = [];
+    const idx = db.userTemplates.findIndex(t => t.userId === userId && t.id === 'my-snapshot');
+    if (idx >= 0) {
+      snapshot.createdAt = db.userTemplates[idx].createdAt; // 保留首次创建时间
+      db.userTemplates[idx] = snapshot;
+    } else {
+      db.userTemplates.push(snapshot);
+    }
+    await saveDB(db);
+
+    console.log(`✅ 用户 ${userId} 保存配置快照，共 ${snapshot.agents.length} 个 Agent`);
+    res.json({ success: true, snapshot });
+  } catch (error) {
+    console.error('保存配置快照失败:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * 获取用户的配置快照
+ * GET /api/team/templates/snapshot
+ */
+router.get('/templates/snapshot', verifyToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const db = await getDB();
+    const snapshot = (db.userTemplates || []).find(
+      t => t.userId === userId && t.id === 'my-snapshot'
+    );
+
+    if (!snapshot) {
+      return res.json({ success: true, snapshot: null });
+    }
+
+    res.json({ success: true, snapshot });
+  } catch (error) {
+    console.error('获取配置快照失败:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * 内部函数：保存当前配置快照（不通过 HTTP，供 apply-template 内部调用）
+ * 优先从 OpenClaw RPC 读取，失败则从 db 中的 team.members 读取
+ * @returns {boolean} 是否成功保存
+ */
+async function _saveSnapshotInternal(userId, db) {
+  try {
+    const userServer = getActiveServer(db, userId);
+    let agentsList = [];
+    let members = [];
+
+    // 尝试从 RPC 读取
+    if (userServer?.ip) {
+      try {
+        const configRes = await callOpenClawRPC(userServer, 'config.get', {}, {
+          displayName: '灵犀云快照',
+        });
+        if (configRes.ok) {
+          agentsList = configRes.payload?.config?.agents?.list || [];
+        }
+      } catch (e) {
+        console.warn('⚠️ 快照: RPC 读取失败，回退到 db:', e.message);
+      }
+    }
+
+    // 回退：从 db 中读取用户的 team.members
+    if (agentsList.length === 0) {
+      const user = db.users.find(u => u.id === userId);
+      const dbMembers = user?.team?.members || [];
+      if (dbMembers.length > 0) {
+        members = dbMembers.map(m => ({
+          id: m.id,
+          name: m.name || m.id,
+          icon: m.icon || '🤖',
+          role: m.role || '',
+          desc: m.desc || '',
+          triggers: m.triggers || [m.id],
+          model: m.model || '',
+          workspace: m.workspace || '',
+        }));
+      }
+    } else {
+      members = agentsList
+        .filter(a => a.id !== 'main')
+        .map(a => ({
+          id: a.id,
+          name: a.identity?.name || a.name || a.id,
+          icon: a.identity?.emoji || '🤖',
+          role: a.identity?.name || a.id,
+          desc: '',
+          triggers: [a.id],
+          model: a.model || '',
+          workspace: a.workspace || '',
+        }));
+    }
+
+    if (members.length === 0 && agentsList.length === 0) {
+      console.warn('⚠️ 快照: 没有可保存的配置');
+      return false;
+    }
+
+    const snapshot = {
+      id: 'my-snapshot',
+      userId,
+      name: '我的配置',
+      description: '切换模板前的 Agent 配置快照',
+      isSnapshot: true,
+      members,
+      agents: agentsList.length > 0
+        ? agentsList.map(a => ({
+            id: a.id,
+            name: a.identity?.name || a.name || a.id,
+            model: a.model,
+            workspace: a.workspace,
+            default: a.default === true,
+            subagents: a.subagents || {},
+          }))
+        : members.map(m => ({ id: m.id, name: m.name, model: m.model || '', workspace: m.workspace || '' })),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (!db.userTemplates) db.userTemplates = [];
+    const idx = db.userTemplates.findIndex(t => t.userId === userId && t.id === 'my-snapshot');
+    if (idx >= 0) {
+      snapshot.createdAt = db.userTemplates[idx].createdAt;
+      db.userTemplates[idx] = snapshot;
+    } else {
+      db.userTemplates.push(snapshot);
+    }
+
+    console.log(`✅ 用户 ${userId} 自动保存配置快照，共 ${snapshot.members.length} 个成员`);
+    return true;
+  } catch (error) {
+    console.error('自动保存快照失败:', error);
+    return false;
+  }
+}
+
+
 /**
  * 删除自定义模板
  * DELETE /api/team/templates/:templateId
@@ -739,6 +985,30 @@ async function _handleCustomTemplateLookup(req, res) {
     const { templateId } = req.params;
     const userId = req.user.id;
     const db = await getDB();
+
+    // 特殊处理：配置快照
+    if (templateId === 'my-snapshot') {
+      const snapshot = (db.userTemplates || []).find(
+        t => t.userId === userId && t.id === 'my-snapshot'
+      );
+      if (snapshot) {
+        return success(res, {
+          template: {
+            templateId: 'my-snapshot',
+            templateName: '我的配置',
+            description: snapshot.description || '当前 Agent 配置快照',
+            category: 'snapshot',
+            tags: [],
+            members: snapshot.members || [],
+            isSnapshot: true,
+            isCustom: false,
+            updatedAt: snapshot.updatedAt,
+          }
+        });
+      }
+      return errors.notFound(res, '快照');
+    }
+
     const custom = (db.customTemplates || []).find(
       t => t.id === templateId && t.userId === userId
     );
@@ -1022,6 +1292,15 @@ router.post('/:userId/apply-template/:templateId', authAndCheckOwnership, async 
     if (!user) {
       return errors.notFound(res, '用户');
     }
+
+    // ✅ 模板切换前自动保存当前配置为快照（仅在当前有团队配置时）
+    let snapshotSaved = false;
+    if (user.team?.members?.length > 0 && templateId !== 'my-snapshot') {
+      snapshotSaved = await _saveSnapshotInternal(userId, db);
+      if (snapshotSaved) {
+        console.log(`✅ 已为用户 ${userId} 自动保存配置快照`);
+      }
+    }
     
     // 保留用户为每个成员自定义的配置（模型、工作区等）
     const oldMembers = user.team?.members || [];
@@ -1073,7 +1352,8 @@ router.post('/:userId/apply-template/:templateId', authAndCheckOwnership, async 
     const responseData = { 
       team: user.team,
       agents: user.agents,
-      sync: syncResult
+      sync: syncResult,
+      snapshotSaved
     };
     
     console.log('📤 返回给前端的数据:', JSON.stringify({

@@ -1,12 +1,10 @@
 <!-- 统一侧边栏组件 -->
 <aside class="sidebar" id="sidebar">
-  <!-- 品牌区域 -->
+  <!-- Brand -->
   <a href="index.html" class="sidebar-brand">
-    <div class="sidebar-brand-icon">
-      <i data-lucide="sparkles" class="icon-lg"></i>
-    </div>
+    <div class="sidebar-brand-icon">L</div>
     <span class="sidebar-brand-name">Lume</span>
-    <button class="sidebar-collapse-btn" onclick="event.preventDefault();event.stopPropagation();toggleSidebar()" title="收起侧边栏">
+    <button class="sidebar-collapse-btn" onclick="event.preventDefault();event.stopPropagation();toggleSidebar()" data-i18n-title="common.close" title="Collapse sidebar">
       <i data-lucide="panel-left-close" class="icon-sm"></i>
     </button>
   </a>
@@ -14,128 +12,156 @@
   <div class="sidebar-header">
     <button class="sidebar-new-chat" onclick="newChat()">
       <i data-lucide="plus" class="icon-sm"></i>
-      <span>新对话</span>
+      <span data-i18n="sidebar.new_chat">New Chat</span>
     </button>
     <button class="sidebar-close" onclick="toggleSidebar()">
       <i data-lucide="x" class="icon-sm"></i>
     </button>
   </div>
   
-  <!-- 🔧 快捷入口 -->
+  <!-- Shortcuts -->
   <div class="sidebar-shortcuts">
     <button class="sidebar-shortcut-btn" onclick="switchView('workspace')">
       <i data-lucide="building" class="icon-sm"></i>
-      <span>办公区</span>
+      <span data-i18n="sidebar.workspace">Workspace</span>
     </button>
     <button class="sidebar-shortcut-btn" onclick="switchView('servers')">
       <i data-lucide="monitor-smartphone" class="icon-sm"></i>
-      <span>设备管理</span>
+      <span data-i18n="sidebar.devices">Devices</span>
     </button>
     <button class="sidebar-shortcut-btn" onclick="switchView('skills')">
       <i data-lucide="layout-grid" class="icon-sm"></i>
-      <span>技能库</span>
+      <span data-i18n="sidebar.skills">Skills</span>
     </button>
     <button class="sidebar-shortcut-btn" onclick="toggleFileExplorer()">
       <i data-lucide="folder-open" class="icon-sm"></i>
-      <span>文件</span>
+      <span data-i18n="sidebar.files">Files</span>
     </button>
     <button class="sidebar-shortcut-btn" onclick="window.open('cron.html','_blank')">
       <i data-lucide="clock" class="icon-sm"></i>
-      <span>定时任务</span>
-    </button>
-    <button class="sidebar-shortcut-btn" onclick="window.open('memory.html','_blank')">
-      <i data-lucide="brain" class="icon-sm"></i>
-      <span>记忆</span>
-    </button>
-    <button class="sidebar-shortcut-btn" onclick="window.open('triggers.html','_blank')">
-      <i data-lucide="webhook" class="icon-sm"></i>
-      <span>触发器</span>
-    </button>
-    <button class="sidebar-shortcut-btn" onclick="window.open('knowledge.html','_blank')">
-      <i data-lucide="book-open" class="icon-sm"></i>
-      <span>知识库</span>
-    </button>
-    <button class="sidebar-shortcut-btn" onclick="window.open('market.html','_blank')">
-      <i data-lucide="store" class="icon-sm"></i>
-      <span>市场</span>
-    </button>
-    <button class="sidebar-shortcut-btn" onclick="window.open('workflows.html','_blank')">
-      <i data-lucide="workflow" class="icon-sm"></i>
-      <span>工作流</span>
+      <span data-i18n="sidebar.timer">Timer</span>
     </button>
     <button class="sidebar-shortcut-btn" onclick="toggleAgentDropdown()" style="position:relative;">
       <i data-lucide="zap" class="icon-sm" id="currentAgentIcon"></i>
-      <span>切换Agent</span>
+      <span data-i18n="sidebar.agent">Agent</span>
       <div class="agent-dropdown" id="agentDropdown"></div>
     </button>
   </div>
   
   <div class="sidebar-content">
     <div class="sidebar-section">
-      <div class="sidebar-section-title">今天</div>
+      <div class="sidebar-section-title" data-i18n="sidebar.today">Today</div>
       <div class="sidebar-sessions" id="todaySessions"></div>
     </div>
     <div class="sidebar-section">
-      <div class="sidebar-section-title">最近 7 天</div>
+      <div class="sidebar-section-title" data-i18n="sidebar.this_week">This Week</div>
       <div class="sidebar-sessions" id="weekSessions"></div>
     </div>
     <div class="sidebar-section">
-      <div class="sidebar-section-title">更早</div>
+      <div class="sidebar-section-title" data-i18n="sidebar.earlier">Earlier</div>
       <div class="sidebar-sessions" id="olderSessions"></div>
     </div>
   </div>
   
   
-  <!-- 底部用户区 -->
+  <!-- User footer -->
   <div class="sidebar-footer">
     <div class="sidebar-user-trigger" onclick="toggleUserMenu()">
       <div class="sidebar-user-avatar-wrapper">
         <div class="sidebar-user-avatar" id="sidebarUserAvatar">U</div>
         <div class="sidebar-user-badge" id="sidebarUserBadge"></div>
       </div>
-      <span class="sidebar-user-name" id="sidebarUserName">用户</span>
-      <span class="sidebar-user-credits" id="sidebarUserCredits">💎 0</span>
+      <span class="sidebar-user-name" id="sidebarUserName">User</span>
+      <span class="sidebar-user-credits" id="sidebarUserCredits">0 credits</span>
       <span class="sidebar-user-arrow">▼</span>
     </div>
     <div class="sidebar-user-menu" id="sidebarUserMenu">
-      <div class="sidebar-menu-item" onclick="openLumeClaw()" id="lumeclawMenuEntry" style="display: none;">
+      <div class="sidebar-menu-item" onclick="openLumeClaw()" id="lumeclawMenuEntry" class="hidden">
         <i data-lucide="bot" class="icon-sm"></i>
-        <span>LumeClaw</span>
+        <span data-i18n="sidebar.lumeclaw">LumeClaw</span>
       </div>
       <div class="sidebar-menu-item" onclick="handleCheckin()" id="checkinBtn">
         <i data-lucide="calendar" class="icon-sm"></i>
-        <span>每日签到</span>
-        <span class="checkin-points" id="checkinPoints" style="margin-left:auto;font-size:0.75rem;color:#10a37f;"></span>
+        <span data-i18n="sidebar.checkin">Daily Check-in</span>
+        <span class="checkin-points" id="checkinPoints" class="ml-auto"></span>
       </div>
       <div class="sidebar-menu-item" onclick="showUsageStats()">
         <i data-lucide="bar-chart-2" class="icon-sm"></i>
-        <span>使用量统计</span>
+        <span data-i18n="sidebar.usage_stats">Usage Stats</span>
       </div>
       <div class="sidebar-menu-item" onclick="showSubscription()">
         <i data-lucide="credit-card" class="icon-sm"></i>
-        <span>我的订阅</span>
+        <span data-i18n="sidebar.subscription">Subscription</span>
       </div>
       <div class="sidebar-menu-item" onclick="toggleTheme()">
         <i data-lucide="moon" class="icon-sm" id="themeToggleIcon"></i>
-        <span>切换主题</span>
+        <span data-i18n="sidebar.theme">Toggle Theme</span>
       </div>
       <div class="sidebar-menu-item" onclick="showFeishuConfig()">
         <i data-lucide="message-square" class="icon-sm"></i>
-        <span>飞书配置</span>
+        <span data-i18n="sidebar.feishu">Feishu Config</span>
       </div>
+
+      <!-- 语言切换 -->
+      <div class="sidebar-menu-item sidebar-lang-switcher">
+        <i data-lucide="globe" class="icon-sm"></i>
+        <span data-i18n="sidebar.language">语言 / Language</span>
+        <div class="lang-toggle-group">
+          <button class="lang-switch-btn" data-lang="zh" onclick="event.stopPropagation();I18n.setLang('zh')">中</button>
+          <button class="lang-switch-btn" data-lang="en" onclick="event.stopPropagation();I18n.setLang('en')">EN</button>
+        </div>
+      </div>
+
       <div class="sidebar-menu-divider"></div>
       <div class="sidebar-menu-item" onclick="showPasswordChange()">
         <i data-lucide="lock" class="icon-sm"></i>
-        <span>修改密码</span>
+        <span data-i18n="sidebar.change_pwd">Change Password</span>
       </div>
       <div class="sidebar-menu-item" onclick="showAbout()">
         <i data-lucide="info" class="icon-sm"></i>
-        <span>关于</span>
+        <span data-i18n="sidebar.about">About</span>
       </div>
       <div class="sidebar-menu-item" onclick="logout()">
         <i data-lucide="log-out" class="icon-sm"></i>
-        <span>退出登录</span>
+        <span data-i18n="sidebar.sign_out">Sign Out</span>
       </div>
     </div>
   </div>
 </aside>
+
+<style>
+  /* 语言切换组件 */
+  .sidebar-lang-switcher {
+    position: relative;
+  }
+  .lang-toggle-group {
+    display: flex;
+    gap: 4px;
+    margin-left: auto;
+  }
+  .lang-switch-btn {
+    width: 28px;
+    height: 22px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-3);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .lang-switch-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .lang-switch-btn.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+</style>

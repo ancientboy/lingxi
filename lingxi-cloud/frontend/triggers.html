@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>触发器 - 灵犀云</title>
+  <title>Triggers — Lume</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23667eea'/><text x='16' y='22' text-anchor='middle' fill='white' font-size='16' font-weight='700'>L</text></svg>">
+  <link rel="stylesheet" href="assets/css/lume.css">
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
-      background: #f5f1eb;
+      font-family: var(--font-body);
+      background: var(--bg);
       min-height: 100vh;
       font-size: 14px;
       line-height: 1.6;
       -webkit-font-smoothing: antialiased;
-      color: #2d3748;
+      color: var(--text-1);
     }
 
     /* ===== Top Bar ===== */
@@ -23,27 +23,27 @@
       background: rgba(255,255,255,0.94); backdrop-filter: blur(12px);
       display: flex; align-items: center; justify-content: space-between;
       padding: 0 16px; z-index: 200;
-      border-bottom: 1px solid rgba(0,0,0,0.05);
+      border-bottom: 1px solid var(--border-sub);
     }
     .top-bar-left { display: flex; align-items: center; gap: 8px; }
     .back-link {
       display: flex; align-items: center; gap: 3px; padding: 4px 10px;
-      border: 1px solid #ddd; border-radius: 6px; color: #666;
-      font-size: 12px; text-decoration: none; transition: all 0.2s;
+      border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-2);
+      font-size: 12px; text-decoration: none; transition: all var(--transition);
     }
-    .back-link:hover { background: #f5f5f5; color: #333; }
-    .page-title { font-size: 15px; font-weight: 700; color: #2d3748; }
+    .back-link:hover { background: var(--bg-hover); color: var(--text-1); }
+    .page-title { font-size: 15px; font-weight: 700; color: var(--text-1); font-family: var(--font-display); }
     .btn {
-      padding: 8px 16px; border: none; border-radius: 8px;
+      padding: 8px 16px; border: none; border-radius: var(--radius-sm);
       font-size: 13px; cursor: pointer; font-weight: 500;
-      transition: all 0.2s; font-family: inherit;
+      transition: all var(--transition); font-family: var(--font-display);
     }
-    .btn-primary { background: #667eea; color: white; }
-    .btn-primary:hover { background: #5a6fd6; }
-    .btn-outline { background: white; color: #667eea; border: 1px solid #667eea; }
-    .btn-outline:hover { background: #f0eeff; }
-    .btn-danger { background: white; color: #f5576c; border: 1px solid #f5576c; }
-    .btn-danger:hover { background: #fff5f5; }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover { background: var(--accent-h); }
+    .btn-outline { background: var(--bg-card); color: var(--accent); border: 1px solid var(--accent); }
+    .btn-outline:hover { background: var(--accent-soft); }
+    .btn-danger { background: var(--bg-card); color: var(--danger); border: 1px solid var(--danger); }
+    .btn-danger:hover { background: var(--danger-soft); }
     .btn-sm { padding: 4px 10px; font-size: 11px; }
 
     /* ===== Main Content ===== */
@@ -57,7 +57,7 @@
     .device-bar {
       position: fixed; top: 44px; left: 0; right: 0;
       background: rgba(255,255,255,0.96); backdrop-filter: blur(12px);
-      padding: 8px 16px; border-bottom: 1px solid rgba(0,0,0,0.05); z-index: 199;
+      padding: 8px 16px; border-bottom: 1px solid var(--border-sub); z-index: 199;
     }
     .device-tabs {
       display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px;
@@ -65,32 +65,32 @@
     }
     .device-tabs::-webkit-scrollbar { display: none; }
     .device-tab {
-      padding: 6px 14px; border-radius: 8px; font-size: 13px;
-      white-space: nowrap; cursor: pointer; transition: all 0.15s;
-      background: #f5f1eb; color: #666; border: 1px solid transparent;
+      padding: 6px 14px; border-radius: var(--radius-sm); font-size: 13px;
+      white-space: nowrap; cursor: pointer; transition: all var(--transition);
+      background: var(--bg-hover); color: var(--text-2); border: 1px solid transparent;
     }
-    .device-tab:hover { background: #f0eeff; color: #667eea; }
+    .device-tab:hover { background: var(--accent-soft); color: var(--accent); }
     .device-tab.active {
-      background: #667eea; color: #fff; border-color: #667eea;
-      box-shadow: 0 2px 8px rgba(102,126,234,0.25);
+      background: var(--accent); color: #fff; border-color: var(--accent);
+      box-shadow: 0 2px 8px rgba(16,163,127,0.25);
     }
 
     /* ===== Trigger Card ===== */
     .trigger-list { display: flex; flex-direction: column; gap: 10px; }
 
     .trigger-card {
-      background: #fff; border-radius: 12px; padding: 16px 18px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      background: var(--bg-card); border-radius: var(--radius); padding: 16px 18px;
+      box-shadow: var(--shadow-sm);
       border: 2px solid transparent;
-      transition: all 0.2s;
+      transition: all var(--transition);
     }
-    .trigger-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); transform: translateY(-1px); }
+    .trigger-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
     .trigger-card.disabled { opacity: 0.6; }
 
     .trigger-header { display: flex; align-items: flex-start; gap: 12px; }
     .trigger-info { flex: 1; min-width: 0; }
     .trigger-name {
-      font-size: 15px; font-weight: 600; color: #2d3748;
+      font-size: 15px; font-weight: 600; color: var(--text-1);
       margin-bottom: 4px; display: flex; align-items: center; gap: 8px;
     }
     .trigger-name-text {
@@ -99,14 +99,14 @@
 
     .type-badge {
       font-size: 10px; font-weight: 600; padding: 2px 8px;
-      border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px;
+      border-radius: var(--radius-sm); text-transform: uppercase; letter-spacing: 0.5px;
       white-space: nowrap; flex-shrink: 0;
     }
-    .type-badge.webhook { background: #e8f0fe; color: #4285f4; }
+    .type-badge.webhook { background: rgba(59,130,246,0.08); color: var(--info); }
     .type-badge.github { background: #24292e; color: #fff; }
 
     .trigger-meta {
-      font-size: 12px; color: #888; margin-top: 2px;
+      font-size: 12px; color: var(--text-2); margin-top: 2px;
     }
     .trigger-meta span { margin-right: 12px; }
 
@@ -114,24 +114,24 @@
       margin-top: 10px; display: flex; align-items: center; gap: 6px;
     }
     .trigger-url {
-      flex: 1; padding: 6px 10px; background: #f8f7f4;
-      border: 1px solid #eee; border-radius: 6px;
-      font-size: 11px; color: #667eea; font-family: 'SF Mono', Menlo, monospace;
+      flex: 1; padding: 6px 10px; background: var(--bg);
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      font-size: 11px; color: var(--accent); font-family: 'SF Mono', Menlo, monospace;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
     .trigger-secret-row {
       margin-top: 6px; display: flex; align-items: center; gap: 6px;
     }
     .trigger-secret {
-      flex: 1; padding: 6px 10px; background: #f8f7f4;
-      border: 1px solid #eee; border-radius: 6px;
-      font-size: 11px; color: #888; font-family: 'SF Mono', Menlo, monospace;
+      flex: 1; padding: 6px 10px; background: var(--bg);
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      font-size: 11px; color: var(--text-2); font-family: 'SF Mono', Menlo, monospace;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
 
     .trigger-stats {
       margin-top: 10px; display: flex; gap: 16px;
-      font-size: 12px; color: #aaa;
+      font-size: 12px; color: var(--text-3);
     }
     .trigger-stats span { display: flex; align-items: center; gap: 4px; }
     .trigger-stats svg { width: 12px; height: 12px; }
@@ -149,36 +149,36 @@
     }
     .toggle-slider::before {
       content: ''; position: absolute; width: 16px; height: 16px;
-      border-radius: 50%; background: #fff; left: 3px; top: 3px;
+      border-radius: 50%; background: var(--bg-card); left: 3px; top: 3px;
       transition: all 0.3s;
     }
-    .toggle-switch input:checked + .toggle-slider { background: #667eea; }
+    .toggle-switch input:checked + .toggle-slider { background: var(--accent); }
     .toggle-switch input:checked + .toggle-slider::before { transform: translateX(18px); }
 
     /* Icon Button */
     .btn-icon {
-      width: 32px; height: 32px; border: none; border-radius: 8px;
-      background: transparent; color: #888;
+      width: 32px; height: 32px; border: none; border-radius: var(--radius-sm);
+      background: transparent; color: var(--text-2);
       cursor: pointer; display: flex; align-items: center; justify-content: center;
-      transition: all 0.2s;
+      transition: all var(--transition);
     }
-    .btn-icon:hover { background: #f5f5f5; color: #2d3748; }
-    .btn-icon.danger:hover { background: #fff5f5; color: #f5576c; }
+    .btn-icon:hover { background: var(--bg-hover); color: var(--text-1); }
+    .btn-icon.danger:hover { background: var(--bg-card)5f5; color: var(--danger); }
     .btn-icon svg { width: 16px; height: 16px; }
 
     .copy-btn {
-      padding: 4px 8px; border: 1px solid #ddd; border-radius: 6px;
-      background: #fff; color: #888; font-size: 11px;
-      cursor: pointer; transition: all 0.2s; white-space: nowrap;
+      padding: 4px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+      background: var(--bg-card); color: var(--text-2); font-size: 11px;
+      cursor: pointer; transition: all var(--transition); white-space: nowrap;
     }
-    .copy-btn:hover { border-color: #667eea; color: #667eea; }
+    .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
 
     /* ===== Empty State ===== */
     .empty-state {
-      text-align: center; padding: 60px 24px; color: #bbb;
+      text-align: center; padding: 60px 24px; color: var(--text-3);
     }
     .empty-state svg { width: 48px; height: 48px; margin-bottom: 16px; opacity: 0.4; }
-    .empty-state p { font-size: 14px; margin-bottom: 4px; color: #888; }
+    .empty-state p { font-size: 14px; margin-bottom: 4px; color: var(--text-2); }
     .empty-state small { font-size: 12px; }
 
     /* ===== Modal ===== */
@@ -190,10 +190,10 @@
     }
     .modal-overlay.open { display: flex; }
     .modal {
-      background: white; border-radius: 16px;
+      background: white; border-radius: var(--radius-lg);
       width: 100%; max-width: 520px;
       max-height: 90vh; overflow-y: auto;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+      box-shadow: var(--shadow-lg)(0,0,0,0.15);
       animation: modal-in 0.25s ease-out;
     }
     @keyframes modal-in { from{opacity:0;transform:scale(0.95) translateY(10px)} to{opacity:1;transform:scale(1) translateY(0)} }
@@ -201,12 +201,12 @@
       display: flex; align-items: center; justify-content: space-between;
       padding: 18px 20px 0; margin-bottom: 16px;
     }
-    .modal-header h3 { font-size: 18px; font-weight: 700; color: #2d3748; }
+    .modal-header h3 { font-size: 18px; font-weight: 700; color: var(--text-1); }
     .modal-close {
-      width: 32px; height: 32px; border: none; border-radius: 8px;
-      background: #f5f5f5; color: #888; cursor: pointer;
+      width: 32px; height: 32px; border: none; border-radius: var(--radius-sm);
+      background: var(--bg-hover); color: var(--text-2); cursor: pointer;
       display: flex; align-items: center; justify-content: center;
-      transition: all 0.2s;
+      transition: all var(--transition);
     }
     .modal-close:hover { background: #eee; }
     .modal-close svg { width: 18px; height: 18px; }
@@ -216,17 +216,17 @@
     .form-group { margin-bottom: 14px; }
     .form-label {
       display: block; font-size: 12px; font-weight: 600;
-      color: #555; margin-bottom: 6px;
+      color: var(--text-2); margin-bottom: 6px;
     }
     .form-input, .form-textarea, .form-select {
       width: 100%; padding: 8px 12px;
-      background: #fff; border: 1px solid #ddd;
-      border-radius: 8px; color: #2d3748;
-      font-size: 13px; font-family: inherit;
-      transition: border-color 0.2s; outline: none;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); color: var(--text-1);
+      font-size: 13px; font-family: var(--font-display);
+      transition: border-color var(--transition); outline: none;
     }
-    .form-input:focus, .form-textarea:focus, .form-select:focus { border-color: #667eea; }
-    .form-input::placeholder, .form-textarea::placeholder { color: #bbb; }
+    .form-input:focus, .form-textarea:focus, .form-select:focus { border-color: var(--accent); }
+    .form-input::placeholder, .form-textarea::placeholder { color: var(--text-3); }
     .form-textarea { resize: vertical; min-height: 100px; }
     .form-select {
       appearance: none;
@@ -236,22 +236,22 @@
       padding-right: 32px;
     }
     .form-hint {
-      font-size: 11px; color: #aaa; margin-top: 4px; line-height: 1.5;
+      font-size: 11px; color: var(--text-3); margin-top: 4px; line-height: 1.5;
     }
 
     /* Type tabs */
     .type-tabs {
-      display: flex; gap: 0; background: #f5f1eb;
-      border-radius: 8px; padding: 3px;
+      display: flex; gap: 0; background: var(--bg-hover);
+      border-radius: var(--radius-sm); padding: 3px;
     }
     .type-tab {
       flex: 1; padding: 7px 0; text-align: center;
-      font-size: 12px; font-weight: 500; color: #888;
-      border: none; background: transparent; border-radius: 6px;
-      cursor: pointer; transition: all 0.2s;
+      font-size: 12px; font-weight: 500; color: var(--text-2);
+      border: none; background: transparent; border-radius: var(--radius-sm);
+      cursor: pointer; transition: all var(--transition);
     }
-    .type-tab.active { background: #667eea; color: #fff; font-weight: 600; }
-    .type-tab:hover:not(.active) { color: #2d3748; }
+    .type-tab.active { background: var(--accent); color: #fff; font-weight: 600; }
+    .type-tab:hover:not(.active) { color: var(--text-1); }
 
     .modal-actions {
       display: flex; gap: 8px; margin-top: 20px;
@@ -264,15 +264,15 @@
       display: flex; flex-direction: column; gap: 6px;
     }
     .toast {
-      padding: 8px 16px; background: #fff;
-      border: 1px solid rgba(0,0,0,0.06); border-radius: 8px;
-      font-size: 13px; color: #2d3748;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+      padding: 8px 16px; background: var(--bg-card);
+      border: 1px solid rgba(0,0,0,0.06); border-radius: var(--radius-sm);
+      font-size: 13px; color: var(--text-1);
+      box-shadow: var(--shadow-md)(0,0,0,0.1);
       animation: t-in 0.3s ease-out;
       max-width: 300px;
     }
-    .toast.error { border-color: #f5576c; color: #f5576c; }
-    .toast.success { border-color: #43e97b; color: #2d9a5e; }
+    .toast.error { border-color: var(--danger); color: var(--danger); }
+    .toast.success { border-color: #43e97b; color: var(--accent); }
     .toast.out { animation: t-out 0.3s ease-in forwards; }
     @keyframes t-in { from{transform:translateX(40px);opacity:0} to{transform:translateX(0);opacity:1} }
     @keyframes t-out { from{transform:translateX(0);opacity:1} to{transform:translateX(40px);opacity:0} }
@@ -286,19 +286,19 @@
     }
     .confirm-overlay.open { display: flex; }
     .confirm-box {
-      background: white; border-radius: 16px; padding: 24px;
+      background: white; border-radius: var(--radius-lg); padding: 24px;
       max-width: 360px; width: 100%; text-align: center;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+      box-shadow: var(--shadow-lg)(0,0,0,0.15);
       animation: modal-in 0.2s ease-out;
     }
-    .confirm-box p { margin-bottom: 20px; font-size: 14px; line-height: 1.6; color: #2d3748; }
+    .confirm-box p { margin-bottom: 20px; font-size: 14px; line-height: 1.6; color: var(--text-1); }
     .confirm-box .modal-actions { justify-content: center; }
 
     /* ===== Log Modal ===== */
     .log-list { display: flex; flex-direction: column; gap: 8px; }
     .log-item {
-      padding: 10px 12px; background: #f8f7f4;
-      border-radius: 8px; border: 1px solid #eee;
+      padding: 10px 12px; background: var(--bg);
+      border-radius: var(--radius-sm); border: 1px solid var(--border);
     }
     .log-header {
       display: flex; align-items: center; justify-content: space-between;
@@ -306,45 +306,45 @@
     }
     .log-status {
       font-size: 12px; font-weight: 600;
-      padding: 2px 8px; border-radius: 4px;
+      padding: 2px 8px; border-radius: var(--radius-sm);
     }
-    .log-status.success { background: #e6f9ed; color: #2d9a5e; }
-    .log-status.failed { background: #fff0f0; color: #f5576c; }
-    .log-time { font-size: 11px; color: #aaa; }
+    .log-status.success { background: var(--accent-soft); color: var(--accent); }
+    .log-status.failed { background: var(--bg-card)0f0; color: var(--danger); }
+    .log-time { font-size: 11px; color: var(--text-3); }
     .log-payload {
-      font-size: 11px; color: #888; font-family: 'SF Mono', Menlo, monospace;
-      background: #fff; padding: 6px 8px; border-radius: 4px;
+      font-size: 11px; color: var(--text-2); font-family: 'SF Mono', Menlo, monospace;
+      background: var(--bg-card); padding: 6px 8px; border-radius: var(--radius-sm);
       margin-top: 4px; word-break: break-all; max-height: 80px;
       overflow-y: auto;
     }
-    .log-duration { font-size: 11px; color: #aaa; margin-top: 2px; }
-    .log-empty { text-align: center; color: #bbb; padding: 24px; font-size: 13px; }
+    .log-duration { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+    .log-empty { text-align: center; color: var(--text-3); padding: 24px; font-size: 13px; }
 
     /* ===== Created Info ===== */
     .created-info {
-      background: #f0eeff; border-radius: 10px; padding: 14px;
-      margin-top: 16px; border: 1px solid #d4d0f7;
+      background: var(--accent-soft); border-radius: 10px; padding: 14px;
+      margin-top: 16px; border: 1px solid var(--accent-ring);
     }
     .created-info-title {
-      font-size: 13px; font-weight: 600; color: #667eea;
+      font-size: 13px; font-weight: 600; color: var(--accent);
       margin-bottom: 8px;
     }
     .created-info-row {
       display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
     }
     .created-info-label {
-      font-size: 11px; color: #888; min-width: 50px;
+      font-size: 11px; color: var(--text-2); min-width: 50px;
     }
     .created-info-value {
-      flex: 1; font-size: 12px; color: #2d3748;
+      flex: 1; font-size: 12px; color: var(--text-1);
       font-family: 'SF Mono', Menlo, monospace;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
 
     /* ===== Skeleton ===== */
     .skeleton-card {
-      background: #fff; border-radius: 12px; padding: 16px 18px; margin-bottom: 10px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+      background: var(--bg-card); border-radius: var(--radius); padding: 16px 18px; margin-bottom: 10px;
+      box-shadow: var(--shadow-sm)(0,0,0,0.05);
       animation: shimmer 1.5s infinite;
     }
     @keyframes shimmer { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
@@ -356,7 +356,14 @@
       .trigger-card { padding: 14px; }
       .modal { max-width: 100%; }
     }
+    body.in-iframe .back-link { display: none !important; }
+
+    /* ===== Inline-extracted classes ===== */
+    .skeleton-h100 { height: 100px; }
+    .modal-med { max-width: 560px; }
+    .log-payload-error { color: var(--danger); border-color: #fdd; }
   </style>
+  <script src="assets/libs/lucide.min.js"></script>
 </head>
 <body>
 
@@ -370,7 +377,7 @@
   </div>
 
   <!-- Device Tabs -->
-  <div class="device-bar" id="deviceBar" style="display:none;">
+  <div class="device-bar hidden" id="deviceBar">
     <div class="device-tabs" id="deviceTabs"></div>
   </div>
 
@@ -428,7 +435,7 @@
           <div class="form-hint">可用变量：{{payload}} = 请求体 JSON，{{headers}} = 请求头摘要，{{body}} = 原始请求体</div>
         </div>
 
-        <div id="createdInfo" style="display:none;"></div>
+        <div id="createdInfo" class="hidden"></div>
 
         <div class="modal-actions">
           <button class="btn btn-outline" onclick="closeCreateModal()">取消</button>
@@ -440,7 +447,7 @@
 
   <!-- Log Modal -->
   <div class="modal-overlay" id="logModal">
-    <div class="modal" style="max-width:560px;">
+    <div class="modal modal-med">
       <div class="modal-header">
         <h3 id="logModalTitle">执行日志</h3>
         <button class="modal-close" onclick="closeLogModal()">
@@ -456,8 +463,8 @@
   <!-- Main Content -->
   <div class="main-content" id="mainContent">
     <div id="triggerList">
-      <div class="skeleton-card" style="height:100px"></div>
-      <div class="skeleton-card" style="height:100px"></div>
+      <div class="skeleton-card skeleton-h100"></div>
+      <div class="skeleton-card skeleton-h100"></div>
     </div>
   </div>
 
@@ -607,10 +614,10 @@ async function loadTriggers() {
     if (errMsg.indexOf('未配置服务器') !== -1) {
       document.getElementById('triggerList').innerHTML =
         '<div class="empty-state">' +
-          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:48px;height:48px;color:#667eea;margin-bottom:12px;"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>' +
-          '<p style="font-size:16px;font-weight:600;color:#2d3748;">需要先配置设备</p>' +
-          '<p style="font-size:13px;color:#888;margin-top:6px;">触发器需要连接到你的 AI 设备才能使用</p>' +
-          '<a href="chat.html" class="btn btn-primary btn-sm" style="margin-top:16px;text-decoration:none;">前往配置</a>' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="empty-icon-lg"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>' +
+          '<p class="empty-title-lg">需要先配置设备</p>' +
+          '<p class="empty-desc">触发器需要连接到你的 AI 设备才能使用</p>' +
+          '<a href="chat.html" class="btn btn-primary btn-sm empty-action">前往配置</a>' +
         '</div>';
     } else {
       showToast('加载失败: ' + errMsg, 'error');
@@ -626,14 +633,14 @@ function renderTriggers() {
 
   if (triggers.length === 0) {
     list.innerHTML =
-      '<div style="text-align:center;padding:60px 20px;">' +
-        '<div style="width:64px;height:64px;border-radius:16px;background:#f0eeff;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;">' +
-          '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#667eea" stroke-width="2"><path d="M18 16.98l-5 5-5-5"/><path d="M13 2.98l5 5-5 5"/><path d="M8 7l5 5-5 5"/></svg>' +
+      '<div class="empty-state" >' +
+        '<div class="empty-kb-icon">' +
+          '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M18 16.98l-5 5-5-5"/><path d="M13 2.98l5 5-5 5"/><path d="M8 7l5 5-5 5"/></svg>' +
         '</div>' +
-        '<h3 style="color:#2d3748;margin:0 0 8px">还没有触发器</h3>' +
-        '<p style="color:#999;font-size:14px;margin:0 0 4px">触发器让外部事件自动触发 Agent 执行任务</p>' +
-        '<p style="color:#bbb;font-size:13px;margin:0 0 20px">例如：GitHub 新 Issue → Agent 自动分析 | 收到邮件 → Agent 摘要通知</p>' +
-        '<button onclick="openCreateModal()" style="background:#667eea;color:#fff;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:14px">创建第一个触发器</button>' +
+        '<h3 class="empty-kb-title">还没有触发器</h3>' +
+        '<p class="empty-kb-desc">触发器让外部事件自动触发 Agent 执行任务</p>' +
+        '<p class="empty-kb-hint">例如：GitHub 新 Issue → Agent 自动分析 | 收到邮件 → Agent 摘要通知</p>' +
+        '<button onclick="openCreateModal()" class="btn-upload-first">创建第一个触发器</button>' +
       '</div>';
     return;
   }
@@ -910,7 +917,7 @@ async function openLogModal(triggerId, name) {
         html += '<div class="log-payload">' + escapeHtml(log.payload) + '</div>';
       }
       if (log.error) {
-        html += '<div class="log-payload" style="color:#f5576c;border-color:#fdd;">' + escapeHtml(log.error) + '</div>';
+        html += '<div class="log-payload log-payload-error">' + escapeHtml(log.error) + '</div>';
       }
       if (log.responseTime) {
         html += '<div class="log-duration">耗时: ' + (log.responseTime < 1000 ? log.responseTime + 'ms' : (log.responseTime/1000).toFixed(1) + 's') + '</div>';
@@ -991,6 +998,8 @@ document.addEventListener('keydown', function(e) {
   await loadDevices();
   await loadTriggers();
 })();
+  if (window.parent !== window) document.body.classList.add("in-iframe");
 </script>
+<script>if(window.lucide)lucide.createIcons();</script>
 </body>
 </html>

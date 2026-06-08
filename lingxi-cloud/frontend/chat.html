@@ -1,11 +1,14 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-i18n-page-title="chat.title">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lume - AI 团队</title>
+  <title>Lume — AI Team</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://js.stripe.com/v3/"></script>
-  <link rel="stylesheet" href="assets/css/chat.css?v=20260602c">
+  <link rel="stylesheet" href="assets/css/chat.css?v=20260608">
   <link rel="stylesheet" href="assets/css/dark.css" id="darkTheme" disabled>
   <link rel="stylesheet" href="assets/css/subscription.css">
   <link rel="stylesheet" href="assets/css/stripe-payment.css">
@@ -13,6 +16,8 @@
   <link rel="stylesheet" href="assets/css/file-preview.css">
   <!-- Lucide Icons - 使用 cdnjs 备用源 -->
   <script src="assets/libs/lucide.min.js"></script>
+  <!-- i18n 双语系统 -->
+  <script src="assets/js/i18n.js?v=20260608"></script>
   <!-- 文件预览模块 -->
   <script src="components/file-preview.js?v=1773154586"></script>
   <!-- 工作流进度组件 -->
@@ -145,7 +150,7 @@
     .notification-mark-all {
       border: none;
       background: none;
-      color: #667eea;
+      color: #10a37f;
       font-size: 13px;
       cursor: pointer;
       padding: 2px 8px;
@@ -190,7 +195,7 @@
       flex-shrink: 0;
       margin-top: 2px;
     }
-    .notification-item-bar.offline { background: #667eea; }
+    .notification-item-bar.offline { background: #10a37f; }
     .notification-item-bar.recovered { background: #43e97b; }
     .notification-item-bar.reminder { background: #fbbf24; }
     .notification-item-content {
@@ -278,11 +283,11 @@
     <!-- 通知下拉面板 -->
     <div class="notification-panel" id="notificationPanel" style="display:none;">
       <div class="notification-panel-header">
-        <span class="notification-panel-title">通知</span>
-        <button class="notification-mark-all" id="notificationMarkAll" onclick="markAllNotificationsRead(event)" style="display:none;">全部已读</button>
+        <span class="notification-panel-title" data-i18n="chat.notification">通知</span>
+        <button class="notification-mark-all" id="notificationMarkAll" onclick="markAllNotificationsRead(event)" style="display:none;" data-i18n="chat.read_all">全部已读</button>
       </div>
       <div class="notification-panel-body" id="notificationPanelBody">
-        <div class="notification-empty">暂无通知</div>
+        <div class="notification-empty" data-i18n="chat.no_notification">暂无通知</div>
       </div>
     </div>
 
@@ -308,7 +313,7 @@
           <div class="sub-current" id="subCurrentStatus"></div>
           <div class="sub-plans" id="subPlansGrid"></div>
           <div class="sub-packs-section">
-            <h4>积分充值</h4>
+            <h4 data-i18n="chat.credits_recharge">积分充值</h4>
             <div class="sub-packs" id="subPacksGrid"></div>
             <p class="sub-packs-note">💡 积分永不过期，可叠加使用</p>
           </div>
@@ -342,13 +347,13 @@
               <label>验证令牌（可选）</label>
               <input type="text" id="feishuVerificationToken" placeholder="从飞书开放平台事件订阅页获取" autocomplete="off">
             </div>
-            <button type="submit" class="submit-btn">保存配置</button>
+            <button type="submit" class="submit-btn" data-i18n="chat.save">保存配置</button>
           </form>
           <div id="feishuWebhook" style="margin-top:16px;display:none;">
             <label style="font-size:12px;color:#6e6e80;">Webhook 地址（复制到飞书开放平台）</label>
             <div style="display:flex;gap:8px;margin-top:6px;">
               <input type="text" id="feishuWebhookUrl" readonly style="flex:1;font-size:12px;">
-              <button type="button" class="nav-btn" onclick="copyFeishuWebhook()">复制</button>
+              <button type="button" class="nav-btn" onclick="copyFeishuWebhook()" data-i18n="chat.copy">复制</button>
             </div>
           </div>
         </div>
@@ -379,13 +384,13 @@
               <label>Agent Secret</label>
               <input type="password" id="wecomAgentSecret" placeholder="应用密钥" autocomplete="off">
             </div>
-            <button type="submit" class="submit-btn">保存配置</button>
+            <button type="submit" class="submit-btn" data-i18n="chat.save">保存配置</button>
           </form>
           <div id="wecomWebhook" style="margin-top:16px;display:none;">
             <label style="font-size:12px;color:#6e6e80;">回调地址</label>
             <div style="display:flex;gap:8px;margin-top:6px;">
               <input type="text" id="wecomWebhookUrl" readonly style="flex:1;font-size:12px;">
-              <button type="button" class="nav-btn" onclick="copyWecomWebhook()">复制</button>
+              <button type="button" class="nav-btn" onclick="copyWecomWebhook()" data-i18n="chat.copy">复制</button>
             </div>
           </div>
         </div>
@@ -404,18 +409,18 @@
         <div class="modal-body">
           <form id="passwordForm" onsubmit="changePassword(event)">
             <div class="form-group">
-              <label>当前密码</label>
+              <label data-i18n="chat.current_pwd">当前密码</label>
               <input type="password" id="currentPassword" placeholder="输入当前密码" required>
             </div>
             <div class="form-group">
-              <label>新密码</label>
+              <label data-i18n="chat.new_pwd">新密码</label>
               <input type="password" id="newPassword" placeholder="至少6位" required minlength="6">
             </div>
             <div class="form-group">
-              <label>确认新密码</label>
+              <label data-i18n="chat.confirm_pwd">确认新密码</label>
               <input type="password" id="confirmPassword" placeholder="再次输入新密码" required>
             </div>
-            <button type="submit" class="submit-btn">修改密码</button>
+            <button type="submit" class="submit-btn" data-i18n="chat.change_pwd">修改密码</button>
           </form>
         </div>
       </div>
@@ -442,16 +447,16 @@
             </div>
             <div class="usage-quota-stats">
               <div class="usage-quota-row">
-                <span>总积分: <strong id="totalCreditsDisplay">0</strong></span>
+                <span><span data-i18n="chat.total_credits">总积分:</span> <strong id="totalCreditsDisplay">0</strong></span>
               </div>
               <div class="usage-quota-row">
-                <span>充值积分: <strong id="balanceCredits">0</strong></span>
+                <span><span data-i18n="chat.recharge_credits">充值积分:</span> <strong id="balanceCredits">0</strong></span>
               </div>
               <div class="usage-quota-row">
-                <span>今日免费: <strong id="freeCredits">100 / 100</strong></span>
+                <span><span data-i18n="chat.today_free">今日免费:</span> <strong id="freeCredits">100 / 100</strong></span>
               </div>
               <div class="usage-quota-row">
-                <span>预计可用: <strong id="estimatedTokens">约 0 tokens</strong></span>
+                <span><span data-i18n="chat.estimated_avail">预计可用:</span> <strong id="estimatedTokens">约 0 tokens</strong></span>
               </div>
             </div>
           </div>
@@ -461,22 +466,22 @@
             <div class="usage-section-title">📈 Token 使用量</div>
             <div class="usage-stats-cards">
               <div class="usage-card">
-                <div class="usage-card-label">今日</div>
+                <div class="usage-card-label" data-i18n="chat.period_today">今日</div>
                 <div class="usage-card-value" id="todayTokens">-</div>
                 <div class="usage-card-sub" id="todayRequests">0 次</div>
               </div>
               <div class="usage-card">
-                <div class="usage-card-label">本周</div>
+                <div class="usage-card-label" data-i18n="chat.period_week">本周</div>
                 <div class="usage-card-value" id="weekTokens">-</div>
                 <div class="usage-card-sub" id="weekRequests">0 次</div>
               </div>
               <div class="usage-card">
-                <div class="usage-card-label">本月</div>
+                <div class="usage-card-label" data-i18n="chat.period_month">本月</div>
                 <div class="usage-card-value" id="monthTokens">-</div>
                 <div class="usage-card-sub" id="monthRequests">0 次</div>
               </div>
               <div class="usage-card">
-                <div class="usage-card-label">总计</div>
+                <div class="usage-card-label" data-i18n="chat.period_total">总计</div>
                 <div class="usage-card-value" id="totalTokens">-</div>
                 <div class="usage-card-sub" id="totalRequests">0 次</div>
               </div>
@@ -990,16 +995,16 @@
         max-width: 900px;
         width: 90%;
         max-height: 85vh;
-        background: #ffffff;
+        background: var(--bg-card);
         border-radius: 16px;
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+        box-shadow: var(--shadow-lg);
         display: flex;
         flex-direction: column;
         overflow: hidden;
       }
 
       .skill-library-modal .modal-header {
-        border-bottom: 2px solid #e5e5e5;
+        border-bottom: 2px solid var(--border);
         padding-bottom: 20px;
         flex-shrink: 0;
       }
@@ -1007,7 +1012,7 @@
       .skill-library-modal .modal-header h3 {
         font-size: 24px;
         font-weight: 600;
-        color: #202123;
+        color: var(--text-1);
       }
 
       .skill-library-modal .modal-body {
@@ -1025,8 +1030,8 @@
       /* 左侧 Agent 分类列表 */
       .skill-library-sidebar {
         width: 200px;
-        background: linear-gradient(180deg, #f7f7f8 0%, #ffffff 100%);
-        border-right: 1px solid #e5e5e5;
+        background: var(--bg);
+        border-right: 1px solid var(--border);
         padding: 16px;
         display: flex;
         flex-direction: column;
@@ -1036,11 +1041,11 @@
       .skill-library-section-title {
         font-size: 12px;
         font-weight: 600;
-        color: #6e6e80;
+        color: var(--text-2);
         text-transform: uppercase;
         letter-spacing: 1px;
         padding-bottom: 8px;
-        border-bottom: 2px solid #10a37f;
+        border-bottom: 2px solid var(--accent);
       }
 
       .skill-agent-list {
@@ -1058,30 +1063,30 @@
         cursor: pointer;
         transition: all 0.2s;
         font-size: 14px;
-        color: #202123;
+        color: var(--text-1);
       }
 
       .skill-agent-item:hover {
-        background: rgba(16, 163, 127, 0.1);
-        color: #10a37f;
+        background: rgba(16,163,127, 0.1);
+        color: var(--accent);
       }
 
       .skill-agent-item.active {
-        background: rgba(16, 163, 127, 0.2);
-        color: #10a37f;
+        background: rgba(16,163,127, 0.2);
+        color: var(--accent);
         font-weight: 600;
-        border-left: 3px solid #10a37f;
+        border-left: 3px solid var(--accent);
       }
 
       .skill-agent-item .icon {
         width: 18px;
         height: 18px;
-        color: #6e6e80;
+        color: var(--text-2);
       }
 
       .skill-agent-item.active .icon,
       .skill-agent-item:hover .icon {
-        color: #10a37f;
+        color: var(--accent);
       }
 
       <!-- 右侧技能内容区 -->
@@ -1099,8 +1104,8 @@
         align-items: center;
         gap: 12px;
         padding: 14px 18px;
-        background: #f7f7f8;
-        border: 2px solid #e5e5e5;
+        background: var(--bg);
+        border: 2px solid var(--border);
         border-radius: 10px;
         margin-bottom: 20px;
         transition: all 0.2s;
@@ -1108,12 +1113,12 @@
 
       .skill-search-box:hover,
       .skill-search-box:focus-within {
-        border-color: #10a37f;
-        box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.1);
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(16,163,127, 0.1);
       }
 
       .skill-search-box .icon {
-        color: #6e6e80;
+        color: var(--text-2);
       }
 
       .skill-search-box input {
@@ -1121,12 +1126,12 @@
         border: none;
         outline: none;
         font-size: 14px;
-        color: #202123;
+        color: var(--text-1);
         background: transparent;
       }
 
       .skill-search-box input::placeholder {
-        color: #9ca3af;
+        color: var(--text-3);
       }
 
       /* 技能网格 */
@@ -1139,8 +1144,8 @@
 
       /* 技能卡片 */
       .skill-card {
-        background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
-        border: 2px solid #e5e5e5;
+        background: var(--bg-card);
+        border: 2px solid var(--border);
         border-radius: 12px;
         padding: 20px;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1148,8 +1153,8 @@
       }
 
       .skill-card:hover {
-        border-color: #10a37f;
-        box-shadow: 0 8px 24px rgba(16, 163, 127, 0.15);
+        border-color: var(--accent);
+        box-shadow: 0 8px 24px rgba(16,163,127, 0.15);
         transform: translateY(-2px);
       }
 
@@ -1163,14 +1168,14 @@
       .skill-card .skill-icon {
         width: 48px;
         height: 48px;
-        background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
+        background: var(--accent);
         border-radius: 12px;
         display: flex;
         align-items: center;
         justify-content: center;
         color: white;
         flex-shrink: 0;
-        box-shadow: 0 4px 12px rgba(16, 163, 127, 0.3);
+        box-shadow: var(--shadow-md);
       }
 
       .skill-card .skill-icon svg {
@@ -1186,7 +1191,7 @@
       .skill-card .skill-name {
         font-size: 16px;
         font-weight: 600;
-        color: #202123;
+        color: var(--text-1);
         margin-bottom: 4px;
         white-space: nowrap;
         overflow: hidden;
@@ -1195,15 +1200,15 @@
 
       .skill-card .skill-desc {
         font-size: 13px;
-        color: #6e6e80;
+        color: var(--text-2);
         line-height: 1.5;
       }
 
       .skill-card .skill-agent-tag {
         display: inline-block;
         font-size: 11px;
-        color: #10a37f;
-        background: rgba(16, 163, 127, 0.1);
+        color: var(--accent);
+        background: rgba(16,163,127, 0.1);
         padding: 4px 10px;
         border-radius: 12px;
         margin-top: 8px;
@@ -1233,13 +1238,13 @@
 
       /* 安装按钮（绿色） */
       .skill-btn.install {
-        background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
+        background: var(--accent);
         color: white;
-        box-shadow: 0 4px 12px rgba(16, 163, 127, 0.3);
+        box-shadow: var(--shadow-md);
       }
 
       .skill-btn.install:hover {
-        box-shadow: 0 6px 16px rgba(16, 163, 127, 0.4);
+        box-shadow: 0 6px 16px rgba(16,163,127, 0.4);
         transform: translateY(-1px);
       }
 
@@ -1250,7 +1255,7 @@
       /* 已安装按钮（灰色） */
       .skill-btn.installed {
         background: #f5f5f5;
-        color: #9ca3af;
+        color: var(--text-3);
         cursor: default;
       }
 
@@ -1311,7 +1316,7 @@
         right: 0;
         width: 340px;
         height: calc(100vh - 56px);
-        background: var(--bg-primary, #ffffff);
+        background: var(--bg-primary, var(--bg-card));
         border-left: 1px solid var(--border);
         z-index: 1001;
         display: flex;
@@ -1553,8 +1558,8 @@
 
         <!-- 上半部：输入框 + 发送按钮 -->
         <div class="input-top">
-          <textarea class="input-field" id="inputField" placeholder="给灵犀发消息..." rows="1"></textarea>
-          <button class="send-btn hidden" id="sendBtn" onclick="handleSendClick()" title="发送">
+          <textarea class="input-field" id="inputField" data-i18n-placeholder="chat.input_placeholder" placeholder="给灵犀发消息..." rows="1"></textarea>
+          <button class="send-btn hidden" id="sendBtn" onclick="handleSendClick()" data-i18n-title="chat.send" title="发送">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
           </button>
         </div>
@@ -1598,11 +1603,11 @@
         <div style="padding: 8px; color: var(--text-secondary);">加载中...</div>
       </div>
       <div class="skills-toolbar">
-        <input type="text" class="skills-search" id="skillsSearch" placeholder="搜索技能...">
+        <input type="text" class="skills-search" id="skillsSearch" placeholder="Search skills...">
         <div class="skills-filters">
-          <button class="filter-chip active" data-filter="all">全部</button>
-          <button class="filter-chip" data-filter="installed">已安装</button>
-          <button class="filter-chip" data-filter="new">最新</button>
+          <button class="filter-chip active" data-filter="all">All</button>
+          <button class="filter-chip" data-filter="installed">Installed</button>
+          <button class="filter-chip" data-filter="new">New</button>
         </div>
       </div>
       <div class="skills-grid-container">
@@ -2641,7 +2646,7 @@
         var notifs = listData.data || listData || [];
 
         if (notifs.length === 0) {
-          body.innerHTML = '<div class="notification-empty">暂无通知</div>';
+          body.innerHTML = '<div class="notification-empty">' + I18n.t('chat.no_notification') + '</div>';
           if (markAllBtn) markAllBtn.style.display = 'none';
           return;
         }
@@ -2657,7 +2662,7 @@
           // Icon based on type
           var notifIcon = '';
           if (n.type === 'reminder') {
-            notifIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;flex-shrink:0;margin-right:4px;color:#667eea"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+            notifIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;flex-shrink:0;margin-right:4px;color:#10a37f"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
           }
           html += '<div class="notification-item' + cls + '" data-id="' + (n.id || '') + '" onclick="markNotificationRead(this)">';
           html += '<div class="notification-item-bar ' + barCls + '"></div>';
@@ -2887,11 +2892,11 @@
 
   <!-- 文件预览模块 -->
 
-  <script src="assets/js/chat.js?v=20260604b"></script>
+  <script src="assets/js/chat.js?v=20260608"></script>
 
     <!-- 统一组件加载器 -->
     <script src="components/load-components.js"></script>
-  <script src="assets/js/skills-tab.js?v=20260602a"></script>
+  <script src="assets/js/skills-tab.js?v=20260608"></script>
     <script src="assets/js/subscription.js?v=1772525512"></script>
   <script src="assets/js/stripe-payment.js?v=1772524675"></script>
 </body>
