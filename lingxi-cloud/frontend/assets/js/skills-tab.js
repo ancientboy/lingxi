@@ -150,9 +150,9 @@ function renderSkills() {
       btnHtml = '<span class="skill-status-badge builtin"><i data-lucide="check" style="width:12px;height:12px"></i> Built-in</span>';
     } else if (installed) {
       btnHtml = '<span class="skill-status-badge installed"><i data-lucide="check-circle" style="width:12px;height:12px"></i> Installed</span>' +
-        '<button class="skill-use-btn" onclick="event.stopPropagation(); _useSkill(\'' + s.id + '\', \'' + _escAttr(s.example || s.shortDesc || '') + '\')">Use</button>';
+        '<button class="skill-use-btn" data-skill-id="' + s.id + '">Use</button>';
     } else {
-      btnHtml = '<button class="skill-install-btn" onclick="event.stopPropagation(); _installAndUse(\'' + s.id + '\', \'' + _escAttr(s.name || s.id) + '\', this)"><i data-lucide="download" style="width:12px;height:12px"></i> Install & Use</button>';
+      btnHtml = '<button class="skill-install-btn" data-skill-id="' + s.id + '" data-skill-name="' + _escAttr(s.name || s.id) + '"><i data-lucide="download" style="width:12px;height:12px"></i> Install & Use</button>';
     }
 
     // Detail sections
@@ -187,20 +187,18 @@ function renderSkills() {
 // ===== Skill Actions =====
 function _escAttr(str) { return String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
 
-function _useSkill(skillId, example) {
-  // Find the skill to get its name and agent info
+function _useSkill(skillId) {
   const allSkills = [...skillsState.allSkills, ...skillsState.builtinSkills];
   const skill = allSkills.find(s => s.id === skillId);
   const skillName = skill?.name || skillId;
-  const agentConfig = skill?.agent ? SKILLS_AGENT_CONFIG[skill.agent] : null;
-  const agentName = agentConfig?.name || '';
+  const example = skill?.example || '';
 
-  // Build the message: @agent + skill name + example
+  // Build message: skill name + example
   let msg = '';
   if (example) {
-    msg = example;
+    msg = `使用技能[${skillName}] ${example}`;
   } else {
-    msg = 'Use skill ' + skillName;
+    msg = `使用技能[${skillName}]`;
   }
 
   // Switch to chat view and fill input
@@ -210,9 +208,14 @@ function _useSkill(skillId, example) {
     if (input) {
       input.value = msg;
       input.focus();
-      input.dispatchEvent(new Event('input'));
+      // Auto-resize
+      input.style.height = 'auto';
+      input.style.height = Math.min(input.scrollHeight, 150) + 'px';
+      // Show send button
+      const sendBtn = document.getElementById('sendBtn');
+      if (sendBtn) sendBtn.classList.remove('hidden');
     }
-  }, 100);
+  }, 150);
 }
 
 async function _installAndUse(skillId, skillName, btn) {
@@ -310,8 +313,15 @@ function bindSkillsEvents() {
 
   const grid = document.getElementById('skillsGrid');
   if (grid) grid.addEventListener('click', e => {
+    // Use button
+    const useBtn = e.target.closest('.skill-use-btn');
+    if (useBtn) { e.stopPropagation(); _useSkill(useBtn.dataset.skillId); return; }
+    // Install button
+    const installBtn = e.target.closest('.skill-install-btn');
+    if (installBtn) { e.stopPropagation(); _installAndUse(installBtn.dataset.skillId, installBtn.dataset.skillName, installBtn); return; }
+    // Card expand
     const card = e.target.closest('.skill-card');
-    if (card && !e.target.closest('.skill-install-btn') && !e.target.closest('.skill-use-btn')) card.classList.toggle('expanded');
+    if (card && !e.target.closest('.skill-install-btn') && !e.target.closest('.skill-use-btn') && !e.target.closest('.skill-cmd-box')) card.classList.toggle('expanded');
   });
 }
 

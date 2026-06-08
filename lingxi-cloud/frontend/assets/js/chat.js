@@ -694,7 +694,7 @@ function handleWebSocketMessage(data) {
 
 // 从消息对象中提取文本
 function extractText(message) {
-  if (!message) return { id: skillId, name: skillId, description: `Use skill ${skillId}`, example: `Use skill ${skillId}` };
+  if (!message) return '';
   if (typeof message === 'string') return cleanMessageText(message);
   if (message.text) return cleanMessageText(message.text);
   if (message.content) {
@@ -1314,6 +1314,8 @@ function removeSelectedImage() {
   const previewImg = document.getElementById('imagePreview');
   const imageBtn = document.getElementById('imageBtn');
   
+  if (!previewContainer) { updateInputButtons(); return; }
+
   // 隐藏文件信息覆盖层
   const fileInfoOverlay = document.getElementById('fileInfoOverlay');
   if (fileInfoOverlay) {
@@ -1321,9 +1323,8 @@ function removeSelectedImage() {
   }
 
   previewContainer.classList.remove('show', 'uploading');
-  previewImg.src = '';
-  previewImg.style.opacity = '1';
-  imageBtn.classList.remove('has-image');
+  if (previewImg) { previewImg.src = ''; previewImg.style.opacity = '1'; }
+  if (imageBtn) imageBtn.classList.remove('has-image');
 
   // 更新按钮显示状态
   updateInputButtons();

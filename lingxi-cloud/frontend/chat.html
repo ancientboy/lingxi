@@ -1540,6 +1540,11 @@
         </div>
       </div>
 
+      <!-- Scroll to bottom button -->
+      <button class="scroll-bottom-btn hidden" id="scrollBottomBtn" onclick="scrollToBottom()" title="Scroll to latest">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
+      </button>
+
       <!-- 悬浮输入栏 -->
       <div class="input-bar" id="inputBar">
         <!-- 图片预览 -->
@@ -1845,12 +1850,34 @@
 
       // 初始化拖拽调整
       initSidebarResizer();
+      initScrollDetection();
 
       // 加载会话列表 - 延迟调用，等待 chat.js 加载完成
       // loadSidebarSessions() 会在 loadSessions() 完成后自动调用
 
       // 加载用户信息
       loadUserInfo();
+    }
+
+    // Scroll to bottom
+    function scrollToBottom() {
+      const messages = document.getElementById('messages');
+      if (messages) {
+        messages.scrollTo({ top: messages.scrollHeight, behavior: 'smooth' });
+        document.getElementById('scrollBottomBtn')?.classList.add('hidden');
+      }
+    }
+
+    // Detect scroll position for scroll-to-bottom button
+    function initScrollDetection() {
+      const messages = document.getElementById('messages');
+      const scrollBtn = document.getElementById('scrollBottomBtn');
+      if (!messages || !scrollBtn) return;
+      
+      messages.addEventListener('scroll', () => {
+        const isNearBottom = messages.scrollHeight - messages.scrollTop - messages.clientHeight < 100;
+        scrollBtn.classList.toggle('hidden', isNearBottom);
+      });
     }
 
     function toggleSidebar() {
