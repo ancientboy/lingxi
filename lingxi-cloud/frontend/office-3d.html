@@ -1900,8 +1900,18 @@ canvas.addEventListener('click', (e) => {
     const hitRadius = Math.max(WS(30), 25);
     if (dist(cx, cy, cp.x, cp.y) < hitRadius) {
       if (isEmbedded) {
-        // Embedded: open agent drawer in parent page (no confetti)
-        window.parent.postMessage({ type:'officeAgentClick', agentId: ch.agent.id }, '*');
+        // Embedded: directly call parent's openDrawer (same-origin)
+        try {
+          let aid = ch.agent.id;
+          // Fallback: map default office IDs to real workspace IDs
+          const idMap = { lingxi:'main', spark:'coder', pulse:'ops', nova:'inventor', scope:'pm', echo:'noter', prism:'media', nest:'smart' };
+          if (idMap[aid]) aid = idMap[aid];
+          console.log('[office] click agent:', aid, 'parent.openDrawer:', typeof window.parent?.openDrawer);
+          showToast('Opening ' + ch.agent.name + '...');
+          if (window.parent && typeof window.parent.openDrawer === 'function') {
+            window.parent.openDrawer(aid);
+          }
+        } catch(e) { console.warn('openDrawer failed:', e); }
       } else {
         // Standalone: show celebration + toast
         spawnCelebration(ch.x, ch.y);
