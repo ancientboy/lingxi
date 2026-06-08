@@ -225,18 +225,18 @@ DESKS.forEach((pos, i) => {
   [[-0.6,-0.28],[0.6,-0.28],[-0.6,0.28],[0.6,0.28]].forEach(([lx,lz]) =>
     addBox(0.04, 0.72, 0.04, mat.white, x+lx, 0.36, z+lz)
   );
-  // Monitor on far side (facing character)
-  addBox(0.9, 0.55, 0.03, mat.monitor, x, 1.08, z+0.26);
+  // Monitor on far side (small z = back, away from camera)
+  addBox(0.9, 0.55, 0.03, mat.monitor, x, 1.08, z-0.26);
   const scrMat = i < 3 ? mat.screen : mat.screenOff;
-  addBox(0.82, 0.48, 0.015, scrMat, x, 1.08, z+0.28);
-  addBox(0.06, 0.22, 0.06, mat.monitor, x, 0.85, z+0.26);
-  // Chair on near side (under desk, facing monitor = facing z+)
-  addCyl(0.22, 0.22, 0.06, mat.chair, x, 0.52, z-0.3, 16);
-  addBox(0.4, 0.35, 0.04, mat.chair, x, 0.72, z-0.52);
-  addCyl(0.03, 0.03, 0.48, mat.metal, x, 0.24, z-0.3, 8);
-  // Screen glow
+  addBox(0.82, 0.48, 0.015, scrMat, x, 1.08, z-0.28);
+  addBox(0.06, 0.22, 0.06, mat.monitor, x, 0.85, z-0.26);
+  // Chair on near side (large z = front, closer to camera)
+  addCyl(0.22, 0.22, 0.06, mat.chair, x, 0.52, z+0.4, 16);
+  addBox(0.4, 0.35, 0.04, mat.chair, x, 0.72, z+0.6);
+  addCyl(0.03, 0.03, 0.48, mat.metal, x, 0.24, z+0.4, 8);
+  // Screen glow (in front of monitor)
   const sl = new THREE.PointLight(0x4488cc, 0.15, 2);
-  sl.position.set(x, 1.1, z+0.5);
+  sl.position.set(x, 1.1, z-0.1);
   scene.add(sl);
   screenLights.push(sl);
 });
@@ -405,8 +405,10 @@ class AgentCharacter {
       this._deskIdx = deskIdx;
     }
     const desk = DESKS[deskIdx] || DESKS[0];
-    // Character sits at chair position (near side of desk, z-)
-    this.group.position.set(desk.x, -0.15, desk.z - 0.3);
+    // Character sits at chair position (near side of desk, z+)
+    this.group.position.set(desk.x, -0.15, desk.z + 0.3);
+    // Face the monitor (face towards negative z)
+    this.group.rotation.y = Math.PI;
     this.state = 'working';
   }
 
