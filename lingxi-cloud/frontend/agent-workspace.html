@@ -1499,16 +1499,12 @@ let _officeEngine = null;
 // Send current team members to the office canvas engine
 function updateOfficeTeam() {
   if (!_officeEngine) return;
-  // Use real agents if we have enough, otherwise let engine keep its defaults
-  if (AGENTS.length >= 3) {
-    const members = AGENTS.map(a => ({
-      id: a.id,
-      name: a.name,
-      color: a.color,
-    }));
-    _officeEngine.updateTeam(members);
-  }
-  // If fewer than 3 real agents, don't call updateTeam — engine defaults look better
+  const members = AGENTS.map(a => ({
+    id: a.id,
+    name: a.name,
+    color: a.color,
+  }));
+  _officeEngine.updateTeam(members);
 }
 
 // Initialize office canvas
@@ -1685,7 +1681,8 @@ function getMyAgentIds() {
   const u = getTeamUser();
   if (u?.team?.members?.length) return u.team.members.map(m => m.id);
   if (u?.agents?.length) return u.agents;
-  return ['main'];
+  // 兜底：用灵犀全能团队默认成员
+  return ['lingxi','coder','ops','inventor','pm','noter','media','smart','reviewer','qa'];
 }
 
 function getAgentInfo(agentId) {
