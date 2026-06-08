@@ -1746,8 +1746,10 @@ function showToast(msg) {
 
 // ==================== RESIZE ====================
 function onResize() {
-  CW = canvas.parentElement ? canvas.parentElement.clientWidth : window.innerWidth;
-  CH = canvas.parentElement ? canvas.parentElement.clientHeight : window.innerHeight;
+  // Use getBoundingClientRect for accurate dimensions including CSS calc()
+  const rect = canvas.parentElement ? canvas.parentElement.getBoundingClientRect() : null;
+  CW = rect ? Math.max(rect.width, 100) : window.innerWidth;
+  CH = rect ? Math.max(rect.height, 100) : window.innerHeight;
   canvas.width = CW; canvas.height = CH;
   S = Math.min(CW / WORLD_W, CH / WORLD_H) * 0.95;
   cam.ox = CW/2 - (WORLD_W/2)*S;
