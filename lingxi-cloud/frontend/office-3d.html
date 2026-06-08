@@ -799,15 +799,14 @@ class Char {
     const r = Math.random();
     switch(this.state) {
       case STATES.IDLE:
-        if (r<0.65) this.setState(STATES.TYPING);
+        // Idle at desk → go back to typing or go to a left area
+        if (r<0.5) this.setState(STATES.TYPING);
         else {
-          // Try coffee, sofa, or treadmill
           const choices = [
             { loc: LOC.coffee, state: STATES.DRINKING },
             { loc: LOC.sofa, state: STATES.SITTING },
             { loc: LOC.treadmill, state: STATES.RUNNING },
           ];
-          // Shuffle
           for (let i=choices.length-1; i>0; i--) {
             const j = Math.floor(Math.random()*(i+1));
             [choices[i], choices[j]] = [choices[j], choices[i]];
@@ -820,8 +819,8 @@ class Char {
         }
         break;
       case STATES.TYPING:
-        if (r<0.5) this.setState(STATES.IDLE);
-        else {
+        // Typing → keep typing or take a break (go to left area)
+        {
           const choices = [
             { loc: LOC.coffee, state: STATES.DRINKING },
             { loc: LOC.sofa, state: STATES.SITTING },
@@ -835,16 +834,16 @@ class Char {
           for (const c of choices) {
             if (!this.tryGoToArea(c.loc, c.state)) { went = true; break; }
           }
-          if (!went) this.setState(STATES.IDLE);
+          // All areas occupied → stay typing
+          if (!went) { this.stateTimer = rand(5,10); }
         }
         break;
       case STATES.SLEEPING:
       case STATES.SITTING:
       case STATES.RUNNING:
       case STATES.DRINKING:
-        // Done resting, go back to work
-        if (r<0.85) { const h=this.homeDesk; this.walkTo(h.x,h.y,STATES.TYPING); }
-        else this.setState(STATES.IDLE);
+        // Done resting → always go back to desk and type
+        { const h=this.homeDesk; this.walkTo(h.x,h.y,STATES.TYPING); }
         break;
     }
   }
@@ -860,15 +859,14 @@ class Char {
   }
 }
 
-// Create characters — mostly typing, 1-2 idle/outside (but max 1 per left area)
+// Create characters — all start typing at desk (max 1 in left area)
 const usedAreas = new Set();
 const chars = AGENTS.map((a, i) => {
   let state = STATES.TYPING;
-  // Only assign 1 character to coffee, 1 to sofa (if available indices)
-  if (i === 3 && !usedAreas.has('coffee')) { state = STATES.IDLE; usedAreas.add('coffee'); }
+  if (i === 3 && !usedAreas.has('coffee')) { state = STATES.DRINKING; usedAreas.add('coffee'); }
   else if (i === 6 && !usedAreas.has('sofa')) { state = STATES.SITTING; usedAreas.add('sofa'); }
   const ch = new Char(a, state);
-  if (state === STATES.IDLE) { ch.x = LOC.coffee.x; ch.y = LOC.coffee.y; }
+  if (state === STATES.DRINKING) { ch.x = LOC.coffee.x; ch.y = LOC.coffee.y; }
   if (state === STATES.SITTING) { ch.x = LOC.sofa.x; ch.y = LOC.sofa.y; }
   return ch;
 });
@@ -1027,24 +1025,34 @@ function drawChar(ch) {
     ctx.ellipse(12*s, 2*s, 4*s, 3*s, 0.4, 0, Math.PI*2);
     ctx.fill();
   } else if (ch.state===STATES.DRINKING) {
-    // Drinking: one arm up holding cup
+    // Drinking: right arm raised holding cup near face
+    // Gentle bob animation
+    const dBob = Math.sin(ch.anim*4)*1.5*s;
     ctx.beginPath();
     ctx.ellipse(-13*s, -2*s, 5*s, 4*s, -0.3, 0, Math.PI*2);
     ctx.fill();
-    // Right arm raised with "cup"
+    // Right arm reaching up to face
     ctx.beginPath();
-    ctx.ellipse(12*s, -10*s, 4*s, 3.5*s, 0.5, 0, Math.PI*2);
+    ctx.ellipse(8*s, -10*s+dBob, 4.5*s, 3.5*s, 0.6, 0, Math.PI*2);
     ctx.fill();
-    // Cup (tiny rectangle above the hand)
-    ctx.fillStyle = '#888';
-    ctx.fillRect(10*s, -16*s, 5*s, 6*s);
-    // Steam wisp
-    ctx.strokeStyle = 'rgba(200,200,200,0.5)';
-    ctx.lineWidth = 1*s;
-    const steamY = Math.sin(ch.anim*3)*2*s;
+    // Cup near face
+    ctx.fillStyle = '#fff';
+    ctx.strokeStyle = '#bbb'; ctx.lineWidth = WS(0.8);
+    rrect(5*s, -17*s+dBob, 8*s, 7*s, 1.5*s); ctx.fill(); ctx.stroke();
+    // Coffee inside
+    ctx.fillStyle = '#8B6914';
+    ctx.beginPath(); ctx.ellipse(9*s, -15*s+dBob, 3*s, 2*s, 0, 0, Math.PI*2); ctx.fill();
+    // Steam
+    ctx.strokeStyle = 'rgba(180,180,180,0.4)';
+    ctx.lineWidth = 0.8*s; ctx.lineCap = 'round';
+    const steamOff = Math.sin(ch.anim*3)*1.5*s;
     ctx.beginPath();
-    ctx.moveTo(12.5*s, -17*s);
-    ctx.quadraticCurveTo(14*s, -20*s+steamY, 12*s, -22*s+steamY);
+    ctx.moveTo(8*s, -18*s+dBob);
+    ctx.quadraticCurveTo(10*s, -21*s+dBob+steamOff, 8*s, -23*s+dBob+steamOff);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(12*s, -18*s+dBob);
+    ctx.quadraticCurveTo(14*s, -20*s+dBob-steamOff, 12*s, -22*s+dBob-steamOff);
     ctx.stroke();
   } else {
     // Idle: arms at sides, gentle sway
