@@ -100,19 +100,19 @@ function shadow(x,y,w,h,a=0.1) {
 // ==================== DRAW FUNCTIONS ====================
 
 function drawZones() {
-  // Background zone highlights — aligned to actual furniture positions
-  // Break Area (around drawBreakArea at 60,145,180x55) + space for character
-  ctx.fillStyle = 'rgba(139,105,20,0.05)';
-  rrect(40,130,215,110,14); ctx.fill();
-  // Wellness (around drawTreadmill at 70,387,140x55) + space
-  ctx.fillStyle = 'rgba(100,180,100,0.05)';
-  rrect(40,370,210,100,14); ctx.fill();
-  // Relax (around drawSofa at 70,630,120x55) + space
-  ctx.fillStyle = 'rgba(155,89,182,0.05)';
-  rrect(40,615,210,100,14); ctx.fill();
+  // Background zone highlights — centered around furniture + character standing space
+  // Break Area: furniture(60,145,180x55) bottom=200, character at y=218
+  ctx.fillStyle = 'rgba(139,105,20,0.06)';
+  rrect(35,135,225,100,14); ctx.fill();
+  // Wellness: furniture(70,387,140x55) bottom=442, character at y=398
+  ctx.fillStyle = 'rgba(100,180,100,0.06)';
+  rrect(35,375,225,90,14); ctx.fill();
+  // Relax: furniture(70,630,120x55) bottom=685, character at y=657
+  ctx.fillStyle = 'rgba(155,89,182,0.06)';
+  rrect(35,618,225,90,14); ctx.fill();
   // Work zone (encompasses all desks)
-  ctx.fillStyle = 'rgba(66,133,244,0.025)';
-  rrect(295,25,490,820,16); ctx.fill();
+  ctx.fillStyle = 'rgba(66,133,244,0.03)';
+  rrect(290,20,500,830,16); ctx.fill();
 }
 
 function drawLabels() {
@@ -709,15 +709,15 @@ class Char {
 
     if (this.state !== STATES.WALKING && this.taskTimer <= 0) {
       this.stateTimer -= dt;
-      if (this.stateTimer <= 0) { this.autoSwitch(); this.stateTimer = rand(3,8); }
+      if (this.stateTimer <= 0) { this.autoSwitch(); }
     }
   }
 
   setState(s) {
     this.state = s; this.anim = 0; this.updateUI();
-    if (s===STATES.TYPING) this.stateTimer = rand(5,10);
-    else if (s===STATES.IDLE) this.stateTimer = rand(4,8);
-    else if (s===STATES.SLEEPING || s===STATES.SITTING || s===STATES.RUNNING || s===STATES.DRINKING) this.stateTimer = rand(6,12);
+    if (s===STATES.TYPING) this.stateTimer = rand(4,8);
+    else if (s===STATES.IDLE) this.stateTimer = rand(3,6);
+    else if (s===STATES.SLEEPING || s===STATES.SITTING || s===STATES.RUNNING || s===STATES.DRINKING) this.stateTimer = rand(8,18);
   }
 
   walkTo(tx,ty,next) {
@@ -733,23 +733,28 @@ class Char {
     this.setState(STATES.WALKING);
   }
 
-  // Try to go to a left-side area; returns true if locked (occupied)
+  // Try to go to a left-side area; returns true if full
   tryGoToArea(areaLoc, targetState) {
+    let occupants = 0;
     for (const other of chars) {
       if (other === this) continue;
-      // Already at area (not walking)
-      if (dist(other.x, other.y, areaLoc.x, areaLoc.y) < 50 && other.state !== STATES.WALKING) {
-        return true;
+      // Already at area
+      if (dist(other.x, other.y, areaLoc.x, areaLoc.y) < 60 && other.state !== STATES.WALKING) {
+        occupants++;
       }
       // Walking toward this area
       if (other.state === STATES.WALKING) {
         const dest = other.route.length > 0 ? other.route[other.route.length - 1] : { x: other.tx, y: other.ty };
-        if (dist(dest.x, dest.y, areaLoc.x, areaLoc.y) < 50) {
-          return true;
+        if (dist(dest.x, dest.y, areaLoc.x, areaLoc.y) < 60) {
+          occupants++;
         }
       }
     }
-    this.walkTo(areaLoc.x, areaLoc.y, targetState);
+    if (occupants >= 2) return true; // max 2 per area
+    // Add slight random offset so 2 chars don't stack
+    const ox = (Math.random()-0.5) * 30;
+    const oy = (Math.random()-0.5) * 20;
+    this.walkTo(areaLoc.x + ox, areaLoc.y + oy, targetState);
     return false;
   }
 
@@ -777,8 +782,8 @@ class Char {
         }
         break;
       case STATES.TYPING:
-        // Typing → take a break: idle (30%) or go to area (40%) or keep typing (30%)
-        if (r<0.3) {
+        // Typing → take a break: idle (20%) or go to area (50%) or keep typing (30%)
+        if (r<0.2) {
           this.setState(STATES.IDLE);
         } else if (r<0.7) {
           const choices = [
@@ -1803,11 +1808,10 @@ function loop(ts) {
       ctx.fillStyle = '#fff';
       rrect(npX-npW/2, npY-npH/2, npW, npH, WS(2.5)); ctx.fill();
       ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = WS(0.5); ctx.stroke();
-      // Color accent bar on right side
+      // Color accent bar on right side (use rrect helper for compatibility)
       ctx.fillStyle = agent.scarf;
-      ctx.beginPath();
-      ctx.roundRect(npX+npW/2-WS(2.5), npY-npH/2, WS(2.5), npH, [0,WS(2.5),WS(2.5),0]);
-      ctx.fill();
+      const barX = npX+npW/2-WS(2.5), barY = npY-npH/2, barW = WS(2.5), barH = npH;
+      ctx.fillRect(barX, barY, barW, barH);
       // Name
       ctx.fillStyle = '#333';
       ctx.font = `600 ${WS(7)}px -apple-system, sans-serif`;
