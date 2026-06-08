@@ -211,6 +211,79 @@ function drawDesk(dx, dy) {
   ctx.moveTo(p.x-dw/2+r, p.y-dh/2+1);
   ctx.lineTo(p.x+dw/2-r, p.y-dh/2+1);
   ctx.stroke();
+
+  // === Desk items (small decorative objects) ===
+  // Seed by desk position for variety
+  const seed = Math.round(dx * 7 + dy * 13) % 6;
+
+  // Coffee mug (left side of desk)
+  const mugX = p.x - dw*0.35, mugY = p.y + dh*0.15;
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.ellipse(mugX, mugY, WS(6), WS(5), 0, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#d0d0d0'; ctx.lineWidth = WS(0.6); ctx.stroke();
+  // Mug handle
+  ctx.beginPath(); ctx.arc(mugX+WS(6), mugY, WS(3), -Math.PI*0.4, Math.PI*0.4); ctx.stroke();
+  // Coffee liquid
+  ctx.fillStyle = '#8B6914';
+  ctx.beginPath(); ctx.ellipse(mugX, mugY-WS(0.5), WS(4.5), WS(3.5), 0, 0, Math.PI*2); ctx.fill();
+  // Steam (tiny wisp)
+  ctx.strokeStyle = 'rgba(180,180,180,0.4)'; ctx.lineWidth = WS(0.6); ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(mugX, mugY-WS(6));
+  ctx.quadraticCurveTo(mugX+WS(2), mugY-WS(9), mugX-WS(1), mugY-WS(11)); ctx.stroke();
+
+  // Notebook (right side)
+  if (seed % 2 === 0) {
+    const nbX = p.x + dw*0.3, nbY = p.y + dh*0.2;
+    ctx.fillStyle = '#f5f0e8';
+    rrect(nbX-WS(10), nbY-WS(7), WS(20), WS(14), WS(1.5)); ctx.fill();
+    ctx.strokeStyle = '#d4c9b8'; ctx.lineWidth = WS(0.5); ctx.stroke();
+    // Lines on notebook
+    ctx.strokeStyle = '#c8bfb0'; ctx.lineWidth = WS(0.3);
+    for (let i=0; i<4; i++) {
+      const ly = nbY-WS(4)+WS(3)*i;
+      ctx.beginPath(); ctx.moveTo(nbX-WS(7), ly); ctx.lineTo(nbX+WS(7), ly); ctx.stroke();
+    }
+  }
+
+  // Small plant (corner)
+  if (seed % 3 === 0) {
+    const plX = p.x - dw*0.38, plY = p.y - dh*0.3;
+    // Pot
+    ctx.fillStyle = '#d4956a';
+    ctx.beginPath(); ctx.ellipse(plX, plY+WS(3), WS(5), WS(3.5), 0, 0, Math.PI*2); ctx.fill();
+    // Leaves (small green circles)
+    ctx.fillStyle = '#5a9e5a';
+    ctx.beginPath(); ctx.arc(plX, plY-WS(2), WS(4), 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#4a8e4a';
+    ctx.beginPath(); ctx.arc(plX-WS(2), plY-WS(4), WS(3), 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(plX+WS(3), plY-WS(3), WS(2.5), 0, Math.PI*2); ctx.fill();
+  }
+
+  // Sticky note (random desk)
+  if (seed % 2 === 1) {
+    const snX = p.x + dw*0.32, snY = p.y - dh*0.22;
+    const noteColors = ['#fff9a5','#a5d8ff','#ffa5a5','#a5ffa5'];
+    ctx.fillStyle = noteColors[seed % noteColors.length];
+    ctx.save();
+    ctx.translate(snX, snY);
+    ctx.rotate(0.1);
+    ctx.fillRect(-WS(6), -WS(5), WS(12), WS(10));
+    ctx.restore();
+  }
+
+  // Pen/pencil
+  ctx.strokeStyle = '#555'; ctx.lineWidth = WS(1.2); ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(p.x + dw*0.15, p.y + dh*0.25);
+  ctx.lineTo(p.x + dw*0.35, p.y + dh*0.35);
+  ctx.stroke();
+  // Pencil tip
+  ctx.fillStyle = '#e8b84a';
+  ctx.beginPath();
+  ctx.moveTo(p.x + dw*0.35, p.y + dh*0.35);
+  ctx.lineTo(p.x + dw*0.37, p.y + dh*0.33);
+  ctx.lineTo(p.x + dw*0.36, p.y + dh*0.37);
+  ctx.closePath(); ctx.fill();
 }
 
 function drawMonitor(mx, my, active) {
