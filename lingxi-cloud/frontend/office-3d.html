@@ -52,9 +52,9 @@ const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 canvas.width = CW; canvas.height = CH;
 
-const STATES = { IDLE: 'idle', TYPING: 'typing', WALKING: 'walking', SLEEPING: 'sleeping' };
-const STATE_COLORS = { idle: '#F1C40F', typing: '#2ECC71', walking: '#3498DB', sleeping: '#9B59B6' };
-const STATE_LABELS = { idle: 'Idle', typing: 'Typing', walking: 'Walking', sleeping: 'Sleeping' };
+const STATES = { IDLE: 'idle', TYPING: 'typing', WALKING: 'walking', SLEEPING: 'sleeping', SITTING: 'sitting' };
+const STATE_COLORS = { idle: '#F1C40F', typing: '#2ECC71', walking: '#3498DB', sleeping: '#9B59B6', sitting: '#E67E22' };
+const STATE_LABELS = { idle: 'Idle', typing: 'Typing', walking: 'Walking', sleeping: 'Sleeping', sitting: 'Sitting' };
 
 const AGENTS = [
   { id:'lingxi', name:'Lingxi',  scarf:'#6366f1', deskIdx:0 },
@@ -675,7 +675,7 @@ class Char {
     this.state = s; this.anim = 0; this.updateUI();
     if (s===STATES.TYPING) this.stateTimer = rand(5,10);
     else if (s===STATES.IDLE) this.stateTimer = rand(4,8);
-    else if (s===STATES.SLEEPING) this.stateTimer = rand(6,12);
+    else if (s===STATES.SLEEPING || s===STATES.SITTING) this.stateTimer = rand(6,12);
   }
 
   walkTo(tx,ty,next) {
@@ -696,16 +696,17 @@ class Char {
     switch(this.state) {
       case STATES.IDLE:
         if (r<0.7) this.setState(STATES.TYPING);
-        else { const d=r<0.85?LOC.coffee:LOC.sofa; this.walkTo(d.x,d.y,r<0.85?STATES.IDLE:STATES.SLEEPING); }
+        else { const d=r<0.85?LOC.coffee:LOC.sofa; this.walkTo(d.x,d.y,r<0.85?STATES.IDLE:STATES.SITTING); }
         break;
       case STATES.TYPING:
         if (r<0.55) this.setState(STATES.IDLE);
         else if (r<0.8) this.walkTo(LOC.coffee.x,LOC.coffee.y,STATES.IDLE);
-        else this.walkTo(LOC.sofa.x,LOC.sofa.y,STATES.SLEEPING);
+        else this.walkTo(LOC.sofa.x,LOC.sofa.y,STATES.SITTING);
         break;
       case STATES.SLEEPING:
+      case STATES.SITTING:
         if (r<0.8) { const h=this.homeDesk; this.walkTo(h.x,h.y,STATES.TYPING); }
-        else this.setState(STATES.SLEEPING);
+        else this.setState(STATES.SITTING);
         break;
     }
   }
@@ -723,10 +724,10 @@ class Char {
 
 // Create characters — mostly typing, 1-2 idle/outside
 const chars = AGENTS.map((a, i) => {
-  const state = i === 3 ? STATES.IDLE : (i === 6 ? STATES.SLEEPING : STATES.TYPING);
+  const state = i === 3 ? STATES.IDLE : (i === 6 ? STATES.SITTING : STATES.TYPING);
   const ch = new Char(a, state);
   if (state === STATES.IDLE) { ch.x = LOC.coffee.x; ch.y = LOC.coffee.y; }
-  if (state === STATES.SLEEPING) { ch.x = LOC.sofa.x; ch.y = LOC.sofa.y; }
+  if (state === STATES.SITTING) { ch.x = LOC.sofa.x; ch.y = LOC.sofa.y; }
   return ch;
 });
 
@@ -741,6 +742,11 @@ function drawChar(ch) {
   } else if (ch.state===STATES.WALKING) {
     // Body stays upright — only bounce, no rotation
     oy = Math.abs(Math.sin(ch.anim*10))*2.5*S;
+  } else if (ch.state===STATES.SITTING) {
+    // Sitting on sofa: squished body, legs stretched out
+    bodySY = 0.6;
+    ox = 3*S;
+    oy = 6*S;
   } else if (ch.state===STATES.SLEEPING) {
     bodySY = 0.6;
     oy = Math.sin(ch.anim*1.5)*1.5*S;
@@ -759,14 +765,20 @@ function drawChar(ch) {
   const walkCycle = ch.state===STATES.WALKING ? ch.anim*10 : 0;
   const legSwing = ch.state===STATES.WALKING ? Math.sin(walkCycle)*6*s : 0;
   const legBounce = ch.state===STATES.WALKING ? Math.abs(Math.sin(walkCycle))*2*s : 0;
+  const isSitting = ch.state===STATES.SITTING;
 
-  // Feet (two small rounded bumps, swing left-right when walking)
+  // Feet
   ctx.fillStyle = '#1a1a1a';
-  const legOff = ch.state===STATES.WALKING ? Math.sin(ch.anim*10)*3*s : 0;
-  // Left foot — swings forward (positive x) when right goes back
-  ctx.beginPath(); ctx.ellipse(-6*s+legSwing, 16*s-legBounce, 6*s, 3.5*s, legSwing*0.05, 0, Math.PI*2); ctx.fill();
-  // Right foot — opposite phase
-  ctx.beginPath(); ctx.ellipse(6*s-legSwing, 16*s-legBounce, 6*s, 3.5*s, -legSwing*0.05, 0, Math.PI*2); ctx.fill();
+  if (isSitting) {
+    // Sitting: feet stretched forward (to the right), slightly apart
+    ctx.beginPath(); ctx.ellipse(12*s, 12*s, 5*s, 3*s, 0.3, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(14*s, 16*s, 5*s, 3*s, 0.2, 0, Math.PI*2); ctx.fill();
+  } else {
+    // Left foot — swings forward when walking
+    ctx.beginPath(); ctx.ellipse(-6*s+legSwing, 16*s-legBounce, 6*s, 3.5*s, legSwing*0.05, 0, Math.PI*2); ctx.fill();
+    // Right foot — opposite phase
+    ctx.beginPath(); ctx.ellipse(6*s-legSwing, 16*s-legBounce, 6*s, 3.5*s, -legSwing*0.05, 0, Math.PI*2); ctx.fill();
+  }
 
   // Main body (large teardrop/egg shape, pure black)
   ctx.fillStyle = '#1a1a1a';
@@ -798,18 +810,23 @@ function drawChar(ch) {
 
   // Arms/flippers (small rounded bumps on sides)
   ctx.fillStyle = '#1a1a1a';
-  if (ch.state===STATES.TYPING) {
+  if (isSitting) {
+    // Sitting: arms resting on "knees" (forward and down)
+    ctx.beginPath();
+    ctx.ellipse(8*s, 4*s, 5*s, 3.5*s, 0.4, 0, Math.PI*2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(10*s, 8*s, 5*s, 3.5*s, 0.3, 0, Math.PI*2);
+    ctx.fill();
+  } else if (ch.state===STATES.TYPING) {
     const tOff = Math.sin(ch.anim*18)*4*s;
-    // Left arm reaching forward
     ctx.beginPath();
     ctx.ellipse(-14*s, -2*s+tOff, 5*s, 4*s, -0.3, 0, Math.PI*2);
     ctx.fill();
-    // Right arm
     ctx.beginPath();
     ctx.ellipse(14*s, -2*s-tOff, 5*s, 4*s, 0.3, 0, Math.PI*2);
     ctx.fill();
   } else if (ch.state===STATES.WALKING) {
-    // Arms swing opposite to legs
     ctx.beginPath();
     ctx.ellipse(-14*s, -2*s-legSwing*0.3, 5*s, 4*s, -0.2, 0, Math.PI*2);
     ctx.fill();
