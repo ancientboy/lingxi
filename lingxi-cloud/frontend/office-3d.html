@@ -70,17 +70,14 @@ const AGENTS = [
 // Scale factor
 const S = Math.min(CW / 1200, CH / 800);
 
-// ==================== ISOMETRIC PROJECTION ====================
-const ISO_ROT = Math.PI / 4;   // 45° rotation
-const ISO_SY = 0.55;           // vertical compression for isometric look
+// ==================== CAMERA ====================
+const cam = { ox: CW/2, oy: CH/2, scale: 1, target: 1 };
 
-// World coords → isometric screen coords (with camera offset + zoom)
+// World → screen (top-down, with camera pan)
 function W(wx, wy) {
-  const rx = wx * Math.cos(ISO_ROT) - wy * Math.sin(ISO_ROT);
-  const ry = wx * Math.sin(ISO_ROT) + wy * Math.cos(ISO_ROT);
-  return { x: CW/2 + (rx * S - cam.ox) * cam.scale, y: CH/2 + (ry * ISO_SY * S - cam.oy) * cam.scale };
+  return { x: cam.ox + wx * S * cam.scale, y: cam.oy + wy * S * cam.scale };
 }
-function WS(v) { return v * S; }
+function WS(v) { return v * S * cam.scale; }
 
 // 6 workstations (like Marvis: 2 rows × 3 columns)
 // 8 workstations (4 rows × 2 columns)
@@ -97,9 +94,6 @@ const LOC = {
   sofa:      { x:130, y:640 },
   treadmill: { x:140, y:360 },
 };
-
-// ==================== CAMERA ====================
-const cam = { ox: CW/2, oy: CH/2, scale: 1, target: 1 };
 
 // ==================== HELPERS ====================
 function lerp(a,b,t) { return a+(b-a)*t; }
@@ -154,10 +148,32 @@ function drawLabels() {
 function drawDesk(dx, dy) {
   const p = W(dx, dy);
   const dw = WS(150), dh = WS(100), r = WS(10);
+  const sideH = WS(8); // visible desk thickness from above
 
-  shadow(p.x, p.y, dw, dh, 0.08);
+  shadow(p.x, p.y+sideH/2, dw, dh, 0.1);
 
-  // Desk surface
+  // Right side (depth)
+  ctx.fillStyle = '#e2e2e2';
+  ctx.beginPath();
+  ctx.moveTo(p.x+dw/2, p.y-dh/2);
+  ctx.lineTo(p.x+dw/2, p.y+dh/2);
+  ctx.lineTo(p.x+dw/2, p.y+dh/2+sideH);
+  ctx.lineTo(p.x-dw/2, p.y+dh/2+sideH);
+  ctx.lineTo(p.x-dw/2, p.y+dh/2);
+  ctx.closePath();
+  ctx.fill();
+
+  // Bottom side (depth)
+  ctx.fillStyle = '#ebebeb';
+  ctx.beginPath();
+  ctx.moveTo(p.x-dw/2, p.y+dh/2);
+  ctx.lineTo(p.x+dw/2, p.y+dh/2);
+  ctx.lineTo(p.x+dw/2, p.y+dh/2+sideH);
+  ctx.lineTo(p.x-dw/2, p.y+dh/2+sideH);
+  ctx.closePath();
+  ctx.fill();
+
+  // Desk surface (top)
   ctx.fillStyle = '#fafafa';
   rrect(p.x-dw/2, p.y-dh/2, dw, dh, r);
   ctx.fill();
@@ -177,33 +193,37 @@ function drawDesk(dx, dy) {
 function drawMonitor(mx, my, active) {
   const p = W(mx, my);
   const mw = WS(50), mh = WS(32), mr = WS(4);
+  const depth = WS(4); // monitor thickness
 
   // Stand
   ctx.fillStyle = '#c8c8c8';
-  rrect(p.x-WS(14), p.y+mh/2-WS(2), WS(28), WS(8), WS(3)); ctx.fill();
+  rrect(p.x-WS(14), p.y+mh/2-WS(2)+depth, WS(28), WS(8), WS(3)); ctx.fill();
 
   // Pole
   ctx.fillStyle = '#b0b0b0';
-  ctx.fillRect(p.x-WS(2), p.y-mh/2, WS(4), mh);
+  ctx.fillRect(p.x-WS(2), p.y+mh/2, WS(4), depth);
 
-  // Frame
+  // Monitor back (visible top edge — slightly lighter)
+  ctx.fillStyle = '#333';
+  rrect(p.x-mw/2, p.y-mh/2, mw, depth, mr); ctx.fill();
+
+  // Monitor body (front face)
   ctx.fillStyle = '#2a2a2a';
-  rrect(p.x-mw/2, p.y-mh/2, mw, mh, mr); ctx.fill();
+  rrect(p.x-mw/2, p.y-mh/2+depth, mw, mh, mr); ctx.fill();
 
   // Screen
   if (active) {
     ctx.save();
-    ctx.shadowColor = 'rgba(66,133,244,0.6)';
-    ctx.shadowBlur = WS(10);
+    ctx.shadowColor = 'rgba(66,133,244,0.5)';
+    ctx.shadowBlur = WS(8);
     ctx.fillStyle = '#4285F4';
-    rrect(p.x-mw/2+WS(3), p.y-mh/2+WS(3), mw-WS(6), mh-WS(6), mr-WS(1)); ctx.fill();
+    rrect(p.x-mw/2+WS(3), p.y-mh/2+depth+WS(3), mw-WS(6), mh-WS(6), mr-WS(1)); ctx.fill();
     ctx.restore();
-    // Code lines
     ctx.fillStyle = 'rgba(255,255,255,0.7)';
-    for (let i=0;i<3;i++) ctx.fillRect(p.x-mw/2+WS(8), p.y-mh/2+WS(8)+i*WS(7), WS(15), WS(2));
+    for (let i=0;i<3;i++) ctx.fillRect(p.x-mw/2+WS(8), p.y-mh/2+depth+WS(8)+i*WS(7), WS(15), WS(2));
   } else {
     ctx.fillStyle = '#1a1a1a';
-    rrect(p.x-mw/2+WS(3), p.y-mh/2+WS(3), mw-WS(6), mh-WS(6), mr-WS(1)); ctx.fill();
+    rrect(p.x-mw/2+WS(3), p.y-mh/2+depth+WS(3), mw-WS(6), mh-WS(6), mr-WS(1)); ctx.fill();
   }
 }
 
@@ -211,25 +231,25 @@ function drawChair(cx, cy) {
   const p = W(cx, cy);
   const cr = WS(18);
 
-  shadow(p.x, p.y, cr*2, cr*2, 0.1);
-
-  // Seat
-  ctx.fillStyle = '#e8e8e8';
-  ctx.beginPath(); ctx.ellipse(p.x, p.y, cr, cr*0.8, 0, 0, Math.PI*2); ctx.fill();
-  ctx.strokeStyle = '#d0d0d0'; ctx.lineWidth = WS(0.8); ctx.stroke();
-
-  // Back
-  ctx.fillStyle = '#dcdcdc';
-  ctx.beginPath(); ctx.arc(p.x, p.y-cr*0.65, cr*0.7, Math.PI, 0); ctx.fill();
-  ctx.strokeStyle = '#c8c8c8'; ctx.lineWidth = WS(0.6); ctx.stroke();
+  shadow(p.x, p.y+WS(3), cr*2, cr*2, 0.1);
 
   // 5-star base
   ctx.strokeStyle = '#b8b8b8'; ctx.lineWidth = WS(1.5);
   for (let i=0;i<5;i++) {
     const a = (i/5)*Math.PI*2;
-    ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(p.x+Math.cos(a)*cr*1.2, p.y+Math.sin(a)*cr*1.2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x+Math.cos(a)*cr*1.2, p.y+Math.sin(a)*cr*1.2); ctx.stroke();
   }
   ctx.fillStyle = '#999'; ctx.beginPath(); ctx.arc(p.x, p.y, WS(4), 0, Math.PI*2); ctx.fill();
+
+  // Seat cushion (top view, with slight depth)
+  ctx.fillStyle = '#e8e8e8';
+  ctx.beginPath(); ctx.ellipse(p.x, p.y, cr, cr*0.8, 0, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#d0d0d0'; ctx.lineWidth = WS(0.8); ctx.stroke();
+
+  // Backrest (visible as arc at top)
+  ctx.fillStyle = '#dcdcdc';
+  ctx.beginPath(); ctx.arc(p.x, p.y-cr*0.65, cr*0.7, Math.PI, 0); ctx.fill();
+  ctx.strokeStyle = '#c8c8c8'; ctx.lineWidth = WS(0.6); ctx.stroke();
 }
 
 function drawBreakArea() {
@@ -594,13 +614,13 @@ function loop(ts) {
 // ==================== INTERACTION ====================
 let dragging = false, dsx=0, dsy=0, cox=0, coy=0;
 canvas.addEventListener('mousedown', e => { dragging=true; dsx=e.clientX; dsy=e.clientY; cox=cam.ox; coy=cam.oy; });
-window.addEventListener('mousemove', e => { if(!dragging) return; cam.ox=cox-(e.clientX-dsx); cam.oy=coy-(e.clientY-dsy); });
+window.addEventListener('mousemove', e => { if(!dragging) return; cam.ox=cox+(e.clientX-dsx); cam.oy=coy+(e.clientY-dsy); });
 window.addEventListener('mouseup', () => dragging=false);
 canvas.addEventListener('wheel', e => {
   e.preventDefault();
   cam.target = Math.max(0.5, Math.min(2, cam.target * (e.deltaY<0?1.08:0.93)));
 }, { passive: false });
-canvas.addEventListener('dblclick', () => { cam.ox=CW/2; cam.oy=CH/2; cam.target=1; showToast('View reset'); });
+canvas.addEventListener('dblclick', () => { cam.ox=0; cam.oy=0; cam.target=1; showToast('View reset'); });
 
 // Touch
 canvas.addEventListener('touchstart', e => { if(e.touches.length===1){ dragging=true; dsx=e.touches[0].clientX; dsy=e.touches[0].clientY; cox=cam.ox; coy=cam.oy; } }, {passive:false});
