@@ -696,15 +696,22 @@ class Char {
 
   // Try to go to a left-side area; returns true if locked (occupied)
   tryGoToArea(areaLoc, targetState) {
-    // Check if area is already occupied by another character
     for (const other of chars) {
       if (other === this) continue;
-      if (dist(other.x, other.y, areaLoc.x, areaLoc.y) < 30 && other.state !== STATES.WALKING) {
-        return true; // locked
+      // Already at area (not walking)
+      if (dist(other.x, other.y, areaLoc.x, areaLoc.y) < 50 && other.state !== STATES.WALKING) {
+        return true;
+      }
+      // Walking toward this area
+      if (other.state === STATES.WALKING) {
+        const dest = other.route.length > 0 ? other.route[other.route.length - 1] : { x: other.tx, y: other.ty };
+        if (dist(dest.x, dest.y, areaLoc.x, areaLoc.y) < 50) {
+          return true;
+        }
       }
     }
     this.walkTo(areaLoc.x, areaLoc.y, targetState);
-    return false; // success
+    return false;
   }
 
   autoSwitch() {
@@ -829,10 +836,12 @@ function drawChar(ch) {
   // === Feet ===
   const walkCycle = ch.anim*10;
   const runCycle = footMode==='run' ? ch.anim*14 : 0;
-  const legSwing = footMode==='walk' ? Math.sin(walkCycle)*6*s : 0;
-  const legBounce = footMode==='walk' ? Math.abs(Math.sin(walkCycle))*2*s : 0;
-  const runSwing = footMode==='run' ? Math.sin(runCycle)*8*s : 0;
-  const runBounce = footMode==='run' ? Math.abs(Math.sin(runCycle))*4*s : 0;
+  // Walking: feet alternate forward/back (y-axis), NOT left/right
+  const walkStep = footMode==='walk' ? Math.sin(walkCycle)*5*s : 0;
+  const walkBounce = footMode==='walk' ? Math.abs(Math.sin(walkCycle))*1.5*s : 0;
+  // Running: same but bigger
+  const runStep = footMode==='run' ? Math.sin(runCycle)*7*s : 0;
+  const runBounce = footMode==='run' ? Math.abs(Math.sin(runCycle))*3*s : 0;
 
   ctx.fillStyle = '#1a1a1a';
   if (footMode === 'forward') {
@@ -844,13 +853,13 @@ function drawChar(ch) {
     ctx.beginPath(); ctx.ellipse(-4*s, 14*s, 4*s, 2.5*s, 0, 0, Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.ellipse(4*s, 14*s, 4*s, 2.5*s, 0, 0, Math.PI*2); ctx.fill();
   } else if (footMode === 'walk') {
-    // Walking: left-right swing
-    ctx.beginPath(); ctx.ellipse(-6*s+legSwing, 16*s-legBounce, 6*s, 3.5*s, legSwing*0.05, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(6*s-legSwing, 16*s-legBounce, 6*s, 3.5*s, -legSwing*0.05, 0, Math.PI*2); ctx.fill();
+    // Walking: feet alternate forward/back (y), side by side (x stays fixed)
+    ctx.beginPath(); ctx.ellipse(-5*s, 15*s+walkStep, 5*s, 3.5*s, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(5*s, 15*s-walkStep, 5*s, 3.5*s, 0, 0, Math.PI*2); ctx.fill();
   } else if (footMode === 'run') {
-    // Running: bigger swing, higher bounce (on treadmill)
-    ctx.beginPath(); ctx.ellipse(-4*s+runSwing, 15*s-runBounce, 5.5*s, 3*s, runSwing*0.08, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(4*s-runSwing, 15*s-runBounce, 5.5*s, 3*s, -runSwing*0.08, 0, Math.PI*2); ctx.fill();
+    // Running: bigger step, higher bounce
+    ctx.beginPath(); ctx.ellipse(-5*s, 15*s+runStep-runBounce, 5.5*s, 3.5*s, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(5*s, 15*s-runStep-runBounce, 5.5*s, 3.5*s, 0, 0, Math.PI*2); ctx.fill();
   } else {
     // Normal (idle/drinking): side by side
     ctx.beginPath(); ctx.ellipse(-5*s, 15*s, 5*s, 3*s, 0, 0, Math.PI*2); ctx.fill();
@@ -905,12 +914,12 @@ function drawChar(ch) {
     ctx.ellipse(13*s, -2*s+runArmSwing, 5*s, 4*s, 0.3, 0, Math.PI*2);
     ctx.fill();
   } else if (footMode === 'walk') {
-    // Walking: arms swing opposite to legs
+    // Walking: arms swing opposite to legs (up/down)
     ctx.beginPath();
-    ctx.ellipse(-14*s, -2*s-legSwing*0.3, 5*s, 4*s, -0.2, 0, Math.PI*2);
+    ctx.ellipse(-14*s, -2*s+walkStep*0.4, 5*s, 4*s, -0.2, 0, Math.PI*2);
     ctx.fill();
     ctx.beginPath();
-    ctx.ellipse(14*s, -2*s+legSwing*0.3, 5*s, 4*s, 0.2, 0, Math.PI*2);
+    ctx.ellipse(14*s, -2*s-walkStep*0.4, 5*s, 4*s, 0.2, 0, Math.PI*2);
     ctx.fill();
   } else if (ch.state===STATES.TYPING) {
     // Typing: arms reaching forward, alternating
