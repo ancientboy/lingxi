@@ -1498,12 +1498,17 @@ let _officeEngine = null;
 
 // Send current team members to the office canvas engine
 function updateOfficeTeam() {
-  const members = AGENTS.map(a => ({
-    id: a.id,
-    name: a.name,
-    color: a.color,
-  }));
-  if (_officeEngine) _officeEngine.updateTeam(members);
+  if (!_officeEngine) return;
+  // Use real agents if we have enough, otherwise let engine keep its defaults
+  if (AGENTS.length >= 3) {
+    const members = AGENTS.map(a => ({
+      id: a.id,
+      name: a.name,
+      color: a.color,
+    }));
+    _officeEngine.updateTeam(members);
+  }
+  // If fewer than 3 real agents, don't call updateTeam — engine defaults look better
 }
 
 // Initialize office canvas
