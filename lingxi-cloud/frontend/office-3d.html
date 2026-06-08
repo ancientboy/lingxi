@@ -920,31 +920,26 @@ function drawChar(ch) {
 
   // === Feet ===
   const walkCycle = ch.anim*10;
-  const runCycle = footMode==='run' ? ch.anim*14 : 0;
-  // Walking: feet swing left-right (x-axis), no rotation = no splayed feet
-  const legSwing = footMode==='walk' ? Math.sin(walkCycle)*5*s : 0;
+const runCycle = footMode==='run' ? ch.anim*14 : 0;
+  // Walking/running: feet alternate forward/back (y-axis)
+  const legStep = footMode==='walk' ? Math.sin(walkCycle)*5*s : 0;
   const legBounce = footMode==='walk' ? Math.abs(Math.sin(walkCycle))*1.5*s : 0;
-  // Running: same motion but bigger
-  const runSwing = footMode==='run' ? Math.sin(runCycle)*7*s : 0;
+  const runStep = footMode==='run' ? Math.sin(runCycle)*7*s : 0;
   const runBounce = footMode==='run' ? Math.abs(Math.sin(runCycle))*3*s : 0;
 
   ctx.fillStyle = '#1a1a1a';
   if (footMode === 'forward') {
-    // Sitting: feet stretched forward + slightly apart
     ctx.beginPath(); ctx.ellipse(10*s, 10*s, 6*s, 3.5*s, 0.3, 0, Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.ellipse(14*s, 15*s, 6*s, 3.5*s, 0.2, 0, Math.PI*2); ctx.fill();
   } else if (footMode === 'tucked') {
-    // Typing/Sleeping: feet tucked under body
     ctx.beginPath(); ctx.ellipse(-4*s, 14*s, 4*s, 2.5*s, 0, 0, Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.ellipse(4*s, 14*s, 4*s, 2.5*s, 0, 0, Math.PI*2); ctx.fill();
   } else if (footMode === 'walk') {
-    // Walking: feet swing left-right, no rotation angle
-    ctx.beginPath(); ctx.ellipse(-5*s+legSwing, 15*s-legBounce, 5*s, 3.5*s, 0, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(5*s-legSwing, 15*s-legBounce, 5*s, 3.5*s, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-5*s, 15*s+legStep-legBounce, 5*s, 3.5*s, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(5*s, 15*s-legStep-legBounce, 5*s, 3.5*s, 0, 0, Math.PI*2); ctx.fill();
   } else if (footMode === 'run') {
-    // Running: bigger swing, higher bounce
-    ctx.beginPath(); ctx.ellipse(-5*s+runSwing, 15*s-runBounce, 5.5*s, 3.5*s, 0, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(5*s-runSwing, 15*s-runBounce, 5.5*s, 3.5*s, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-5*s, 15*s+runStep-runBounce, 5.5*s, 3.5*s, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(5*s, 15*s-runStep-runBounce, 5.5*s, 3.5*s, 0, 0, Math.PI*2); ctx.fill();
   } else {
     // Normal (idle/drinking): side by side
     ctx.beginPath(); ctx.ellipse(-5*s, 15*s, 5*s, 3*s, 0, 0, Math.PI*2); ctx.fill();
@@ -998,18 +993,18 @@ function drawChar(ch) {
   } else if (footMode === 'run') {
     // Running: arms pumping (bigger swing than walking)
     ctx.beginPath();
-    ctx.ellipse(-13*s, -2*s-runSwing*0.5, 5*s, 4*s, -0.3, 0, Math.PI*2);
+    ctx.ellipse(-13*s, -2*s-runStep*0.5, 5*s, 4*s, -0.3, 0, Math.PI*2);
     ctx.fill();
     ctx.beginPath();
-    ctx.ellipse(13*s, -2*s+runSwing*0.5, 5*s, 4*s, 0.3, 0, Math.PI*2);
+    ctx.ellipse(13*s, -2*s+runStep*0.5, 5*s, 4*s, 0.3, 0, Math.PI*2);
     ctx.fill();
   } else if (footMode === 'walk') {
     // Walking: arms swing opposite to legs
     ctx.beginPath();
-    ctx.ellipse(-14*s, -2*s-legSwing*0.4, 5*s, 4*s, -0.2, 0, Math.PI*2);
+    ctx.ellipse(-14*s, -2*s-legStep*0.4, 5*s, 4*s, -0.2, 0, Math.PI*2);
     ctx.fill();
     ctx.beginPath();
-    ctx.ellipse(14*s, -2*s+legSwing*0.4, 5*s, 4*s, 0.2, 0, Math.PI*2);
+    ctx.ellipse(14*s, -2*s+legStep*0.4, 5*s, 4*s, 0.2, 0, Math.PI*2);
     ctx.fill();
   } else if (ch.state===STATES.TYPING) {
     // Typing: arms reaching forward, alternating
@@ -1159,9 +1154,8 @@ function drawChar(ch) {
   // Restore transform before drawing overlays
   ctx.restore();
 
-  // Chair backrest overlay (drawn ON TOP of character when typing)
-  // This covers the character's lower body like a real chair backrest
-  if (facing === 'back') {
+  // Chair backrest overlay — only when actually sitting at desk (TYPING)
+  if (facing === 'back' && ch.state === STATES.TYPING) {
     const bp = W(ch.x, ch.y);
     const bcr = WS(18);
     ctx.fillStyle = '#dcdcdc';
@@ -1181,6 +1175,201 @@ function drawChar(ch) {
     ctx.textAlign = 'center';
     const fp = W(ch.x, ch.y + 28);
     ctx.fillText(ch.agent.name, fp.x, fp.y);
+  }
+}
+
+// ==================== EVENTS & EFFECTS ====================
+// Monitor screen content — draws different screen types per desk
+const SCREEN_SEEDS = ['code','terminal','chart','design','chat','terminal','code','chart'];
+let globalTime = 0;
+
+function drawScreenContent(mx, my, active) {
+  if (!active) return;
+  const p = W(mx, my);
+  const mw = WS(50), mh = WS(32);
+  const sx = p.x - mw/2 + WS(5), sy = p.y - mh/2 + WS(9);
+  const sw = mw - WS(10), sh = mh - WS(12);
+  const seed = Math.round(mx * 7 + my * 3) % SCREEN_SEEDS.length;
+  const type = SCREEN_SEEDS[seed];
+  ctx.save();
+  ctx.beginPath(); ctx.rect(sx, sy, sw, sh); ctx.clip();
+
+  if (type === 'code' || type === 'terminal') {
+    const lines = type === 'code' ? ['const app = express()','app.listen(3000)','// TODO: fix bug','npm run build'] :
+                                   ['~/project $ git push','Everything up-to-date','~/project $ npm test','✓ 42 tests passed'];
+    ctx.font = `${WS(5)}px monospace`;
+    const scrollOff = Math.floor(globalTime * 0.5) % 2;
+    lines.forEach((line, i) => {
+      const ly = sy + WS(6) + (i + scrollOff) * WS(6.5);
+      if (ly > sy && ly < sy + sh) {
+        ctx.fillStyle = type === 'code' ? '#8f8' : '#0f0';
+        ctx.fillText(line, sx + WS(2), ly);
+      }
+    });
+  } else if (type === 'chart') {
+    // Bar chart
+    const bars = [0.6, 0.8, 0.4, 0.9, 0.7, 0.5, 0.85];
+    const barW = sw / (bars.length * 2);
+    bars.forEach((h, i) => {
+      const anim = Math.min(1, (globalTime * 0.3 - i * 0.1) % 2);
+      const bh = sh * h * anim * 0.8;
+      ctx.fillStyle = `hsl(${140 + i*20}, 70%, 55%)`;
+      ctx.fillRect(sx + barW + i * barW * 2, sy + sh - bh, barW, bh);
+    });
+  } else if (type === 'design') {
+    // Colored rectangles (wireframe)
+    ctx.fillStyle = '#4a9';
+    ctx.fillRect(sx + WS(2), sy + WS(2), sw * 0.4, sh * 0.3);
+    ctx.fillStyle = '#48f';
+    ctx.fillRect(sx + sw * 0.45, sy + WS(2), sw * 0.5, sh * 0.3);
+    ctx.fillStyle = '#f84';
+    ctx.fillRect(sx + WS(2), sy + sh * 0.4, sw - WS(4), sh * 0.55);
+  } else {
+    // Chat bubbles
+    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+    rrect(sx + WS(2), sy + WS(3), sw * 0.6, WS(8), WS(2)); ctx.fill();
+    rrect(sx + sw * 0.3, sy + WS(14), sw * 0.65, WS(8), WS(2)); ctx.fill();
+  }
+  ctx.restore();
+}
+
+// Coffee machine steam animation
+let coffeeSteamAnim = 0;
+function drawCoffeeMachineSteam() {
+  coffeeSteamAnim += 0.02;
+  const cp = W(60, 145);
+  const sx = cp.x + WS(30), sy = cp.y - WS(15);
+  // Steam puffs
+  ctx.fillStyle = 'rgba(200,200,200,0.15)';
+  for (let i = 0; i < 3; i++) {
+    const t = (coffeeSteamAnim + i * 0.7) % 2;
+    const px = sx + Math.sin(t * 3 + i) * WS(5);
+    const py = sy - t * WS(20);
+    const r = WS(3 + t * 4);
+    if (t < 1.5) {
+      ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI*2); ctx.fill();
+    }
+  }
+}
+
+// Celebration particles
+const particles = [];
+function spawnCelebration(x, y) {
+  for (let i = 0; i < 12; i++) {
+    const angle = (i / 12) * Math.PI * 2;
+    const speed = 2 + Math.random() * 3;
+    particles.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 2,
+      life: 1,
+      color: `hsl(${Math.random()*360}, 80%, 60%)`,
+      size: WS(2 + Math.random() * 2),
+    });
+  }
+}
+
+function updateParticles(dt) {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx; p.y += p.vy;
+    p.vy += 0.15; // gravity
+    p.life -= dt * 0.8;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+}
+
+function drawParticles() {
+  particles.forEach(p => {
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.fillStyle = p.color;
+    const sp = W(p.x, p.y);
+    ctx.beginPath(); ctx.arc(sp.x, sp.y, p.size * p.life, 0, Math.PI*2); ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+}
+
+// Delivery event — all characters rush to coffee area
+let deliveryEvent = null;
+function triggerDelivery() {
+  if (deliveryEvent) return;
+  deliveryEvent = { timer: 15, phase: 'rush' };
+  showToast('🍕 Delivery arrived!');
+  // All non-typing characters rush to coffee
+  chars.forEach(ch => {
+    if (ch.state !== STATES.TYPING) return;
+    ch.walkTo(LOC.coffee.x + (Math.random()-0.5)*30, LOC.coffee.y + (Math.random()-0.5)*20, STATES.DRINKING);
+  });
+}
+
+function updateDelivery(dt) {
+  if (!deliveryEvent) return;
+  deliveryEvent.timer -= dt;
+  if (deliveryEvent.timer <= 0) {
+    deliveryEvent = null;
+    // Everyone goes back to typing
+    chars.forEach(ch => {
+      if (ch.state === STATES.DRINKING && dist(ch.x, ch.y, LOC.coffee.x, LOC.coffee.y) < 60) {
+        const h = ch.homeDesk;
+        ch.walkTo(h.x, h.y, STATES.TYPING);
+      }
+    });
+  }
+}
+
+// Cat petting interaction
+let catPetEffect = null;
+function petCat() {
+  const cat = officeCat;
+  catPetEffect = { timer: 2, purrPhase: 0 };
+  // Cat stops and purrs
+  cat.state = CAT_STATES.WANDER;
+  cat.tx = cat.x; cat.ty = cat.y;
+  cat.route = [];
+  showToast('🐱 Mochi purrs: purrrr~');
+}
+
+function drawCatPetEffect() {
+  if (!catPetEffect) return;
+  const cat = officeCat;
+  const p = W(cat.x, cat.y - 20 * S);
+  catPetEffect.purrPhase += 0.15;
+  // Musical notes floating up
+  const notes = ['♪','♫','♩','♬'];
+  for (let i = 0; i < 3; i++) {
+    const t = (catPetEffect.purrPhase + i * 0.8) % 2.5;
+    if (t > 2) continue;
+    const nx = p.x + Math.sin(t * 2 + i) * WS(10);
+    const ny = p.y - t * WS(15);
+    ctx.globalAlpha = Math.max(0, 1 - t / 2.5);
+    ctx.fillStyle = '#e8922a';
+    ctx.font = `${WS(10)}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText(notes[i], nx, ny);
+  }
+  ctx.globalAlpha = 1;
+  // Purr text
+  ctx.fillStyle = 'rgba(232,146,42,0.7)';
+  ctx.font = `italic ${WS(9)}px sans-serif`;
+  ctx.fillText('purrrr~', p.x, p.y + WS(5));
+}
+
+// Random events timer
+let eventTimer = rand(30, 60);
+let celebrationTimer = rand(20, 45);
+function checkRandomEvents(dt) {
+  // Delivery event
+  eventTimer -= dt;
+  if (eventTimer <= 0) {
+    triggerDelivery();
+    eventTimer = rand(60, 120);
+  }
+  // Random celebration (a character celebrates)
+  celebrationTimer -= dt;
+  if (celebrationTimer <= 0) {
+    const typer = chars.find(c => c.state === STATES.TYPING);
+    if (typer) spawnCelebration(typer.x, typer.y);
+    celebrationTimer = rand(30, 60);
   }
 }
 
@@ -1489,6 +1678,7 @@ function loop(ts) {
     });
     drawDesk(d.x, d.y);
     drawMonitor(d.x, d.y-45, active);
+    drawScreenContent(d.x, d.y-45, active);
     drawChair(d.x, d.y+CHAIR_OFFSET);
     // Nameplate on desk (工牌) — top-right corner
     const agent = AGENTS.find(a => a.deskIdx === i);
@@ -1520,13 +1710,24 @@ function loop(ts) {
   drawSofa();
 
   // Update cat
+  globalTime += dt;
   officeCat.update(dt);
+  updateParticles(dt);
+  updateDelivery(dt);
+  checkRandomEvents(dt);
+  if (catPetEffect) {
+    catPetEffect.timer -= dt;
+    if (catPetEffect.timer <= 0) catPetEffect = null;
+  }
 
   // Characters sorted by y (back to front for isometric)
   [...chars].sort((a,b)=>a.y-b.y).forEach(c => drawChar(c));
 
   // Draw cat (on top of everything, cute priority)
   drawCat();
+  drawCatPetEffect();
+  drawCoffeeMachineSteam();
+  drawParticles();
 
   requestAnimationFrame(loop);
 }
@@ -1540,6 +1741,28 @@ canvas.addEventListener('wheel', e => {
   e.preventDefault();
   cam.target = Math.max(0.5, Math.min(2, cam.target * (e.deltaY<0?1.08:0.93)));
 }, { passive: false });
+// Click interactions
+canvas.addEventListener('click', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
+  // Check if clicked on cat
+  const catP = W(officeCat.x, officeCat.y);
+  if (dist(cx, cy, catP.x, catP.y) < WS(25)) {
+    petCat();
+    return;
+  }
+  // Check if clicked on a character
+  for (const ch of chars) {
+    const cp = W(ch.x, ch.y);
+    if (dist(cx, cy, cp.x, cp.y) < WS(25)) {
+      spawnCelebration(ch.x, ch.y);
+      const msgs = ['Keep going! 💪','Almost done!','Nice code!','Focus time!','Loading...','💡 Idea!','Bug fixed!','Ship it! 🚀'];
+      showToast(`${ch.agent.name}: ${msgs[Math.floor(Math.random()*msgs.length)]}`);
+      return;
+    }
+  }
+});
+
 canvas.addEventListener('dblclick', () => { onResize(); showToast('View reset'); });
 
 // Touch
