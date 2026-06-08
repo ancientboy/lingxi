@@ -67,13 +67,19 @@ const AGENTS = [
   { id:'nest',   name:'Nest',    scarf:'#3b82f6', deskIdx:7 },
 ];
 
-// Layout — reference Marvis: left column functional areas, right workstations
-// Scale factor to fit different screen sizes
+// Scale factor
 const S = Math.min(CW / 1200, CH / 800);
-const OX = (CW - 1200 * S) / 2;
-const OY = (CH - 800 * S) / 2 + 20;
 
-function W(x, y) { return { x: OX + x * S, y: OY + y * S }; }
+// ==================== ISOMETRIC PROJECTION ====================
+const ISO_ROT = Math.PI / 4;   // 45° rotation
+const ISO_SY = 0.55;           // vertical compression for isometric look
+
+// World coords → isometric screen coords (with camera offset + zoom)
+function W(wx, wy) {
+  const rx = wx * Math.cos(ISO_ROT) - wy * Math.sin(ISO_ROT);
+  const ry = wx * Math.sin(ISO_ROT) + wy * Math.cos(ISO_ROT);
+  return { x: CW/2 + (rx * S - cam.ox) * cam.scale, y: CH/2 + (ry * ISO_SY * S - cam.oy) * cam.scale };
+}
 function WS(v) { return v * S; }
 
 // 6 workstations (like Marvis: 2 rows × 3 columns)
@@ -94,17 +100,6 @@ const LOC = {
 
 // ==================== CAMERA ====================
 const cam = { ox: CW/2, oy: CH/2, scale: 1, target: 1 };
-
-function applyCam() {
-  ctx.setTransform(1,0,0,1,0,0);
-  ctx.clearRect(0,0,CW,CH);
-  const tx = CW/2 - cam.ox * cam.scale;
-  const ty = CH/2 - cam.oy * cam.scale;
-  ctx.save();
-  ctx.translate(tx, ty);
-  ctx.scale(cam.scale, cam.scale);
-}
-function restoreCam() { ctx.restore(); }
 
 // ==================== HELPERS ====================
 function lerp(a,b,t) { return a+(b-a)*t; }
@@ -562,11 +557,13 @@ function loop(ts) {
   const dt = lastT ? Math.min((ts-lastT)/1000, 0.1) : 0.016;
   lastT = ts;
 
+  // Smooth zoom
+  cam.scale = lerp(cam.scale, cam.target, 0.12);
+
   chars.forEach(c => c.update(dt));
 
-  applyCam();
-
   // Background
+  ctx.setTransform(1,0,0,1,0,0);
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, CW, CH);
 
@@ -588,17 +585,16 @@ function loop(ts) {
   drawTreadmill();
   drawSofa();
 
-  // Characters sorted by y
+  // Characters sorted by y (back to front for isometric)
   [...chars].sort((a,b)=>a.y-b.y).forEach(c => drawChar(c));
 
-  restoreCam();
   requestAnimationFrame(loop);
 }
 
 // ==================== INTERACTION ====================
 let dragging = false, dsx=0, dsy=0, cox=0, coy=0;
 canvas.addEventListener('mousedown', e => { dragging=true; dsx=e.clientX; dsy=e.clientY; cox=cam.ox; coy=cam.oy; });
-window.addEventListener('mousemove', e => { if(!dragging) return; cam.ox=cox-(e.clientX-dsx)/cam.scale; cam.oy=coy-(e.clientY-dsy)/cam.scale; });
+window.addEventListener('mousemove', e => { if(!dragging) return; cam.ox=cox-(e.clientX-dsx); cam.oy=coy-(e.clientY-dsy); });
 window.addEventListener('mouseup', () => dragging=false);
 canvas.addEventListener('wheel', e => {
   e.preventDefault();
@@ -612,7 +608,7 @@ canvas.addEventListener('touchmove', e => { e.preventDefault(); if(!dragging||e.
 canvas.addEventListener('touchend', () => dragging=false);
 
 // ==================== INIT ====================
-cam.ox = CW/2; cam.oy = CH/2;
+cam.ox = 0; cam.oy = 0;
 showToast('Lume Office ready ✨');
 requestAnimationFrame(loop);
 </script>
