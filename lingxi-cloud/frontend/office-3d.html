@@ -115,7 +115,7 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 // ─── SCENE ───
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xfdfbf7);
+scene.background = new THREE.Color(0xf0f0f0);
 
 // ─── CAMERA — Marvis-style elevated front view ───
 // Look from front-top, office aligned with screen edges (no rotation)
@@ -131,7 +131,7 @@ camera.lookAt(0, 0, 0);
 
 // ─── LIGHTS ───
 // Soft ambient fill
-scene.add(new THREE.AmbientLight(0xfff8f0, 0.8));
+scene.add(new THREE.AmbientLight(0xffffff, 0.8));
 // Main directional (sun-like)
 const sun = new THREE.DirectionalLight(0xffffff, 0.8);
 sun.position.set(8, 20, 10);
@@ -143,30 +143,36 @@ sun.shadow.camera.near = 1; sun.shadow.camera.far = 50;
 sun.shadow.bias = -0.001;
 scene.add(sun);
 // Hemisphere for soft fill
-scene.add(new THREE.HemisphereLight(0xfff5ee, 0xede4d8, 0.4));
+scene.add(new THREE.HemisphereLight(0xffffff, 0xe0e0e0, 0.3));
 
 // ─── MATERIALS ───
 const mat = {
-  floor:    new THREE.MeshStandardMaterial({ color: 0xfdfbf7, roughness: 0.9 }),
-  zone_ws:  new THREE.MeshStandardMaterial({ color: 0xfaf7f2, roughness: 0.9 }),
-  zone_l:   new THREE.MeshStandardMaterial({ color: 0xfcf9f4, roughness: 0.9 }),
-  zone_f:   new THREE.MeshStandardMaterial({ color: 0xf4f9f6, roughness: 0.9 }),
-  zone_m:   new THREE.MeshStandardMaterial({ color: 0xf6f4f2, roughness: 0.9 }),
-  white:    new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 }),
-  desk:     new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.15 }),
-  chair:    new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 0.5 }),
-  monitor:  new THREE.MeshStandardMaterial({ color: 0x444444, roughness: 0.15 }),
-  screen:   new THREE.MeshStandardMaterial({ color: 0x1a1a2a, emissive: 0x3366aa, emissiveIntensity: 0.4, roughness: 0.1 }),
-  screenOff:new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.3 }),
-  sofa:     new THREE.MeshStandardMaterial({ color: 0xd8cbb8, roughness: 0.7 }),
-  table:    new THREE.MeshStandardMaterial({ color: 0xd4c8b0, roughness: 0.5 }),
-  plant:    new THREE.MeshStandardMaterial({ color: 0x6b9b6b, roughness: 0.8 }),
-  pot:      new THREE.MeshStandardMaterial({ color: 0xd4a574, roughness: 0.7 }),
-  yoga:     new THREE.MeshStandardMaterial({ color: 0xb8d4c8, roughness: 0.9 }),
-  metal:    new THREE.MeshStandardMaterial({ color: 0x999999, roughness: 0.3, metalness: 0.6 }),
-  board:    new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 }),
-  boardFrame:new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.3 }),
-  coffee:   new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.3, metalness: 0.4 }),
+  floor:      new THREE.MeshStandardMaterial({ color: 0xfafafa, roughness: 0.95 }),
+  zone_ws:    new THREE.MeshStandardMaterial({ color: 0xe8e8e8, roughness: 0.9 }),
+  zone_l:     new THREE.MeshStandardMaterial({ color: 0xe8e8e8, roughness: 0.9 }),
+  zone_f:     new THREE.MeshStandardMaterial({ color: 0xe8e8e8, roughness: 0.9 }),
+  zone_m:     new THREE.MeshStandardMaterial({ color: 0xe8e8e8, roughness: 0.9 }),
+  white:      new THREE.MeshStandardMaterial({ color: 0xf8f8f8, roughness: 0.4 }),
+  desk:       new THREE.MeshStandardMaterial({ color: 0xf8f8f8, roughness: 0.3 }),
+  deskEdge:   new THREE.MeshStandardMaterial({ color: 0xe2e2e2, roughness: 0.5 }),
+  deskLeg:    new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.4 }),
+  chair:      new THREE.MeshStandardMaterial({ color: 0xe8e8e8, roughness: 0.6 }),
+  chairBack:  new THREE.MeshStandardMaterial({ color: 0xbbbbbb, roughness: 0.6 }),
+  monitor:    new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.15 }),
+  screen:     new THREE.MeshStandardMaterial({ color: 0x1a1a2e, emissive: 0x4285F4, emissiveIntensity: 0.5, roughness: 0.1 }),
+  screenOff:  new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.3 }),
+  sofa:       new THREE.MeshStandardMaterial({ color: 0xe8e8e8, roughness: 0.7 }),
+  table:      new THREE.MeshStandardMaterial({ color: 0xeaeaea, roughness: 0.5 }),
+  plant:      new THREE.MeshStandardMaterial({ color: 0x6b9b6b, roughness: 0.8 }),
+  pot:        new THREE.MeshStandardMaterial({ color: 0x8B6914, roughness: 0.7 }),
+  potLight:   new THREE.MeshStandardMaterial({ color: 0x9B7924, roughness: 0.7 }),
+  yoga:       new THREE.MeshStandardMaterial({ color: 0xb8d4c8, roughness: 0.9 }),
+  metal:      new THREE.MeshStandardMaterial({ color: 0xc0c0c0, roughness: 0.2, metalness: 0.6 }),
+  board:      new THREE.MeshStandardMaterial({ color: 0xf5f5f5, roughness: 0.2 }),
+  boardFrame: new THREE.MeshStandardMaterial({ color: 0xe0e0e0, roughness: 0.3 }),
+  coffee:     new THREE.MeshStandardMaterial({ color: 0xc0c0c0, roughness: 0.2, metalness: 0.5 }),
+  treadmill:  new THREE.MeshStandardMaterial({ color: 0xe8e8e8, roughness: 0.6 }),
+  treadmillBelt: new THREE.MeshStandardMaterial({ color: 0xf5f5f5, roughness: 0.9 }),
 };
 
 // ─── BUILDING HELPERS ───
@@ -221,18 +227,19 @@ DESKS.forEach((pos, i) => {
   const { x, z } = pos;
   // Desk surface
   addBox(1.4, 0.05, 0.7, mat.desk, x, 0.74, z);
-  // Desk legs (4)
+  // Desk legs (#ccc)
   [[-0.6,-0.28],[0.6,-0.28],[-0.6,0.28],[0.6,0.28]].forEach(([lx,lz]) =>
-    addBox(0.04, 0.72, 0.04, mat.white, x+lx, 0.36, z+lz)
+    addBox(0.04, 0.72, 0.04, mat.deskLeg, x+lx, 0.36, z+lz)
   );
   // Monitor on far side (small z = back, away from camera)
   addBox(0.9, 0.55, 0.03, mat.monitor, x, 1.08, z-0.26);
   const scrMat = i < 3 ? mat.screen : mat.screenOff;
   addBox(0.82, 0.48, 0.015, scrMat, x, 1.08, z-0.28);
   addBox(0.06, 0.22, 0.06, mat.monitor, x, 0.85, z-0.26);
-  // Chair on near side (large z = front, closer to camera)
+  // Chair seat (#e8e8e8) on near side
   addCyl(0.22, 0.22, 0.06, mat.chair, x, 0.52, z+0.4, 16);
-  addBox(0.4, 0.35, 0.04, mat.chair, x, 0.72, z+0.6);
+  // Chair back (#bbb)
+  addBox(0.4, 0.35, 0.04, mat.chairBack, x, 0.72, z+0.6);
   addCyl(0.03, 0.03, 0.48, mat.metal, x, 0.24, z+0.4, 8);
   // Screen glow (in front of monitor)
   const sl = new THREE.PointLight(0x4488cc, 0.15, 2);
@@ -281,11 +288,11 @@ addCyl(0.05, 0.05, 0.25, mat.metal, -5.5, 0.07, -0.3, 8);
 addSphere(0.06, mat.metal, -5.5, 0.07, -0.45);
 addSphere(0.06, mat.metal, -5.5, 0.07, -0.15);
 // Treadmill
-addBox(0.55, 0.07, 1.2, mat.metal, -6.5, 0.26, 0.8);
-addBox(0.45, 0.02, 1.1, new THREE.MeshStandardMaterial({ color:0x222222, roughness:0.9 }), -6.5, 0.3, 0.8);
-addBox(0.04, 0.7, 0.04, mat.metal, -6.8, 0.62, 1.3);
-addBox(0.04, 0.7, 0.04, mat.metal, -6.2, 0.62, 1.3);
-addBox(0.6, 0.04, 0.04, mat.metal, -6.5, 0.97, 1.3);
+addBox(0.55, 0.07, 1.2, mat.treadmill, -6.5, 0.26, 0.8);
+addBox(0.45, 0.02, 1.1, mat.treadmillBelt, -6.5, 0.3, 0.8);
+addBox(0.04, 0.7, 0.04, mat.treadmill, -6.8, 0.62, 1.3);
+addBox(0.04, 0.7, 0.04, mat.treadmill, -6.2, 0.62, 1.3);
+addBox(0.6, 0.04, 0.04, mat.treadmill, -6.5, 0.97, 1.3);
 // Water bottle
 addCyl(0.04, 0.04, 0.16, new THREE.MeshStandardMaterial({ color:0x6699cc, roughness:0.2 }), -3, 0.09, 1.5, 8);
 
@@ -294,7 +301,7 @@ addCyl(0.04, 0.04, 0.16, new THREE.MeshStandardMaterial({ color:0x6699cc, roughn
 addBox(2.4, 0.05, 0.9, mat.desk, -5, 0.72, 4.5);
 // Table legs
 [[-1.0,-0.35],[1.0,-0.35],[-1.0,0.35],[1.0,0.35]].forEach(([lx,lz]) =>
-  addBox(0.04, 0.7, 0.04, mat.white, -5+lx, 0.35, 4.5+lz)
+  addBox(0.04, 0.7, 0.04, mat.deskLeg, -5+lx, 0.35, 4.5+lz)
 );
 // Chairs around table
 [[-0.7,3.5],[0,3.5],[0.7,3.5],[-0.7,5.5],[0,5.5],[0.7,5.5]].forEach(([cx,cz]) => {
@@ -322,63 +329,57 @@ class AgentCharacter {
     this.idleTimer = 0;
     this.idleInterval = 5 + Math.random() * 8;
     this.bobPhase = Math.random() * Math.PI * 2;
-    this.armPhase = Math.random() * Math.PI * 2;
 
-    // Color helpers
-    const c = new THREE.Color(color);
-    const darker = c.clone().multiplyScalar(0.75);
-    const matColor = new THREE.MeshStandardMaterial({ color, roughness: 0.6, metalness: 0.0 });
-    const matDarker = new THREE.MeshStandardMaterial({ color: darker, roughness: 0.6 });
-    const matWhite = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
-    const matBlack = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.2 });
+    // Marvis-style: black body + colored scarf
+    const matBody = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.6 });
+    const matScarf = new THREE.MeshStandardMaterial({ color, roughness: 0.5 });
+    const matEye = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
 
-    // Head
-    this.head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), matColor);
+    // Head (black)
+    this.head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), matBody);
     this.head.position.y = 0.85;
     this.head.castShadow = true;
     this.group.add(this.head);
 
-    // Eyes
-    const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 6), matWhite);
-    eyeL.position.set(-0.08, 0.88, 0.18);
+    // Eyes (white dots)
+    const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 6), matEye);
+    eyeL.position.set(-0.07, 0.88, 0.18);
     this.group.add(eyeL);
-    const pupilL = new THREE.Mesh(new THREE.SphereGeometry(0.025, 6, 6), matBlack);
-    pupilL.position.set(-0.08, 0.88, 0.21);
-    this.group.add(pupilL);
-    const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 6), matWhite);
-    eyeR.position.set(0.08, 0.88, 0.18);
+    const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 6), matEye);
+    eyeR.position.set(0.07, 0.88, 0.18);
     this.group.add(eyeR);
-    const pupilR = new THREE.Mesh(new THREE.SphereGeometry(0.025, 6, 6), matBlack);
-    pupilR.position.set(0.08, 0.88, 0.21);
-    this.group.add(pupilR);
 
-    // Body
+    // Scarf (colored ring around neck)
+    const scarf = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.04, 6, 12), matScarf);
+    scarf.position.y = 0.7;
+    scarf.rotation.x = Math.PI / 2;
+    this.group.add(scarf);
+
+    // Body (black)
     this.body = new THREE.Mesh(
       new THREE.CylinderGeometry(0.14, 0.18, 0.35, 8),
-      matDarker
+      matBody
     );
     this.body.position.y = 0.52;
     this.body.castShadow = true;
     this.group.add(this.body);
 
-    // Left arm
-    this.armL = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.25, 6), matColor);
-    this.armL.position.set(-0.22, 0.55, 0);
+    // Arms (black)
+    this.armL = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.22, 6), matBody);
+    this.armL.position.set(-0.2, 0.55, 0);
     this.group.add(this.armL);
 
-    // Right arm
-    this.armR = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.25, 6), matColor);
-    this.armR.position.set(0.22, 0.55, 0);
+    this.armR = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.22, 6), matBody);
+    this.armR.position.set(0.2, 0.55, 0);
     this.group.add(this.armR);
 
-    // Left leg
-    this.legL = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.25, 6), matDarker);
-    this.legL.position.set(-0.08, 0.14, 0);
+    // Legs (black)
+    this.legL = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.25, 6), matBody);
+    this.legL.position.set(-0.07, 0.14, 0);
     this.group.add(this.legL);
 
-    // Right leg
-    this.legR = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.25, 6), matDarker);
-    this.legR.position.set(0.08, 0.14, 0);
+    this.legR = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.25, 6), matBody);
+    this.legR.position.set(0.07, 0.14, 0);
     this.group.add(this.legR);
 
     // Place at initial zone
@@ -499,7 +500,8 @@ const labelsEl = document.getElementById('labels');
 const labelDivs = agentObjects.map(a => {
   const div = document.createElement('div');
   div.className = 'lbl';
-  div.textContent = a.name;
+  const hex = '#' + new THREE.Color(a.color).getHexString();
+  div.innerHTML = `<span style="color:${hex}">●</span> ${a.name}`;
   labelsEl.appendChild(div);
   return div;
 });
