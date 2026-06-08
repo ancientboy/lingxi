@@ -6,51 +6,63 @@
 <title>Lume Office</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #f5f0eb; overflow: hidden; height: 100vh; }
-.status-bar {
-  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-  background: rgba(255,255,255,0.92); backdrop-filter: blur(12px);
-  padding: 12px 24px; display: flex; align-items: center; gap: 24px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-  border-bottom: 1px solid rgba(0,0,0,0.06);
-}
-.status-bar h2 { font-size: 20px; font-weight: 700; color: #1a1a2e; letter-spacing: -0.5px; }
-.status-bar h2 span { color: #6366f1; }
-.agent-status-list { display: flex; gap: 12px; flex-wrap: wrap; margin-left: auto; }
-.agent-pill {
-  display: flex; align-items: center; gap: 6px;
-  padding: 4px 12px; border-radius: 20px;
-  background: rgba(0,0,0,0.04); font-size: 13px; font-weight: 500;
-  transition: background 0.3s;
-}
-.agent-pill.offline { opacity: 0.4; }
-.agent-pill .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.agent-pill .status-text { color: #888; font-size: 11px; }
-canvas { display: block; width: 100vw; height: 100vh; }
+body { font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; background: #f5f5f5; overflow: hidden; height: 100vh; }
 
-.label-container { position: absolute; top: 0; left: 0; pointer-events: none; overflow: visible; }
-.agent-label {
-  position: absolute; transform: translate(-50%, -100%);
-  background: rgba(255,255,255,0.9); backdrop-filter: blur(4px);
-  padding: 2px 8px; border-radius: 8px; font-size: 11px; font-weight: 600;
-  white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  pointer-events: none; transition: opacity 0.3s;
-  border: 1px solid rgba(0,0,0,0.06);
+/* Top bar */
+.top-bar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  background: rgba(255,255,255,0.95); backdrop-filter: blur(12px);
+  padding: 10px 24px; display: flex; align-items: center; gap: 20px;
+  border-bottom: 1px solid #eee;
 }
-.agent-label::after {
-  content: ''; position: absolute; bottom: -4px; left: 50%; transform: translateX(-50%);
-  width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent;
-  border-top: 4px solid rgba(255,255,255,0.9);
+.top-bar h1 { font-size: 16px; font-weight: 700; color: #1a1a1a; }
+.top-bar h1 span { color: #10a37f; }
+
+.agent-pills { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+.agent-pill {
+  display: flex; align-items: center; gap: 5px;
+  padding: 3px 10px; border-radius: 12px;
+  background: #f5f5f5; font-size: 11px; font-weight: 500; color: #555;
+}
+.agent-pill.offline { opacity: 0.35; }
+.agent-pill .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.agent-pill .st { color: #aaa; font-size: 10px; }
+
+/* 3D canvas */
+canvas#c { display: block; width: 100vw; height: 100vh; }
+
+/* Agent name labels (CSS2D) */
+.label-wrap { position: absolute; top: 0; left: 0; pointer-events: none; overflow: visible; }
+.lbl {
+  position: absolute; transform: translate(-50%, -120%);
+  background: rgba(255,255,255,0.92); backdrop-filter: blur(4px);
+  padding: 1px 7px 2px; border-radius: 6px;
+  font-size: 10px; font-weight: 600; color: #333; white-space: nowrap;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.08);
+  border: 1px solid rgba(0,0,0,0.05);
+}
+.lbl::after {
+  content:''; position:absolute; bottom:-3px; left:50%; transform:translateX(-50%);
+  border-left:3px solid transparent; border-right:3px solid transparent;
+  border-top:3px solid rgba(255,255,255,0.92);
+}
+
+/* Zone labels */
+.zone-lbl {
+  position: absolute; transform: translate(-50%, -50%);
+  font-size: 10px; font-weight: 600; color: #bbb;
+  text-transform: uppercase; letter-spacing: 1px; white-space: nowrap;
 }
 </style>
 </head>
 <body>
 
-<div class="status-bar">
-  <h2><span>●</span> Lume Office</h2>
-  <div class="agent-status-list" id="agentList"></div>
+<div class="top-bar">
+  <h1><span>●</span> Lume Office</h1>
+  <div class="agent-pills" id="pills"></div>
 </div>
-<div class="label-container" id="labelContainer"></div>
+<div class="label-wrap" id="labels"></div>
+<canvas id="c"></canvas>
 
 <script type="importmap">
 {
@@ -62,126 +74,119 @@ canvas { display: block; width: 100vw; height: 100vh; }
 <script type="module">
 import * as THREE from 'three';
 
-// ─── AGENT DATA ───
-const agents = [
-  { name: 'Lingxi', color: '#6366f1', state: 'idle', zone: 'lounge' },
-  { name: 'Spark',  color: '#10a37f', state: 'working', zone: 'workstation' },
-  { name: 'Pulse',  color: '#f59e0b', state: 'idle', zone: 'fitness' },
-  { name: 'Nova',   color: '#8b5cf6', state: 'idle', zone: 'meeting' },
-  { name: 'Scope',  color: '#06b6d4', state: 'working', zone: 'workstation' },
-  { name: 'Echo',   color: '#ef4444', state: 'idle', zone: 'lounge' },
-  { name: 'Prism',  color: '#ec4899', state: 'offline', zone: null },
-  { name: 'Nest',   color: '#3b82f6', state: 'working', zone: 'workstation' },
+// ─── CONFIG ───
+const AGENTS = [
+  { name:'Lingxi', color:0x6366f1, state:'idle',    zone:'lounge' },
+  { name:'Spark',  color:0x10a37f, state:'working',  zone:'workstation' },
+  { name:'Pulse',  color:0xf59e0b, state:'idle',    zone:'fitness' },
+  { name:'Nova',   color:0x8b5cf6, state:'idle',    zone:'meeting' },
+  { name:'Scope',  color:0x06b6d4, state:'working',  zone:'workstation' },
+  { name:'Echo',   color:0xef4444, state:'idle',    zone:'lounge' },
+  { name:'Prism',  color:0xec4899, state:'offline',  zone:null },
+  { name:'Nest',   color:0x3b82f6, state:'working',  zone:'workstation' },
 ];
 
-// ─── ZONE POSITIONS ───
-const zones = {
-  workstation: {
-    center: new THREE.Vector3(-6, 0, -3),
-    chairs: [
-      new THREE.Vector3(-8.5, 0, -5.05),
-      new THREE.Vector3(-6.5, 0, -5.05),
-      new THREE.Vector3(-4.5, 0, -5.05),
-      new THREE.Vector3(-8.5, 0, -2.05),
-      new THREE.Vector3(-6.5, 0, -2.05),
-      new THREE.Vector3(-4.5, 0, -2.05),
-    ]
-  },
-  lounge: {
-    center: new THREE.Vector3(5, 0, -3),
-    wander: [
-      new THREE.Vector3(4, 0, -5),
-      new THREE.Vector3(7, 0, -4),
-      new THREE.Vector3(5, 0, -1.5),
-      new THREE.Vector3(3.5, 0, -3),
-    ]
-  },
-  fitness: {
-    center: new THREE.Vector3(-6, 0, 5),
-    wander: [
-      new THREE.Vector3(-8, 0, 4),
-      new THREE.Vector3(-5, 0, 6),
-      new THREE.Vector3(-7, 0, 3.5),
-      new THREE.Vector3(-4, 0, 5.5),
-    ]
-  },
-  meeting: {
-    center: new THREE.Vector3(5, 0, 5),
-    wander: [
-      new THREE.Vector3(4, 0, 4),
-      new THREE.Vector3(6, 0, 6),
-      new THREE.Vector3(3.5, 0, 5.5),
-      new THREE.Vector3(6.5, 0, 4.5),
-    ]
-  }
+// Zone centers (x, z) for navigation
+const ZONES = {
+  workstation: { x: 0, z: -3 },
+  lounge:      { x: -7, z: -3 },
+  fitness:     { x: 0, z: 5 },
+  meeting:     { x: 7, z: 5 },
 };
 
-const allZones = ['lounge', 'fitness', 'meeting'];
+// Desk positions (6 workstations, 2 rows of 3)
+const DESKS = [
+  { x:-2.5, z:-4.5 }, { x:0, z:-4.5 }, { x:2.5, z:-4.5 },
+  { x:-2.5, z:-1.5 }, { x:0, z:-1.5 }, { x:2.5, z:-1.5 },
+];
 
-// ─── THREE.JS SETUP ───
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+// ─── RENDERER ───
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.1;
-document.body.appendChild(renderer.domElement);
+renderer.toneMappingExposure = 1.0;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
 
+// ─── SCENE ───
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xf0ebe4);
+scene.background = new THREE.Color(0xf5f5f5);
 
-// Fixed top-down camera (正上方俯视，略微倾斜保留立体感)
+// ─── CAMERA — Classic Isometric 45° ───
+// Position equally on x, y, z for true isometric
+const frustumSize = 16;
 const aspect = window.innerWidth / window.innerHeight;
-const d = 12;
-const camera = new THREE.OrthographicCamera(-d*aspect, d*aspect, d, -d, 0.1, 200);
-camera.position.set(0, 30, 8);
+const camera = new THREE.OrthographicCamera(
+  -frustumSize * aspect / 2, frustumSize * aspect / 2,
+  frustumSize / 2, -frustumSize / 2,
+  0.1, 200
+);
+// True isometric: equal angle on all 3 axes
+const isoDist = 30;
+camera.position.set(isoDist, isoDist, isoDist);
 camera.lookAt(0, 0, 0);
 
-// ─── LIGHTING ───
-const ambient = new THREE.AmbientLight(0xffffff, 0.65);
-scene.add(ambient);
+// ─── LIGHTS ───
+// Soft ambient fill
+scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+// Main directional (sun-like)
+const sun = new THREE.DirectionalLight(0xffffff, 0.8);
+sun.position.set(8, 20, 10);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -18; sun.shadow.camera.right = 18;
+sun.shadow.camera.top = 18; sun.shadow.camera.bottom = -18;
+sun.shadow.camera.near = 1; sun.shadow.camera.far = 50;
+sun.shadow.bias = -0.001;
+scene.add(sun);
+// Hemisphere for soft fill
+scene.add(new THREE.HemisphereLight(0xffffff, 0xe0e0e0, 0.3));
 
-const dirLight = new THREE.DirectionalLight(0xfff5e6, 0.9);
-dirLight.position.set(5, 25, 10);
-dirLight.castShadow = true;
-dirLight.shadow.mapSize.set(2048, 2048);
-dirLight.shadow.camera.left = -20; dirLight.shadow.camera.right = 20;
-dirLight.shadow.camera.top = 20; dirLight.shadow.camera.bottom = -20;
-dirLight.shadow.camera.near = 1; dirLight.shadow.camera.far = 50;
-dirLight.shadow.bias = -0.001;
-scene.add(dirLight);
+// ─── MATERIALS ───
+const mat = {
+  floor:    new THREE.MeshStandardMaterial({ color: 0xeaeaea, roughness: 0.9 }),
+  zone_ws:  new THREE.MeshStandardMaterial({ color: 0xf0f0f0, roughness: 0.9 }),
+  zone_l:   new THREE.MeshStandardMaterial({ color: 0xf0ede8, roughness: 0.9 }),
+  zone_f:   new THREE.MeshStandardMaterial({ color: 0xe8f0ea, roughness: 0.9 }),
+  zone_m:   new THREE.MeshStandardMaterial({ color: 0xe8ecf0, roughness: 0.9 }),
+  white:    new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 }),
+  desk:     new THREE.MeshStandardMaterial({ color: 0xf8f8f8, roughness: 0.3 }),
+  chair:    new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.6 }),
+  monitor:  new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.2 }),
+  screen:   new THREE.MeshStandardMaterial({ color: 0x1a1a2a, emissive: 0x3366aa, emissiveIntensity: 0.4, roughness: 0.1 }),
+  screenOff:new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.3 }),
+  sofa:     new THREE.MeshStandardMaterial({ color: 0xd4c8b8, roughness: 0.7 }),
+  table:    new THREE.MeshStandardMaterial({ color: 0xc4b8a0, roughness: 0.5 }),
+  plant:    new THREE.MeshStandardMaterial({ color: 0x6b9b6b, roughness: 0.8 }),
+  pot:      new THREE.MeshStandardMaterial({ color: 0xd4a574, roughness: 0.7 }),
+  yoga:     new THREE.MeshStandardMaterial({ color: 0xb8d4c8, roughness: 0.9 }),
+  metal:    new THREE.MeshStandardMaterial({ color: 0x999999, roughness: 0.3, metalness: 0.6 }),
+  board:    new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 }),
+  boardFrame:new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.3 }),
+  coffee:   new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.3, metalness: 0.4 }),
+};
 
-const hemiLight = new THREE.HemisphereLight(0xddeeff, 0xdfd7c4, 0.3);
-scene.add(hemiLight);
-
-// ─── HELPERS ───
-function box(w, h, d, color, x, y, z, castShadow=true) {
-  const g = new THREE.BoxGeometry(w, h, d);
-  const m = new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0.05 });
-  const mesh = new THREE.Mesh(g, m);
-  mesh.position.set(x, y, z);
-  mesh.castShadow = castShadow;
-  mesh.receiveShadow = true;
-  scene.add(mesh);
-  return mesh;
-}
-
-function cylinder(rT, rB, h, color, x, y, z, segs=8) {
-  const g = new THREE.CylinderGeometry(rT, rB, h, segs);
-  const m = new THREE.MeshStandardMaterial({ color, roughness: 0.8, metalness: 0.05 });
-  const mesh = new THREE.Mesh(g, m);
+// ─── BUILDING HELPERS ───
+function addBox(w, h, d, material, x, y, z) {
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
   mesh.position.set(x, y, z);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   scene.add(mesh);
   return mesh;
 }
-
-function sphere(r, color, x, y, z) {
-  const g = new THREE.SphereGeometry(r, 12, 8);
-  const m = new THREE.MeshStandardMaterial({ color, roughness: 0.75, metalness: 0.05 });
-  const mesh = new THREE.Mesh(g, m);
+function addCyl(rT, rB, h, material, x, y, z, segs=12) {
+  const mesh = new THREE.Mesh(new THREE.CylinderGeometry(rT, rB, h, segs), material);
+  mesh.position.set(x, y, z);
+  mesh.castShadow = true;
+  scene.add(mesh);
+  return mesh;
+}
+function addSphere(r, material, x, y, z) {
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(r, 10, 8), material);
   mesh.position.set(x, y, z);
   mesh.castShadow = true;
   scene.add(mesh);
@@ -189,456 +194,351 @@ function sphere(r, color, x, y, z) {
 }
 
 // ─── FLOOR ───
-// Main floor
-const floorGeo = new THREE.PlaneGeometry(30, 22);
-const floorMat = new THREE.MeshStandardMaterial({ color: 0xe8d5b7, roughness: 0.95 });
-const floor = new THREE.Mesh(floorGeo, floorMat);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(28, 20), mat.floor);
 floor.rotation.x = -Math.PI / 2;
 floor.receiveShadow = true;
 scene.add(floor);
 
-// Zone floor patches
-function zoneFloor(x, z, w, d, color) {
-  const g = new THREE.PlaneGeometry(w, d);
-  const m = new THREE.MeshStandardMaterial({ color, roughness: 0.9 });
-  const mesh = new THREE.Mesh(g, m);
-  mesh.rotation.x = -Math.PI / 2;
-  mesh.position.set(x, 0.01, z);
-  mesh.receiveShadow = true;
-  scene.add(mesh);
+// Zone patches
+function addZone(x, z, w, d, material) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), material);
+  m.rotation.x = -Math.PI / 2;
+  m.position.set(x, 0.005, z);
+  m.receiveShadow = true;
+  scene.add(m);
 }
-zoneFloor(-6, -3, 10, 8, 0xe3ddd4); // workstation
-zoneFloor(5, -3, 8, 8, 0xede3d3);   // lounge
-zoneFloor(-6, 5, 10, 8, 0xdce8d8);   // fitness
-zoneFloor(5, 5, 8, 8, 0xd8dde8);     // meeting
-
-// Grid lines on floor
-const gridHelper = new THREE.GridHelper(30, 30, 0xddd0be, 0xddd0be);
-gridHelper.position.y = 0.02;
-gridHelper.material.opacity = 0.3;
-gridHelper.material.transparent = true;
-scene.add(gridHelper);
+addZone(0, -3,  10, 7, mat.zone_ws);   // Workstation
+addZone(-7, -3, 7,  7, mat.zone_l);     // Lounge
+addZone(0, 5,   8,  7, mat.zone_f);     // Fitness
+addZone(7, 5,   7,  7, mat.zone_m);     // Meeting
 
 // ─── WORKSTATION AREA ───
-const workstationPositions = [
-  [-8.5, -4.5], [-6.5, -4.5], [-4.5, -4.5],
-  [-8.5, -1.5], [-6.5, -1.5], [-4.5, -1.5],
-];
-
+// 6 desks in 2 rows × 3 columns
 const screenLights = [];
-workstationPositions.forEach(([x, z]) => {
-  // Desk
-  box(1.4, 0.06, 0.8, 0xc4a882, x, 0.75, z);
-  // Legs
-  box(0.06, 0.75, 0.06, 0x8b7355, x-0.6, 0.375, z-0.3);
-  box(0.06, 0.75, 0.06, 0x8b7355, x+0.6, 0.375, z-0.3);
-  box(0.06, 0.75, 0.06, 0x8b7355, x-0.6, 0.375, z+0.3);
-  box(0.06, 0.75, 0.06, 0x8b7355, x+0.6, 0.375, z+0.3);
-  // Monitor
-  box(1.0, 0.65, 0.04, 0x2a2a3a, x, 1.1, z+0.3);
-  // Screen glow
-  const screenMat = new THREE.MeshStandardMaterial({
-    color: 0x334455, emissive: 0x4488cc, emissiveIntensity: 0.3, roughness: 0.3
-  });
-  const screenMesh = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.55, 0.02), screenMat);
-  screenMesh.position.set(x, 1.1, z+0.32);
-  scene.add(screenMesh);
+DESKS.forEach((pos, i) => {
+  const { x, z } = pos;
+  // Desk surface
+  addBox(1.4, 0.05, 0.7, mat.desk, x, 0.74, z);
+  // Desk legs (4)
+  [[-0.6,-0.28],[0.6,-0.28],[-0.6,0.28],[0.6,0.28]].forEach(([lx,lz]) =>
+    addBox(0.04, 0.72, 0.04, mat.white, x+lx, 0.36, z+lz)
+  );
+  // Monitor frame
+  addBox(0.9, 0.55, 0.03, mat.monitor, x, 1.08, z+0.22);
+  // Screen
+  const scrMat = i < 3 ? mat.screen : mat.screenOff; // front row = active
+  addBox(0.82, 0.48, 0.015, scrMat, x, 1.08, z+0.24);
   // Monitor stand
-  box(0.08, 0.25, 0.08, 0x3a3a4a, x, 0.88, z+0.3);
-  // Screen light
-  const sl = new THREE.PointLight(0x4488cc, 0.15, 3);
-  sl.position.set(x, 1.2, z+0.1);
+  addBox(0.06, 0.22, 0.06, mat.monitor, x, 0.85, z+0.22);
+  // Chair seat
+  addCyl(0.22, 0.22, 0.06, mat.chair, x, 0.52, z-0.4, 16);
+  // Chair back
+  addBox(0.4, 0.4, 0.05, mat.chair, x, 0.75, z-0.62);
+  // Chair base
+  addCyl(0.03, 0.03, 0.48, mat.metal, x, 0.24, z-0.4, 8);
+  // Screen glow
+  const sl = new THREE.PointLight(0x4488cc, 0.2, 2);
+  sl.position.set(x, 1.1, z+0.5);
   scene.add(sl);
   screenLights.push(sl);
-  // Chair (behind desk)
-  cylinder(0.22, 0.22, 0.06, 0x555566, x, 0.55, z-0.55); // seat
-  box(0.5, 0.55, 0.06, 0x555566, x, 0.85, z-0.8); // backrest
-  cylinder(0.03, 0.03, 0.5, 0x444444, x, 0.27, z-0.55); // pole
-  // Keyboard
-  box(0.5, 0.02, 0.18, 0x3a3a4a, x, 0.78, z+0.05);
 });
 
 // ─── LOUNGE AREA ───
 // L-shaped sofa
-box(3.5, 0.45, 0.9, 0xb88a6a, 4.5, 0.225, -5.5); // long seat
-box(0.9, 0.45, 2.5, 0xb88a6a, 2.5, 0.225, -4.25); // short seat
-box(3.5, 0.5, 0.15, 0xa0785a, 4.5, 0.5, -6.0); // long back
-box(0.15, 0.5, 2.5, 0xa0785a, 2.0, 0.5, -4.25); // short back
-// Cushions
-sphere(0.3, 0xd4956a, 3.5, 0.6, -5.2);
-sphere(0.3, 0xc9886a, 5.5, 0.6, -5.2);
-
+addBox(2.4, 0.4, 0.8, mat.sofa, -7, 0.25, -4.5);  // long part
+addBox(0.8, 0.4, 1.6, mat.sofa, -8.2, 0.25, -3.2); // short part
+addBox(2.4, 0.15, 0.8, mat.sofa, -7, 0.5, -4.5);   // cushion long
+addBox(0.8, 0.15, 1.6, mat.sofa, -8.2, 0.5, -3.2); // cushion short
+// Back cushions
+addBox(2.4, 0.35, 0.15, mat.sofa, -7, 0.7, -4.95);
+addBox(0.15, 0.35, 1.6, mat.sofa, -8.65, 0.7, -3.2);
 // Coffee table
-box(1.4, 0.04, 0.8, 0x8b7355, 4.5, 0.35, -4.0);
-cylinder(0.04, 0.04, 0.35, 0x6b5b45, 4.0, 0.175, -3.7);
-cylinder(0.04, 0.04, 0.35, 0x6b5b45, 5.0, 0.175, -3.7);
-cylinder(0.04, 0.04, 0.35, 0x6b5b45, 4.0, 0.175, -4.3);
-cylinder(0.04, 0.04, 0.35, 0x6b5b45, 5.0, 0.175, -4.3);
-
-// Coffee machine
-box(0.35, 0.45, 0.3, 0x555566, 7.0, 0.225, -5.5);
-cylinder(0.08, 0.08, 0.1, 0x888888, 7.0, 0.5, -5.5);
-box(0.25, 0.15, 0.15, 0x444444, 7.0, 0.55, -5.5);
-// Cup on table
-cylinder(0.06, 0.05, 0.1, 0xf0f0f0, 4.3, 0.42, -4.0);
-
-// Plant
-cylinder(0.15, 0.12, 0.3, 0x8b6b4a, 7.0, 0.15, -3.0);
-sphere(0.35, 0x5a9a5a, 7.0, 0.65, -3.0);
-sphere(0.25, 0x6aaa6a, 6.8, 0.8, -3.2);
-sphere(0.2, 0x4a8a4a, 7.2, 0.75, -2.8);
-
-// Warm light for lounge
-const loungeLight = new THREE.PointLight(0xffe4b5, 0.3, 8);
-loungeLight.position.set(5, 2, -3);
+addBox(1.0, 0.04, 0.6, mat.table, -6, 0.4, -2.5);
+addBox(0.04, 0.38, 0.04, mat.table, -6.4, 0.2, -2.7);
+addBox(0.04, 0.38, 0.04, mat.table, -5.6, 0.2, -2.7);
+addBox(0.04, 0.38, 0.04, mat.table, -6.4, 0.2, -2.3);
+addBox(0.04, 0.38, 0.04, mat.table, -5.6, 0.2, -2.3);
+// Coffee cups on table
+addCyl(0.06, 0.05, 0.08, mat.white, -6.1, 0.46, -2.5, 10);
+addCyl(0.06, 0.05, 0.08, mat.white, -5.9, 0.46, -2.4, 10);
+// Plants
+addCyl(0.2, 0.15, 0.3, mat.pot, -9, 0.15, -1.5);
+addSphere(0.4, mat.plant, -9, 0.55, -1.5);
+addCyl(0.15, 0.1, 0.25, mat.pot, -5, 0.12, -5);
+addSphere(0.3, mat.plant, -5, 0.42, -5);
+// Bookshelf
+addBox(1.2, 1.2, 0.35, mat.desk, -9.2, 0.6, -4.5);
+addBox(1.1, 0.03, 0.3, mat.white, -9.2, 1.0, -4.5);
+addBox(1.1, 0.03, 0.3, mat.white, -9.2, 0.5, -4.5);
+// Warm light
+const loungeLight = new THREE.PointLight(0xffeedd, 0.4, 6);
+loungeLight.position.set(-7, 2, -3);
 scene.add(loungeLight);
 
 // ─── FITNESS AREA ───
-// Yoga mats (flat colorful boxes)
-box(1.8, 0.02, 0.7, 0xa8d5a2, -8.0, 0.02, 4.5);
-box(1.8, 0.02, 0.7, 0xd5a2a8, -5.5, 0.02, 4.5);
-
+// Yoga mats
+addBox(0.8, 0.02, 1.6, mat.yoga, -1, 0.01, 5, 0);
+addBox(0.8, 0.02, 1.6, new THREE.MeshStandardMaterial({ color: 0xd4b8c8, roughness: 0.9 }), 1.2, 0.01, 5, 0);
 // Dumbbells
-cylinder(0.12, 0.12, 0.04, 0x555555, -7.0, 0.15, 6.5);
-cylinder(0.03, 0.03, 0.3, 0x777777, -7.0, 0.15, 6.5);
-cylinder(0.12, 0.12, 0.04, 0x555555, -7.0, 0.15, 6.8);
-// Second dumbbell
-cylinder(0.10, 0.10, 0.04, 0x555555, -6.5, 0.15, 6.5);
-cylinder(0.03, 0.03, 0.25, 0x777777, -6.5, 0.15, 6.5);
-cylinder(0.10, 0.10, 0.04, 0x555555, -6.5, 0.15, 6.75);
-
+addCyl(0.06, 0.06, 0.4, mat.metal, -0.3, 0.08, 3.8, 8);
+addSphere(0.09, mat.metal, -0.3, 0.08, 3.58);
+addSphere(0.09, mat.metal, -0.3, 0.08, 4.02);
+addCyl(0.06, 0.06, 0.3, mat.metal, 0.3, 0.08, 3.8, 8);
+addSphere(0.07, mat.metal, 0.3, 0.08, 3.63);
+addSphere(0.07, mat.metal, 0.3, 0.08, 3.97);
 // Treadmill
-box(0.7, 0.1, 1.5, 0x3a3a4a, -4.0, 0.3, 5.5); // base
-box(0.5, 0.03, 1.3, 0x222222, -4.0, 0.36, 5.5); // belt
-box(0.06, 0.8, 0.06, 0x555555, -3.6, 0.7, 4.8); // pole
-box(0.3, 0.2, 0.06, 0x3a3a4a, -3.6, 1.0, 4.8); // panel
+addBox(0.6, 0.08, 1.4, mat.metal, 2.8, 0.3, 5.5);
+addBox(0.5, 0.02, 1.3, new THREE.MeshStandardMaterial({ color:0x222222, roughness:0.9 }), 2.8, 0.35, 5.5);
+addBox(0.05, 0.8, 0.05, mat.metal, 2.5, 0.7, 6.1);
+addBox(0.05, 0.8, 0.05, mat.metal, 3.1, 0.7, 6.1);
+addBox(0.65, 0.05, 0.05, mat.metal, 2.8, 1.1, 6.1);
+// Water bottle
+addCyl(0.05, 0.05, 0.18, new THREE.MeshStandardMaterial({ color:0x6699cc, roughness:0.2 }), 1.8, 0.1, 6.5, 8);
 
 // ─── MEETING AREA ───
 // Long table
-box(3.0, 0.06, 1.2, 0xc4a882, 5.0, 0.75, 5.0);
-box(0.06, 0.75, 0.06, 0x8b7355, 3.7, 0.375, 4.5);
-box(0.06, 0.75, 0.06, 0x8b7355, 6.3, 0.375, 4.5);
-box(0.06, 0.75, 0.06, 0x8b7355, 3.7, 0.375, 5.5);
-box(0.06, 0.75, 0.06, 0x8b7355, 6.3, 0.375, 5.5);
-
-// Meeting chairs (6)
-const chairPositions = [
-  [3.8, 4.2], [5.0, 4.2], [6.2, 4.2],
-  [3.8, 5.8], [5.0, 5.8], [6.2, 5.8],
-];
-chairPositions.forEach(([x, z]) => {
-  cylinder(0.18, 0.18, 0.05, 0x667788, x, 0.5, z);
-  box(0.36, 0.45, 0.05, 0x667788, x, 0.75, z > 5 ? z+0.2 : z-0.2);
-  cylinder(0.03, 0.03, 0.45, 0x444444, x, 0.225, z);
+addBox(2.8, 0.06, 1.0, mat.desk, 7, 0.74, 5);
+// Table legs
+[[-1.2,-0.4],[1.2,-0.4],[-1.2,0.4],[1.2,0.4]].forEach(([lx,lz]) =>
+  addBox(0.04, 0.72, 0.04, mat.white, 7+lx, 0.36, 5+lz)
+);
+// Chairs around table
+[[-1,0],[0,0],[1,0],[-1,1.1],[0,1.1],[1,1.1]].forEach(([cx,cz]) => {
+  addCyl(0.18, 0.18, 0.05, mat.chair, 7+cx, 0.48, 5+cz, 14);
+  addBox(0.3, 0.3, 0.04, mat.chair, 7+cx, 0.65, 5+cz+0.2);
+  addCyl(0.025, 0.025, 0.44, mat.metal, 7+cx, 0.22, 5+cz, 8);
 });
-
 // Whiteboard
-box(2.4, 1.5, 0.06, 0xf5f5f5, 5.0, 1.5, 7.0);
-box(2.5, 1.6, 0.03, 0x888888, 5.0, 1.5, 7.03);
-// Some scribbles on whiteboard
-box(1.8, 0.03, 0.02, 0x3366aa, 4.7, 1.8, 6.97);
-box(0.8, 0.03, 0.02, 0xaa3333, 4.5, 1.5, 6.97);
-box(1.2, 0.03, 0.02, 0x33aa66, 5.2, 1.2, 6.97);
+addBox(2.2, 1.4, 0.04, mat.board, 7, 1.5, 7.8);
+addBox(2.3, 1.5, 0.03, mat.boardFrame, 7, 1.5, 7.78);
+// Markers on whiteboard
+addBox(0.5, 0.02, 0.01, new THREE.MeshStandardMaterial({ color:0x4488cc }), 7, 1.7, 7.83);
+addBox(0.3, 0.02, 0.01, new THREE.MeshStandardMaterial({ color:0xcc4444 }), 7.3, 1.4, 7.83);
+// Screen in meeting room
+addBox(0.8, 0.5, 0.03, mat.monitor, 7, 1.5, 2.2);
+addBox(0.7, 0.4, 0.01, mat.screen, 7, 1.5, 2.22);
 
-// ─── DECORATIVE ELEMENTS ───
-// Another plant (near meeting)
-cylinder(0.18, 0.14, 0.4, 0x8b6b4a, 2.5, 0.2, 7.0);
-sphere(0.4, 0x4a8a4a, 2.5, 0.8, 7.0);
-sphere(0.3, 0x5a9a5a, 2.3, 1.0, 6.8);
-
-// Small rug under coffee table
-zoneFloor(4.5, -4.0, 2.0, 1.4, 0xd4c4a8);
-
-// ─── AGENT CHARACTER CREATION ───
+// ─── CHARACTER BUILDER ───
 class AgentCharacter {
-  constructor(data, index) {
-    this.data = data;
+  constructor(name, color, state, zone) {
+    this.name = name;
+    this.color = color;
+    this.state = state;
     this.group = new THREE.Group();
-    this.state = data.state;
-    this.color = new THREE.Color(data.color);
-    this.darkerColor = new THREE.Color(data.color).multiplyScalar(0.75);
-    this.name = data.name;
+    this.group.visible = state !== 'offline';
+    this.walkTarget = null;
+    this.walkSpeed = 1.8;
+    this.idleTimer = 0;
+    this.idleInterval = 5 + Math.random() * 8;
+    this.bobPhase = Math.random() * Math.PI * 2;
+    this.armPhase = Math.random() * Math.PI * 2;
 
-    // Animation state
-    this.walkTimer = Math.random() * Math.PI * 2;
-    this.idleTimer = Math.random() * Math.PI * 2;
-    this.target = null;
-    this.startPos = null;
-    this.walkProgress = 0;
-    this.walkDuration = 2.5;
-    this.nextWalkTime = Date.now() + 2000 + Math.random() * 5000;
-    this.isWalking = false;
-    this.facing = 0; // rotation Y
-    this.sitting = false;
-
-    if (data.state === 'offline') {
-      this.group.visible = false;
-    }
-
-    this._buildCharacter();
-    this._placeInZone(index);
-    scene.add(this.group);
-  }
-
-  _buildCharacter() {
-    const c = this.color;
-    const dc = this.darkerColor;
-
-    // Body (trapezoid: narrower top)
-    const bodyGeo = new THREE.CylinderGeometry(0.18, 0.25, 0.5, 8);
-    const bodyMat = new THREE.MeshStandardMaterial({ color: dc, roughness: 0.7 });
-    this.body = new THREE.Mesh(bodyGeo, bodyMat);
-    this.body.position.y = 0.7;
-    this.body.castShadow = true;
-    this.group.add(this.body);
+    // Color helpers
+    const c = new THREE.Color(color);
+    const darker = c.clone().multiplyScalar(0.75);
+    const matColor = new THREE.MeshStandardMaterial({ color, roughness: 0.6, metalness: 0.0 });
+    const matDarker = new THREE.MeshStandardMaterial({ color: darker, roughness: 0.6 });
+    const matWhite = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
+    const matBlack = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.2 });
 
     // Head
-    const headGeo = new THREE.SphereGeometry(0.28, 12, 8);
-    const headMat = new THREE.MeshStandardMaterial({ color: c, roughness: 0.65 });
-    this.head = new THREE.Mesh(headGeo, headMat);
-    this.head.position.y = 1.2;
+    this.head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), matColor);
+    this.head.position.y = 0.85;
     this.head.castShadow = true;
     this.group.add(this.head);
 
     // Eyes
-    const eyeWhiteGeo = new THREE.SphereGeometry(0.07, 8, 6);
-    const eyeWhiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
-    const eyeBlackGeo = new THREE.SphereGeometry(0.04, 8, 6);
-    const eyeBlackMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
+    const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 6), matWhite);
+    eyeL.position.set(-0.08, 0.88, 0.18);
+    this.group.add(eyeL);
+    const pupilL = new THREE.Mesh(new THREE.SphereGeometry(0.025, 6, 6), matBlack);
+    pupilL.position.set(-0.08, 0.88, 0.21);
+    this.group.add(pupilL);
+    const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 6), matWhite);
+    eyeR.position.set(0.08, 0.88, 0.18);
+    this.group.add(eyeR);
+    const pupilR = new THREE.Mesh(new THREE.SphereGeometry(0.025, 6, 6), matBlack);
+    pupilR.position.set(0.08, 0.88, 0.21);
+    this.group.add(pupilR);
 
-    [-0.1, 0.1].forEach(xOff => {
-      const eyeWhite = new THREE.Mesh(eyeWhiteGeo, eyeWhiteMat);
-      eyeWhite.position.set(xOff, 1.22, 0.22);
-      this.group.add(eyeWhite);
-      const eyeBlack = new THREE.Mesh(eyeBlackGeo, eyeBlackMat);
-      eyeBlack.position.set(xOff, 1.22, 0.26);
-      this.group.add(eyeBlack);
-    });
+    // Body
+    this.body = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.14, 0.18, 0.35, 8),
+      matDarker
+    );
+    this.body.position.y = 0.52;
+    this.body.castShadow = true;
+    this.group.add(this.body);
 
-    // Arms - use pivot groups so rotation happens from shoulder
-    const armGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.35, 6);
-    const armMat = new THREE.MeshStandardMaterial({ color: c, roughness: 0.7 });
+    // Left arm
+    this.armL = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.25, 6), matColor);
+    this.armL.position.set(-0.22, 0.55, 0);
+    this.group.add(this.armL);
 
-    this.leftArmPivot = new THREE.Group();
-    this.leftArmPivot.position.set(-0.28, 0.92, 0);
-    this.leftArm = new THREE.Mesh(armGeo, armMat);
-    this.leftArm.position.y = -0.175;
-    this.leftArm.castShadow = true;
-    this.leftArmPivot.add(this.leftArm);
-    this.group.add(this.leftArmPivot);
+    // Right arm
+    this.armR = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.25, 6), matColor);
+    this.armR.position.set(0.22, 0.55, 0);
+    this.group.add(this.armR);
 
-    this.rightArmPivot = new THREE.Group();
-    this.rightArmPivot.position.set(0.28, 0.92, 0);
-    this.rightArm = new THREE.Mesh(armGeo, armMat);
-    this.rightArm.position.y = -0.175;
-    this.rightArm.castShadow = true;
-    this.rightArmPivot.add(this.rightArm);
-    this.group.add(this.rightArmPivot);
+    // Left leg
+    this.legL = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.25, 6), matDarker);
+    this.legL.position.set(-0.08, 0.14, 0);
+    this.group.add(this.legL);
 
-    // Legs - use pivot groups so rotation happens from hip
-    const legGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.35, 6);
-    const legMat = new THREE.MeshStandardMaterial({ color: dc, roughness: 0.7 });
+    // Right leg
+    this.legR = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.25, 6), matDarker);
+    this.legR.position.set(0.08, 0.14, 0);
+    this.group.add(this.legR);
 
-    this.leftLegPivot = new THREE.Group();
-    this.leftLegPivot.position.set(-0.1, 0.42, 0);
-    this.leftLeg = new THREE.Mesh(legGeo, legMat);
-    this.leftLeg.position.y = -0.175;
-    this.leftLeg.castShadow = true;
-    this.leftLegPivot.add(this.leftLeg);
-    this.group.add(this.leftLegPivot);
+    // Place at initial zone
+    const zonePos = ZONES[zone] || { x: 0, z: 0 };
+    const offset = (Math.random() - 0.5) * 2;
+    this.group.position.set(zonePos.x + offset, 0, zonePos.z + offset);
 
-    this.rightLegPivot = new THREE.Group();
-    this.rightLegPivot.position.set(0.1, 0.42, 0);
-    this.rightLeg = new THREE.Mesh(legGeo, legMat);
-    this.rightLeg.position.y = -0.175;
-    this.rightLeg.castShadow = true;
-    this.rightLegPivot.add(this.rightLeg);
-    this.group.add(this.rightLegPivot);
-  }
-
-  _placeInZone(index) {
-    if (this.state === 'offline') return;
-
-    if (this.state === 'working') {
-      // Find a free workstation chair
-      const chairIdx = agents.filter((a,i) => i < index && a.state === 'working').length;
-      const chairPos = zones.workstation.chairs[chairIdx] || zones.workstation.chairs[0];
-      this.group.position.set(chairPos.x, 0, chairPos.z);
-      this.sitting = true;
-      this._setSittingPose();
-    } else {
-      // Place in assigned zone
-      const zone = zones[this.data.zone] || zones.lounge;
-      const wander = zone.wander || zone.chairs;
-      if (wander && wander.length > 0) {
-        const pos = wander[Math.floor(Math.random() * wander.length)];
-        this.group.position.set(pos.x, 0, pos.z);
-      } else {
-        this.group.position.set(zone.center.x, 0, zone.center.z);
-      }
+    if (state === 'working') {
+      this.sitAtDesk();
     }
+
+    scene.add(this.group);
   }
 
-  _setSittingPose() {
-    this.body.position.y = 0.55;
-    this.head.position.y = 1.05;
-    this.leftLegPivot.position.set(-0.1, 0.3, 0.05);
-    this.leftLegPivot.rotation.x = 0.5;
-    this.rightLegPivot.position.set(0.1, 0.3, 0.05);
-    this.rightLegPivot.rotation.x = 0.5;
-    this.leftArmPivot.position.set(-0.28, 0.75, 0.05);
-    this.rightArmPivot.position.set(0.28, 0.75, 0.05);
-    this.leftArmPivot.rotation.x = -0.7;
-    this.rightArmPivot.rotation.x = -0.7;
-    // Face the monitor (+z direction)
-    this.group.rotation.y = 0;
+  sitAtDesk() {
+    // Find an unused desk
+    const usedDesks = AGENTS.filter(a => a.state === 'working').map(a => a._deskIdx);
+    let deskIdx = this._deskIdx;
+    if (deskIdx === undefined) {
+      for (let i = 0; i < DESKS.length; i++) {
+        if (!usedDesks.includes(i)) { deskIdx = i; break; }
+      }
+      if (deskIdx === undefined) deskIdx = 0;
+      this._deskIdx = deskIdx;
+    }
+    const desk = DESKS[deskIdx] || DESKS[0];
+    this.group.position.set(desk.x, -0.2, desk.z - 0.5);
+    this.state = 'working';
   }
 
-  _setStandingPose() {
-    this.body.position.y = 0.7;
-    this.head.position.y = 1.2;
-    this.leftLegPivot.position.set(-0.1, 0.42, 0);
-    this.leftLegPivot.rotation.x = 0;
-    this.rightLegPivot.position.set(0.1, 0.42, 0);
-    this.rightLegPivot.rotation.x = 0;
-    this.leftArmPivot.position.set(-0.28, 0.92, 0);
-    this.rightArmPivot.position.set(0.28, 0.92, 0);
-    this.leftArmPivot.rotation.x = 0;
-    this.rightArmPivot.rotation.x = 0;
-  }
-
-  startWalkingTo(target) {
-    if (this.state === 'working' || this.state === 'offline') return;
-    this._setStandingPose();
-    this.sitting = false;
-    this.target = target.clone();
-    this.startPos = this.group.position.clone();
-    this.walkProgress = 0;
-    this.isWalking = true;
+  walkTo(x, z) {
+    this.walkTarget = new THREE.Vector3(x, 0, z);
     // Face direction
-    const dx = target.x - this.startPos.x;
-    const dz = target.z - this.startPos.z;
-    this.facing = Math.atan2(dx, dz);
+    const dx = x - this.group.position.x;
+    const dz = z - this.group.position.z;
+    if (Math.abs(dx) > 0.1 || Math.abs(dz) > 0.1) {
+      this.group.rotation.y = Math.atan2(dx, dz);
+    }
   }
 
   update(dt) {
-    if (this.state === 'offline') return;
+    if (!this.group.visible) return;
 
+    const t = performance.now() / 1000;
+
+    if (this.walkTarget) {
+      const pos = this.group.position;
+      const dir = new THREE.Vector3().subVectors(this.walkTarget, pos);
+      dir.y = 0;
+      const dist = dir.length();
+      if (dist < 0.15) {
+        this.walkTarget = null;
+        this.state = 'idle';
+      } else {
+        dir.normalize();
+        pos.x += dir.x * this.walkSpeed * dt;
+        pos.z += dir.z * this.walkSpeed * dt;
+        // Face walk direction
+        this.group.rotation.y = Math.atan2(dir.x, dir.z);
+        // Walk animation — legs swing, arms swing, body bob
+        const swing = Math.sin(t * 8) * 0.4;
+        this.legL.rotation.x = swing;
+        this.legR.rotation.x = -swing;
+        this.armL.rotation.x = -swing * 0.6;
+        this.armR.rotation.x = swing * 0.6;
+        this.group.position.y = Math.abs(Math.sin(t * 8)) * 0.04;
+        return;
+      }
+    }
+
+    // Working animation — subtle typing
     if (this.state === 'working') {
-      // Typing animation: slight body bob
-      this.idleTimer += dt * 3;
-      const bob = Math.sin(this.idleTimer) * 0.01;
-      this.body.position.y = 0.55 + bob;
-      this.head.position.y = 1.05 + bob;
-      this.rightArmPivot.rotation.x = -0.7 + Math.sin(this.idleTimer * 2) * 0.15;
+      this.body.rotation.z = Math.sin(t * 2 + this.bobPhase) * 0.02;
+      this.armL.rotation.x = -0.3 + Math.sin(t * 6) * 0.08;
+      this.armR.rotation.x = -0.3 + Math.sin(t * 6 + 1) * 0.08;
+      this.legL.rotation.x = 0;
+      this.legR.rotation.x = 0;
+      this.group.position.y = -0.2;
       return;
     }
 
-    if (this.isWalking && this.target) {
-      this.walkProgress += dt / this.walkDuration;
-      if (this.walkProgress >= 1) {
-        this.walkProgress = 1;
-        this.isWalking = false;
-        this.group.position.set(this.target.x, 0, this.target.z);
-        this.nextWalkTime = Date.now() + 4000 + Math.random() * 6000;
-        this.target = null;
-      } else {
-        const t = this.walkProgress;
-        const smoothT = t * t * (3 - 2 * t); // smoothstep
-        this.group.position.lerpVectors(this.startPos, this.target, smoothT);
-      }
+    // Idle animation — gentle sway
+    this.body.rotation.z = Math.sin(t * 1.5 + this.bobPhase) * 0.03;
+    this.group.position.y = Math.sin(t * 2 + this.bobPhase) * 0.02;
+    this.armL.rotation.x = Math.sin(t * 1.2 + this.bobPhase) * 0.1;
+    this.armR.rotation.x = Math.sin(t * 1.2 + this.bobPhase + 1) * 0.1;
+    this.legL.rotation.x = 0;
+    this.legR.rotation.x = 0;
 
-      // Walk animation
-      this.walkTimer += dt * 8;
-      const swing = Math.sin(this.walkTimer) * 0.4;
-      this.leftLegPivot.rotation.x = swing;
-      this.rightLegPivot.rotation.x = -swing;
-      this.leftArmPivot.rotation.x = -swing * 0.6;
-      this.rightArmPivot.rotation.x = swing * 0.6;
-      // Body bounce
-      const bounce = Math.abs(Math.sin(this.walkTimer)) * 0.04;
-      this.body.position.y = 0.7 + bounce;
-      this.head.position.y = 1.2 + bounce;
-
-      // Face target
-      this.group.rotation.y = this.facing;
-    } else {
-      // Idle swaying
-      this.idleTimer += dt * 2;
-      const sway = Math.sin(this.idleTimer) * 0.02;
-      this.body.position.y = 0.7 + sway;
-      this.head.position.y = 1.2 + sway;
-      this.leftLegPivot.rotation.x = 0;
-      this.rightLegPivot.rotation.x = 0;
-      this.leftArmPivot.rotation.x = Math.sin(this.idleTimer * 0.7) * 0.05;
-      this.rightArmPivot.rotation.x = -Math.sin(this.idleTimer * 0.7) * 0.05;
-
-      // Check if time to walk to a new location
-      if (Date.now() > this.nextWalkTime) {
-        const newZone = allZones[Math.floor(Math.random() * allZones.length)];
-        const zone = zones[newZone];
-        const wander = zone.wander || [];
-        if (wander.length > 0) {
-          const dest = wander[Math.floor(Math.random() * wander.length)];
-          this.startWalkingTo(dest);
-        }
-      }
+    // Random walk for idle agents
+    this.idleTimer += dt;
+    if (this.idleTimer > this.idleInterval) {
+      this.idleTimer = 0;
+      this.idleInterval = 5 + Math.random() * 8;
+      const zoneKeys = Object.keys(ZONES).filter(k => k !== 'workstation');
+      const zone = ZONES[zoneKeys[Math.floor(Math.random() * zoneKeys.length)]];
+      const rx = zone.x + (Math.random() - 0.5) * 3;
+      const rz = zone.z + (Math.random() - 0.5) * 3;
+      this.walkTo(rx, rz);
     }
   }
 }
 
 // ─── CREATE AGENTS ───
-const agentObjects = agents.map((a, i) => new AgentCharacter(a, i));
+const agentObjects = AGENTS.map(a => new AgentCharacter(a.name, a.color, a.state, a.zone));
 
-// ─── UI STATUS BAR ───
-const agentList = document.getElementById('agentList');
-agents.forEach(a => {
+// ─── TOP BAR PILLS ───
+const pillsEl = document.getElementById('pills');
+AGENTS.forEach(a => {
+  const hex = '#' + new THREE.Color(a.color).getHexString();
   const pill = document.createElement('div');
-  pill.className = `agent-pill ${a.state === 'offline' ? 'offline' : ''}`;
-  pill.innerHTML = `<span class="dot" style="background:${a.color}"></span>
-    <span>${a.name}</span>
-    <span class="status-text">${a.state}</span>`;
-  agentList.appendChild(pill);
+  pill.className = 'agent-pill' + (a.state === 'offline' ? ' offline' : '');
+  pill.innerHTML = `<span class="dot" style="background:${hex}"></span>${a.name}<span class="st">${a.state}</span>`;
+  pillsEl.appendChild(pill);
 });
 
-// ─── NAME LABELS ───
-const labelContainer = document.getElementById('labelContainer');
-const labelElements = [];
-agents.forEach(a => {
-  const el = document.createElement('div');
-  el.className = 'agent-label';
-  el.textContent = a.name;
-  el.style.color = a.color;
-  el.style.borderLeft = `3px solid ${a.color}`;
-  if (a.state === 'offline') el.style.display = 'none';
-  labelContainer.appendChild(el);
-  labelElements.push(el);
+// ─── LABELS ───
+const labelsEl = document.getElementById('labels');
+const labelDivs = agentObjects.map(a => {
+  const div = document.createElement('div');
+  div.className = 'lbl';
+  div.textContent = a.name;
+  labelsEl.appendChild(div);
+  return div;
 });
 
 function updateLabels() {
-  const tempV = new THREE.Vector3();
+  const w = window.innerWidth, h = window.innerHeight;
   agentObjects.forEach((agent, i) => {
     if (!agent.group.visible) {
-      labelElements[i].style.display = 'none';
+      labelDivs[i].style.display = 'none';
       return;
     }
-    labelElements[i].style.display = '';
-    agent.group.getWorldPosition(tempV);
-    tempV.y += 1.7;
-    tempV.project(camera);
-    const x = (tempV.x * 0.5 + 0.5) * window.innerWidth;
-    const y = (-tempV.y * 0.5 + 0.5) * window.innerHeight;
-    labelElements[i].style.left = x + 'px';
-    labelElements[i].style.top = y + 'px';
+    const pos = new THREE.Vector3();
+    agent.head.getWorldPosition(pos);
+    pos.y += 0.3;
+    pos.project(camera);
+    const x = (pos.x * 0.5 + 0.5) * w;
+    const y = (-pos.y * 0.5 + 0.5) * h;
+    labelDivs[i].style.display = '';
+    labelDivs[i].style.left = x + 'px';
+    labelDivs[i].style.top = y + 'px';
   });
 }
 
-// ─── ANIMATION LOOP ───
+// ─── ANIMATE ───
 let lastTime = performance.now();
-function animate(time) {
+function animate(now) {
   requestAnimationFrame(animate);
-  const dt = Math.min((time - lastTime) / 1000, 0.1);
-  lastTime = time;
+  const dt = Math.min((now - lastTime) / 1000, 0.1);
+  lastTime = now;
 
   agentObjects.forEach(a => a.update(dt));
   updateLabels();
@@ -650,11 +550,11 @@ animate(performance.now());
 // ─── RESIZE ───
 window.addEventListener('resize', () => {
   const w = window.innerWidth, h = window.innerHeight;
-  const aspect = w / h;
-  camera.left = -d * aspect;
-  camera.right = d * aspect;
-  camera.top = d;
-  camera.bottom = -d;
+  const a = w / h;
+  camera.left = -frustumSize * a / 2;
+  camera.right = frustumSize * a / 2;
+  camera.top = frustumSize / 2;
+  camera.bottom = -frustumSize / 2;
   camera.updateProjectionMatrix();
   renderer.setSize(w, h);
 });
