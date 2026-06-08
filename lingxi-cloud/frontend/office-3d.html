@@ -574,121 +574,116 @@ const chars = AGENTS.map((a, i) => {
 // ==================== DRAW CHARACTER ====================
 function drawChar(ch) {
   const p = W(ch.x, ch.y);
-  let ox=0, oy=0, bodyScale=1, rot=0;
+  let ox=0, oy=0, bodySY=1, rot=0;
 
   if (ch.state===STATES.IDLE) {
-    oy = Math.sin(ch.anim*3)*2*S;
-    ox = Math.sin(ch.anim*2)*1*S;
+    oy = Math.sin(ch.anim*3)*3*S;
+    ox = Math.sin(ch.anim*2)*1.5*S;
   } else if (ch.state===STATES.WALKING) {
-    oy = Math.abs(Math.sin(ch.anim*8))*3*S;
+    oy = Math.abs(Math.sin(ch.anim*10))*3*S;
     rot = ch.angle;
   } else if (ch.state===STATES.SLEEPING) {
     rot = Math.PI/4;
-    bodyScale = 0.7;
-    oy = Math.sin(ch.anim*1.5)*1.5*S;
-    ox = -4*S;
+    bodySY = 0.55;
+    oy = Math.sin(ch.anim*1.5)*2*S;
+    ox = -8*S;
   }
 
   ctx.save();
   ctx.translate(p.x+ox, p.y+oy);
   ctx.rotate(rot);
 
-  const s = S;
+  const s = S * 1.4; // 40% bigger
 
-  // === Lume Character: Rounded capsule body + glowing halo ===
+  // === Lume Character: Marvis极简风纯黑剪影 + 彩色腰带 ===
+  // 扁平化矢量风格，无渐变无阴影，圆润无尖角
 
-  // Shadow on ground
-  ctx.fillStyle = 'rgba(0,0,0,0.1)';
-  ctx.beginPath(); ctx.ellipse(0, 10*s, 12*s, 4*s, 0, 0, Math.PI*2); ctx.fill();
-
-  // Legs
-  ctx.strokeStyle = '#2a2a2a'; ctx.lineWidth = 2.5*s; ctx.lineCap = 'round';
-  const legOff = ch.state===STATES.WALKING ? Math.sin(ch.anim*8)*4*s : 0;
-  ctx.beginPath(); ctx.moveTo(-5*s, 4*s); ctx.lineTo(-6*s, 12*s+legOff); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(5*s, 4*s); ctx.lineTo(6*s, 12*s-legOff); ctx.stroke();
-
-  // Body (rounded capsule)
+  // Legs (chunky blocks)
   ctx.fillStyle = '#1a1a1a';
-  ctx.beginPath();
-  ctx.ellipse(0, 0, 11*s, 8*s*bodyScale, 0, 0, Math.PI*2);
-  ctx.fill();
+  const legOff = ch.state===STATES.WALKING ? Math.sin(ch.anim*10)*5*s : 0;
+  // Left leg
+  rrect(-10*s, 6*s, 6*s, 16*s+legOff, 3*s); ctx.fill();
+  // Right leg
+  rrect(4*s, 6*s, 6*s, 16*s-legOff, 3*s); ctx.fill();
 
-  // Colored vest/badge (half-moon on body front)
+  // Body (large rounded rectangle, pure black)
+  ctx.fillStyle = '#1a1a1a';
+  rrect(-14*s, -10*s, 28*s, 20*s*bodySY, 10*s); ctx.fill();
+
+  // Belt (high saturation color band around waist)
   ctx.fillStyle = ch.scarf;
-  ctx.beginPath();
-  ctx.ellipse(0, 1*s, 8*s, 5.5*s*bodyScale, 0, -Math.PI/2, Math.PI/2);
-  ctx.closePath();
-  ctx.fill();
+  rrect(-14*s, 2*s*bodySY, 28*s, 6*s, 0); ctx.fill();
 
-  // Badge "L" mark
-  ctx.fillStyle = 'rgba(255,255,255,0.8)';
-  ctx.font = `bold ${6*s}px -apple-system, sans-serif`;
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('L', 2*s, 1*s);
+  // Belt buckle (small white square)
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(-2*s, 3*s*bodySY, 4*s, 4*s);
 
-  // Arms
-  ctx.strokeStyle = '#2a2a2a'; ctx.lineWidth = 2.5*s; ctx.lineCap = 'round';
+  // Arms (chunky blocks)
+  ctx.fillStyle = '#1a1a1a';
   if (ch.state===STATES.TYPING) {
-    const tOff = Math.sin(ch.anim*15)*4*s;
-    ctx.beginPath(); ctx.moveTo(-9*s,-1*s); ctx.lineTo(-11*s,-10*s+tOff); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(9*s,-1*s); ctx.lineTo(11*s,-10*s-tOff); ctx.stroke();
+    const tOff = Math.sin(ch.anim*18)*6*s;
+    rrect(-20*s, -8*s, 7*s, 14*s+tOff, 3*s); ctx.fill();
+    rrect(13*s, -8*s, 7*s, 14*s-tOff, 3*s); ctx.fill();
   } else if (ch.state===STATES.WALKING) {
-    ctx.beginPath(); ctx.moveTo(-9*s,-1*s); ctx.lineTo(-12*s,-8*s+legOff); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(9*s,-1*s); ctx.lineTo(12*s,-8*s-legOff); ctx.stroke();
+    rrect(-20*s, -6*s, 7*s, 12*s+legOff, 3*s); ctx.fill();
+    rrect(13*s, -6*s, 7*s, 12*s-legOff, 3*s); ctx.fill();
   } else {
-    ctx.beginPath(); ctx.moveTo(-9*s,-1*s); ctx.lineTo(-10*s,-8*s); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(9*s,-1*s); ctx.lineTo(10*s,-8*s); ctx.stroke();
+    rrect(-20*s, -8*s, 7*s, 14*s, 3*s); ctx.fill();
+    rrect(13*s, -8*s, 7*s, 14*s, 3*s); ctx.fill();
   }
 
-  // Head (circle, slightly above body)
-  const headY = -12*s;
+  // Head (rounded square with iconic curved corners/horns)
   ctx.fillStyle = '#1a1a1a';
-  ctx.beginPath(); ctx.arc(0, headY, 8*s, 0, Math.PI*2); ctx.fill();
+  rrect(-13*s, -30*s, 26*s, 22*s, 8*s); ctx.fill();
+  // Left horn/ear (rounded bump)
+  ctx.beginPath();
+  ctx.moveTo(-10*s, -30*s);
+  ctx.quadraticCurveTo(-12*s, -40*s, -4*s, -38*s);
+  ctx.lineTo(-2*s, -30*s);
+  ctx.closePath(); ctx.fill();
+  // Right horn/ear
+  ctx.beginPath();
+  ctx.moveTo(10*s, -30*s);
+  ctx.quadraticCurveTo(12*s, -40*s, 4*s, -38*s);
+  ctx.lineTo(2*s, -30*s);
+  ctx.closePath(); ctx.fill();
 
-  // Glowing halo ring (agent color)
-  ctx.save();
-  ctx.strokeStyle = ch.scarf;
-  ctx.lineWidth = 1.5*s;
-  ctx.shadowColor = ch.scarf;
-  ctx.shadowBlur = 6*s;
-  ctx.beginPath(); ctx.arc(0, headY-2*s, 10.5*s, -0.3, Math.PI+0.3); ctx.stroke();
-  ctx.restore();
+  // Eyes (pure white ellipses + small black pupils)
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.ellipse(-5*s, -22*s, 4.5*s, 5.5*s, 0, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(5*s, -22*s, 4.5*s, 5.5*s, 0, 0, Math.PI*2); ctx.fill();
 
-  // Face visor (light gray arc — screen-like face)
-  ctx.fillStyle = '#e8e8e8';
-  ctx.beginPath(); ctx.arc(0, headY, 6.5*s, -0.8, Math.PI+0.8); ctx.closePath(); ctx.fill();
-
-  // Eyes (two dots on visor)
-  ctx.fillStyle = '#1a1a1a';
-  const blinkPhase = Math.sin(ch.anim * 0.5);
-  const eyeH = blinkPhase > 0.95 ? 0.5*s : 1.8*s; // occasional blink
-  ctx.beginPath(); ctx.ellipse(-2.5*s, headY-0.5*s, 1.2*s, eyeH, 0, 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(2.5*s, headY-0.5*s, 1.2*s, eyeH, 0, 0, Math.PI*2); ctx.fill();
+  // Pupils
+  ctx.fillStyle = '#111';
+  ctx.beginPath(); ctx.arc(-4*s, -21*s, 2*s, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(6*s, -21*s, 2*s, 0, Math.PI*2); ctx.fill();
 
   // Sleeping: X eyes + Zzz
   if (ch.state===STATES.SLEEPING) {
+    // Cover normal eyes
     ctx.fillStyle = '#1a1a1a';
-    ctx.lineWidth = 1.2*s;
-    // Left X
-    ctx.beginPath(); ctx.moveTo(-3.5*s, headY-1.5*s); ctx.lineTo(-1.5*s, headY+0.5*s); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(-1.5*s, headY-1.5*s); ctx.lineTo(-3.5*s, headY+0.5*s); ctx.stroke();
-    // Right X
-    ctx.beginPath(); ctx.moveTo(1.5*s, headY-1.5*s); ctx.lineTo(3.5*s, headY+0.5*s); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(3.5*s, headY-1.5*s); ctx.lineTo(1.5*s, headY+0.5*s); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(-5*s, -22*s, 4.5*s, 5.5*s, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(5*s, -22*s, 4.5*s, 5.5*s, 0, 0, Math.PI*2); ctx.fill();
+    // Draw X eyes
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5*s; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(-7*s, -24*s); ctx.lineTo(-3*s, -20*s); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-3*s, -24*s); ctx.lineTo(-7*s, -20*s); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(3*s, -24*s); ctx.lineTo(7*s, -20*s); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(7*s, -24*s); ctx.lineTo(3*s, -20*s); ctx.stroke();
     // Zzz
-    ctx.fillStyle = 'rgba(0,0,0,0.3)';
-    ctx.font = `${5*s}px -apple-system, sans-serif`;
-    ctx.fillText('z', 8*s, headY-6*s);
-    ctx.font = `${4*s}px -apple-system, sans-serif`;
-    ctx.fillText('z', 12*s, headY-10*s);
+    ctx.fillStyle = '#666';
+    ctx.font = `bold ${6*s}px -apple-system, sans-serif`;
+    ctx.fillText('z', 10*s, -34*s);
+    ctx.font = `bold ${5*s}px -apple-system, sans-serif`;
+    ctx.fillText('z', 15*s, -40*s);
   }
 
-  // Name tag
+  // Name tag (below character)
   ctx.restore();
   ctx.fillStyle = 'rgba(0,0,0,0.5)';
-  ctx.font = `600 ${WS(9)}px -apple-system, sans-serif`;
+  ctx.font = `600 ${WS(10)}px -apple-system, sans-serif`;
   ctx.textAlign = 'center';
-  const np = W(ch.x, ch.y - 28);
+  const np = W(ch.x, ch.y + 32);
   ctx.fillText(ch.agent.name, np.x, np.y);
 }
 
