@@ -1495,6 +1495,7 @@ function render() {
 
 // Office engine instance
 let _officeEngine = null;
+let _lastOfficeTeamKey = ''; // track team changes to avoid rebuilding every 5s
 
 // Send current team members to the office canvas engine
 function updateOfficeTeam() {
@@ -1504,6 +1505,10 @@ function updateOfficeTeam() {
     name: a.name,
     color: a.color,
   }));
+  // Only rebuild if team actually changed (avoid resetting character positions every 5s)
+  const key = members.map(m => m.id).join(',');
+  if (key === _lastOfficeTeamKey) return;
+  _lastOfficeTeamKey = key;
   _officeEngine.updateTeam(members);
 }
 
