@@ -122,33 +122,9 @@ body {
 }
 .sidebar-content::-webkit-scrollbar { display: none; }
 
-.sidebar-section { margin-bottom: 20px; }
-.sidebar-section-title {
-  font-size: 11px; color: var(--text-3); font-weight: 600;
-  padding: 8px 12px 4px; text-transform: uppercase; letter-spacing: 0.6px;
-}
+.sidebar-section { margin-bottom: 4px; }
 
-.sidebar-session {
-  display: flex; align-items: center; gap: 10px;
-  padding: 9px 12px; border-radius: var(--radius-sm); cursor: pointer;
-  transition: background 0.12s; margin-bottom: 1px;
-}
-.sidebar-session:hover { background: var(--bg-hover); }
-.sidebar-session.active { background: var(--accent-soft); }
-.sidebar-session.active .sidebar-session-title { color: var(--accent); font-weight: 600; }
-.sidebar-session svg { width: 16px; height: 16px; color: var(--text-3); flex-shrink: 0; }
-.sidebar-session.active svg { color: var(--accent); }
-
-.sidebar-session-info { flex: 1; min-width: 0; }
-.sidebar-session-title { font-size: 13px; font-weight: 500; color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.5; }
-.sidebar-session-time { font-size: 11px; color: var(--text-3); margin-top: 1px; }
-
-.sidebar-session-delete {
-  opacity: 0; background: none; border: none; color: var(--text-3);
-  cursor: pointer; padding: 4px; transition: opacity 0.15s, color 0.15s;
-}
-.sidebar-session:hover .sidebar-session-delete { opacity: 0.6; }
-.sidebar-session-delete:hover { opacity: 1 !important; color: #ef4444; }
+/* Session styles defined at bottom of file */
 
 /* Footer */
 .sidebar-footer { padding: 8px 10px; border-top: 1px solid var(--border-sub); position: relative; }
@@ -872,3 +848,49 @@ body {
   0% { transform: translate(-50%, -50%) rotate(0deg); }
   100% { transform: translate(-50%, -50%) rotate(360deg); }
 }
+
+/* Session group header (collapsible, like Flutter) */
+.session-group-header {
+  display: flex; align-items: center; gap: 4px;
+  padding: 10px 12px 4px; cursor: pointer;
+  user-select: none; transition: background 0.12s;
+  border-radius: 6px; margin: 0 2px;
+}
+.session-group-header:hover { background: var(--bg-hover); }
+.session-group-arrow { font-size: 10px; color: var(--text-3); width: 12px; text-align: center; transition: transform 0.2s; }
+.session-group-title { font-size: 11px; color: var(--text-3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.session-group-count { font-size: 10px; color: var(--text-3); opacity: 0.7; }
+
+.session-show-more {
+  padding: 6px 12px 6px 28px; font-size: 12px;
+  color: var(--accent); cursor: pointer;
+  transition: opacity 0.15s;
+}
+.session-show-more:hover { opacity: 0.7; }
+
+.session-empty {
+  padding: 24px 16px; text-align: center;
+  color: var(--text-3); font-size: 13px;
+}
+
+/* Compact session item - matching Flutter dense layout */
+.sidebar-session {
+  display: flex; align-items: flex-start; gap: 0;
+  padding: 8px 12px; border-radius: var(--radius-sm); cursor: pointer;
+  transition: background 0.12s; margin: 1px 0;
+}
+.sidebar-session:hover { background: var(--bg-hover); }
+.sidebar-session.active { background: var(--accent-soft); }
+
+.sidebar-session-info { flex: 1; min-width: 0; }
+.sidebar-session.active .sidebar-session-title { color: var(--accent); font-weight: 600; }
+.sidebar-session-title { font-size: 13px; font-weight: 500; color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.5; }
+.sidebar-session-sub { font-size: 11px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.4; margin-top: 1px; }
+
+.sidebar-session-delete {
+  opacity: 0; background: none; border: none; color: var(--text-3);
+  cursor: pointer; padding: 2px 4px; margin-top: 2px;
+  transition: opacity 0.15s, color 0.15s; border-radius: 4px; flex-shrink: 0;
+}
+.sidebar-session:hover .sidebar-session-delete { opacity: 0.5; }
+.sidebar-session-delete:hover { opacity: 1 !important; color: #ef4444; background: #fef2f2; }

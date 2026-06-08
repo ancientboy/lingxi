@@ -1938,98 +1938,86 @@
       });
     }
 
+    // Session group expand/collapse state
+    const _sessionGroupExpanded = {};
+
     function loadSidebarSessions() {
-      console.log('🔄 loadSidebarSessions 被调用');
-      console.log('🔄 window.sessions:', window.sessions);
-
-      const todaySessions = document.getElementById('todaySessions');
-      const weekSessions = document.getElementById('weekSessions');
-      const olderSessions = document.getElementById('olderSessions');
-
-      // 获取全局会话数据（从 chat.js）
+      const todayEl = document.getElementById('todaySessions');
+      const weekEl = document.getElementById('weekSessions');
+      const olderEl = document.getElementById('olderSessions');
       const allSessions = window.sessions || [];
-      console.log('🔄 allSessions.length:', allSessions.length);
 
       if (allSessions.length === 0) {
-        // 没有会话数据时显示提示
-        console.log('⚠️ 没有会话数据');
-        todaySessions.innerHTML = `
-          <div style="padding: 20px; text-align: center; color: #6e6e80; font-size: 13px;">
-            暂无历史会话<br>点击上方"新对话"开始
-          </div>
-        `;
-        weekSessions.innerHTML = '';
-        olderSessions.innerHTML = '';
+        todayEl.innerHTML = '<div class="session-empty">No conversations yet</div>';
+        weekEl.innerHTML = '';
+        olderEl.innerHTML = '';
         return;
       }
 
-      console.log('✅ 开始渲染', allSessions.length, '个会话');
+      // Deduplicate
+      const seen = new Set();
+      const unique = allSessions.filter(s => { if (seen.has(s.key)) return false; seen.add(s.key); return true; });
 
-      // 去重（基于 key）
-      const uniqueSessions = [];
-      const seenKeys = new Set();
-      allSessions.forEach(session => {
-        if (!seenKeys.has(session.key)) {
-          seenKeys.add(session.key);
-          uniqueSessions.push(session);
-        }
-      });
-      console.log('✅ 去重后', uniqueSessions.length, '个会话');
-
-      // 按时间分组
+      // Group by time
       const now = Date.now();
-      const today = [];
-      const week = [];
-      const older = [];
-
-      uniqueSessions.forEach(session => {
-        const updatedAt = session.updatedAt ? new Date(session.updatedAt).getTime() : 0;
-        const daysAgo = (now - updatedAt) / (1000 * 60 * 60 * 24);
-
-        if (daysAgo < 1) {
-          today.push(session);
-        } else if (daysAgo < 7) {
-          week.push(session);
-        } else {
-          older.push(session);
-        }
+      const today = [], week = [], older = [];
+      unique.forEach(s => {
+        const t = s.updatedAt ? new Date(s.updatedAt).getTime() : 0;
+        const d = (now - t) / 86400000;
+        if (d < 1) today.push(s); else if (d < 7) week.push(s); else older.push(s);
       });
 
-      // 渲染今天的会话
-      todaySessions.innerHTML = today.map(session => renderSessionItem(session)).join('') ||
-        '<div style="padding:10px;color:#6e6e80;font-size:13px;">暂无今天的对话</div>';
-
-      // 渲染最近7天的会话
-      weekSessions.innerHTML = week.map(session => renderSessionItem(session)).join('') || '';
-
-      // 渲染更早的会话
-      olderSessions.innerHTML = older.map(session => renderSessionItem(session)).join('') || '';
-
+      todayEl.innerHTML = renderSessionGroup('Today', today);
+      weekEl.innerHTML = renderSessionGroup('This Week', week);
+      olderEl.innerHTML = renderSessionGroup('Earlier', older);
       if (window.lucide) lucide.createIcons();
     }
 
-    // 渲染单个会话项
+    function renderSessionGroup(title, sessions) {
+      if (!sessions.length) return '';
+      const expanded = _sessionGroupExpanded[title] !== false; // default expanded
+      const display = expanded ? sessions : sessions.slice(0, 3);
+      const hasMore = sessions.length > 3;
+      const arrow = expanded ? '▼' : '▶';
+
+      let html = `<div class="session-group-header" onclick="toggleSessionGroup('${title}')">
+        <span class="session-group-arrow">${arrow}</span>
+        <span class="session-group-title">${title}</span>
+        <span class="session-group-count">(${sessions.length})</span>
+      </div>`;
+
+      display.forEach(s => { html += renderSessionItem(s); });
+
+      if (hasMore && !expanded) {
+        html += `<div class="session-show-more" onclick="toggleSessionGroup('${title}')">Show more (${sessions.length - 3})</div>`;
+      }
+
+      return html;
+    }
+
+    function toggleSessionGroup(title) {
+      _sessionGroupExpanded[title] = !(_sessionGroupExpanded[title] !== false);
+      loadSidebarSessions();
+    }
+
     function renderSessionItem(session) {
       const currentKey = typeof currentSessionKey !== 'undefined' ? currentSessionKey : window.currentSessionKey;
       const isActive = session.key === currentKey;
 
-      // 🚀 使用 chat.js 的 deriveSessionTitle（零网络请求）
-      const displayName = session.title || (typeof deriveSessionTitle === 'function' ? deriveSessionTitle(session) : (session.label || '未命名会话'));
-      const time = session.relativeTime || (session.updatedAt ? new Date(session.updatedAt).toLocaleString('zh-CN', {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : '');
-
-      // 预览内容
-      const preview = session.lastMessage || session.preview || session.last_message || '';
-      const previewText = preview.substring(0, 30) + (preview.length > 30 ? '...' : '');
+      const displayName = session.title || (typeof deriveSessionTitle === 'function' ? deriveSessionTitle(session) : (session.label || 'Untitled'));
+      const time = session.relativeTime || '';
+      const preview = (session.lastMessage || session.preview || '').substring(0, 40);
+      const previewText = preview.length >= 40 ? preview + '...' : preview;
+      const subText = [time, previewText].filter(Boolean).join(' · ');
 
       return `
-        <div class="sidebar-session ${isActive ? 'active' : ''}" onclick="switchToSession('${session.key}')" title="${escapeHtml(previewText)}">
-          <i data-lucide="message-circle" class="icon-sm ${isActive ? 'icon-primary' : ''}"></i>
+        <div class="sidebar-session${isActive ? ' active' : ''}" onclick="switchToSession('${session.key}')" title="${escapeHtml(previewText || displayName)}">
           <div class="sidebar-session-info">
-            <span class="sidebar-session-title">${escapeHtml(displayName)}</span>
-            ${time ? `<span class="sidebar-session-time">${time}</span>` : ''}
+            <div class="sidebar-session-title">${escapeHtml(displayName)}</div>
+            ${subText ? `<div class="sidebar-session-sub">${escapeHtml(subText)}</div>` : ''}
           </div>
           ${!isActive ? `<button class="sidebar-session-delete" onclick="event.stopPropagation(); deleteSessionFromSidebar('${session.key}')">
-            <i data-lucide="trash-2" class="icon-sm"></i>
+            <i data-lucide="x" style="width:14px;height:14px"></i>
           </button>` : ''}
         </div>
       `;
