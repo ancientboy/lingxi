@@ -115,19 +115,17 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xf5f5f5);
 
-// ─── CAMERA — Classic Isometric 45° ───
-// Position equally on x, y, z for true isometric
-const frustumSize = 16;
+// ─── CAMERA — Marvis-style elevated front view ───
+// Look from front-top, office aligned with screen edges (no rotation)
+const frustumSize = 14;
 const aspect = window.innerWidth / window.innerHeight;
 const camera = new THREE.OrthographicCamera(
   -frustumSize * aspect / 2, frustumSize * aspect / 2,
   frustumSize / 2, -frustumSize / 2,
   0.1, 200
 );
-// True isometric: equal angle on all 3 axes
-const isoDist = 30;
-camera.position.set(isoDist, isoDist, isoDist);
-camera.lookAt(0, 0, 0);
+camera.position.set(0, 20, 14);
+camera.lookAt(0, 0, 1);
 
 // ─── LIGHTS ───
 // Soft ambient fill
