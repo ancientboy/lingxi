@@ -188,14 +188,31 @@ function renderSkills() {
 function _escAttr(str) { return String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
 
 function _useSkill(skillId, example) {
+  // Find the skill to get its name and agent info
+  const allSkills = [...skillsState.allSkills, ...skillsState.builtinSkills];
+  const skill = allSkills.find(s => s.id === skillId);
+  const skillName = skill?.name || skillId;
+  const agentConfig = skill?.agent ? SKILLS_AGENT_CONFIG[skill.agent] : null;
+  const agentName = agentConfig?.name || '';
+
+  // Build the message: @agent + skill name + example
+  let msg = '';
+  if (example) {
+    msg = example;
+  } else {
+    msg = 'Use skill ' + skillName;
+  }
+
   // Switch to chat view and fill input
   switchView('chat');
-  const input = document.getElementById('inputField');
-  if (input) {
-    input.value = example || 'Use skill ' + skillId;
-    input.focus();
-    input.dispatchEvent(new Event('input'));
-  }
+  setTimeout(() => {
+    const input = document.getElementById('inputField');
+    if (input) {
+      input.value = msg;
+      input.focus();
+      input.dispatchEvent(new Event('input'));
+    }
+  }, 100);
 }
 
 async function _installAndUse(skillId, skillName, btn) {
@@ -216,10 +233,11 @@ async function _installAndUse(skillId, skillName, btn) {
       renderSkills();
       _showToast('Skill installed!', 'success');
 
-      // Fill chat input with example after a short delay
-      setTimeout(() => {
-        _useSkill(skillId, '');
-      }, 300);
+      // Find example and fill chat
+      const allSkills = [...skillsState.allSkills, ...skillsState.builtinSkills];
+      const skill = allSkills.find(s => s.id === skillId);
+      const example = skill?.example || skill?.shortDesc || '';
+      setTimeout(() => { _useSkill(skillId, example); }, 300);
     } else {
       // Fallback: fill install command in chat
       switchView('chat');
