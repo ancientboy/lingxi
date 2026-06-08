@@ -87,17 +87,19 @@ const AGENTS = [
 ];
 
 // Zone centers (x, z) for navigation
+// LEFT: top→bottom = lounge, fitness, meeting  |  RIGHT: workstations
 const ZONES = {
-  workstation: { x: 0, z: -3 },
-  lounge:      { x: -7, z: -3 },
-  fitness:     { x: 0, z: 5 },
-  meeting:     { x: 7, z: 5 },
+  lounge:      { x: -5, z: -4 },
+  fitness:     { x: -5, z: 0 },
+  meeting:     { x: -5, z: 4 },
+  workstation: { x: 4, z: 0 },
 };
 
-// Desk positions (6 workstations, 2 rows of 3)
+// Desk positions — RIGHT side, 2 per row, 3 rows
 const DESKS = [
-  { x:-2.5, z:-4.5 }, { x:0, z:-4.5 }, { x:2.5, z:-4.5 },
-  { x:-2.5, z:-1.5 }, { x:0, z:-1.5 }, { x:2.5, z:-1.5 },
+  { x: 3, z: -3.5 }, { x: 5.5, z: -3.5 },
+  { x: 3, z: 0 },    { x: 5.5, z: 0 },
+  { x: 3, z: 3.5 },  { x: 5.5, z: 3.5 },
 ];
 
 // ─── RENDERER ───
@@ -113,7 +115,7 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 // ─── SCENE ───
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xf5f5f5);
+scene.background = new THREE.Color(0xfaf8f5);
 
 // ─── CAMERA — Marvis-style elevated front view ───
 // Look from front-top, office aligned with screen edges (no rotation)
@@ -124,8 +126,8 @@ const camera = new THREE.OrthographicCamera(
   frustumSize / 2, -frustumSize / 2,
   0.1, 200
 );
-camera.position.set(0, 20, 14);
-camera.lookAt(0, 0, 1);
+camera.position.set(0, 22, 12);
+camera.lookAt(0, 0, 0);
 
 // ─── LIGHTS ───
 // Soft ambient fill
@@ -145,14 +147,14 @@ scene.add(new THREE.HemisphereLight(0xffffff, 0xe0e0e0, 0.3));
 
 // ─── MATERIALS ───
 const mat = {
-  floor:    new THREE.MeshStandardMaterial({ color: 0xeaeaea, roughness: 0.9 }),
-  zone_ws:  new THREE.MeshStandardMaterial({ color: 0xf0f0f0, roughness: 0.9 }),
-  zone_l:   new THREE.MeshStandardMaterial({ color: 0xf0ede8, roughness: 0.9 }),
-  zone_f:   new THREE.MeshStandardMaterial({ color: 0xe8f0ea, roughness: 0.9 }),
-  zone_m:   new THREE.MeshStandardMaterial({ color: 0xe8ecf0, roughness: 0.9 }),
+  floor:    new THREE.MeshStandardMaterial({ color: 0xfaf8f5, roughness: 0.9 }),
+  zone_ws:  new THREE.MeshStandardMaterial({ color: 0xf5f3ef, roughness: 0.9 }),
+  zone_l:   new THREE.MeshStandardMaterial({ color: 0xf8f5f0, roughness: 0.9 }),
+  zone_f:   new THREE.MeshStandardMaterial({ color: 0xf0f5f2, roughness: 0.9 }),
+  zone_m:   new THREE.MeshStandardMaterial({ color: 0xf2f4f8, roughness: 0.9 }),
   white:    new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 }),
-  desk:     new THREE.MeshStandardMaterial({ color: 0xf8f8f8, roughness: 0.3 }),
-  chair:    new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.6 }),
+  desk:     new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.25 }),
+  chair:    new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.6 }),
   monitor:  new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.2 }),
   screen:   new THREE.MeshStandardMaterial({ color: 0x1a1a2a, emissive: 0x3366aa, emissiveIntensity: 0.4, roughness: 0.1 }),
   screenOff:new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.3 }),
@@ -205,13 +207,15 @@ function addZone(x, z, w, d, material) {
   m.receiveShadow = true;
   scene.add(m);
 }
-addZone(0, -3,  10, 7, mat.zone_ws);   // Workstation
-addZone(-7, -3, 7,  7, mat.zone_l);     // Lounge
-addZone(0, 5,   8,  7, mat.zone_f);     // Fitness
-addZone(7, 5,   7,  7, mat.zone_m);     // Meeting
+// Zone patches — LEFT column (lounge/fitness/meeting), RIGHT column (workstation)
+addZone(-5, -4, 6, 5, mat.zone_l);   // Lounge (top-left)
+addZone(-5, 0,  6, 5, mat.zone_f);   // Fitness (mid-left)
+addZone(-5, 4,  6, 5, mat.zone_m);   // Meeting (bottom-left)
+addZone(4, 0,   6, 12, mat.zone_ws); // Workstation (right column)
 
 // ─── WORKSTATION AREA ───
-// 6 desks in 2 rows × 3 columns
+// 6 desks: 2 per row × 3 rows on RIGHT side
+// Monitor on far side (z+), chair & character on near side (z-), facing monitor
 const screenLights = [];
 DESKS.forEach((pos, i) => {
   const { x, z } = pos;
@@ -221,100 +225,89 @@ DESKS.forEach((pos, i) => {
   [[-0.6,-0.28],[0.6,-0.28],[-0.6,0.28],[0.6,0.28]].forEach(([lx,lz]) =>
     addBox(0.04, 0.72, 0.04, mat.white, x+lx, 0.36, z+lz)
   );
-  // Monitor frame
-  addBox(0.9, 0.55, 0.03, mat.monitor, x, 1.08, z+0.22);
-  // Screen
-  const scrMat = i < 3 ? mat.screen : mat.screenOff; // front row = active
-  addBox(0.82, 0.48, 0.015, scrMat, x, 1.08, z+0.24);
-  // Monitor stand
-  addBox(0.06, 0.22, 0.06, mat.monitor, x, 0.85, z+0.22);
-  // Chair seat
-  addCyl(0.22, 0.22, 0.06, mat.chair, x, 0.52, z-0.4, 16);
-  // Chair back
-  addBox(0.4, 0.4, 0.05, mat.chair, x, 0.75, z-0.62);
-  // Chair base
-  addCyl(0.03, 0.03, 0.48, mat.metal, x, 0.24, z-0.4, 8);
+  // Monitor on far side (facing character)
+  addBox(0.9, 0.55, 0.03, mat.monitor, x, 1.08, z+0.26);
+  const scrMat = i < 3 ? mat.screen : mat.screenOff;
+  addBox(0.82, 0.48, 0.015, scrMat, x, 1.08, z+0.28);
+  addBox(0.06, 0.22, 0.06, mat.monitor, x, 0.85, z+0.26);
+  // Chair on near side (under desk, facing monitor = facing z+)
+  addCyl(0.22, 0.22, 0.06, mat.chair, x, 0.52, z-0.3, 16);
+  addBox(0.4, 0.35, 0.04, mat.chair, x, 0.72, z-0.52);
+  addCyl(0.03, 0.03, 0.48, mat.metal, x, 0.24, z-0.3, 8);
   // Screen glow
-  const sl = new THREE.PointLight(0x4488cc, 0.2, 2);
+  const sl = new THREE.PointLight(0x4488cc, 0.15, 2);
   sl.position.set(x, 1.1, z+0.5);
   scene.add(sl);
   screenLights.push(sl);
 });
 
-// ─── LOUNGE AREA ───
+// ─── LOUNGE AREA (top-left) ───
 // L-shaped sofa
-addBox(2.4, 0.4, 0.8, mat.sofa, -7, 0.25, -4.5);  // long part
-addBox(0.8, 0.4, 1.6, mat.sofa, -8.2, 0.25, -3.2); // short part
-addBox(2.4, 0.15, 0.8, mat.sofa, -7, 0.5, -4.5);   // cushion long
-addBox(0.8, 0.15, 1.6, mat.sofa, -8.2, 0.5, -3.2); // cushion short
+addBox(2.4, 0.35, 0.8, mat.sofa, -5.5, 0.22, -5);
+addBox(0.8, 0.35, 1.4, mat.sofa, -6.7, 0.22, -4);
+addBox(2.4, 0.12, 0.7, mat.sofa, -5.5, 0.44, -5);
+addBox(0.7, 0.12, 1.3, mat.sofa, -6.7, 0.44, -4);
 // Back cushions
-addBox(2.4, 0.35, 0.15, mat.sofa, -7, 0.7, -4.95);
-addBox(0.15, 0.35, 1.6, mat.sofa, -8.65, 0.7, -3.2);
+addBox(2.4, 0.3, 0.12, mat.sofa, -5.5, 0.62, -5.45);
+addBox(0.12, 0.3, 1.4, mat.sofa, -7.15, 0.62, -4);
 // Coffee table
-addBox(1.0, 0.04, 0.6, mat.table, -6, 0.4, -2.5);
-addBox(0.04, 0.38, 0.04, mat.table, -6.4, 0.2, -2.7);
-addBox(0.04, 0.38, 0.04, mat.table, -5.6, 0.2, -2.7);
-addBox(0.04, 0.38, 0.04, mat.table, -6.4, 0.2, -2.3);
-addBox(0.04, 0.38, 0.04, mat.table, -5.6, 0.2, -2.3);
-// Coffee cups on table
-addCyl(0.06, 0.05, 0.08, mat.white, -6.1, 0.46, -2.5, 10);
-addCyl(0.06, 0.05, 0.08, mat.white, -5.9, 0.46, -2.4, 10);
+addBox(1.0, 0.04, 0.55, mat.desk, -4.5, 0.38, -3.2);
+addBox(0.04, 0.36, 0.04, mat.desk, -4.9, 0.19, -3.0);
+addBox(0.04, 0.36, 0.04, mat.desk, -4.1, 0.19, -3.0);
+addBox(0.04, 0.36, 0.04, mat.desk, -4.9, 0.19, -3.4);
+addBox(0.04, 0.36, 0.04, mat.desk, -4.1, 0.19, -3.4);
+// Coffee cups
+addCyl(0.05, 0.04, 0.07, mat.white, -4.6, 0.44, -3.2, 10);
+addCyl(0.05, 0.04, 0.07, mat.white, -4.4, 0.44, -3.1, 10);
 // Plants
-addCyl(0.2, 0.15, 0.3, mat.pot, -9, 0.15, -1.5);
-addSphere(0.4, mat.plant, -9, 0.55, -1.5);
-addCyl(0.15, 0.1, 0.25, mat.pot, -5, 0.12, -5);
-addSphere(0.3, mat.plant, -5, 0.42, -5);
-// Bookshelf
-addBox(1.2, 1.2, 0.35, mat.desk, -9.2, 0.6, -4.5);
-addBox(1.1, 0.03, 0.3, mat.white, -9.2, 1.0, -4.5);
-addBox(1.1, 0.03, 0.3, mat.white, -9.2, 0.5, -4.5);
+addCyl(0.18, 0.13, 0.28, mat.pot, -3.2, 0.14, -5.5);
+addSphere(0.35, mat.plant, -3.2, 0.5, -5.5);
+addCyl(0.12, 0.08, 0.2, mat.pot, -7.5, 0.1, -5.5);
+addSphere(0.25, mat.plant, -7.5, 0.35, -5.5);
 // Warm light
-const loungeLight = new THREE.PointLight(0xffeedd, 0.4, 6);
-loungeLight.position.set(-7, 2, -3);
+const loungeLight = new THREE.PointLight(0xffeedd, 0.3, 5);
+loungeLight.position.set(-5, 2, -4);
 scene.add(loungeLight);
 
-// ─── FITNESS AREA ───
+// ─── FITNESS AREA (mid-left) ───
 // Yoga mats
-addBox(0.8, 0.02, 1.6, mat.yoga, -1, 0.01, 5, 0);
-addBox(0.8, 0.02, 1.6, new THREE.MeshStandardMaterial({ color: 0xd4b8c8, roughness: 0.9 }), 1.2, 0.01, 5, 0);
+addBox(0.7, 0.02, 1.4, mat.yoga, -5, 0.01, 0.5);
+addBox(0.7, 0.02, 1.4, new THREE.MeshStandardMaterial({ color: 0xd4b8c8, roughness: 0.9 }), -3.5, 0.01, 0.5);
 // Dumbbells
-addCyl(0.06, 0.06, 0.4, mat.metal, -0.3, 0.08, 3.8, 8);
-addSphere(0.09, mat.metal, -0.3, 0.08, 3.58);
-addSphere(0.09, mat.metal, -0.3, 0.08, 4.02);
-addCyl(0.06, 0.06, 0.3, mat.metal, 0.3, 0.08, 3.8, 8);
-addSphere(0.07, mat.metal, 0.3, 0.08, 3.63);
-addSphere(0.07, mat.metal, 0.3, 0.08, 3.97);
+addCyl(0.05, 0.05, 0.35, mat.metal, -4.5, 0.07, -0.3, 8);
+addSphere(0.08, mat.metal, -4.5, 0.07, -0.5);
+addSphere(0.08, mat.metal, -4.5, 0.07, -0.1);
+addCyl(0.05, 0.05, 0.25, mat.metal, -5.5, 0.07, -0.3, 8);
+addSphere(0.06, mat.metal, -5.5, 0.07, -0.45);
+addSphere(0.06, mat.metal, -5.5, 0.07, -0.15);
 // Treadmill
-addBox(0.6, 0.08, 1.4, mat.metal, 2.8, 0.3, 5.5);
-addBox(0.5, 0.02, 1.3, new THREE.MeshStandardMaterial({ color:0x222222, roughness:0.9 }), 2.8, 0.35, 5.5);
-addBox(0.05, 0.8, 0.05, mat.metal, 2.5, 0.7, 6.1);
-addBox(0.05, 0.8, 0.05, mat.metal, 3.1, 0.7, 6.1);
-addBox(0.65, 0.05, 0.05, mat.metal, 2.8, 1.1, 6.1);
+addBox(0.55, 0.07, 1.2, mat.metal, -6.5, 0.26, 0.8);
+addBox(0.45, 0.02, 1.1, new THREE.MeshStandardMaterial({ color:0x222222, roughness:0.9 }), -6.5, 0.3, 0.8);
+addBox(0.04, 0.7, 0.04, mat.metal, -6.8, 0.62, 1.3);
+addBox(0.04, 0.7, 0.04, mat.metal, -6.2, 0.62, 1.3);
+addBox(0.6, 0.04, 0.04, mat.metal, -6.5, 0.97, 1.3);
 // Water bottle
-addCyl(0.05, 0.05, 0.18, new THREE.MeshStandardMaterial({ color:0x6699cc, roughness:0.2 }), 1.8, 0.1, 6.5, 8);
+addCyl(0.04, 0.04, 0.16, new THREE.MeshStandardMaterial({ color:0x6699cc, roughness:0.2 }), -3, 0.09, 1.5, 8);
 
-// ─── MEETING AREA ───
+// ─── MEETING AREA (bottom-left) ───
 // Long table
-addBox(2.8, 0.06, 1.0, mat.desk, 7, 0.74, 5);
+addBox(2.4, 0.05, 0.9, mat.desk, -5, 0.72, 4.5);
 // Table legs
-[[-1.2,-0.4],[1.2,-0.4],[-1.2,0.4],[1.2,0.4]].forEach(([lx,lz]) =>
-  addBox(0.04, 0.72, 0.04, mat.white, 7+lx, 0.36, 5+lz)
+[[-1.0,-0.35],[1.0,-0.35],[-1.0,0.35],[1.0,0.35]].forEach(([lx,lz]) =>
+  addBox(0.04, 0.7, 0.04, mat.white, -5+lx, 0.35, 4.5+lz)
 );
 // Chairs around table
-[[-1,0],[0,0],[1,0],[-1,1.1],[0,1.1],[1,1.1]].forEach(([cx,cz]) => {
-  addCyl(0.18, 0.18, 0.05, mat.chair, 7+cx, 0.48, 5+cz, 14);
-  addBox(0.3, 0.3, 0.04, mat.chair, 7+cx, 0.65, 5+cz+0.2);
-  addCyl(0.025, 0.025, 0.44, mat.metal, 7+cx, 0.22, 5+cz, 8);
+[[-0.7,3.5],[0,3.5],[0.7,3.5],[-0.7,5.5],[0,5.5],[0.7,5.5]].forEach(([cx,cz]) => {
+  addCyl(0.16, 0.16, 0.05, mat.chair, -5+cx, 0.46, cz, 14);
+  addBox(0.28, 0.28, 0.03, mat.chair, -5+cx, 0.62, cz+0.16);
+  addCyl(0.02, 0.02, 0.42, mat.metal, -5+cx, 0.21, cz, 8);
 });
-// Whiteboard
-addBox(2.2, 1.4, 0.04, mat.board, 7, 1.5, 7.8);
-addBox(2.3, 1.5, 0.03, mat.boardFrame, 7, 1.5, 7.78);
-// Markers on whiteboard
-addBox(0.5, 0.02, 0.01, new THREE.MeshStandardMaterial({ color:0x4488cc }), 7, 1.7, 7.83);
-addBox(0.3, 0.02, 0.01, new THREE.MeshStandardMaterial({ color:0xcc4444 }), 7.3, 1.4, 7.83);
-// Screen in meeting room
-addBox(0.8, 0.5, 0.03, mat.monitor, 7, 1.5, 2.2);
-addBox(0.7, 0.4, 0.01, mat.screen, 7, 1.5, 2.22);
+// Whiteboard on far wall
+addBox(2.0, 1.2, 0.03, mat.board, -5, 1.4, 6.8);
+addBox(2.1, 1.3, 0.02, mat.boardFrame, -5, 1.4, 6.78);
+// Markers
+addBox(0.4, 0.02, 0.01, new THREE.MeshStandardMaterial({ color:0x4488cc }), -5.2, 1.6, 6.83);
+addBox(0.25, 0.02, 0.01, new THREE.MeshStandardMaterial({ color:0xcc4444 }), -4.7, 1.3, 6.83);
 
 // ─── CHARACTER BUILDER ───
 class AgentCharacter {
@@ -412,7 +405,8 @@ class AgentCharacter {
       this._deskIdx = deskIdx;
     }
     const desk = DESKS[deskIdx] || DESKS[0];
-    this.group.position.set(desk.x, -0.2, desk.z - 0.5);
+    // Character sits at chair position (near side of desk, z-)
+    this.group.position.set(desk.x, -0.15, desk.z - 0.3);
     this.state = 'working';
   }
 
