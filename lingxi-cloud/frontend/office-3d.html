@@ -691,17 +691,56 @@ class Char {
     this.setState(STATES.WALKING);
   }
 
+  // Try to go to a left-side area; returns true if locked (occupied)
+  tryGoToArea(areaLoc, targetState) {
+    // Check if area is already occupied by another character
+    for (const other of chars) {
+      if (other === this) continue;
+      if (dist(other.x, other.y, areaLoc.x, areaLoc.y) < 30 && other.state !== STATES.WALKING) {
+        return true; // locked
+      }
+    }
+    this.walkTo(areaLoc.x, areaLoc.y, targetState);
+    return false; // success
+  }
+
   autoSwitch() {
     const r = Math.random();
     switch(this.state) {
       case STATES.IDLE:
         if (r<0.7) this.setState(STATES.TYPING);
-        else { const d=r<0.85?LOC.coffee:LOC.sofa; this.walkTo(d.x,d.y,r<0.85?STATES.IDLE:STATES.SITTING); }
+        else {
+          // Try coffee first, then sofa
+          if (r<0.85) {
+            if (this.tryGoToArea(LOC.coffee, STATES.IDLE)) {
+              // Coffee occupied, try sofa
+              if (this.tryGoToArea(LOC.sofa, STATES.SITTING)) {
+                // Both occupied, go back to typing
+                this.setState(STATES.TYPING);
+              }
+            }
+          } else {
+            if (this.tryGoToArea(LOC.sofa, STATES.SITTING)) {
+              if (this.tryGoToArea(LOC.coffee, STATES.IDLE)) {
+                this.setState(STATES.TYPING);
+              }
+            }
+          }
+        }
         break;
       case STATES.TYPING:
         if (r<0.55) this.setState(STATES.IDLE);
-        else if (r<0.8) this.walkTo(LOC.coffee.x,LOC.coffee.y,STATES.IDLE);
-        else this.walkTo(LOC.sofa.x,LOC.sofa.y,STATES.SITTING);
+        else if (r<0.8) {
+          if (this.tryGoToArea(LOC.coffee, STATES.IDLE)) {
+            this.setState(STATES.IDLE); // coffee occupied, just idle at desk
+          }
+        } else {
+          if (this.tryGoToArea(LOC.sofa, STATES.SITTING)) {
+            if (this.tryGoToArea(LOC.treadmill, STATES.IDLE)) {
+              this.setState(STATES.IDLE); // both occupied
+            }
+          }
+        }
         break;
       case STATES.SLEEPING:
       case STATES.SITTING:
@@ -722,9 +761,13 @@ class Char {
   }
 }
 
-// Create characters — mostly typing, 1-2 idle/outside
+// Create characters — mostly typing, 1-2 idle/outside (but max 1 per left area)
+const usedAreas = new Set();
 const chars = AGENTS.map((a, i) => {
-  const state = i === 3 ? STATES.IDLE : (i === 6 ? STATES.SITTING : STATES.TYPING);
+  let state = STATES.TYPING;
+  // Only assign 1 character to coffee, 1 to sofa (if available indices)
+  if (i === 3 && !usedAreas.has('coffee')) { state = STATES.IDLE; usedAreas.add('coffee'); }
+  else if (i === 6 && !usedAreas.has('sofa')) { state = STATES.SITTING; usedAreas.add('sofa'); }
   const ch = new Char(a, state);
   if (state === STATES.IDLE) { ch.x = LOC.coffee.x; ch.y = LOC.coffee.y; }
   if (state === STATES.SITTING) { ch.x = LOC.sofa.x; ch.y = LOC.sofa.y; }
@@ -732,52 +775,60 @@ const chars = AGENTS.map((a, i) => {
 });
 
 // ==================== DRAW CHARACTER ====================
+// Pre-defined poses for each state
+const POSES = {
+  idle:     { bodySY:1,   oxBase:0,    oyBase:0,    footMode:'normal' },
+  typing:   { bodySY:0.92, oxBase:0,   oyBase:-2,   footMode:'tucked' },
+  walking:  { bodySY:1,   oxBase:0,    oyBase:0,    footMode:'walk' },
+  sitting:  { bodySY:0.55, oxBase:4,   oyBase:8,    footMode:'forward' },
+  sleeping: { bodySY:0.55, oxBase:-6,  oyBase:0,    footMode:'tucked' },
+};
+
 function drawChar(ch) {
   const p = W(ch.x, ch.y);
-  let ox=0, oy=0, bodySY=1;
+  const pose = POSES[ch.state] || POSES.idle;
+  let { bodySY, oxBase, oyBase } = pose;
+  let ox = oxBase * S;
+  let oy = oyBase * S;
 
+  // Per-state animation offsets
   if (ch.state===STATES.IDLE) {
-    oy = Math.sin(ch.anim*3)*2*S;
-    ox = Math.sin(ch.anim*2)*1*S;
+    oy += Math.sin(ch.anim*3)*2*S;
+    ox += Math.sin(ch.anim*2)*1*S;
   } else if (ch.state===STATES.WALKING) {
-    // Body stays upright — only bounce, no rotation
-    oy = Math.abs(Math.sin(ch.anim*10))*2.5*S;
-  } else if (ch.state===STATES.SITTING) {
-    // Sitting on sofa: squished body, legs stretched out
-    bodySY = 0.6;
-    ox = 3*S;
-    oy = 6*S;
+    oy += Math.abs(Math.sin(ch.anim*10))*2.5*S;
   } else if (ch.state===STATES.SLEEPING) {
-    bodySY = 0.6;
-    oy = Math.sin(ch.anim*1.5)*1.5*S;
-    ox = -5*S;
+    oy += Math.sin(ch.anim*1.5)*1.5*S;
   }
 
   ctx.save();
   ctx.translate(p.x+ox, p.y+oy);
-  // NOTE: no ctx.rotate — silhouette always faces upright
 
   const s = S * 1.5;
+  const footMode = pose.footMode;
 
-  // === Lume: Cute silhouette (penguin/ghost-like) ===
+  // === Feet ===
+  const walkCycle = ch.anim*10;
+  const legSwing = footMode==='walk' ? Math.sin(walkCycle)*6*s : 0;
+  const legBounce = footMode==='walk' ? Math.abs(Math.sin(walkCycle))*2*s : 0;
 
-  // Walking leg swing (剪影风格：双腿左右摆动)
-  const walkCycle = ch.state===STATES.WALKING ? ch.anim*10 : 0;
-  const legSwing = ch.state===STATES.WALKING ? Math.sin(walkCycle)*6*s : 0;
-  const legBounce = ch.state===STATES.WALKING ? Math.abs(Math.sin(walkCycle))*2*s : 0;
-  const isSitting = ch.state===STATES.SITTING;
-
-  // Feet
   ctx.fillStyle = '#1a1a1a';
-  if (isSitting) {
-    // Sitting: feet stretched forward (to the right), slightly apart
-    ctx.beginPath(); ctx.ellipse(12*s, 12*s, 5*s, 3*s, 0.3, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(14*s, 16*s, 5*s, 3*s, 0.2, 0, Math.PI*2); ctx.fill();
-  } else {
-    // Left foot — swings forward when walking
+  if (footMode === 'forward') {
+    // Sitting: feet stretched forward + slightly apart
+    ctx.beginPath(); ctx.ellipse(10*s, 10*s, 6*s, 3.5*s, 0.3, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(14*s, 15*s, 6*s, 3.5*s, 0.2, 0, Math.PI*2); ctx.fill();
+  } else if (footMode === 'tucked') {
+    // Typing/Sleeping: feet tucked under body
+    ctx.beginPath(); ctx.ellipse(-4*s, 14*s, 4*s, 2.5*s, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(4*s, 14*s, 4*s, 2.5*s, 0, 0, Math.PI*2); ctx.fill();
+  } else if (footMode === 'walk') {
+    // Walking: left-right swing
     ctx.beginPath(); ctx.ellipse(-6*s+legSwing, 16*s-legBounce, 6*s, 3.5*s, legSwing*0.05, 0, Math.PI*2); ctx.fill();
-    // Right foot — opposite phase
     ctx.beginPath(); ctx.ellipse(6*s-legSwing, 16*s-legBounce, 6*s, 3.5*s, -legSwing*0.05, 0, Math.PI*2); ctx.fill();
+  } else {
+    // Normal (idle): side by side
+    ctx.beginPath(); ctx.ellipse(-5*s, 15*s, 5*s, 3*s, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(5*s, 15*s, 5*s, 3*s, 0, 0, Math.PI*2); ctx.fill();
   }
 
   // Main body (large teardrop/egg shape, pure black)
@@ -808,9 +859,9 @@ function drawChar(ch) {
   ctx.closePath();
   ctx.fill();
 
-  // Arms/flippers (small rounded bumps on sides)
+  // Arms/flippers — different pose per state
   ctx.fillStyle = '#1a1a1a';
-  if (isSitting) {
+  if (footMode === 'forward') {
     // Sitting: arms resting on "knees" (forward and down)
     ctx.beginPath();
     ctx.ellipse(8*s, 4*s, 5*s, 3.5*s, 0.4, 0, Math.PI*2);
@@ -818,7 +869,16 @@ function drawChar(ch) {
     ctx.beginPath();
     ctx.ellipse(10*s, 8*s, 5*s, 3.5*s, 0.3, 0, Math.PI*2);
     ctx.fill();
+  } else if (footMode === 'walk') {
+    // Walking: arms swing opposite to legs
+    ctx.beginPath();
+    ctx.ellipse(-14*s, -2*s-legSwing*0.3, 5*s, 4*s, -0.2, 0, Math.PI*2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(14*s, -2*s+legSwing*0.3, 5*s, 4*s, 0.2, 0, Math.PI*2);
+    ctx.fill();
   } else if (ch.state===STATES.TYPING) {
+    // Typing: arms reaching forward, alternating up/down
     const tOff = Math.sin(ch.anim*18)*4*s;
     ctx.beginPath();
     ctx.ellipse(-14*s, -2*s+tOff, 5*s, 4*s, -0.3, 0, Math.PI*2);
@@ -826,49 +886,33 @@ function drawChar(ch) {
     ctx.beginPath();
     ctx.ellipse(14*s, -2*s-tOff, 5*s, 4*s, 0.3, 0, Math.PI*2);
     ctx.fill();
-  } else if (ch.state===STATES.WALKING) {
+  } else if (ch.state===STATES.SLEEPING) {
+    // Sleeping: arms tucked close
     ctx.beginPath();
-    ctx.ellipse(-14*s, -2*s-legSwing*0.3, 5*s, 4*s, -0.2, 0, Math.PI*2);
+    ctx.ellipse(-12*s, 2*s, 4*s, 3*s, -0.4, 0, Math.PI*2);
     ctx.fill();
     ctx.beginPath();
-    ctx.ellipse(14*s, -2*s+legSwing*0.3, 5*s, 4*s, 0.2, 0, Math.PI*2);
+    ctx.ellipse(12*s, 2*s, 4*s, 3*s, 0.4, 0, Math.PI*2);
     ctx.fill();
   } else {
+    // Idle: arms at sides, gentle sway
+    const iOff = Math.sin(ch.anim*3)*1.5*s;
     ctx.beginPath();
-    ctx.ellipse(-14*s, -2*s, 5*s, 4*s, -0.3, 0, Math.PI*2);
+    ctx.ellipse(-14*s, -2*s+iOff, 5*s, 4*s, -0.3, 0, Math.PI*2);
     ctx.fill();
     ctx.beginPath();
-    ctx.ellipse(14*s, -2*s, 5*s, 4*s, 0.3, 0, Math.PI*2);
+    ctx.ellipse(14*s, -2*s-iOff, 5*s, 4*s, 0.3, 0, Math.PI*2);
     ctx.fill();
   }
 
-  // Eyes (big round white circles with black pupils - the cute factor!)
+  // Eyes — different style per state
   const eyeY = -12*s;
-  // White part
-  ctx.fillStyle = '#fff';
-  ctx.beginPath(); ctx.arc(-5.5*s, eyeY, 5*s, 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(5.5*s, eyeY, 5*s, 0, Math.PI*2); ctx.fill();
-  // Pupils (offset slightly down for cute look)
-  ctx.fillStyle = '#111';
-  ctx.beginPath(); ctx.arc(-4.5*s, eyeY+1*s, 2.5*s, 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(6.5*s, eyeY+1*s, 2.5*s, 0, Math.PI*2); ctx.fill();
-  // Eye highlight (tiny white dot)
-  ctx.fillStyle = '#fff';
-  ctx.beginPath(); ctx.arc(-3.5*s, eyeY-0.5*s, 1*s, 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(7.5*s, eyeY-0.5*s, 1*s, 0, Math.PI*2); ctx.fill();
 
-  // Blush (two faint pink circles on cheeks)
-  ctx.fillStyle = 'rgba(255,150,150,0.25)';
-  ctx.beginPath(); ctx.arc(-9*s, -7*s, 3*s, 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(9*s, -7*s, 3*s, 0, Math.PI*2); ctx.fill();
-
-  // Sleeping: closed eyes (curved lines instead of open eyes)
   if (ch.state===STATES.SLEEPING) {
-    // Cover the eyes with body color
+    // Closed eyes (^_^)
     ctx.fillStyle = '#1a1a1a';
     ctx.beginPath(); ctx.arc(-5.5*s, eyeY, 5.2*s, 0, Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.arc(5.5*s, eyeY, 5.2*s, 0, Math.PI*2); ctx.fill();
-    // Draw happy closed eyes (^_^)
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.8*s; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.arc(-5.5*s, eyeY+1*s, 3*s, Math.PI+0.3, -0.3); ctx.stroke();
     ctx.beginPath(); ctx.arc(5.5*s, eyeY+1*s, 3*s, Math.PI+0.3, -0.3); ctx.stroke();
@@ -879,6 +923,50 @@ function drawChar(ch) {
     ctx.fillText('z', 12*s, -18*s);
     ctx.font = `bold ${4.5*s}px -apple-system, sans-serif`;
     ctx.fillText('z', 16*s, -24*s);
+  } else if (ch.state===STATES.SITTING) {
+    // Happy relaxed eyes (slightly squinted, like smiling)
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(-5.5*s, eyeY, 5*s, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(5.5*s, eyeY, 5*s, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#111';
+    ctx.beginPath(); ctx.arc(-5*s, eyeY+0.5*s, 2.5*s, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(6*s, eyeY+0.5*s, 2.5*s, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(-4*s, eyeY-0.5*s, 1*s, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(7*s, eyeY-0.5*s, 1*s, 0, Math.PI*2); ctx.fill();
+    // Extra blush (more happy)
+    ctx.fillStyle = 'rgba(255,150,150,0.35)';
+    ctx.beginPath(); ctx.arc(-9*s, -7*s, 3.5*s, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(9*s, -7*s, 3.5*s, 0, Math.PI*2); ctx.fill();
+  } else if (ch.state===STATES.TYPING) {
+    // Focused eyes — pupils look down (at screen)
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(-5.5*s, eyeY, 5*s, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(5.5*s, eyeY, 5*s, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#111';
+    ctx.beginPath(); ctx.arc(-5*s, eyeY+2*s, 2.5*s, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(6*s, eyeY+2*s, 2.5*s, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(-4*s, eyeY+0.5*s, 0.8*s, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(7*s, eyeY+0.5*s, 0.8*s, 0, Math.PI*2); ctx.fill();
+  } else {
+    // Default (idle/walking): cute round eyes looking forward
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(-5.5*s, eyeY, 5*s, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(5.5*s, eyeY, 5*s, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#111';
+    ctx.beginPath(); ctx.arc(-4.5*s, eyeY+1*s, 2.5*s, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(6.5*s, eyeY+1*s, 2.5*s, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(-3.5*s, eyeY-0.5*s, 1*s, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(7.5*s, eyeY-0.5*s, 1*s, 0, Math.PI*2); ctx.fill();
+  }
+
+  // Blush (skip if sleeping or sitting — sitting has its own)
+  if (ch.state !== STATES.SLEEPING && ch.state !== STATES.SITTING) {
+    ctx.fillStyle = 'rgba(255,150,150,0.25)';
+    ctx.beginPath(); ctx.arc(-9*s, -7*s, 3*s, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(9*s, -7*s, 3*s, 0, Math.PI*2); ctx.fill();
   }
 
   // Name tag
