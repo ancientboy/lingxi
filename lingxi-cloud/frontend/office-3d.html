@@ -479,20 +479,27 @@ function drawSofa() {
 
 // Waypoints: key intersection points on the corridor network
 const WAYPOINTS = [
-  // Vertical corridor (x=300) intersections
-  { id:'v1', x:300, y:195 },  // Row 1 aisle
-  { id:'v2', x:300, y:375 },  // Row 2 aisle
-  { id:'v3', x:300, y:555 },  // Row 3 aisle
-  { id:'v4', x:300, y:735 },  // Row 4 aisle
-  // Left area connections (via aisles)
-  { id:'l1', x:140, y:195 },  // Break area via row 1 aisle
-  { id:'l2', x:140, y:375 },  // Treadmill via row 2 aisle
-  { id:'l3', x:130, y:555 },  // Sofa via row 3 aisle
-  // Desk positions (aisle side)
+  // Vertical corridor (x=300) — main north-south path
+  { id:'v1', x:300, y:195 },
+  { id:'v2', x:300, y:375 },
+  { id:'v3', x:300, y:555 },
+  { id:'v4', x:300, y:735 },
+  // Left area entries (accessible via horizontal aisles)
+  { id:'l1', x:140, y:195 },  // Break area
+  { id:'l2', x:140, y:375 },  // Treadmill
+  { id:'l3', x:130, y:555 },  // Sofa
+  // Desk chair positions (in the aisle, y = desk.y + 55)
+  // These are the actual positions characters sit/stand at
   { id:'d0', x:420, y:195 }, { id:'d1', x:620, y:195 },
   { id:'d2', x:420, y:375 }, { id:'d3', x:620, y:375 },
   { id:'d4', x:420, y:555 }, { id:'d5', x:620, y:555 },
   { id:'d6', x:420, y:735 }, { id:'d7', x:620, y:735 },
+  // Desk aisle approach points (between the two desk columns, in the aisle)
+  // Characters go here first before turning into their specific chair
+  { id:'a1', x:520, y:195 },  // Aisle between row1 desks
+  { id:'a2', x:520, y:375 },  // Aisle between row2 desks
+  { id:'a3', x:520, y:555 },  // Aisle between row3 desks
+  { id:'a4', x:520, y:735 },  // Aisle between row4 desks
 ];
 
 // Build adjacency: each WP connects to nearest WPs on same x or same y
@@ -501,9 +508,15 @@ WAYPOINTS.forEach(wp => {
   WP_EDGES[wp.id] = [];
   WAYPOINTS.forEach(other => {
     if (wp.id === other.id) return;
-    // Connect if same x (vertical corridor) or same y (horizontal aisle)
-    if (Math.abs(wp.x - other.x) < 5 || Math.abs(wp.y - other.y) < 5) {
-      WP_EDGES[wp.id].push(other.id);
+    const sameX = Math.abs(wp.x - other.x) < 5;
+    const sameY = Math.abs(wp.y - other.y) < 5;
+    if (sameX || sameY) {
+      // Only connect if on same row (sameY) or same column (sameX)
+      // and distance is reasonable (no skipping across the map)
+      const d = wpDist(wp, other);
+      if (d < 250) {
+        WP_EDGES[wp.id].push(other.id);
+      }
     }
   });
 });
@@ -545,13 +558,15 @@ function buildRoute(x1, y1, x2, y2) {
   const from = nearestWP(x1, y1);
   const to = nearestWP(x2, y2);
   if (!from || !to) return [{ x: x2, y: y2 }];
+  // If already very close to destination, walk directly
+  if (dist(x1, y1, x2, y2) < 30) return [{ x: x2, y: y2 }];
   const wpPath = findPath(from.id, to.id);
-  // Return as coordinate list: fromWP → waypoints → toWP → final destination
   const route = [];
   wpPath.forEach(id => {
     const wp = WAYPOINTS.find(w => w.id === id);
     if (wp) route.push({ x: wp.x, y: wp.y });
   });
+  // Final destination (exact chair/target position)
   route.push({ x: x2, y: y2 });
   return route;
 }
