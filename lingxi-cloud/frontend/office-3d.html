@@ -79,7 +79,7 @@ let S = Math.min(CW / WORLD_W, CH / WORLD_H) * 0.95;
 
 // ==================== CAMERA ====================
 // Center the world on screen
-const cam = { ox: CW/2 - (WORLD_W/2)*S, oy: CH/2 - (WORLD_H/2)*S, scale: 1, target: 1 };
+const cam = { ox: CW/2 - (WORLD_W/2)*S, oy: CH/2 - (WORLD_H/2)*S, scale: 1 };
 
 // World → screen (top-down, with camera pan)
 function W(wx, wy) {
@@ -1708,7 +1708,6 @@ function loop(ts) {
   lastT = ts;
 
   // Smooth zoom
-  cam.scale = lerp(cam.scale, cam.target, 0.12);
 
   chars.forEach(c => c.update(dt));
 
@@ -1783,14 +1782,6 @@ function loop(ts) {
 }
 
 // ==================== INTERACTION ====================
-let dragging = false, dsx=0, dsy=0, cox=0, coy=0;
-canvas.addEventListener('mousedown', e => { dragging=true; dsx=e.clientX; dsy=e.clientY; cox=cam.ox; coy=cam.oy; });
-window.addEventListener('mousemove', e => { if(!dragging) return; cam.ox=cox+(e.clientX-dsx); cam.oy=coy+(e.clientY-dsy); });
-window.addEventListener('mouseup', () => dragging=false);
-canvas.addEventListener('wheel', e => {
-  e.preventDefault();
-  cam.target = Math.max(0.5, Math.min(2, cam.target * (e.deltaY<0?1.08:0.93)));
-}, { passive: false });
 // Click interactions
 canvas.addEventListener('click', (e) => {
   const rect = canvas.getBoundingClientRect();
@@ -1816,9 +1807,6 @@ canvas.addEventListener('click', (e) => {
 canvas.addEventListener('dblclick', () => { onResize(); showToast('View reset'); });
 
 // Touch
-canvas.addEventListener('touchstart', e => { if(e.touches.length===1){ dragging=true; dsx=e.touches[0].clientX; dsy=e.touches[0].clientY; cox=cam.ox; coy=cam.oy; } }, {passive:false});
-canvas.addEventListener('touchmove', e => { e.preventDefault(); if(!dragging||e.touches.length!==1) return; cam.ox=cox-(e.touches[0].clientX-dsx)/cam.scale; cam.oy=coy-(e.touches[0].clientY-dsy)/cam.scale; }, {passive:false});
-canvas.addEventListener('touchend', () => dragging=false);
 
 // ==================== INIT ====================
 cam.ox = 0; cam.oy = 0;
