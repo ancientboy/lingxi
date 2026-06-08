@@ -1798,10 +1798,11 @@ canvas.addEventListener('click', (e) => {
   // Check if clicked on a character
   for (const ch of chars) {
     const cp = W(ch.x, ch.y);
-    if (dist(cx, cy, cp.x, cp.y) < WS(25)) {
+    const hitRadius = Math.max(WS(30), 25);
+    if (dist(cx, cy, cp.x, cp.y) < hitRadius) {
       spawnCelebration(ch.x, ch.y);
-      if (isEmbedded) {
-        // Send to parent page to open agent drawer
+      if (window.self !== window.top) {
+        // Embedded: send to parent page to open agent drawer
         window.parent.postMessage({ type:'officeAgentClick', agentId: ch.agent.id }, '*');
       } else {
         const msgs = ['Keep going! 💪','Almost done!','Nice code!','Focus time!','Loading...','💡 Idea!','Bug fixed!','Ship it! 🚀'];
@@ -1813,7 +1814,7 @@ canvas.addEventListener('click', (e) => {
 });
 
 // Hide status bar when embedded
-if (isEmbedded) {
+if (window.self !== window.top) {
   const bar = document.getElementById('status-bar');
   if (bar) bar.style.display = 'none';
 }

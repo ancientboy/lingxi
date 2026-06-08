@@ -2636,7 +2636,10 @@ function init(){
   // Listen for clicks from office canvas iframe
   window.addEventListener('message', (e) => {
     if (e.data && e.data.type === 'officeAgentClick') {
-      const agentId = e.data.agentId;
+      let agentId = e.data.agentId;
+      // Map office-3d agent IDs to workspace IDs
+      const idMap = { lingxi:'main', spark:'coder', pulse:'ops', nova:'inventor', scope:'pm', echo:'noter', prism:'media', nest:'smart' };
+      if (idMap[agentId]) agentId = idMap[agentId];
       if (agentId) openDrawer(agentId);
     }
   });
