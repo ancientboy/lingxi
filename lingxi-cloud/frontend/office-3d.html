@@ -1144,7 +1144,7 @@ function drawChar(ch) {
 
   } // end facing !== 'back'
 
-  // Name tag
+  // Restore transform before drawing overlays
   ctx.restore();
 
   // Chair backrest overlay (drawn ON TOP of character when typing)
@@ -1160,11 +1160,17 @@ function drawChar(ch) {
     ctx.stroke();
   }
 
-  ctx.fillStyle = 'rgba(0,0,0,0.5)';
-  ctx.font = `600 ${WS(10)}px -apple-system, sans-serif`;
-  ctx.textAlign = 'center';
-  const np = W(ch.x, ch.y + 30);
-  ctx.fillText(ch.agent.name, np.x, np.y);
+  // Floating name — only show when character is NOT at their desk
+  const hd = DESKS[ch.agent.deskIdx % DESKS.length];
+  const atDesk = dist(ch.x, ch.y, hd.x, hd.y + CHAIR_OFFSET) < 30;
+  if (!atDesk) {
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.font = `600 ${WS(9)}px -apple-system, sans-serif`;
+    ctx.textAlign = 'center';
+    const fp = W(ch.x, ch.y + 28);
+    ctx.fillText(ch.agent.name, fp.x, fp.y);
+  }
+}
 }
 
 // ==================== STATUS BAR ====================
@@ -1229,6 +1235,26 @@ function loop(ts) {
     drawDesk(d.x, d.y);
     drawMonitor(d.x, d.y-45, active);
     drawChair(d.x, d.y+CHAIR_OFFSET);
+    // Nameplate on desk (工牌)
+    const agent = AGENTS.find(a => a.deskIdx === i);
+    if (agent) {
+      const np = W(d.x, d.y + 15); // bottom area of desk
+      const npW = WS(38), npH = WS(14);
+      // Card background
+      ctx.fillStyle = '#fff';
+      rrect(np.x-npW/2, np.y-npH/2, npW, npH, WS(3)); ctx.fill();
+      ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = WS(0.5); ctx.stroke();
+      // Color accent bar on left
+      ctx.fillStyle = agent.scarf;
+      ctx.beginPath();
+      ctx.roundRect(np.x-npW/2, np.y-npH/2, WS(3), npH, [WS(3),0,0,WS(3)]);
+      ctx.fill();
+      // Name text
+      ctx.fillStyle = '#333';
+      ctx.font = `600 ${WS(8)}px -apple-system, sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(agent.name, np.x+WS(1), np.y+WS(0.5));
+    }
   });
 
   drawBreakArea();
