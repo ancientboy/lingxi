@@ -147,34 +147,7 @@ app.use('/api/remote-config', remoteConfigRoutes);
 // 用户模型偏好（公开接口）
 app.get('/api/user-models', (req, res) => {
   res.json({
-    availableModels: [
-      { id: 'auto', name: 'Auto', provider: '系统', desc: '智能选择最优模型', tier: 'free' },
-      { id: 'glm-cn/glm-5.1', name: 'GLM-5.1 主力', provider: '智谱直连', desc: '智谱大号直接干', tier: 'pro' },
-      { id: 'cu/default', name: 'Cursor Auto', provider: 'Cursor', desc: 'Cursor 智能选模', tier: 'pro' },
-      { id: 'cu/gpt-5.5-high-fast', name: 'GPT-5.5 Fast', provider: 'Cursor', desc: '极速旗舰', tier: 'pro' },
-      { id: 'cu/gpt-5.5-high', name: 'GPT-5.5', provider: 'Cursor', desc: '顶级推理', tier: 'pro' },
-      { id: 'cu/claude-4.6-opus-max', name: 'Claude 4.6 Opus Max', provider: 'Cursor', desc: '最强 Claude', tier: 'pro' },
-      { id: 'cu/claude-4.6-sonnet-medium-thinking', name: 'Claude 4.6 Sonnet Think', provider: 'Cursor', desc: '新一代推理', tier: 'pro' },
-      { id: 'cu/claude-4.6-opus-max-thinking', name: 'Claude 4.6 Opus Think', provider: 'Cursor', desc: '最强推理链', tier: 'pro' },
-      { id: 'ocg/glm-5.1', name: 'GLM-5.1', provider: '智谱', desc: '中文最强', tier: 'free' },
-      { id: 'ocg/deepseek-v4-pro', name: 'DeepSeek V4 Pro', provider: 'DeepSeek', desc: '最强性价比', tier: 'free' },
-      { id: 'gh/gpt-5-mini', name: 'GPT-5-Mini', provider: 'OpenAI', desc: '快速免费', tier: 'free' },
-      { id: 'gh/gpt-4o', name: 'GPT-4o', provider: 'OpenAI', desc: 'GPT经典', tier: 'pro' },
-      { id: 'gh/gpt-4.1', name: 'GPT-4.1', provider: 'OpenAI', desc: '强推理', tier: 'pro' },
-      { id: 'ocg/kimi-k2.6', name: 'Kimi-K2.6', provider: '月之暗面', desc: '长上下文', tier: 'free' },
-      { id: 'openrouter/openrouter/free', name: 'Free', provider: 'OpenRouter', desc: '免费兜底', tier: 'free' },
-      { id: 'cu/gpt-5.2', name: 'GPT-5.2', provider: 'Cursor', desc: 'OpenAI 旗舰', tier: 'pro' },
-      { id: 'cu/gpt-5.2-codex', name: 'GPT-5.2 Codex', provider: 'Cursor', desc: '代码专精', tier: 'pro' },
-      { id: 'cu/gpt-5.3-codex', name: 'GPT-5.3 Codex', provider: 'Cursor', desc: '最新代码', tier: 'pro' },
-      { id: 'cu/claude-4.5-sonnet', name: 'Claude 4.5 Sonnet', provider: 'Cursor', desc: 'Anthropic 平衡', tier: 'pro' },
-      { id: 'cu/claude-4.5-haiku', name: 'Claude 4.5 Haiku', provider: 'Cursor', desc: 'Anthropic 快速', tier: 'pro' },
-      { id: 'cu/claude-4.5-opus', name: 'Claude 4.5 Opus', provider: 'Cursor', desc: 'Anthropic 高级', tier: 'pro' },
-      { id: 'cu/claude-4.5-opus-high', name: 'Claude 4.5 Opus High', provider: 'Cursor', desc: 'Anthropic 旗舰', tier: 'pro' },
-      { id: 'cu/claude-4.5-sonnet-thinking', name: 'Claude 4.5 Sonnet Think', provider: 'Cursor', desc: '带推理链', tier: 'pro' },
-      { id: 'cu/claude-4.5-opus-high-thinking', name: 'Claude 4.5 Opus Think', provider: 'Cursor', desc: '旗舰推理链', tier: 'pro' },
-      { id: 'cu/gemini-3-flash-preview', name: 'Gemini 3 Flash', provider: 'Cursor', desc: 'Google 预览', tier: 'pro' },
-      { id: 'cu/kimi-k2.5', name: 'Kimi K2.5', provider: 'Cursor', desc: '月之暗面', tier: 'pro' },
-    ]
+    availableModels: getAvailableModelsList(),
   });
 });
 
@@ -229,17 +202,9 @@ app.post('/api/user-models/preference', async (req, res) => {
     fs.writeFileSync(dbPath, JSON.stringify(db, null, 2));
     
     console.log(`[模型偏好] ✅ 用户 ${user.nickname || userId} → ${model || 'auto'}`);
+    // 🔥 同进程直接刷新，不再需要 HTTP 通知
+    loadUserPreferences();
     res.json({ success: true, model: model || 'auto' });
-    
-    // 🔥 立即通知 ai-proxy-lite 刷新用户映射（事件驱动，不再等30秒轮询）
-    try {
-      const http = await import('http');
-      http.get('http://localhost:13000/internal/refresh-users', (r) => {
-        let data = '';
-        r.on('data', c => data += c);
-        r.on('end', () => console.log(`[模型偏好] 已通知代理刷新: ${data}`));
-      }).on('error', e => console.warn('[模型偏好] 通知代理失败:', e.message));
-    } catch (_) {}
   } catch(e) {
     console.error('[模型偏好] 更新失败:', e.message);
     res.status(500).json({ success: false, error: e.message });
@@ -406,10 +371,65 @@ app.use((err, req, res, next) => {
 import { setupWebSocketProxy } from './routes/ws-proxy.js';
 setupWebSocketProxy(app);
 
+// ============ 合并 AI 代理路由 ============
+import http from 'http';
+import {
+  server as aiProxyServer,
+  loadUserPreferences,
+  getAvailableModelsList,
+} from './ai-proxy-lite.js';
+
+// 初始化用户偏好映射
+loadUserPreferences();
+
+// 挂载 AI 代理的所有路由到 Express（同进程，0 延迟）
+app.use('/api/ai/:provider', (req, res) => {
+  // 将 Express 请求转发到 ai-proxy 的 http server handler
+  aiProxyServer.emit('request', req, res);
+});
+
+// 挂载 /v1/chat/completions 兼容路径
+app.use('/v1/chat/completions', (req, res) => {
+  aiProxyServer.emit('request', req, res);
+});
+app.use('/chat/completions', (req, res) => {
+  aiProxyServer.emit('request', req, res);
+});
+
+// 挂载 /v1/models 兼容路径
+app.use('/v1/models', (req, res) => {
+  aiProxyServer.emit('request', req, res);
+});
+
+// 代理内部管理接口
+app.use('/api/proxy-keys', (req, res) => {
+  // Rewrite path for the internal server
+  req.url = req.url.replace('/api/proxy-keys', '/api/keys');
+  aiProxyServer.emit('request', req, res);
+});
+app.use('/api/proxy-stats', (req, res) => {
+  req.url = req.url.replace('/api/proxy-stats', '/api/stats');
+  aiProxyServer.emit('request', req, res);
+});
+app.use('/proxy-health', (req, res) => {
+  req.url = '/health';
+  aiProxyServer.emit('request', req, res);
+});
+
 // 启动服务
 const server = app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 灵犀云后端服务已启动: http://localhost:${PORT}`);
   console.log(`📝 健康检查: http://localhost:${PORT}/health`);
+});
+
+// 额外监听 13000 端口（用户 OpenClaw 已配置此端口，零改动）
+const AI_PORT = process.env.AI_PROXY_PORT || 13000;
+const aiPortServer = http.createServer((req, res) => {
+  // 直接复用 ai-proxy 的 http handler
+  aiProxyServer.emit('request', req, res);
+});
+aiPortServer.listen(AI_PORT, '0.0.0.0', () => {
+  console.log(`🔌 AI 代理端口已启动: http://localhost:${AI_PORT} (用户零改动)`);
 });
 
 

@@ -1686,7 +1686,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // ============ 统一 AI 路由：所有请求都走 9Router ============
+// ============ 统一 AI 路由：所有请求都走 9Router ============
   if (path.startsWith('/api/ai/aliyun')) {
     return unifiedRoute('aliyun', req, res);
   }
@@ -1701,47 +1701,42 @@ const server = http.createServer(async (req, res) => {
     return unifiedRoute('zhipu', req, res);
   }
 
-
-  // OpenAI-compatible /v1/models endpoint for OpenClaw provider discovery
-  if (path === '/v1/models' || path === '/models') {
-    const models = [
-      { id: 'auto', name: 'Lume Auto (智能选模)', provider: 'lume', tier: 'free' },
-      { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro', provider: 'lume', tier: 'free' },
-      { id: 'glm-5.1', name: 'GLM-5.1', provider: 'lume', tier: 'free' },
-      { id: 'gpt-4o', name: 'GPT-4o', provider: 'lume', tier: 'pro' },
-      { id: 'gpt-4o-mini', name: 'GPT-4o Mini', provider: 'lume', tier: 'free' },
-      { id: 'kimi-k2.6', name: 'Kimi-K2.6', provider: 'lume', tier: 'free' },
-      { id: 'cu/default', name: 'Cursor Auto', provider: 'cursor', tier: 'pro' },
-      { id: 'cu/gpt-5.2', name: 'Cursor GPT-5.2', provider: 'cursor', tier: 'pro' },
-      { id: 'cu/gpt-5.5-high-fast', name: 'Cursor GPT-5.5 Fast', provider: 'cursor', tier: 'pro' },
-      { id: 'cu/gpt-5.5-high', name: 'Cursor GPT-5.5', provider: 'cursor', tier: 'pro' },
-      { id: 'cu/claude-4.5-sonnet', name: 'Cursor Claude 4.5 Sonnet', provider: 'cursor', tier: 'pro' },
-      { id: 'cu/claude-4.5-haiku', name: 'Cursor Claude 4.5 Haiku', provider: 'cursor', tier: 'pro' },
-      { id: 'cu/claude-4.5-opus-high', name: 'Cursor Claude 4.5 Opus', provider: 'cursor', tier: 'pro' },
-      { id: 'cu/claude-4.6-opus-max', name: 'Cursor Claude 4.6 Opus Max', provider: 'cursor', tier: 'pro' },
-      { id: 'cu/claude-4.5-sonnet-thinking', name: 'Cursor Claude 4.5 Sonnet Thinking', provider: 'cursor', tier: 'pro' },
-      { id: 'cu/claude-4.5-opus-high-thinking', name: 'Cursor Claude 4.5 Opus Thinking', provider: 'cursor', tier: 'pro' },
-      { id: 'cu/claude-4.6-opus-max-thinking', name: 'Cursor Claude 4.6 Opus Thinking', provider: 'cursor', tier: 'pro' },
-      { id: 'cu/claude-4.6-sonnet-medium-thinking', name: 'Cursor Claude 4.6 Sonnet Thinking', provider: 'cursor', tier: 'pro' },
-    ];
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    return res.end(JSON.stringify({
-      object: 'list',
-      data: models.map(m => ({
-        id: m.id,
-        object: 'model',
-        created: Math.floor(Date.now() / 1000),
-        owned_by: m.provider,
-        name: m.name,
-        tier: m.tier,
-      }))
-    }));
-  }
-
-  // 未知路径
+  // ============ 兜底 ============
   res.writeHead(404, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify({ error: 'Not found' }));
+  res.end(JSON.stringify({ error: 'Not Found', path }));
 });
+
+// ============ 可用模型列表（导出共享） ============
+function getAvailableModelsList() {
+  return [
+    { id: 'auto', name: 'Auto', provider: '系统', desc: '智能选择最优模型', tier: 'free' },
+    { id: 'glm-cn/glm-5.1', name: 'GLM-5.1 主力', provider: '智谱直连', desc: '智谱大号直接干', tier: 'pro' },
+    { id: 'cu/default', name: 'Cursor Auto', provider: 'Cursor', desc: 'Cursor 智能选模', tier: 'pro' },
+    { id: 'cu/gpt-5.5-high-fast', name: 'GPT-5.5 Fast', provider: 'Cursor', desc: '极速旗舰', tier: 'pro' },
+    { id: 'cu/gpt-5.5-high', name: 'GPT-5.5', provider: 'Cursor', desc: '顶级推理', tier: 'pro' },
+    { id: 'cu/claude-4.6-opus-max', name: 'Claude 4.6 Opus Max', provider: 'Cursor', desc: '最强 Claude', tier: 'pro' },
+    { id: 'cu/claude-4.6-sonnet-medium-thinking', name: 'Claude 4.6 Sonnet Think', provider: 'Cursor', desc: '新一代推理', tier: 'pro' },
+    { id: 'cu/claude-4.6-opus-max-thinking', name: 'Claude 4.6 Opus Think', provider: 'Cursor', desc: '最强推理链', tier: 'pro' },
+    { id: 'ocg/glm-5.1', name: 'GLM-5.1', provider: '智谱', desc: '中文最强', tier: 'free' },
+    { id: 'ocg/deepseek-v4-pro', name: 'DeepSeek V4 Pro', provider: 'DeepSeek', desc: '最强性价比', tier: 'free' },
+    { id: 'gh/gpt-5-mini', name: 'GPT-5-Mini', provider: 'OpenAI', desc: '快速免费', tier: 'free' },
+    { id: 'gh/gpt-4o', name: 'GPT-4o', provider: 'OpenAI', desc: 'GPT经典', tier: 'pro' },
+    { id: 'gh/gpt-4.1', name: 'GPT-4.1', provider: 'OpenAI', desc: '强推理', tier: 'pro' },
+    { id: 'ocg/kimi-k2.6', name: 'Kimi-K2.6', provider: '月之暗面', desc: '长上下文', tier: 'free' },
+    { id: 'openrouter/openrouter/free', name: 'Free', provider: 'OpenRouter', desc: '免费兜底', tier: 'free' },
+    { id: 'cu/gpt-5.2', name: 'GPT-5.2', provider: 'Cursor', desc: 'OpenAI 旗舰', tier: 'pro' },
+    { id: 'cu/gpt-5.2-codex', name: 'GPT-5.2 Codex', provider: 'Cursor', desc: '代码专精', tier: 'pro' },
+    { id: 'cu/gpt-5.3-codex', name: 'GPT-5.3 Codex', provider: 'Cursor', desc: '最新代码', tier: 'pro' },
+    { id: 'cu/claude-4.5-sonnet', name: 'Claude 4.5 Sonnet', provider: 'Cursor', desc: 'Anthropic 平衡', tier: 'pro' },
+    { id: 'cu/claude-4.5-haiku', name: 'Claude 4.5 Haiku', provider: 'Cursor', desc: 'Anthropic 快速', tier: 'pro' },
+    { id: 'cu/claude-4.5-opus', name: 'Claude 4.5 Opus', provider: 'Cursor', desc: 'Anthropic 高级', tier: 'pro' },
+    { id: 'cu/claude-4.5-opus-high', name: 'Claude 4.5 Opus High', provider: 'Cursor', desc: 'Anthropic 旗舰', tier: 'pro' },
+    { id: 'cu/claude-4.5-sonnet-thinking', name: 'Claude 4.5 Sonnet Think', provider: 'Cursor', desc: '带推理链', tier: 'pro' },
+    { id: 'cu/claude-4.5-opus-high-thinking', name: 'Claude 4.5 Opus Think', provider: 'Cursor', desc: '旗舰推理链', tier: 'pro' },
+    { id: 'cu/gemini-3-flash-preview', name: 'Gemini 3 Flash', provider: 'Cursor', desc: 'Google 预览', tier: 'pro' },
+    { id: 'cu/kimi-k2.5', name: 'Kimi K2.5', provider: 'Cursor', desc: '月之暗面', tier: 'pro' },
+  ];
+}
 
 // ============ Cursor 代理请求处理 ============
 function proxyCursorRequest(reqBody, isStream, clientIp, res) {
@@ -1814,10 +1809,30 @@ function proxyCursorRequest(reqBody, isStream, clientIp, res) {
   proxyReq.end();
 }
 
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 AI 轻代理已启动: http://localhost:${PORT}`);
-  console.log(`   健康检查: http://localhost:${PORT}/health`);
-  for (const [id, p] of Object.entries(PROVIDERS)) {
-    console.log(`   ${p.name} Key: ${p.keys.length} 个`);
-  }
-});
+// ============ 独立运行入口 ============
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 AI 轻代理已启动: http://localhost:${PORT}`);
+    console.log(`   健康检查: http://localhost:${PORT}/health`);
+    for (const [id, p] of Object.entries(PROVIDERS)) {
+      console.log(`   ${p.name} Key: ${p.keys.length} 个`);
+    }
+  });
+}
+
+export {
+  server,
+  unifiedRoute,
+  proxyVia9Router,
+  proxyCursorRequest,
+  getUserPreferredModel,
+  loadUserPreferences,
+  updateUserModelPreference,
+  ipUserMap,
+  checkIpRateLimit,
+  recordRequest,
+  handleAdminApi,
+  handleStatsApi,
+  PROVIDERS,
+  getAvailableModelsList,
+};
