@@ -17,7 +17,7 @@ import { verifyToken } from '../middleware/auth.js';
 import { getDB } from '../utils/db.js';
 import { getActiveServer } from '../utils/activeServer.js';
 import { callOpenClawRPC } from '../utils/openclaw-rpc.js';
-import { readFile, writeFile, mkdir } from 'fs/promises';
+import { readFile, writeFile, mkdir, readdir } from 'fs/promises';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
@@ -51,7 +51,7 @@ async function resolveServer(req, res) {
   if (serverId) {
     userServer = db.userServers?.find(s => s.userId === req.user.id && s.id === serverId) || null;
     if (!userServer) {
-      res.status(400).json({ success: false, error: '指定的设备不存在' });
+      // 不发响应，让调用者决定 fallback
       return null;
     }
   } else {
@@ -59,7 +59,7 @@ async function resolveServer(req, res) {
   }
 
   if (!userServer?.ip) {
-    res.status(400).json({ success: false, error: '未配置服务器' });
+    // 不发响应，让调用者决定 fallback
     return null;
   }
 
@@ -73,17 +73,13 @@ async function rpc(res, userServer, method, params = {}, timeout = 10000) {
   try {
     const result = await callOpenClawRPC(userServer, method, params, { timeout });
     if (!result.ok) {
-      const errMsg = typeof result.error === 'string'
-        ? result.error
-        : result.error?.message || JSON.stringify(result.error);
-      return res.status(502).json({ success: false, error: errMsg });
+      console.warn(`RPC ${method} failed:`, result.error);
+      return null; // 不直接发响应，让调用者决定 fallback
     }
     return result;
   } catch (err) {
-    if (err.message === 'RPC timeout') {
-      return res.status(504).json({ success: false, error: '服务器响应超时' });
-    }
-    return res.status(502).json({ success: false, error: err.message || 'RPC 调用失败' });
+    console.warn(`RPC ${method} error:`, err.message);
+    return null; // 不直接发响应，让调用者决定 fallback
   }
 }
 
@@ -146,27 +142,63 @@ async function writeTeamMemoryMd(content) {
 
 // GET /api/memory/files — 获取记忆文件列表
 router.get('/files', async (req, res) => {
+  // 先尝试 RPC 方式
   const userServer = await resolveServer(req, res);
-  if (!userServer) return;
+  if (userServer) {
+    const result = await rpc(res, userServer, 'agents.files.list', { agentId: 'main' }, 10000);
+    if (result) {
+      // 从 agents.files.list 结果中筛选 MEMORY.md 和 memory/*.md
+      const allFiles = result.payload?.files || result.payload || [];
+      const memoryFiles = allFiles.filter(f => {
+        const name = f.name || f.path || '';
+        return name === 'MEMORY.md' || (name.startsWith('memory/') && name.endsWith('.md'));
+      });
 
-  const result = await rpc(res, userServer, 'agents.files.list', { agentId: 'main' }, 10000);
-  if (!result) return;
+      // 如果 RPC 只返回了根目录文件（没有 memory/ 子目录），补充扫描本地文件
+      const hasMemorySubdir = memoryFiles.some(f => (f.name || f.path || '').startsWith('memory/'));
+      if (hasMemorySubdir) {
+        const files = memoryFiles.map(f => ({
+          name: f.name || f.path,
+          path: f.name || f.path,
+          size: f.size || 0,
+          lastModified: f.lastModified || f.modified || f.mtime || null,
+        }));
+        return res.json({ success: true, files });
+      }
+      // RPC 返回了数据但缺少 memory/ 子目录内容，走 fallback 补充
+    }
+    // RPC 失败或缺少子目录数据，走 fallback
+  }
 
-  // 从 agents.files.list 结果中筛选 MEMORY.md 和 memory/*.md
-  const allFiles = result.payload?.files || result.payload || [];
-  const memoryFiles = allFiles.filter(f => {
-    const name = f.name || f.path || '';
-    return name === 'MEMORY.md' || (name.startsWith('memory/') && name.endsWith('.md'));
-  });
+  // Fallback: 直接从 /root/.openclaw/workspace/ 目录扫描记忆文件
+  if (res.headersSent) return;
+  try {
+    const workspaceDir = '/root/.openclaw/workspace';
+    const files = [];
 
-  const files = memoryFiles.map(f => ({
-    name: f.name || f.path,
-    path: f.name || f.path,
-    size: f.size || 0,
-    lastModified: f.lastModified || f.modified || f.mtime || null,
-  }));
+    // 检查 MEMORY.md
+    try {
+      const stat = await readFile(workspaceDir + '/MEMORY.md').catch(() => null);
+      if (stat !== null) {
+        files.push({ name: 'MEMORY.md', path: 'MEMORY.md' });
+      }
+    } catch (_) {}
 
-  res.json({ success: true, files });
+    // 扫描 memory/*.md
+    try {
+      const memoryDir = workspaceDir + '/memory';
+      const entries = await readdir(memoryDir).catch(() => []);
+      for (const entry of entries) {
+        if (entry.endsWith('.md')) {
+          files.push({ name: entry, path: 'memory/' + entry });
+        }
+      }
+    } catch (_) {}
+
+    res.json({ success: true, files });
+  } catch (err) {
+    res.json({ success: true, files: [] });
+  }
 });
 
 // GET /api/memory/content — 获取记忆文件内容
@@ -178,24 +210,49 @@ router.get('/content', async (req, res) => {
     return res.status(400).json({ success: false, error: '无效的文件路径，仅允许 MEMORY.md 或 memory/*.md' });
   }
 
+  // 先尝试 RPC
   const userServer = await resolveServer(req, res);
-  if (!userServer) return;
-
-  const result = await rpc(res, userServer, 'agents.files.get', { agentId: 'main', name: safePath }, 10000);
-  if (!result) return;
-
-  const content = result.payload?.content || result.payload?.text || result.payload || '';
-  const contentStr = typeof content === 'string' ? content : JSON.stringify(content);
-  const MAX_CONTENT_SIZE = 200 * 1024; // 200KB
-  if (contentStr.length > MAX_CONTENT_SIZE) {
-    return res.json({
-      success: true,
-      content: contentStr.substring(0, MAX_CONTENT_SIZE),
-      truncated: true,
-      totalSize: contentStr.length,
-    });
+  if (userServer) {
+    const result = await rpc(res, userServer, 'agents.files.get', { agentId: 'main', name: safePath }, 10000);
+    if (result) {
+      const content = result.payload?.content || result.payload?.text || result.payload || '';
+      const contentStr = typeof content === 'string' ? content : JSON.stringify(content);
+      const MAX_CONTENT_SIZE = 200 * 1024; // 200KB
+      if (contentStr.length > MAX_CONTENT_SIZE) {
+        return res.json({
+          success: true,
+          content: contentStr.substring(0, MAX_CONTENT_SIZE),
+          truncated: true,
+          totalSize: contentStr.length,
+        });
+      }
+      return res.json({ success: true, content: contentStr });
+    }
+    // RPC failed, fall through to direct file read
   }
-  res.json({ success: true, content: contentStr });
+
+  // Fallback: 直接从文件系统读取
+  if (res.headersSent) return;
+  try {
+    const fullPath = '/root/.openclaw/workspace/' + safePath;
+    const content = await readFile(fullPath, 'utf-8');
+    const MAX_CONTENT_SIZE = 200 * 1024;
+    if (content.length > MAX_CONTENT_SIZE) {
+      return res.json({
+        success: true,
+        content: content.substring(0, MAX_CONTENT_SIZE),
+        truncated: true,
+        totalSize: content.length,
+      });
+    }
+    res.json({ success: true, content });
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      res.json({ success: true, content: '' });
+    } else {
+      res.status(500).json({ success: false, error: '读取文件失败' });
+    }
+  }
 });
 
 // GET /api/memory/search — 搜索记忆

@@ -58,8 +58,9 @@ router.get('/connect-info', async (req, res) => {
   const wsHost = protocol === "wss" ? host.split(":")[0] : host;
   const wsUrl = `${protocol}://${wsHost}/api/ws`;
   
-  if (userServer && userServer.status === 'running' && userServer.ip) {
-    // 用户有独立服务器且已运行
+  // 🔧 订阅跟着用户走，不跟着设备走
+  // 只要有设备有 IP 就返回连接信息（和 ws-proxy 保持一致）
+  if (userServer && userServer.ip) {
     res.json({
       mode: 'dedicated',
       wsUrl: wsUrl,
@@ -73,15 +74,8 @@ router.get('/connect-info', async (req, res) => {
         status: userServer.status
       }
     });
-  } else if (userServer && userServer.status === 'creating') {
-    // 服务器正在创建中
-    return res.status(403).json({ 
-      error: '服务器正在创建中，请稍候...',
-      needServer: true,
-      status: 'creating'
-    });
   } else {
-    // 有团队但没有运行中的服务器 → 免费 API 对话模式
+    // 没有任何设备 → 免费 API 对话模式
     return res.json({
       mode: 'free',
       message: '暂无连接的设备，使用免费聊天模式',

@@ -479,7 +479,7 @@ class _SessionsDialogState extends State<_SessionsDialog> {
     ws.addListener(listener);
     
     // 超时处理
-    Duration(timeoutMs: timeoutMs).then((_) {
+    Future.delayed(Duration(milliseconds: timeoutMs)).then((_) {
       ws.removeListener(listener);
       if (!completer.isCompleted) {
         completer.complete(collectedSessions);
@@ -716,8 +716,12 @@ class _SessionsDialogState extends State<_SessionsDialog> {
       if (ws.isConnected) {
         // TODO: 实际加载历史消息
         // 这里先跳转到聊天页面
+        // 传递 sessionKey 让 ChatPage 切换到指定会话
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const MainShell()),
+          MaterialPageRoute(
+            builder: (_) => const MainShell(),
+            settings: RouteSettings(arguments: {'switchToSession': sessionKey}),
+          ),
           (route) => route.isFirst,
         );
       } else {

@@ -251,6 +251,16 @@ router.post('/:userId/:serverId/activate', async (req, res) => {
     user.activeServerId = serverId;
     await saveDB(db);
     
+    // 🔧 切换后自动触发健康检查，更新设备 status
+    checkServerHealth(server).then(async healthy => {
+      server.status = healthy ? 'running' : 'offline';
+      server.lastCheck = new Date().toISOString();
+      await saveDB(db);
+      console.log(`✅ 设备切换后健康检查: ${server.name} → ${server.status}`);
+    }).catch(err => {
+      console.warn(`⚠️ 切换后健康检查失败（不影响使用）:`, err.message);
+    });
+    
     res.json({ 
       message: `已切换到 ${server.name}`,
       activeServerId: serverId,

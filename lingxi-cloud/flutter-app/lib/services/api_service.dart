@@ -148,6 +148,29 @@ class ApiService {
     }
   }
 
+  // 上传文件（FormData）
+  Future<Response> upload(
+    String path, {
+    required FormData formData,
+    CancelToken? cancelToken,
+  }) async {
+    try {
+      final response = await _dio.post(
+        path,
+        data: formData,
+        cancelToken: cancelToken,
+      );
+      return response;
+    } on DioException catch (e) {
+      if (CancelToken.isCancel(e)) {
+        debugPrint('🚫 上传请求已取消: $path');
+        rethrow;
+      }
+      debugPrint('❌ 上传失败: ${_handleError(e).toString()}');
+      rethrow;
+    }
+  }
+
   // 错误处理
   Exception _handleError(DioException e) {
     switch (e.type) {
@@ -358,6 +381,82 @@ class ApiService {
     } catch (e) {
       debugPrint('❌ 保存飞书配置失败: $e');
       return false;
+    }
+  }
+
+  // ============ 模板管理 ============
+
+  Future<List<Map<String, dynamic>>> getTemplates() async {
+    try {
+      final response = await get('/api/team/templates');
+      final data = response.data;
+      if (data is Map && data['success'] == true && data['templates'] != null) {
+        return List<Map<String, dynamic>>.from(data['templates']);
+      }
+      return [];
+    } catch (e) {
+      debugPrint('❌ 获取模板列表失败: $e');
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>?> getTemplateDetail(String templateId) async {
+    try {
+      final response = await get('/api/team/templates/$templateId');
+      final data = response.data;
+      if (data is Map && data['success'] == true && data['template'] != null) {
+        return data['template'] as Map<String, dynamic>;
+      }
+      return null;
+    } catch (e) {
+      debugPrint('❌ 获取模板详情失败: $e');
+      return null;
+    }
+  }
+
+  Future<bool> applyTemplate(String userId, String templateId) async {
+    try {
+      final response = await post('/api/team/$userId/apply-template/$templateId');
+      return response.data is Map && response.data['success'] == true;
+    } catch (e) {
+      debugPrint('❌ 应用模板失败: $e');
+      return false;
+    }
+  }
+
+  Future<bool> saveTemplate({
+    required String name,
+    String? description,
+    String? category,
+    List<String>? tags,
+  }) async {
+    try {
+      final response = await post('/api/team/templates/save', data: {
+        'templateName': name,
+        if (description != null) 'description': description,
+        if (category != null) 'category': category,
+        if (tags != null) 'tags': tags,
+      });
+      return response.data is Map && response.data['success'] == true;
+    } catch (e) {
+      debugPrint('❌ 保存模板失败: $e');
+      return false;
+    }
+  }
+
+  // ============ 工作日志 ============
+
+  Future<List<Map<String, dynamic>>> getWorkspaceLogs({String? userId}) async {
+    try {
+      final response = await get('/api/agent-workspace/logs', queryParameters: userId != null ? {'userId': userId} : null);
+      final data = response.data;
+      if (data is Map && data['logs'] != null) {
+        return List<Map<String, dynamic>>.from(data['logs']);
+      }
+      return [];
+    } catch (e) {
+      debugPrint('❌ 获取工作日志失败: $e');
+      return [];
     }
   }
 }

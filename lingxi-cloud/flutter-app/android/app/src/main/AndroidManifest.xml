@@ -9,6 +9,18 @@
     
     <!-- 震动权限 -->
     <uses-permission android:name="android.permission.VIBRATE"/>
+    
+    <!-- 相机权限（拍照上传） -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    
+    <!-- 存储权限（选择文件上传） -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29"/>
+    <!-- Android 13+ 细化媒体权限 -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
+    
+    <!-- file_picker 需要的查询权限 -->
 
     <!-- 通知权限（Android 13+ 必需） -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
@@ -19,6 +31,17 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">
+        <!-- image_picker 文件提供者（相机拍照临时存储） -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+        
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -45,12 +68,7 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-            <!-- APP 备案信息 -->
-        <meta-data android:name="icp备案号" android:value="浙ICP备2026013667号-2A"/>
-        <meta-data android:name="icp备案主体" android:value="LumeClaw"/>
-        <meta-data android:name="icp备案类型" android:value="APP"/>
-        <meta-data android:name="icp备案有效期" android:value="2026-01-01至2027-12-31"/>
-        </application>
+</application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility?hl=en and
          https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.

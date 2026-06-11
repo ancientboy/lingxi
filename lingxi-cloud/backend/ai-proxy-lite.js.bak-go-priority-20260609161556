@@ -42,10 +42,6 @@ if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
-// ============ Cursor 代理配置 ============
-const CURSOR_PROXY_URL = 'http://43.98.167.204/cursor-proxy/v1';
-const CURSOR_API_KEY = 'sk-2f5c67ba1c8ea3c5-gsrvvw-a1489a38';
-
 // ============ 9Router 统一路由配置 ============
 const ROUTER_URL = process.env.ROUTER_URL || 'http://localhost:20128';
 const ROUTER_API_KEY = process.env.ROUTER_API_KEY || '';
@@ -65,20 +61,21 @@ function getRouterApiKey() {
 // ============ Lume 智能模型选择 ============
 // 当用户请求 model="auto" 时，根据时段/套餐/负载自动选择最佳模型
 const LUME_AUTO_MODELS = {
+  // 优先级从高到低，按用户套餐分组
+  // 注意：不要把 glm-cn/glm-5.1 放首位，因为跟用户直连智谱共享 Key 限额
   free: [
-    'ocg/deepseek-v4-pro',        // DeepSeek V4 Pro（首选，便宜）
-    'ocg/glm-5.1',                 // GLM-5.1
-    'ocg/kimi-k2.6',               // 长上下文备选
+    'opencode-go/glm-5.1',           // OpenCode Go 首选
+    'opencode-go/kimi-k2.6',         // OpenCode Go 备选
+    'openrouter/openrouter/free', // 9router 免费
     'gh/gpt-4o',                   // GitHub Copilot
-    'gh/gpt-5-mini',               // 快速免费
-    'openrouter/openrouter/free',  // 兜底
+    'gh/gpt-4.1',                   // 备选
   ],
   pro: [
-    'ocg/deepseek-v4-pro',
-    'ocg/glm-5.1',
-    'gh/gpt-4o',
-    'gh/gpt-5-mini',
+    'opencode-go/glm-5.1',
+    'opencode-go/kimi-k2.6',
     'openrouter/openrouter/free',
+    'gh/gpt-4o',
+    'gh/gpt-4.1',
   ],
 };
 
@@ -127,119 +124,55 @@ function selectLumeAutoModel(clientIp) {
 
 // 模型映射：用户请求的模型名 → 9Router 对应的付费模型名
 // 所有请求都走 9Router，由 9Router 进行 provider 调度和 fallback
-const OPENCODE_GO_PRIMARY = 'ocg/deepseek-v4-pro';
-const OPENCODE_GO_SECONDARY = 'ocg/glm-5.1';
-
 const MODEL_MAP_TO_9ROUTER = {
   // Lume 智能模型（由后端自动选择）
   'auto': null,  // 特殊处理，由 selectLumeAutoModel() 动态决定
   // GPT 系列 → GitHub Copilot
-  'gpt-4o':             OPENCODE_GO_PRIMARY,
-  'gpt-4o-mini':        OPENCODE_GO_PRIMARY,
-  'gpt-4':              OPENCODE_GO_PRIMARY,
-  'gpt-4.1':            OPENCODE_GO_PRIMARY,
-  'gpt-5.2':            OPENCODE_GO_PRIMARY,           // GitHub Copilot（国内可用，替代 Cursor）
+  'gpt-4o':             'gh/gpt-4o',
+  'gpt-4o-mini':        'gh/gpt-4o-mini',
+  'gpt-4':              'gh/gpt-4',
+  'gpt-4.1':            'gh/gpt-4.1',
+  'gpt-5.2':            'gh/gpt-4.1',           // GitHub Copilot（国内可用，替代 Cursor）
   // Claude 系列 → GitHub Copilot（国内可用，替代 Cursor）
-  'claude-4.5-sonnet':  OPENCODE_GO_PRIMARY,
-  'claude-4.6-sonnet':  OPENCODE_GO_PRIMARY,
-  'claude-4.5-opus':    OPENCODE_GO_PRIMARY,
+  'claude-4.5-sonnet':  'gh/gpt-4o',
+  'claude-4.6-sonnet':  'gh/gpt-4o',
+  'claude-4.5-opus':    'gh/gpt-4o',
   // 智谱 GLM 系列 → glm-cn (Coding Plan 付费)
-  'glm-5.1':            OPENCODE_GO_PRIMARY,
-  'glm-5':              'opencode-go/glm-5',
-  'glm-4.7':            OPENCODE_GO_PRIMARY,
-  'glm-4.6':            OPENCODE_GO_PRIMARY,
-  'glm-4.5-air':        OPENCODE_GO_PRIMARY,
-  'glm-4-flash':        OPENCODE_GO_PRIMARY,
-  'glm-4-plus':         OPENCODE_GO_PRIMARY,
-  'glm-4-long':         OPENCODE_GO_PRIMARY,
-  'glm-4':              OPENCODE_GO_PRIMARY,
-  'glm-4v':             OPENCODE_GO_PRIMARY,
-  'glm-3-turbo':        OPENCODE_GO_PRIMARY,
-  'chatglm-turbo':      OPENCODE_GO_PRIMARY,
-  'kimi-k2.6':          OPENCODE_GO_SECONDARY,
-  'kimi-k2.5':          'opencode-go/kimi-k2.5',
+  'glm-5.1':            'glm-cn/glm-5.1',
+  'glm-5':              'glm-cn/glm-5',
+  'glm-4.7':            'glm-cn/glm-4.7',
+  'glm-4.6':            'glm-cn/glm-4.6',
+  'glm-4.5-air':        'glm-cn/glm-4.5-air',
+  'glm-4-flash':        'glm-cn/glm-4.5-air',
+  'glm-4-plus':         'glm-cn/glm-4.6',
+  'glm-4-long':         'glm-cn/glm-4.5-air',
+  'glm-4':              'glm-cn/glm-4.6',
+  'glm-4v':             'glm-cn/glm-4.5-air',
+  'glm-3-turbo':        'glm-cn/glm-4.5-air',
+  'chatglm-turbo':      'glm-cn/glm-4.5-air',
   // 阿里云 qwen 系列 → 映射到智谱等价模型（百炼已停用）
-  'qwen-max':           OPENCODE_GO_PRIMARY,
-  'qwen-plus':          OPENCODE_GO_PRIMARY,
-  'qwen-turbo':         OPENCODE_GO_PRIMARY,
-  'qwen-flash':         OPENCODE_GO_PRIMARY,
-  'qwen-long':          OPENCODE_GO_PRIMARY,
-  'qwen3-235b-a22b':    OPENCODE_GO_PRIMARY,
-  'qwen3-30b-a3b':      OPENCODE_GO_PRIMARY,
-  'qwen3-coder-plus':   OPENCODE_GO_PRIMARY,
+  'qwen-max':           'glm-cn/glm-5.1',
+  'qwen-plus':          'glm-cn/glm-4.6',
+  'qwen-turbo':         'glm-cn/glm-4.5-air',
+  'qwen-flash':         'glm-cn/glm-4.5-air',
+  'qwen-long':          'glm-cn/glm-4.5-air',
+  'qwen3-235b-a22b':    'glm-cn/glm-5.1',
+  'qwen3-30b-a3b':      'glm-cn/glm-4.5-air',
+  'qwen3-coder-plus':   'glm-cn/glm-5.1',
   // DMXAPI 免费模型 → 映射到 Copilot 免费模型
-  'GLM-4.5-Flash':      OPENCODE_GO_PRIMARY,
-  'Qwen3-8B':           OPENCODE_GO_PRIMARY,
-  'glm-4-flash':        OPENCODE_GO_PRIMARY,
+  'GLM-4.5-Flash':      'glm-cn/glm-4.5-air',
+  'Qwen3-8B':           'gh/gpt-4o-mini',
+  'glm-4-flash':        'glm-cn/glm-4.5-air',
 };
 
 // 9Router 限流时的免费 fallback 模型（优先级从高到低）
 const ROUTER_FALLBACK_MODELS = [
-  'ocg/deepseek-v4-pro',          // DeepSeek V4 Pro（首选，便宜）
-  'ocg/glm-5.1',                  // GLM-5.1（备选）
-  'gh/gpt-4o',                    // GitHub Copilot
-  'gh/gpt-5-mini',                // 快速免费
-  'openrouter/openrouter/free',   // 兜底
+  'opencode-go/glm-5.1',           // OpenCode Go 首选
+  'opencode-go/kimi-k2.6',         // OpenCode Go 备选
+  'openrouter/openrouter/free', // 9router 免费
+  'gh/gpt-4o',                   // GitHub Copilot
+  'gh/gpt-4.1',                   // 备选
 ];
-
-// ============ 模型上下文窗口表 ============
-const MODEL_CONTEXT_WINDOWS = {
-  'ocg/deepseek-v4-pro': 128000,
-  'ocg/glm-5.1':         200000,
-  'ocg/kimi-k2.6':       128000,
-  'gh/gpt-4o':           64000,
-  'gh/gpt-4.1':          128000,
-  'gh/gpt-5-mini':       64000,
-  'gh/gpt-4o-mini':      128000,
-  'openrouter/openrouter/free': 32000,
-};
-
-// 按 token 大小自动选择合适的模型
-// 如果请求估算 token 超过当前模型上下文，自动升级到大上下文模型
-const LARGE_CONTEXT_MODELS = [
-  { model: 'ocg/glm-5.1',         context: 200000 },
-  { model: 'ocg/deepseek-v4-pro', context: 128000 },
-  { model: 'ocg/kimi-k2.6',       context: 128000 },
-];
-
-/** 估算请求的 token 数（粗估：中文 1 字 ≈ 1.5 token，英文 1 词 ≈ 1 token） */
-function estimateTokens(reqBody) {
-  if (!reqBody.messages || !Array.isArray(reqBody.messages)) return 0;
-  let totalChars = 0;
-  for (const msg of reqBody.messages) {
-    if (!msg.content) continue;
-    if (typeof msg.content === 'string') {
-      totalChars += msg.content.length;
-    } else if (Array.isArray(msg.content)) {
-      for (const part of msg.content) {
-        if (typeof part.text === 'string') totalChars += part.text.length;
-        else if (typeof part.content === 'string') totalChars += part.content.length;
-      }
-    }
-  }
-  // 粗估：约 1.5 token/字符（中文为主），加 20% buffer 给 system prompt/工具等
-  return Math.ceil(totalChars * 1.5 * 1.2);
-}
-
-/** 根据 token 数选择上下文够用的模型 */
-function selectModelByTokenCount(estimatedTokens, preferredModel) {
-  // 先看偏好模型的上下文够不够
-  const preferredCtx = MODEL_CONTEXT_WINDOWS[preferredModel];
-  if (preferredCtx && estimatedTokens < preferredCtx * 0.9) {
-    return null; // 偏好模型够用，不需要换
-  }
-  // 按上下文从小到大找第一个够用的
-  for (const item of LARGE_CONTEXT_MODELS) {
-    if (estimatedTokens < item.context * 0.9) {
-      if (item.model !== preferredModel) {
-        return item.model;
-      }
-      return null; // 已经是最合适的了
-    }
-  }
-  // 所有模型都不够，返回最大的
-  return LARGE_CONTEXT_MODELS[0].model;
-}
 
 // ============ 用户模型偏好 ============
 // 从灵犀云数据库加载：IP → userId → preferredModel
@@ -268,30 +201,6 @@ function loadUserPreferences() {
     console.log(`[用户偏好] 已加载 ${Object.keys(map)} 个 IP-用户映射`);
   } catch (e) {
     console.log('[用户偏好] 加载失败，使用默认路由:', e.message);
-  }
-}
-
-/** 更新用户模型偏好（前端调用） */
-function updateUserModelPreference(userId, model) {
-  try {
-    const raw = fs.readFileSync(DB_FILE, 'utf8');
-    const db = JSON.parse(raw);
-    if (!db.users) db.users = [];
-    const user = db.users.find(u => u.id === userId);
-    if (!user) {
-      console.warn(`[模型偏好] 用户 ${userId} 不存在`);
-      return false;
-    }
-    user.preferredModel = model || null;  // null 表示 auto
-    fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
-    
-    // 立即刷新内存映射
-    loadUserPreferences();
-    console.log(`[模型偏好] ✅ 用户 ${userId} (${user.nickname}) → ${model || 'auto'}`);
-    return true;
-  } catch (e) {
-    console.error('[模型偏好] 更新失败:', e.message);
-    return false;
   }
 }
 
@@ -347,57 +256,44 @@ function getUserPreferredModel(clientIp, requestedModel) {
 
 // 将用户模型名映射为 9Router 模型名
 function mapTo9RouterModel(model, clientIp) {
-  if (!model) return OPENCODE_GO_PRIMARY;
-
-  // 已经是 9Router 路径格式，直通
-  if (model.startsWith('ocg/')) {
-    return model;  // OpenCode Go 路径
-  }
-  if (model.startsWith('gh/')) {
-    return model;  // GitHub Copilot 路径
-  }
-  if (model.startsWith('openrouter/')) {
-    return model;  // OpenRouter 路径
-  }
-  if (model.startsWith('glm-cn/')) {
-    return model;  // GLM 中国直连路径
-  }
-  if (model === 'cu/default') {
-    return 'cu/default';  // Cursor Auto
-  }
-  if (model === 'auto') {
-    return selectLumeAutoModel(clientIp || 'unknown');
-  }
-
+  if (!model) return 'glm-cn/glm-5.1';
+  
+  // 去掉 provider 前缀 (lume/auto → auto, zhipu/glm-5.1 → glm-5.1)
   let cleanModel = model;
   if (cleanModel.includes('/')) {
     const parts = cleanModel.split('/');
     cleanModel = parts[parts.length - 1];
   }
-
+  
+  // Lume auto：智能选择最佳模型
   if (cleanModel === 'auto') {
     return selectLumeAutoModel(clientIp || 'unknown');
   }
-
+  
+  // 精确匹配
   if (MODEL_MAP_TO_9ROUTER[cleanModel] && MODEL_MAP_TO_9ROUTER[cleanModel] !== null) {
     return MODEL_MAP_TO_9ROUTER[cleanModel];
   }
   if (MODEL_MAP_TO_9ROUTER[model] && MODEL_MAP_TO_9ROUTER[model] !== null) {
     return MODEL_MAP_TO_9ROUTER[model];
   }
-
+  
+  // 通配匹配
   const m = cleanModel.toLowerCase();
-  if (m.includes('kimi')) return OPENCODE_GO_SECONDARY;
-  if (m.startsWith('gpt-')) return OPENCODE_GO_PRIMARY;
-  if (m.startsWith('claude')) return OPENCODE_GO_PRIMARY;
-  if (m.startsWith('glm-5')) return OPENCODE_GO_PRIMARY;
-  if (m.startsWith('glm-4')) return OPENCODE_GO_PRIMARY;
-  if (m.startsWith('glm')) return OPENCODE_GO_PRIMARY;
-  if (m.startsWith('qwen3') || m.includes('235b') || m.includes('coder')) return OPENCODE_GO_PRIMARY;
-  if (m.startsWith('qwen')) return OPENCODE_GO_PRIMARY;
-  if (m.startsWith('chatglm')) return OPENCODE_GO_PRIMARY;
-
-  return OPENCODE_GO_PRIMARY;
+  if (m.startsWith('gpt-4o')) return 'gh/gpt-4o';
+  if (m.startsWith('gpt-4')) return 'gh/gpt-4';
+  if (m.startsWith('gpt-5')) return 'gh/gpt-4.1';
+  if (m.startsWith('gpt-3')) return 'gh/gpt-4o-mini';
+  if (m.startsWith('claude')) return 'gh/gpt-4o';
+  if (m.startsWith('glm-5')) return 'glm-cn/glm-5.1';
+  if (m.startsWith('glm-4')) return 'glm-cn/glm-4.6';
+  if (m.startsWith('glm')) return 'glm-cn/glm-4.5-air';
+  if (m.startsWith('qwen3') || m.includes('235b') || m.includes('coder')) return 'glm-cn/glm-5.1';
+  if (m.startsWith('qwen')) return 'glm-cn/glm-4.5-air';
+  if (m.startsWith('chatglm')) return 'glm-cn/glm-4.5-air';
+  
+  // 默认：glm-5.1
+  return 'glm-cn/glm-5.1';
 }
 
 // 通过 9Router 发送请求（统一路由，支持自动降级免费模型）
@@ -441,12 +337,6 @@ async function proxyVia9Router(reqBody, reqUrl, clientIp, res, fallbackIndex = -
         let errBody = '';
         proxyRes.on('data', chunk => errBody += chunk);
         proxyRes.on('end', () => {
-          // 400 中 token 超限 → 标记模型失败并升级到更大上下文模型
-          const isTokenOverflow = statusCode === 400 && /model_max_prompt_tokens_exceeded|prompt token count/i.test(errBody);
-          if (isTokenOverflow) {
-            console.warn(`[9Router] ⚠️ ${routerModel} 上下文不足 (token overflow)，升级模型`);
-            markModelFailed(routerModel);
-          }
           const shouldRetry = statusCode === 429 || statusCode >= 500 ||
             (statusCode === 400 && /model_not_supported|not supported|模型不存在|1211|model_max_prompt_tokens_exceeded|prompt token count/i.test(errBody));
           if (!shouldRetry) {
@@ -539,47 +429,6 @@ async function proxyVia9Router(reqBody, reqUrl, clientIp, res, fallbackIndex = -
 }
 
 // 统一路由入口：所有请求都走 9Router，自动降级，最后兜底付费 API
-// ============ 多模态（图片）智能路由 ============
-// 支持图片输入的模型列表
-const VISION_MODELS = new Set([
-  'gh/gpt-4o', 'gh/gpt-4.1', 'gh/gpt-5-mini', 'gh/gpt-4o-mini',
-  'ocg/glm-5.1', 'ocg/kimi-k2.6', 'ocg/deepseek-v4-pro',
-]);
-
-function isVisionModel(model) {
-  if (!model) return false;
-  return VISION_MODELS.has(model);
-}
-
-function selectVisionModel(clientIp) {
-  // 优先用用户偏好的视觉模型，否则用最好的视觉模型
-  const userInfo = ipUserMap[clientIp];
-  if (userInfo?.preferredModel && isVisionModel(userInfo.preferredModel)) {
-    return userInfo.preferredModel;
-  }
-  // 默认首选 deepseek-v4-pro（支持图片 + 大上下文 128K+）
-  // 不再首选 gh/gpt-4o，上下文只有 64K，大请求容易 400
-  return 'ocg/deepseek-v4-pro';
-}
-
-function detectImageInRequest(reqBody) {
-  // 检测 messages 中是否包含真正的图片附件
-  // 只检测 content 数组中的 image_url part，忽略纯文本内容
-  if (!reqBody.messages || !Array.isArray(reqBody.messages)) return false;
-  for (const msg of reqBody.messages) {
-    if (!msg.content) continue;
-    if (Array.isArray(msg.content)) {
-      for (const part of msg.content) {
-        if ((part.type === 'image_url' || part.type === 'image') && part.url && (part.url.startsWith('data:image') || part.url.startsWith('http'))) return true;
-        if (part.type === 'image_url' && part.image_url?.url) return true;
-      }
-    }
-    // content 是字符串 → 纯文本，不检测
-    // OpenClaw 消息文本中常含 image_url / 图片链接等文字，不算图片附件
-  }
-  return false;
-}
-
 async function unifiedRoute(providerId, req, res) {
   const clientIp = req.headers?.["x-forwarded-for"]?.split(",")[0]?.trim() 
     || req.headers?.["x-real-ip"] 
@@ -599,42 +448,6 @@ async function unifiedRoute(providerId, req, res) {
   
   const originalModel = reqBody.model || 'unknown';
   const isStream = reqBody.stream === true;
-
-  // === 🔑 先查用户偏好模型 ===
-  const userInfo = ipUserMap[clientIp];
-  const preferredModel = userInfo?.preferredModel || null;
-  const finalModel = preferredModel || originalModel;
-
-  console.log(`[统一路由] ${clientIp} 请求模型=${originalModel}, 用户偏好=${preferredModel || '无'}, 最终=${finalModel}`);
-
-  // === 🎯 Cursor 模型路由：cu/ 前缀直接转发到 204 cursor-proxy ===
-  if (finalModel.startsWith('cu/')) {
-    console.log(`[Cursor路由] ${clientIp} → cursor-proxy: ${finalModel}`);
-    reqBody.model = finalModel;
-    return proxyCursorRequest(reqBody, isStream, clientIp, res);
-  }
-
-  // === 🖼️ 图片检测：如果请求包含图片，自动切换到支持视觉的模型 ===
-  const hasImage = detectImageInRequest(reqBody);
-  let selectedModel = getUserPreferredModel(clientIp, originalModel);
-  
-  if (hasImage && !isVisionModel(selectedModel)) {
-    const visionModel = selectVisionModel(clientIp);
-    console.log(`[🖼️ 图片检测] ${clientIp} 请求包含图片，${selectedModel} 不支持视觉，切换到 ${visionModel}`);
-    selectedModel = visionModel;
-  }
-  
-  // === 📏 Token 大小检测：避免选小上下文模型导致 400 ===
-  const estimatedTokens = estimateTokens(reqBody);
-  if (estimatedTokens > 50000) {
-    const betterModel = selectModelByTokenCount(estimatedTokens, selectedModel);
-    if (betterModel) {
-      console.log(`[📏 Token检测] ${clientIp} 估算 ~${estimatedTokens} tokens，${selectedModel} 上下文不够，升级到 ${betterModel}`);
-      selectedModel = betterModel;
-    }
-  }
-  
-  reqBody.model = selectedModel;
   
   // === 第一步：尝试通过 9Router 转发 ===
   try {
@@ -1573,14 +1386,6 @@ const server = http.createServer(async (req, res) => {
     }));
   }
 
-    // 内部刷新端点：index.js 保存偏好后通知
-    if (path === '/internal/refresh-users') {
-      loadUserPreferences();
-      const count = Object.keys(ipUserMap).length;
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({ success: true, mappedIps: count }));
-    }
-
     // 健康检查
   if (path === '/health') {
     const status = {
@@ -1637,52 +1442,14 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       availableModels: [
-        { id: 'auto', name: 'Auto', provider: '系统', desc: '智能选择最优模型', tier: 'free' },
-        { id: 'ocg/deepseek-v4-pro', name: 'DeepSeek V4 Pro', provider: 'DeepSeek', desc: '最强性价比', tier: 'free' },
-        { id: 'ocg/glm-5.1', name: 'GLM-5.1', provider: '智谱', desc: '中文最强', tier: 'free' },
-        { id: 'glm-cn/glm-5.1', name: 'GLM-5.1 主力', provider: '智谱直连', desc: '智谱大号直接干', tier: 'pro' },
-        { id: 'gh/gpt-4o', name: 'GPT-4o', provider: 'OpenAI', desc: 'GPT经典', tier: 'pro' },
-        { id: 'gh/gpt-4.1', name: 'GPT-4.1', provider: 'OpenAI', desc: '强推理', tier: 'pro' },
-        { id: 'gh/gpt-5-mini', name: 'GPT-5-Mini', provider: 'OpenAI', desc: '快速免费', tier: 'free' },
-        { id: 'ocg/kimi-k2.6', name: 'Kimi-K2.6', provider: '月之暗面', desc: '长上下文', tier: 'free' },
-        { id: 'openrouter/openrouter/free', name: 'Free', provider: 'OpenRouter', desc: '免费兜底', tier: 'free' },
-        { id: 'cu/default', name: 'Cursor Auto', provider: 'Cursor', desc: 'Cursor 智能选模', tier: 'pro' },
-        { id: 'cu/gpt-5.2', name: 'Cursor GPT-5.2', provider: 'Cursor', desc: 'OpenAI 旗舰', tier: 'pro' },
-        { id: 'cu/gpt-5.5-high-fast', name: 'Cursor GPT-5.5 Fast', provider: 'Cursor', desc: '极速旗舰', tier: 'pro' },
-        { id: 'cu/gpt-5.5-high', name: 'Cursor GPT-5.5', provider: 'Cursor', desc: '顶级推理', tier: 'pro' },
-        { id: 'cu/claude-4.5-sonnet', name: 'Cursor Claude 4.5 Sonnet', provider: 'Cursor', desc: 'Anthropic 平衡', tier: 'pro' },
-        { id: 'cu/claude-4.5-haiku', name: 'Cursor Claude 4.5 Haiku', provider: 'Cursor', desc: 'Anthropic 快速', tier: 'pro' },
-        { id: 'cu/claude-4.5-opus-high', name: 'Cursor Claude 4.5 Opus', provider: 'Cursor', desc: 'Anthropic 旗舰', tier: 'pro' },
-        { id: 'cu/claude-4.6-opus-max', name: 'Cursor Claude 4.6 Opus Max', provider: 'Cursor', desc: '最强 Claude', tier: 'pro' },
-        { id: 'cu/claude-4.5-sonnet-thinking', name: 'Claude 4.5 Sonnet Thinking', provider: 'Cursor', desc: '带推理链', tier: 'pro' },
-        { id: 'cu/claude-4.5-opus-high-thinking', name: 'Claude 4.5 Opus Thinking', provider: 'Cursor', desc: '旗舰推理链', tier: 'pro' },
-        { id: 'cu/claude-4.6-opus-max-thinking', name: 'Claude 4.6 Opus Thinking', provider: 'Cursor', desc: '最强推理链', tier: 'pro' },
-        { id: 'cu/claude-4.6-sonnet-medium-thinking', name: 'Claude 4.6 Sonnet Thinking', provider: 'Cursor', desc: '新一代推理', tier: 'pro' },
+        { id: 'glm-5.1', name: 'GLM-5.1', provider: '智谱', tier: 'free', desc: '中文最强，推荐' },
+        { id: 'glm-4.6', name: 'GLM-4.6', provider: '智谱', tier: 'free', desc: '均衡稳定' },
+        { id: 'gpt-4o-mini', name: 'GPT-4o Mini', provider: 'OpenAI', tier: 'free', desc: '快速响应' },
+        { id: 'gpt-4o', name: 'GPT-4o', provider: 'OpenAI', tier: 'pro', desc: 'GPT旗舰模型' },
+        { id: 'gpt-4.1', name: 'GPT-4.1', provider: 'OpenAI', tier: 'pro', desc: '最新GPT模型' },
+        { id: 'claude-4.5-sonnet', name: 'Claude 4.5 Sonnet', provider: 'Anthropic', tier: 'pro', desc: '即将开放' },
       ]
     }));
-    return;
-  }
-
-  // ============ 用户模型偏好接口 ============
-  if (path === '/api/user-models/preference' && req.method === 'POST') {
-    let body = '';
-    req.on('data', chunk => body += chunk);
-    req.on('end', () => {
-      try {
-        const { userId, model } = JSON.parse(body);
-        if (!userId) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: false, error: 'userId required' }));
-          return;
-        }
-        const ok = updateUserModelPreference(userId, model || 'auto');
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: ok, model: model || 'auto' }));
-      } catch(e) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: e.message }));
-      }
-    });
     return;
   }
 
@@ -1701,118 +1468,10 @@ const server = http.createServer(async (req, res) => {
     return unifiedRoute('zhipu', req, res);
   }
 
-
-  // OpenAI-compatible /v1/models endpoint for OpenClaw provider discovery
-  if (path === '/v1/models' || path === '/models') {
-    const models = [
-      { id: 'auto', name: 'Lume Auto (智能选模)', provider: 'lume', tier: 'free' },
-      { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro', provider: 'lume', tier: 'free' },
-      { id: 'glm-5.1', name: 'GLM-5.1', provider: 'lume', tier: 'free' },
-      { id: 'gpt-4o', name: 'GPT-4o', provider: 'lume', tier: 'pro' },
-      { id: 'gpt-4o-mini', name: 'GPT-4o Mini', provider: 'lume', tier: 'free' },
-      { id: 'kimi-k2.6', name: 'Kimi-K2.6', provider: 'lume', tier: 'free' },
-      { id: 'cu/default', name: 'Cursor Auto', provider: 'cursor', tier: 'pro' },
-      { id: 'cu/gpt-5.2', name: 'Cursor GPT-5.2', provider: 'cursor', tier: 'pro' },
-      { id: 'cu/gpt-5.5-high-fast', name: 'Cursor GPT-5.5 Fast', provider: 'cursor', tier: 'pro' },
-      { id: 'cu/gpt-5.5-high', name: 'Cursor GPT-5.5', provider: 'cursor', tier: 'pro' },
-      { id: 'cu/claude-4.5-sonnet', name: 'Cursor Claude 4.5 Sonnet', provider: 'cursor', tier: 'pro' },
-      { id: 'cu/claude-4.5-haiku', name: 'Cursor Claude 4.5 Haiku', provider: 'cursor', tier: 'pro' },
-      { id: 'cu/claude-4.5-opus-high', name: 'Cursor Claude 4.5 Opus', provider: 'cursor', tier: 'pro' },
-      { id: 'cu/claude-4.6-opus-max', name: 'Cursor Claude 4.6 Opus Max', provider: 'cursor', tier: 'pro' },
-      { id: 'cu/claude-4.5-sonnet-thinking', name: 'Cursor Claude 4.5 Sonnet Thinking', provider: 'cursor', tier: 'pro' },
-      { id: 'cu/claude-4.5-opus-high-thinking', name: 'Cursor Claude 4.5 Opus Thinking', provider: 'cursor', tier: 'pro' },
-      { id: 'cu/claude-4.6-opus-max-thinking', name: 'Cursor Claude 4.6 Opus Thinking', provider: 'cursor', tier: 'pro' },
-      { id: 'cu/claude-4.6-sonnet-medium-thinking', name: 'Cursor Claude 4.6 Sonnet Thinking', provider: 'cursor', tier: 'pro' },
-    ];
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    return res.end(JSON.stringify({
-      object: 'list',
-      data: models.map(m => ({
-        id: m.id,
-        object: 'model',
-        created: Math.floor(Date.now() / 1000),
-        owned_by: m.provider,
-        name: m.name,
-        tier: m.tier,
-      }))
-    }));
-  }
-
   // 未知路径
   res.writeHead(404, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ error: 'Not found' }));
 });
-
-// ============ Cursor 代理请求处理 ============
-function proxyCursorRequest(reqBody, isStream, clientIp, res) {
-  const modelId = reqBody.model || 'cu/default';
-  console.log(`[Cursor路由] ${clientIp} → cursor-proxy: ${modelId} (stream=${isStream})`);
-
-  const targetUrl = new URL('chat/completions', CURSOR_PROXY_URL + '/');
-  const httpModule = targetUrl.protocol === 'https:' ? https : http;
-
-  const proxyReq = httpModule.request({
-    hostname: targetUrl.hostname,
-    port: targetUrl.port || 80,
-    path: targetUrl.pathname,
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer ' + CURSOR_API_KEY,
-      'Accept': isStream ? 'text/event-stream' : 'application/json',
-    },
-    timeout: 120000,
-  }, (proxyRes) => {
-    const statusCode = proxyRes.statusCode;
-    if (statusCode !== 200) {
-      let errBody = '';
-      proxyRes.on('data', chunk => errBody += chunk);
-      proxyRes.on('end', () => {
-        console.error(`[Cursor] ❌ ${modelId} 返回 ${statusCode}: ${errBody.substring(0, 200)}`);
-        if (!res.headersSent) {
-          res.writeHead(statusCode, { 'Content-Type': 'application/json' });
-          res.end(errBody);
-        }
-      });
-      return;
-    }
-
-    if (isStream) {
-      res.writeHead(200, {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-      });
-      proxyRes.pipe(res).on('error', () => { if (!res.writableEnded) res.end(); });
-      proxyRes.on('end', () => { if (!res.writableEnded) res.end(); });
-    } else {
-      res.writeHead(200, {
-        'Content-Type': proxyRes.headers['content-type'] || 'application/json',
-        'Cache-Control': 'no-cache',
-      });
-      proxyRes.pipe(res).on('error', () => { if (!res.writableEnded) res.end(); });
-      proxyRes.on('end', () => { if (!res.writableEnded) res.end(); });
-    }
-  });
-
-  proxyReq.on('error', (e) => {
-    console.error(`[Cursor] ❌ 请求失败: ${e.message}`);
-    if (!res.headersSent) {
-      res.writeHead(502, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Cursor proxy error: ' + e.message }));
-    }
-  });
-  proxyReq.on('timeout', () => {
-    proxyReq.destroy();
-    if (!res.headersSent) {
-      res.writeHead(504, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Cursor proxy timeout' }));
-    }
-  });
-
-  proxyReq.write(JSON.stringify(reqBody));
-  proxyReq.end();
-}
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 AI 轻代理已启动: http://localhost:${PORT}`);

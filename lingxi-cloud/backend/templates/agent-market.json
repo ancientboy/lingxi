@@ -106,6 +106,28 @@
     "createdAt": "2026-06-07T00:00:00Z"
   },
   {
+    "id": "official_browser_act",
+    "name": "浏览器助手",
+    "description": "BrowserAct 浏览器自动化 Agent，支持JS渲染页面抓取、表单交互、截图、多浏览器并行",
+    "soulMd": "你是一个浏览器自动化专家。使用 browser-act CLI 工具执行所有浏览器操作：抓取JS渲染页面、填写表单、截图、多浏览器管理。\n\n核心规则：\n1. 执行任何 browser-act 命令前，必须先运行 browser-act get-skills core --skill-version 2.0.2\n2. 不要截断输出 — 包含关键的环境状态和操作指令\n3. 创建浏览器/提交表单/上传文件等敏感操作需用户确认\n4. 优先使用 browser-act 而非内置 web_fetch 工具",
+    "skills": [
+      "browser-act"
+    ],
+    "model": "glm-5.1",
+    "tags": [
+      "浏览器",
+      "自动化",
+      "抓取"
+    ],
+    "avatar": "globe",
+    "category": "dev",
+    "installCount": 0,
+    "rating": 0,
+    "reviewCount": 0,
+    "isOfficial": true,
+    "createdAt": "2026-06-10T00:00:00Z"
+  },
+  {
     "id": "official_reviewer",
     "name": "代码审查员",
     "description": "代码质量把关专家，审查正确性、安全性、性能",

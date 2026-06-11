@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:lingxicloud/utils/constants.dart';
 import 'package:lingxicloud/services/api_service.dart';
 import 'package:lingxicloud/providers/app_provider.dart';
 import 'package:provider/provider.dart';
 import 'dart:math' as math;
+import 'package:lingxicloud/pages/office_scene.dart';
+import 'package:lingxicloud/pages/workspace/knowledge_tab.dart';
+import 'package:lingxicloud/pages/workspace/market_tab.dart';
+import 'package:lingxicloud/pages/workspace/workflow_tab.dart';
+import 'package:lingxicloud/pages/workspace/memory_tab.dart';
+import 'package:lingxicloud/pages/workspace/trigger_tab.dart';
 
 class WorkspacePage extends StatefulWidget {
   const WorkspacePage({super.key});
@@ -12,12 +17,17 @@ class WorkspacePage extends StatefulWidget {
 }
 
 class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateMixin {
+  late TabController _tabController;
   bool _isLoading = true;
   List<Map<String, dynamic>> _agents = [];
   String _source = 'mock';
   late AnimationController _breathCtrl;
   late AnimationController _typeCtrl;
-  late AnimationController _screenCtrl;
+  List<Map<String, dynamic>> _templates = [];
+  bool _templatesLoading = false;
+  Map<String, dynamic>? _selectedTemplate;
+  String _tplCategory = 'all';
+  List<Map<String, dynamic>> _logs = [];
 
   static const _defaultAgents = [
     {'id': 'captain', 'name': '灵犀', 'emoji': '⚡', 'role': '队长', 'color': '#667eea', 'gradient': ['#667eea', '#764ba2'], 'desc': '智能调度队长，负责理解需求、分配任务、协调团队，是沟通桥梁和核心大脑'},
@@ -29,18 +39,42 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
     {'id': 'media', 'name': '音韵', 'emoji': '🎨', 'role': '多媒体', 'color': '#a18cd1', 'gradient': ['#a18cd1', '#fbc2eb'], 'desc': '多媒体创作达人，擅长图片设计、视频制作、音频编辑、剧本创作'},
     {'id': 'auto', 'name': '智家', 'emoji': '🏠', 'role': '自动化', 'color': '#89b4c4', 'gradient': ['#89b4c4', '#a8d8ea'], 'desc': '自动化工具专家，擅长脚本编写、批量处理、效率工具开发'},
   ];
-  static const _idleMsgs = ['💭 发呆中...', '☕ 休息一下', '🎵 哼歌中~', '👀 看窗外', '📖 看文档'];
+  static const Map<String, Map<String, String>> _agentInfo = {
+    'lingxi': {'name': '灵犀', 'abbr': 'LX', 'color': '#667eea', 'role': '队长', 'desc': '智能调度队长'},
+    'captain': {'name': '灵犀', 'abbr': 'LX', 'color': '#667eea', 'role': '队长', 'desc': '智能调度队长'},
+    'coder': {'name': '云溪', 'abbr': 'YX', 'color': '#4facfe', 'role': '代码', 'desc': '全栈开发专家'},
+    'operator': {'name': '若曦', 'abbr': 'RX', 'color': '#43e97b', 'role': '运营', 'desc': '数据分析专家'},
+    'ops': {'name': '若曦', 'abbr': 'RX', 'color': '#43e97b', 'role': '运营', 'desc': '数据分析专家'},
+    'inventor': {'name': '紫萱', 'abbr': 'ZX', 'color': '#fa709a', 'role': '创意', 'desc': '创意策划大师'},
+    'pm': {'name': '梓萱', 'abbr': 'ZX', 'color': '#f5576c', 'role': '产品', 'desc': '产品经理'},
+    'notes': {'name': '晓琳', 'abbr': 'XL', 'color': '#c79081', 'role': '笔记', 'desc': '知识管理专家'},
+    'noter': {'name': '晓琳', 'abbr': 'XL', 'color': '#c79081', 'role': '笔记', 'desc': '知识管理专家'},
+    'media': {'name': '音韵', 'abbr': 'YY', 'color': '#a18cd1', 'role': '多媒体', 'desc': '多媒体创作达人'},
+    'auto': {'name': '智家', 'abbr': 'ZJ', 'color': '#89b4c4', 'role': '自动化', 'desc': '自动化工具专家'},
+    'smart': {'name': '智家', 'abbr': 'ZJ', 'color': '#89b4c4', 'role': '自动化', 'desc': '自动化工具专家'},
+  };
+  static const Map<String, List<String>> _tplMembers = {
+    'lingxi-team': ['lingxi', 'coder', 'operator', 'inventor', 'pm', 'notes', 'media', 'auto'],
+    'dev-team': ['lingxi', 'coder', 'pm'],
+    'content-team': ['lingxi', 'inventor', 'media', 'notes'],
+  };
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 9, vsync: this);
     _breathCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 3))..repeat();
     _typeCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 700))..repeat();
-    _screenCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 4))..repeat();
     _loadStatus();
+    _loadTemplates();
   }
   @override
-  void dispose() { _breathCtrl.dispose(); _typeCtrl.dispose(); _screenCtrl.dispose(); super.dispose(); }
+  void dispose() {
+    _tabController.dispose();
+    _breathCtrl.dispose();
+    _typeCtrl.dispose();
+    super.dispose();
+  }
 
   Future<void> _loadStatus() async {
     setState(() => _isLoading = true);
@@ -50,7 +84,12 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
       final resp = await api.get('/api/agent-workspace/status', queryParameters: uid.isNotEmpty ? {'userId': uid} : null);
       final data = resp.data;
       if (data is Map && data['agents'] != null && mounted) {
-        setState(() { _agents = List<Map<String, dynamic>>.from(data['agents']); _source = data['source'] ?? 'mock'; _isLoading = false; });
+        final newAgents = List<Map<String, dynamic>>.from(data['agents']);
+        for (final a in newAgents) {
+          final old = _agents.cast<Map<String, dynamic>?>().firstWhere((e) => e?['id'] == a['id'], orElse: () => null);
+          if (old != null && old['status'] != a['status']) _addLog(a['id'] ?? '', a['status'] ?? 'idle', a['currentTask']?['title'] ?? '');
+        }
+        setState(() { _agents = newAgents; _source = data['source'] ?? 'mock'; _isLoading = false; });
       }
     } catch (_) {
       if (mounted) setState(() {
@@ -60,9 +99,57 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
     }
   }
 
+  Future<void> _loadTemplates() async {
+    if (_templatesLoading) return;
+    setState(() => _templatesLoading = true);
+    try {
+      final t = await ApiService().getTemplates();
+      if (mounted) setState(() {
+        _templates = t.isNotEmpty ? t : [
+          {'templateId': 'lingxi-team', 'templateName': '灵犀全能团队', 'description': '灵犀 + 多个专业 Agent', 'memberCount': 8, 'category': 'assistant'},
+          {'templateId': 'dev-team', 'templateName': '敏捷开发团队', 'description': '灵犀 + 云溪 + 梓萱', 'memberCount': 3, 'category': 'development'},
+          {'templateId': 'content-team', 'templateName': '内容创作团队', 'description': '灵犀 + 紫萱 + 音韵 + 晓琳', 'memberCount': 4, 'category': 'marketing'},
+        ];
+        _templatesLoading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() {
+        _templates = [
+          {'templateId': 'lingxi-team', 'templateName': '灵犀全能团队', 'description': '灵犀 + 多个专业 Agent', 'memberCount': 8, 'category': 'assistant'},
+          {'templateId': 'dev-team', 'templateName': '敏捷开发团队', 'description': '灵犀 + 云溪 + 梓萱', 'memberCount': 3, 'category': 'development'},
+          {'templateId': 'content-team', 'templateName': '内容创作团队', 'description': '灵犀 + 紫萱 + 音韵 + 晓琳', 'memberCount': 4, 'category': 'marketing'},
+        ];
+        _templatesLoading = false;
+      });
+    }
+  }
+
+  void _addLog(String agentId, String status, String taskTitle) {
+    final info = _agentInfo[agentId];
+    final name = info?['name'] ?? agentId;
+    final color = info?['color'] ?? '#888888';
+    String msg;
+    switch (status) {
+      case 'working': msg = taskTitle.isNotEmpty ? '开始 $taskTitle' : '开始新任务'; break;
+      case 'idle': msg = taskTitle.isNotEmpty ? '完成 $taskTitle' : '进入空闲'; break;
+      case 'error': msg = '任务异常'; break;
+      case 'queued': msg = '排队等待中'; break;
+      default: msg = status;
+    }
+    _logs.insert(0, {'time': DateTime.now().toString().substring(11, 16), 'name': name, 'color': color, 'msg': msg, 'status': status});
+    if (_logs.length > 100) _logs = _logs.sublist(0, 100);
+  }
+
   Color _pc(String h) => Color(int.parse('FF${h.replaceAll('#', '')}', radix: 16));
   Color _sc(String s) => const {'working': Color(0xFF22C55E), 'queued': Color(0xFFF59E0B), 'error': Color(0xFFEF4444), 'offline': Color(0xFF9CA3AF)}[s] ?? const Color(0xFF6B7280);
   String _sl(String s) => const {'working': '工作中', 'queued': '排队中', 'error': '异常', 'offline': '离线'}[s] ?? '空闲';
+  String _cid(String id) {
+    if (id == 'captain') return 'lingxi';
+    if (id == 'noter') return 'notes';
+    if (id == 'smart') return 'auto';
+    if (id == 'ops') return 'operator';
+    return id;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -71,434 +158,264 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
     return Scaffold(
       backgroundColor: bg,
       appBar: AppBar(
-        title: const Text('🏢 办公区'), backgroundColor: dk ? const Color(0xFF1A1A2E) : Colors.white, elevation: 0,
+        title: const Text('办公区'), backgroundColor: dk ? const Color(0xFF1A1A2E) : Colors.white, elevation: 0,
         actions: [
           if (_source == 'openclaw') Container(margin: const EdgeInsets.only(right: 8, top: 14), padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: const Color(0xFF22C55E).withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: const Row(children: [Icon(Icons.cloud_done, size: 14, color: Color(0xFF22C55E)), SizedBox(width: 4), Text('实时', style: TextStyle(fontSize: 12, color: Color(0xFF22C55E)))])),
           IconButton(icon: const Icon(Icons.refresh, size: 20), onPressed: _loadStatus),
         ],
-      ),
-      body: _isLoading ? const Center(child: CircularProgressIndicator()) : RefreshIndicator(
-        onRefresh: _loadStatus,
-        child: ListView(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8), children: [
-          // 我的团队
-          _buildTeamSection(),
-          const SizedBox(height: 16),
-          ...List.generate((_agents.length / 2).ceil(), (row) {
-            final pair = [row * 2, row * 2 + 1].where((i) => i < _agents.length).map((i) => _agents[i]).toList();
-            return Padding(padding: const EdgeInsets.only(bottom: 14), child: Row(children: pair.map((a) => Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: _desk(a)))).toList()));
-          }),
-        ]),
-      ),
-    );
-  }
-
-  Widget _actBtn(IconData icon, String title, Color c, bool dk, VoidCallback onTap) {
-    return Material(color: dk ? const Color(0xFF252540) : Colors.white, borderRadius: BorderRadius.circular(12), elevation: 2, shadowColor: Colors.black.withOpacity(0.05),
-      child: InkWell(borderRadius: BorderRadius.circular(12), onTap: onTap, child: Padding(padding: const EdgeInsets.all(14), child: Row(children: [
-        Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: c.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Icon(icon, color: c, size: 20)),
-        const SizedBox(width: 10), Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-      ]))));
-  }
-
-  // ======================== 我的团队 ========================
-  Widget _buildTeamSection() {
-    final appProvider = Provider.of<AppProvider>(context, listen: false);
-    final user = appProvider.user;
-    final agents = user?.agents ?? [];
-    final dk = Theme.of(context).brightness == Brightness.dark;
-    final textColor = dk ? Colors.white : Colors.black87;
-
-    const allAgents = {
-      'lingxi': {'name': '灵犀', 'icon': Icons.auto_awesome, 'color': Color(0xFF667eea)},
-      'coder': {'name': '云溪', 'icon': Icons.code, 'color': Color(0xFF4facfe)},
-      'ops': {'name': '若曦', 'icon': Icons.bar_chart, 'color': Color(0xFF43e97b)},
-      'inventor': {'name': '紫萱', 'icon': Icons.lightbulb, 'color': Color(0xFFfa709a)},
-      'pm': {'name': '梓萱', 'icon': Icons.track_changes, 'color': Color(0xFFf5576c)},
-      'noter': {'name': '晓琳', 'icon': Icons.note, 'color': Color(0xFFc79081)},
-      'media': {'name': '音韵', 'icon': Icons.palette, 'color': Color(0xFFa18cd1)},
-      'smart': {'name': '智家', 'icon': Icons.home, 'color': Color(0xFF89b4c4)},
-    };
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(children: [
-          Text('👥 我的团队', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)),
-          const Spacer(),
-          GestureDetector(
-            onTap: () => _showTeamManageDialog(agents, allAgents),
-            child: Text('管理', style: TextStyle(fontSize: 13, color: Constants.primaryColor, fontWeight: FontWeight.w500)),
-          ),
-        ]),
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: agents.map((id) {
-            final info = allAgents[id] ?? {'name': id, 'icon': Icons.person, 'color': Color(0xFF888888)};
-            return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(color: (info['color'] as Color).withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(info['icon'] as IconData, size: 14, color: info['color'] as Color),
-                const SizedBox(width: 4),
-                Text(info['name'] as String, style: TextStyle(fontSize: 12, color: info['color'] as Color, fontWeight: FontWeight.w500)),
-              ]),
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-
-  void _showTeamManageDialog(List<String> myAgents, Map<String, Map<String, dynamic>> allAgents) {
-    final appProvider = Provider.of<AppProvider>(context, listen: false);
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) {
-          final available = allAgents.keys.where((id) => !myAgents.contains(id)).toList();
-          return AlertDialog(
-            title: const Row(children: [Icon(Icons.people_outline, color: Constants.primaryColor), SizedBox(width: 8), Text('团队管理')]),
-            content: SizedBox(width: 350, child: SingleChildScrollView(child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('当前成员', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                const SizedBox(height: 8),
-                ...myAgents.map((id) {
-                  final info = allAgents[id] ?? {'name': id, 'icon': Icons.smart_toy};
-                  return Card(margin: const EdgeInsets.only(bottom: 6), child: ListTile(
-                    dense: true,
-                    leading: CircleAvatar(backgroundColor: Constants.primaryColor.withOpacity(0.1), child: Icon(info['icon'] as IconData, color: Constants.primaryColor, size: 20)),
-                    title: Text(info['name'] as String),
-                    trailing: id == 'lingxi' ? Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: Constants.primaryColor, borderRadius: BorderRadius.circular(10)), child: const Text('队长', style: TextStyle(color: Colors.white, fontSize: 11))) : IconButton(icon: const Icon(Icons.remove_circle_outline, color: Colors.red, size: 20), onPressed: () async {
-                      final newAgents = myAgents.where((a) => a != id).toList();
-                      if (newAgents.isEmpty) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('至少保留一个'))); return; }
-                      final ok = await ApiService().updateMyAgents(appProvider.user!.id, newAgents);
-                      if (ok && appProvider.user != null) { appProvider.setUser(appProvider.user!.copyWith(agents: newAgents)); setDialogState(() { myAgents = newAgents; }); }
-                    }),
-                  ));
-                }),
-                if (available.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  const Text('可添加', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  const SizedBox(height: 8),
-                  Wrap(spacing: 8, runSpacing: 8, children: available.map((id) {
-                    final info = allAgents[id]!;
-                    return ActionChip(avatar: Icon(info['icon'] as IconData, size: 16, color: Constants.primaryColor), label: Text(info['name'] as String), onPressed: () async {
-                      final newAgents = [...myAgents, id];
-                      final ok = await ApiService().updateMyAgents(appProvider.user!.id, newAgents);
-                      if (ok && appProvider.user != null) { appProvider.setUser(appProvider.user!.copyWith(agents: newAgents)); setDialogState(() { myAgents = newAgents; }); }
-                    });
-                  }).toList()),
-                ],
-              ],
-            ))),
-            actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('关闭'))],
-          );
-        },
-      ),
-    );
-  }
-
-  // ======================== DESK UNIT ========================
-  // Exact match of web version layout:
-  //   Desk is the container. Everything positioned relative to it.
-  //   Z-order (bottom to top): desk surface → chair body → character → monitor → chair back
-  //
-  //   Web z-indices: chair-body=3, agent-char=5, monitor=6, chair-back=8
-  //
-  //   Visual (our view from behind):
-  //     [Thought Bubble]  ← topmost
-  //     [Monitor on desk]
-  //     [Character head] peeking above chair back
-  //     [Chair Back] covering char body  ← frontmost
-  //     [Desk Surface] with nameplate + coffee
-  //     [Desk Front + Legs]
-  //     [Chair Seat + Pole + Casters] extending below desk
-
-  Widget _desk(Map<String, dynamic> a) {
-    final status = a['status'] ?? 'idle';
-    final task = a['currentTask'] as Map<String, dynamic>?;
-    final color = _pc(a['color'] ?? '#667eea');
-    final grad = a['gradient'] as List?;
-    final g0 = grad?[0] as String? ?? '#667eea';
-    final g1 = grad?[1] as String? ?? '#764ba2';
-    final name = a['name'] ?? '未知';
-    final emoji = a['emoji'] ?? '🤖';
-    final role = a['role'] ?? '';
-    final offline = status == 'offline';
-    final idleIdx = a['id'].hashCode.abs() % _idleMsgs.length;
-
-    return GestureDetector(
-      onTap: () => _detail(a),
-      child: Container(
-        height: 220,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 3))],
-        ),
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            // ==================== DESK (back layer, z=1) ====================
-            // Desk surface (top of desk)
-            Positioned(
-              bottom: 62,
-              left: 6, right: 6,
-              child: Container(height: 10, decoration: const BoxDecoration(
-                gradient: LinearGradient(colors: [Color(0xFFC49060), Color(0xFFD4A574), Color(0xFFDBB68A), Color(0xFFC49060)]),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(2)),
-                boxShadow: [BoxShadow(color: Color(0xFFA07040), offset: Offset(0, 2)), BoxShadow(color: Color(0x14000000), blurRadius: 8, offset: Offset(0, 4))],
-              )),
-            ),
-            // Desk front panel
-            Positioned(
-              bottom: 36,
-              left: 10, right: 10,
-              child: Container(height: 28, decoration: const BoxDecoration(
-                gradient: LinearGradient(colors: [Color(0xFFB87E48), Color(0xFFA06830)]),
-                borderRadius: BorderRadius.vertical(bottom: Radius.circular(4)),
-                boxShadow: [BoxShadow(color: Color(0x10000000), blurRadius: 4, offset: Offset(0, 2))],
-              )),
-            ),
-            // Desk legs
-            Positioned(bottom: 0, left: 16, child: Container(width: 6, height: 36, decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF9A6028), Color(0xFFA86E3C), Color(0xFF9A6028)]), borderRadius: BorderRadius.vertical(bottom: Radius.circular(2))))),
-            Positioned(bottom: 0, right: 16, child: Container(width: 6, height: 36, decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF9A6028), Color(0xFFA86E3C), Color(0xFF9A6028)]), borderRadius: BorderRadius.vertical(bottom: Radius.circular(2))))),
-            // Desk items
-            Positioned(bottom: 72, left: 12, child: Text('☕', style: TextStyle(fontSize: 13, color: offline ? Colors.grey : null))),
-            Positioned(bottom: 72, left: 32, child: Text('🌵', style: TextStyle(fontSize: 11, color: offline ? Colors.grey : null))),
-            // Nameplate
-            Positioned(
-              bottom: 46, left: 14,
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(3, 2, 5, 2),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(3), border: Border.all(color: const Color(0xFFE8E2DA)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 3)]),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Container(width: 14, height: 14, decoration: BoxDecoration(gradient: LinearGradient(colors: [_pc(g0), _pc(g1)]), borderRadius: BorderRadius.circular(2)), child: Center(child: Text(emoji, style: const TextStyle(fontSize: 8)))),
-                  const SizedBox(width: 3),
-                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(name, style: const TextStyle(fontSize: 7, fontWeight: FontWeight.w700, color: Color(0xFF2D3748), height: 1)),
-                    Text(role, style: const TextStyle(fontSize: 5, color: Color(0xFF999999), height: 1.2)),
-                  ]),
-                ]),
-              ),
-            ),
-
-            // ==================== CHAIR BODY (z=3, behind character) ====================
-            // Chair seat, pole, base, casters — extends below desk
-            Positioned(
-              bottom: -2, left: 0, right: 0,
-              child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-                // Seat
-                Container(width: 48, height: 8, decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF686868), Color(0xFF525252)]), borderRadius: BorderRadius.circular(3), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 3)])),
-                // Pole
-                Container(width: 4, height: 16, decoration: BoxDecoration(color: const Color(0xFF6A6A6A), borderRadius: BorderRadius.circular(1))),
-                // Hub
-                Container(width: 10, height: 4, decoration: const BoxDecoration(color: Color(0xFF777777), borderRadius: BorderRadius.all(Radius.circular(2)))),
-                // Star base + casters
-                SizedBox(width: 56, height: 22, child: CustomPaint(painter: _ChairBasePainter())),
-              ])),
-            ),
-
-            // ==================== CHARACTER (z=5, in front of chair body) ====================
-            // Character sits on desk, bottom: 8px above desk surface
-            Positioned(
-              bottom: 70, left: 0, right: 0,
-              child: Align(alignment: Alignment.center,
-                child: AnimatedBuilder(
-                  animation: status == 'working' ? _typeCtrl : _breathCtrl,
-                  builder: (_, child) {
-                    final t = (status == 'working' ? _typeCtrl : _breathCtrl).value;
-                    final dy = status == 'working' ? -1.0 * math.sin(t * math.pi) : -2.0 * math.sin(t * math.pi * 2);
-                    return Transform.translate(offset: Offset(0, dy), child: child);
-                  },
-                  child: Opacity(opacity: offline ? 0.4 : 1.0, child: _charHead(g0, g1)),
-                ),
-              ),
-            ),
-
-            // ==================== MONITOR (z=6, on desk surface) ====================
-            // Monitor sits ON the desk surface, bottom: 42px from desk bottom
-            Positioned(
-              bottom: 98, right: 8,
-              child: _monitor(status, task, color),
-            ),
-
-            // ==================== CHAIR BACK (z=8, frontmost) ====================
-            // Covers character body — positioned relative to desk, bottom: -6px
-            Positioned(
-              bottom: 56, left: 0, right: 0,
-              child: Center(
-                child: Container(
-                  width: 52, height: 28,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFF5E5E5E), Color(0xFF4A4A4A)]),
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(8), bottom: Radius.circular(3)),
-                    boxShadow: [
-                      BoxShadow(color: Colors.white.withOpacity(0.1), offset: const Offset(0, 1)), // inset top highlight
-                      BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 6, offset: const Offset(0, 3)),
-                    ],
-                  ),
-                  child: Container(
-                    margin: const EdgeInsets.fromLTRB(5, 3, 5, 4),
-                    decoration: BoxDecoration(border: Border.all(color: Colors.white.withOpacity(0.07)), borderRadius: const BorderRadius.vertical(top: Radius.circular(5), bottom: Radius.circular(2))),
-                  ),
-                ),
-              ),
-            ),
-
-            // ==================== OVERLAYS (z=30) ====================
-            // Thought bubble
-            Positioned(bottom: 150, left: 6, right: 6, child: _bubble(status, task, idleIdx)),
-            // Status dot
-            Positioned(top: 6, right: 6, child: Container(width: 8, height: 8, decoration: BoxDecoration(color: _sc(status), shape: BoxShape.circle, boxShadow: status == 'working' ? [BoxShadow(color: _sc(status).withOpacity(0.5), blurRadius: 4)] : null))),
-            // Work FX
-            if (status == 'working')
-              ...List.generate(3, (i) => Positioned(
-                bottom: 110.0 + i * 12.0, left: 15.0 + i * 22.0,
-                child: AnimatedBuilder(
-                  animation: _screenCtrl,
-                  builder: (_, __) {
-                    final phase = (_screenCtrl.value * 3 + i * 0.33) % 1.0;
-                    return Opacity(opacity: (1 - phase) * 0.7, child: Transform.translate(offset: Offset(0, -phase * 20), child: Text([emoji, '✨', '⚡'][i], style: const TextStyle(fontSize: 7))));
-                  },
-                ),
-              )),
+        bottom: TabBar(
+          controller: _tabController,
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
+          labelColor: const Color(0xFF667eea),
+          unselectedLabelColor: dk ? Colors.white54 : Colors.black38,
+          indicatorColor: const Color(0xFF667eea),
+          labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          unselectedLabelStyle: const TextStyle(fontSize: 12),
+          tabs: const [
+            Tab(icon: Icon(Icons.grid_view_outlined, size: 18), text: '概览'),
+            Tab(icon: Icon(Icons.people_outline, size: 18), text: '管理'),
+            Tab(icon: Icon(Icons.dashboard_outlined, size: 18), text: '模板'),
+            Tab(icon: Icon(Icons.receipt_long_outlined, size: 18), text: '日志'),
+            Tab(icon: Icon(Icons.menu_book_outlined, size: 18), text: '知识库'),
+            Tab(icon: Icon(Icons.storefront_outlined, size: 18), text: '市场'),
+            Tab(icon: Icon(Icons.account_tree_outlined, size: 18), text: '工作流'),
+            Tab(icon: Icon(Icons.psychology_outlined, size: 18), text: '记忆'),
+            Tab(icon: Icon(Icons.bolt_outlined, size: 18), text: '触发器'),
           ],
         ),
       ),
+      body: TabBarView(controller: _tabController, children: [
+        _buildOverviewTab(dk),
+        _buildManageTab(dk),
+        _buildTemplatesTab(dk),
+        _buildLogsTab(dk),
+        KnowledgeTab(dk: dk),
+        MarketTab(dk: dk),
+        WorkflowTab(dk: dk),
+        MemoryTab(dk: dk),
+        TriggerTab(dk: dk),
+      ]),
     );
   }
 
-  // ======================== THOUGHT BUBBLE ========================
-  Widget _bubble(String status, Map<String, dynamic>? task, int idleIdx) {
-    if (status == 'offline') return const SizedBox.shrink();
-    final isErr = status == 'error';
-    final text = task != null ? '📋 ${task['title'] ?? ''}' : status == 'working' ? '🔧 处理中...' : status == 'queued' ? '⏳ 排队中...' : status == 'error' ? '❌ 出错了！' : _idleMsgs[idleIdx];
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(
-            color: isErr ? const Color(0xFFFFF5F5) : const Color(0xFFFFFFFF),
-            borderRadius: BorderRadius.circular(10),
-            border: isErr ? Border.all(color: const Color(0xFFF5576C), width: 0.5) : Border.all(color: const Color(0xFFE0E0E0), width: 0.5),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 6, offset: const Offset(0, 2))],
-          ),
-          child: Column(children: [
-            Text(text, style: TextStyle(fontSize: 9, color: _sc(status), fontWeight: FontWeight.w500), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
-            if (task != null) ...[
-              const SizedBox(height: 3),
-              ClipRRect(borderRadius: BorderRadius.circular(2), child: LinearProgressIndicator(value: ((task['progress'] as int?) ?? 0) / 100.0, backgroundColor: Colors.black.withOpacity(0.06), valueColor: AlwaysStoppedAnimation(_sc(status)), minHeight: 3)),
-              const SizedBox(height: 1),
-              Text('${task['step'] ?? 0}/${task['totalSteps'] ?? 0} · ${task['progress'] ?? 0}%', style: TextStyle(fontSize: 7, color: Colors.grey.shade500)),
-            ],
-          ]),
-        ),
-        // Bubble tail
-        Transform.translate(offset: const Offset(0, -1), child: Container(width: 6, height: 6, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle))),
-        Transform.translate(offset: const Offset(0, -2), child: Container(width: 4, height: 4, decoration: BoxDecoration(color: const Color(0xFFFFFFFF), shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 2)]))),
-      ],
-    );
-  }
-
-  // ======================== MONITOR ========================
-  Widget _monitor(String status, Map<String, dynamic>? task, Color color) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 68, height: 42,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [Color(0xFF3A3F4B), Color(0xFF2D323E)]),
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: const Color(0xFF4A4F5A), width: 2),
-            boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 6),
-              if (status == 'working') BoxShadow(color: color.withOpacity(0.15), blurRadius: 10),
-            ],
-          ),
-          child: Container(
-            margin: const EdgeInsets.all(2),
-            decoration: BoxDecoration(color: status == 'offline' ? const Color(0xFF111111) : const Color(0xFF1A202C), borderRadius: BorderRadius.circular(2)),
-            child: status == 'offline'
-                ? const Center(child: Text('—', style: TextStyle(color: Color(0xFF333333), fontSize: 12)))
-                : _screenContent(status, task, color),
+  // ======================== OVERVIEW TAB ========================
+  Widget _buildOverviewTab(bool dk) {
+    if (_isLoading) return const Center(child: CircularProgressIndicator());
+    return RefreshIndicator(
+      onRefresh: _loadStatus,
+      child: Column(children: [
+        const SizedBox(height: 8),
+        Expanded(
+          child: OfficeScene(
+            agents: _agents,
+            onAgentTap: (agent) => _detail(agent),
           ),
         ),
-        Container(width: 6, height: 4, color: const Color(0xFF3A3A3A)),
-        Container(width: 24, height: 3, decoration: BoxDecoration(color: const Color(0xFF4A4A4A), borderRadius: BorderRadius.circular(1))),
+      ]),
+    );
+  }
+
+  // ======================== MANAGE TAB ========================
+  Widget _buildManageTab(bool dk) {
+    final appProvider = Provider.of<AppProvider>(context);
+    final myAgents = appProvider.user?.agents ?? [];
+    final textColor = dk ? Colors.white : Colors.black87;
+    final cardBg = dk ? const Color(0xFF252540) : Colors.white;
+    final seen = <String>{};
+    final display = <String>[];
+    for (final id in myAgents) { final c = _cid(id); if (!seen.contains(c)) { seen.add(c); display.add(id); } }
+    final avail = <String>[];
+    final seenA = <String>{};
+    for (final id in _agentInfo.keys) {
+      final c = _cid(id);
+      if (!seen.contains(c) && !seenA.contains(c)) { seenA.add(c); avail.add(id); }
+    }
+    return RefreshIndicator(
+      onRefresh: _loadStatus,
+      child: ListView(padding: const EdgeInsets.all(16), children: [
+        Row(children: [
+          Text('团队成员', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)),
+          const Spacer(),
+          Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: _source == 'openclaw' ? const Color(0xFF22C55E).withOpacity(0.1) : Colors.grey.withOpacity(0.1), borderRadius: BorderRadius.circular(10)), child: Text('${display.length} 人', style: TextStyle(fontSize: 11, color: _source == 'openclaw' ? const Color(0xFF22C55E) : Colors.grey))),
+        ]),
+        const SizedBox(height: 12),
+        ...display.map((id) {
+          final info = _agentInfo[id] ?? {'name': id, 'abbr': 'AI', 'color': '#888888', 'role': '', 'desc': ''};
+          final isCaptain = id == 'lingxi' || id == 'captain';
+          final as_ = _agents.cast<Map<String, dynamic>?>().firstWhere((a) => a?['id'] == id, orElse: () => null);
+          final status = as_?['status'] ?? 'idle';
+          return Container(margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: cardBg, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))]), child: Row(children: [
+            Container(width: 40, height: 40, decoration: BoxDecoration(gradient: LinearGradient(colors: [_pc(info['color']!), _pc(info['color']!).withOpacity(0.7)]), borderRadius: BorderRadius.circular(12)), child: Center(child: Text(info['abbr']!, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)))),
+            const SizedBox(width: 12),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [Text(info['name']!, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: textColor)), const SizedBox(width: 6), Text(info['role']!, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)), const SizedBox(width: 6), Container(width: 6, height: 6, decoration: BoxDecoration(color: _sc(status), shape: BoxShape.circle))]),
+              const SizedBox(height: 2), Text(info['desc']!, style: TextStyle(fontSize: 11, color: Colors.grey.shade400), maxLines: 1, overflow: TextOverflow.ellipsis),
+            ])),
+            if (isCaptain) Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: const Color(0xFF667eea).withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: const Text('队长', style: TextStyle(color: Color(0xFF667eea), fontSize: 11, fontWeight: FontWeight.w600)))
+            else IconButton(icon: Icon(Icons.remove_circle_outline, color: Colors.red.shade300, size: 20), onPressed: () => _removeMember(id, appProvider)),
+          ]));
+        }),
+        const SizedBox(height: 20),
+        Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: dk ? const Color(0xFF1E1E38) : const Color(0xFFF8F9FA), borderRadius: BorderRadius.circular(16)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('添加成员', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textColor)),
+          const SizedBox(height: 10),
+          if (avail.isEmpty) Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text('已添加全部成员', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)))
+          else Wrap(spacing: 8, runSpacing: 8, children: avail.map((id) {
+            final info = _agentInfo[id]!;
+            return ActionChip(avatar: Icon(Icons.add_circle_outline, size: 16, color: _pc(info['color']!)), label: Text(info['name']!), onPressed: () => _addMember(id, appProvider));
+          }).toList()),
+        ])),
+      ]),
+    );
+  }
+
+  Future<void> _removeMember(String id, AppProvider p) async {
+    final info = _agentInfo[id] ?? {'name': id};
+    final ok = await showDialog<bool>(context: context, builder: (c) => AlertDialog(title: const Text('移除成员'), content: Text('确定移除 ${info['name']}？'), actions: [TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('取消')), TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('确定', style: TextStyle(color: Colors.red)))]));
+    if (ok != true) return;
+    final uid = p.user?.id ?? '';
+    final na = p.user?.agents.where((a) => a != id).toList() ?? [];
+    if (na.isEmpty) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('至少保留一个成员'))); return; }
+    final r = await ApiService().updateMyAgents(uid, na);
+    if (r && p.user != null) { p.setUser(p.user!.copyWith(agents: na)); if (mounted) setState(() {}); }
+  }
+
+  Future<void> _addMember(String id, AppProvider p) async {
+    final uid = p.user?.id ?? '';
+    final na = [...?p.user?.agents, id];
+    final r = await ApiService().updateMyAgents(uid, na);
+    if (r && p.user != null) { p.setUser(p.user!.copyWith(agents: na)); if (mounted) setState(() {}); }
+  }
+
+  // ======================== TEMPLATES TAB ========================
+  Widget _buildTemplatesTab(bool dk) {
+    final textColor = dk ? Colors.white : Colors.black87;
+    final cardBg = dk ? const Color(0xFF252540) : Colors.white;
+    if (_selectedTemplate != null) return _buildTplDetail(dk, textColor, cardBg);
+    const cats = ['all', 'development', 'marketing', 'assistant', 'custom'];
+    const catLabels = {'all': '全部', 'development': '开发', 'marketing': '营销', 'assistant': '通用', 'custom': '我的模板'};
+    final filtered = _tplCategory == 'all' ? _templates
+        : _tplCategory == 'custom' ? _templates.where((t) => t['isCustom'] == true).toList()
+        : _templates.where((t) => t['category'] == _tplCategory).toList();
+    return Column(children: [
+      Container(height: 44, color: dk ? const Color(0xFF1A1A2E) : Colors.white, child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 8), children: cats.map((c) {
+        final active = _tplCategory == c;
+        return GestureDetector(onTap: () => setState(() => _tplCategory = c), child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), decoration: BoxDecoration(border: Border(bottom: BorderSide(color: active ? const Color(0xFF667eea) : Colors.transparent, width: 2))), child: Text(catLabels[c]!, style: TextStyle(fontSize: 13, fontWeight: active ? FontWeight.w600 : FontWeight.normal, color: active ? const Color(0xFF667eea) : (dk ? Colors.white54 : Colors.black45)))));
+      }).toList())),
+      const Divider(height: 1),
+      Expanded(child: _templatesLoading ? const Center(child: CircularProgressIndicator())
+        : RefreshIndicator(onRefresh: _loadTemplates, child: filtered.isEmpty
+          ? ListView(children: [SizedBox(height: 200, child: Center(child: Text('暂无模板', style: TextStyle(color: Colors.grey.shade400))))])
+        : GridView.builder(padding: const EdgeInsets.all(16), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 12, crossAxisSpacing: 12, childAspectRatio: 0.82), itemCount: filtered.length, itemBuilder: (_, i) => _tplCard(filtered[i], dk, cardBg)))),
+    ]);
+  }
+
+  Widget _tplCard(Map<String, dynamic> t, bool dk, Color cardBg) {
+    final name = t['templateName'] ?? t['name'] ?? '';
+    final desc = t['description'] ?? '';
+    final mc = t['memberCount'] ?? (t['members'] as List?)?.length ?? 0;
+    final cat = t['category'] ?? 'general';
+    final snap = t['isSnapshot'] == true;
+    final cc = {'development': '#4facfe', 'marketing': '#fa709a', 'assistant': '#667eea'};
+    final cl = {'development': '开发', 'marketing': '营销', 'assistant': '通用'};
+    final color = _pc(cc[cat] ?? '#888888');
+    final abbr = name.length >= 2 ? name.substring(0, 2) : 'TP';
+    return GestureDetector(onTap: () async {
+      final tid = t['templateId'] ?? t['id'];
+      if (tid != null) { final d = await ApiService().getTemplateDetail(tid.toString()); if (d != null && mounted) { setState(() => _selectedTemplate = d); return; } }
+      setState(() => _selectedTemplate = t);
+    }, child: Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: cardBg, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))], border: snap ? Border.all(color: const Color(0xFF43e97b), width: 2) : null), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Container(width: 40, height: 40, decoration: BoxDecoration(color: color.withOpacity(0.15), borderRadius: BorderRadius.circular(10)), child: Center(child: snap ? Icon(Icons.save, color: color, size: 20) : Text(abbr, style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 13)))),
+      const SizedBox(height: 10),
+      Text(name, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: dk ? Colors.white : Colors.black87), maxLines: 1, overflow: TextOverflow.ellipsis),
+      const SizedBox(height: 4),
+      Expanded(child: Text(desc, style: TextStyle(fontSize: 11, color: Colors.grey.shade500, height: 1.4), maxLines: 2, overflow: TextOverflow.ellipsis)),
+      const SizedBox(height: 8),
+      Row(children: [
+        if (mc > 0) Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: Colors.grey.withOpacity(0.1), borderRadius: BorderRadius.circular(6)), child: Text('$mc 人', style: TextStyle(fontSize: 10, color: Colors.grey.shade600))),
+        const SizedBox(width: 6),
+        Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: Colors.grey.withOpacity(0.1), borderRadius: BorderRadius.circular(6)), child: Text(cl[cat] ?? '通用', style: TextStyle(fontSize: 10, color: Colors.grey.shade600))),
+      ]),
+    ])));
+  }
+
+  Widget _buildTplDetail(bool dk, Color textColor, Color cardBg) {
+    final t = _selectedTemplate!;
+    final name = t['templateName'] ?? t['name'] ?? '';
+    final desc = t['description'] ?? '';
+    final members = t['members'] as List? ?? [];
+    final tid = (t['templateId'] ?? t['id'] ?? '').toString();
+    List<Map<String, dynamic>> dm;
+    if (members.isEmpty && _tplMembers.containsKey(tid)) {
+      dm = _tplMembers[tid]!.map((id) { final info = _agentInfo[id] ?? {'name': id, 'abbr': 'AI', 'color': '#888888', 'role': '', 'desc': ''}; return <String, dynamic>{'id': id, ...info}; }).toList();
+    } else { dm = members.cast<Map<String, dynamic>>(); }
+    return ListView(padding: const EdgeInsets.all(16), children: [
+      GestureDetector(onTap: () => setState(() => _selectedTemplate = null), child: Padding(padding: const EdgeInsets.only(bottom: 12), child: Row(children: [const Icon(Icons.arrow_back, size: 16, color: Color(0xFF667eea)), const SizedBox(width: 4), const Text('返回模板列表', style: TextStyle(color: Color(0xFF667eea), fontSize: 13))]))),
+      Text(name, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textColor)),
+      if (desc.isNotEmpty) ...[const SizedBox(height: 8), Text(desc, style: TextStyle(fontSize: 13, color: Colors.grey.shade600, height: 1.5))],
+      const SizedBox(height: 16),
+      if (dm.isNotEmpty) ...[
+        Text('团队成员 (${dm.length})', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: textColor)),
+        const SizedBox(height: 10),
+        ...dm.map((m) {
+          final mId = (m['id'] ?? '') as String;
+          final info = _agentInfo[mId] ?? {'name': m['name'] ?? mId, 'abbr': 'AI', 'color': '#888888', 'role': m['role'] ?? '', 'desc': m['desc'] ?? ''};
+          final isD = m['isDefault'] == true || mId == 'lingxi' || mId == 'captain';
+          return Container(margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: dk ? const Color(0xFF1E1E38) : const Color(0xFFF8F9FA), borderRadius: BorderRadius.circular(12)), child: Row(children: [
+            Container(width: 36, height: 36, decoration: BoxDecoration(gradient: LinearGradient(colors: [_pc(info['color']!), _pc(info['color']!).withOpacity(0.7)]), borderRadius: BorderRadius.circular(10)), child: Center(child: Text(info['abbr']!, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12)))),
+            const SizedBox(width: 10),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(info['name']!, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: textColor)), if ((info['role'] ?? '').isNotEmpty) Text(info['role']!, style: TextStyle(fontSize: 11, color: Colors.grey.shade500))])),
+            if (isD) Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: const Color(0xFF667eea).withOpacity(0.1), borderRadius: BorderRadius.circular(6)), child: const Text('队长', style: TextStyle(color: Color(0xFF667eea), fontSize: 10, fontWeight: FontWeight.w600))),
+          ]));
+        }),
       ],
-    );
+      const SizedBox(height: 20),
+      SizedBox(width: double.infinity, child: ElevatedButton(
+        onPressed: () async {
+          final appProvider = Provider.of<AppProvider>(context, listen: false);
+          final uid = appProvider.user?.id ?? '';
+          final ok = await ApiService().applyTemplate(uid, tid);
+          if (ok && mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('模板应用成功')));
+            setState(() => _selectedTemplate = null);
+            _loadStatus();
+          } else if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('操作失败')));
+          }
+        },
+        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF667eea), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 14)),
+        child: const Text('应用此模板', style: TextStyle(fontWeight: FontWeight.w600)),
+      )),
+    ]);
   }
 
-  Widget _screenContent(String status, Map<String, dynamic>? task, Color color) {
-    return AnimatedBuilder(
-      animation: _screenCtrl,
-      builder: (_, __) {
-        final phase = _screenCtrl.value;
-
-        if (task != null) {
-          return Padding(
-            padding: const EdgeInsets.all(3),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Container(width: 4, height: 4, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-                const SizedBox(width: 2),
-                Expanded(child: Text(task['title'] ?? '', style: const TextStyle(fontSize: 4, color: Color(0xFFCCCCCC), fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis)),
-              ]),
-              const SizedBox(height: 2),
-              Text('${task['step'] ?? 0}/${task['totalSteps'] ?? 0} ${task['stepName'] ?? ''}', style: const TextStyle(fontSize: 3.5, color: Color(0xFF888888))),
-              const SizedBox(height: 2),
-              ClipRRect(borderRadius: BorderRadius.circular(1), child: LinearProgressIndicator(value: ((task['progress'] as int?) ?? 0) / 100.0, backgroundColor: const Color(0xFF1A202C), valueColor: AlwaysStoppedAnimation(color), minHeight: 2)),
-              const SizedBox(height: 3),
-              // Animated code lines
-              ...List.generate(3, (i) {
-                final offset = (phase * 6).toInt();
-                final w = [0.7, 0.5, 0.8][(i + offset) % 3];
-                return Padding(padding: const EdgeInsets.only(bottom: 1.5), child: Container(height: 1.5, width: 48 * w, decoration: BoxDecoration(color: i % 2 == 0 ? const Color(0xFF1AFF96).withOpacity(0.15) : const Color(0xFF64B4FF).withOpacity(0.12), borderRadius: BorderRadius.circular(0.5))));
-              }),
-            ]),
-          );
-        }
-
-        if (status == 'working') {
-          return Padding(
-            padding: const EdgeInsets.all(4),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: List.generate(7, (i) {
-              final offset = (phase * 8).toInt();
-              final w = [1.0, 0.7, 0.5, 0.9, 0.6, 0.8, 0.4][(i + offset) % 7];
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 1.5),
-                child: Row(children: [
-                  Expanded(child: Container(height: 1.5, decoration: BoxDecoration(color: i % 3 == 0 ? const Color(0xFF64B4FF).withOpacity(0.12) : const Color(0xFF1AFF96).withOpacity(0.15), borderRadius: BorderRadius.circular(0.5)))),
-                  // Blinking cursor
-                  if (i == (offset % 7)) Container(width: 2, height: 2, color: const Color(0xFF1AFF96).withOpacity((phase * 4 % 1.0) < 0.5 ? 0.7 : 0.0)),
-                ]),
-              );
-            })),
-          );
-        }
-
-        // Idle: clock + blinking cursor
-        final now = DateTime.now();
-        return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Text('${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}', style: TextStyle(fontSize: 10, color: Colors.white.withOpacity(0.25), fontWeight: FontWeight.w300)),
-          const SizedBox(height: 3),
-          Opacity(opacity: (phase * 2).toInt() == 0 ? 0.7 : 0.0, child: Container(width: 10, height: 1.5, color: const Color(0xFF1AFF96).withOpacity(0.5))),
-        ]));
-      },
+  // ======================== LOGS TAB ========================
+  Widget _buildLogsTab(bool dk) {
+    if (_logs.isEmpty) return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.receipt_long, size: 48, color: Colors.grey.shade300), const SizedBox(height: 12), Text('暂无工作日志', style: TextStyle(color: Colors.grey.shade400, fontSize: 14))]));
+    return RefreshIndicator(
+      onRefresh: () async { _logs.clear(); setState(() {}); await _loadStatus(); },
+      child: ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemCount: _logs.length,
+        separatorBuilder: (_, __) => Divider(height: 1, color: Colors.grey.withOpacity(0.1)),
+        itemBuilder: (_, i) {
+          final log = _logs[i];
+          final time = log['time'] ?? '--:--';
+          final name = log['name'] ?? '';
+          final color = log['color'] ?? '#888888';
+          final msg = log['msg'] ?? '';
+          final status = log['status'] ?? '';
+          return Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            SizedBox(width: 40, child: Text(time, style: TextStyle(fontSize: 10, color: Colors.grey.shade400))),
+            Container(width: 6, height: 6, margin: const EdgeInsets.only(top: 5), decoration: BoxDecoration(color: _sc(status), shape: BoxShape.circle)),
+            const SizedBox(width: 6),
+            SizedBox(width: 32, child: Text(name, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: _pc(color)))),
+            Expanded(child: Text(msg, style: TextStyle(fontSize: 12, color: dk ? Colors.white70 : Colors.black54))),
+          ]));
+        },
+      ),
     );
-  }
-
-  // ======================== CHARACTER HEAD ========================
-  Widget _charHead(String g0, String g1) {
-    return SizedBox(width: 48, height: 44, child: CustomPaint(painter: _CharPainter(g0, g1)));
   }
 
   // ======================== DETAIL MODAL ========================
@@ -518,7 +435,7 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
       decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       padding: const EdgeInsets.all(20),
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // Character portrait + info — with animated character
+        // Character portrait + info
         Row(children: [
           Container(
             width: 90, height: 110,
@@ -551,7 +468,6 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
     ));
   }
 
-  /// Build animated front-facing character for detail modal
   Widget _buildFrontChar(String g0, String g1, String hair, String status) {
     return AnimatedBuilder(
       animation: status == 'working' ? _typeCtrl : _breathCtrl,
@@ -567,34 +483,7 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
   Widget _chip(String l, String v) => Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: Colors.black.withOpacity(0.03), borderRadius: BorderRadius.circular(8)), child: Column(children: [Text(v, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)), Text(l, style: const TextStyle(fontSize: 10, color: Colors.grey))]));
 }
 
-// ======================== CHARACTER PAINTER (head only) ========================
-class _CharPainter extends CustomPainter {
-  final String g0, g1;
-  _CharPainter(this.g0, this.g1);
-  Color _c(String h) => Color(int.parse('FF${h.replaceAll('#', '')}', radix: 16));
-
-  @override
-  void paint(Canvas c, Size s) {
-    final cx = s.width / 2;
-    // Head (skin)
-    c.drawCircle(Offset(cx, s.height * 0.55), s.width * 0.28, Paint()..color = const Color(0xFFF5DEB3));
-    // Hair
-    final p = Path()
-      ..moveTo(s.width * 0.22, s.height * 0.55)
-      ..quadraticBezierTo(s.width * 0.22, s.height * 0.1, cx, s.height * 0.05)
-      ..quadraticBezierTo(s.width * 0.78, s.height * 0.1, s.width * 0.78, s.height * 0.55)
-      ..lineTo(s.width * 0.72, s.height * 0.62)
-      ..quadraticBezierTo(cx, s.height * 0.48, s.width * 0.28, s.height * 0.62)
-      ..close();
-    c.drawPath(p, Paint()..color = _c(g1));
-    // Neck
-    c.drawRect(Rect.fromLTWH(s.width * 0.38, s.height * 0.78, s.width * 0.24, s.height * 0.22), Paint()..color = const Color(0xFFF0D5A8));
-  }
-  @override
-  bool shouldRepaint(covariant CustomPainter old) => false;
-}
-
-// ======================== FRONT-FACING CHARACTER PAINTER (matches web SVG) ========================
+// ======================== FRONT-FACING CHARACTER PAINTER ========================
 class _FrontCharPainter extends CustomPainter {
   final String g0, g1, hairStyle;
   _FrontCharPainter(this.g0, this.g1, this.hairStyle);
@@ -602,56 +491,42 @@ class _FrontCharPainter extends CustomPainter {
 
   @override
   void paint(Canvas c, Size s) {
-    // Scale from SVG viewBox (90x90) to actual size
     final sx = s.width / 90, sy = s.height / 100;
     c.save();
     c.scale(sx, sy);
-    // Offset to center in 90x100 space (SVG is 90x90)
     c.translate(0, 5);
 
     final bodyColor = _c(g0);
     final hairColor = _c(g1);
     final skinColor = const Color(0xFFF5DEB3);
 
-    // Shadow under body
     final shadowPaint = Paint()..color = bodyColor.withOpacity(0.4);
     c.drawOval(Rect.fromCenter(center: const Offset(45, 80), width: 40, height: 16), shadowPaint);
 
-    // Body (rounded rect)
     c.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(28, 58, 34, 22), const Radius.circular(10)), Paint()..color = bodyColor.withOpacity(0.7));
 
-    // Neck
     c.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(40, 52, 10, 10), const Radius.circular(4)), Paint()..color = skinColor.withOpacity(0.9));
 
-    // Head
     c.drawCircle(const Offset(45, 36), 17, Paint()..color = skinColor.withOpacity(0.95));
 
-    // Ears
     c.drawOval(Rect.fromCenter(center: const Offset(27, 38), width: 8, height: 10), Paint()..color = const Color(0xFFF0D5A8).withOpacity(0.6));
     c.drawOval(Rect.fromCenter(center: const Offset(63, 38), width: 8, height: 10), Paint()..color = const Color(0xFFF0D5A8).withOpacity(0.6));
 
-    // Hair (different styles)
     _drawHair(c, hairStyle, hairColor);
 
-    // Eyes
     final eyePaint = Paint()..color = const Color(0xFF3A2518).withOpacity(0.7);
     final eyeWhite = Paint()..color = Colors.white.withOpacity(0.6);
-    // Left eye
     c.drawOval(Rect.fromCenter(center: const Offset(37, 36), width: 7, height: 8), eyePaint);
     c.drawCircle(const Offset(37, 35), 1.5, eyeWhite);
-    // Right eye
     c.drawOval(Rect.fromCenter(center: const Offset(53, 36), width: 7, height: 8), eyePaint);
     c.drawCircle(const Offset(53, 35), 1.5, eyeWhite);
 
-    // Smile
     final smilePaint = Paint()..color = const Color(0xFFC49060).withOpacity(0.5)..style = PaintingStyle.stroke..strokeWidth = 1.2..strokeCap = StrokeCap.round;
     c.drawPath(Path()..moveTo(41, 44)..quadraticBezierTo(45, 48, 49, 44), smilePaint);
 
-    // Blush
     c.drawOval(Rect.fromCenter(center: const Offset(33, 42), width: 10, height: 6), Paint()..color = const Color(0xFFF5B8B8).withOpacity(0.25));
     c.drawOval(Rect.fromCenter(center: const Offset(57, 42), width: 10, height: 6), Paint()..color = const Color(0xFFF5B8B8).withOpacity(0.25));
 
-    // Arms
     final armPaint = Paint()..color = bodyColor.withOpacity(0.4)..style = PaintingStyle.stroke..strokeWidth = 5..strokeCap = StrokeCap.round;
     c.drawPath(Path()..moveTo(28, 64)..quadraticBezierTo(20, 68, 16, 72), armPaint);
     c.drawPath(Path()..moveTo(62, 64)..quadraticBezierTo(70, 68, 74, 72), armPaint);
@@ -665,7 +540,6 @@ class _FrontCharPainter extends CustomPainter {
 
     switch (style) {
       case 'purple-cape':
-        // Cape-style hair with side locks
         c.drawPath(Path()
           ..moveTo(28, 22)..quadraticBezierTo(28, 12, 45, 10)..quadraticBezierTo(62, 12, 62, 22)
           ..lineTo(60, 34)..quadraticBezierTo(45, 26, 30, 34)..close(), paint..color = color.withOpacity(0.85));
@@ -680,7 +554,6 @@ class _FrontCharPainter extends CustomPainter {
         c.drawPath(Path()
           ..moveTo(28, 24)..quadraticBezierTo(28, 12, 45, 10)..quadraticBezierTo(62, 12, 62, 24)
           ..lineTo(60, 32)..quadraticBezierTo(45, 26, 30, 32)..close(), paint..color = color.withOpacity(0.8));
-        // Twintails
         c.drawOval(Rect.fromCenter(center: const Offset(20, 42), width: 10, height: 24), paint..color = color.withOpacity(0.6));
         c.drawOval(Rect.fromCenter(center: const Offset(70, 42), width: 10, height: 24), paint..color = color.withOpacity(0.6));
         break;
@@ -688,7 +561,6 @@ class _FrontCharPainter extends CustomPainter {
         c.drawPath(Path()
           ..moveTo(26, 24)..quadraticBezierTo(26, 10, 45, 8)..quadraticBezierTo(64, 10, 64, 24)
           ..lineTo(58, 32)..quadraticBezierTo(45, 26, 32, 32)..close(), paint..color = color.withOpacity(0.85));
-        // Side waves
         c.drawPath(Path()..moveTo(26, 34)..quadraticBezierTo(24, 42, 22, 48), strokePaint..strokeWidth = 4);
         c.drawPath(Path()..moveTo(64, 34)..quadraticBezierTo(66, 42, 68, 48), strokePaint..strokeWidth = 4);
         break;
@@ -696,7 +568,6 @@ class _FrontCharPainter extends CustomPainter {
         c.drawPath(Path()
           ..moveTo(30, 22)..quadraticBezierTo(30, 12, 45, 10)..quadraticBezierTo(60, 12, 60, 22)
           ..lineTo(58, 32)..quadraticBezierTo(45, 26, 32, 32)..close(), paint..color = color.withOpacity(0.85));
-        // Ponytail
         c.drawPath(Path()..moveTo(56, 16)..quadraticBezierTo(64, 14, 68, 22)..quadraticBezierTo(72, 32, 66, 42), strokePaint..strokeWidth = 5);
         break;
       case 'brown-bob':
@@ -708,7 +579,6 @@ class _FrontCharPainter extends CustomPainter {
         c.drawPath(Path()
           ..moveTo(26, 22)..quadraticBezierTo(26, 10, 45, 8)..quadraticBezierTo(64, 10, 64, 22)
           ..lineTo(62, 34)..quadraticBezierTo(45, 26, 28, 34)..close(), paint..color = color.withOpacity(0.85));
-        // Long side hair
         c.drawPath(Path()..moveTo(28, 34)..quadraticBezierTo(26, 48, 24, 58), strokePaint..strokeWidth = 4);
         c.drawPath(Path()..moveTo(62, 34)..quadraticBezierTo(64, 48, 66, 58), strokePaint..strokeWidth = 4);
         break;
@@ -716,40 +586,15 @@ class _FrontCharPainter extends CustomPainter {
         c.drawPath(Path()
           ..moveTo(32, 24)..quadraticBezierTo(32, 18, 45, 14)..quadraticBezierTo(58, 18, 58, 24)
           ..lineTo(56, 32)..quadraticBezierTo(45, 26, 34, 32)..close(), paint..color = color.withOpacity(0.8));
-        // Bun on top
         c.drawCircle(const Offset(45, 10), 6, paint..color = color.withOpacity(0.65));
         break;
       default:
-        // Default: purple-cape style
         c.drawPath(Path()
           ..moveTo(28, 22)..quadraticBezierTo(28, 12, 45, 10)..quadraticBezierTo(62, 12, 62, 22)
           ..lineTo(60, 34)..quadraticBezierTo(45, 26, 30, 34)..close(), paint..color = color.withOpacity(0.85));
     }
   }
 
-  @override
-  bool shouldRepaint(covariant CustomPainter old) => false;
-}
-
-// ======================== CHAIR BASE PAINTER (star base + casters) ========================
-class _ChairBasePainter extends CustomPainter {
-  @override
-  void paint(Canvas c, Size s) {
-    final cx = s.width / 2, cy = 6.0;
-    final linePaint = Paint()..color = const Color(0xFF6A6A6A)..strokeWidth = 2.5..strokeCap = StrokeCap.round;
-    final casterPaint = Paint()..color = const Color(0xFF4A4A4A);
-    final casterStroke = Paint()..color = const Color(0xFF333333)..style = PaintingStyle.stroke..strokeWidth = 0.8;
-
-    // 5 legs radiating from center
-    final angles = [0.0, 1.2566, 2.5133, 3.7699, 5.0265]; // 72° apart
-    for (final a in angles) {
-      final ex = cx + 20 * math.sin(a);
-      final ey = cy + 14 * math.cos(a);
-      c.drawLine(Offset(cx, cy), Offset(ex, ey), linePaint);
-      c.drawCircle(Offset(ex, ey), 3, casterPaint);
-      c.drawCircle(Offset(ex, ey), 3, casterStroke);
-    }
-  }
   @override
   bool shouldRepaint(covariant CustomPainter old) => false;
 }

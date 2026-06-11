@@ -17,6 +17,8 @@ import cors from 'cors';
 import expressWs from 'express-ws';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import fs from 'fs';
+import jwt from 'jsonwebtoken';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -31,6 +33,9 @@ expressWs(app);
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
+
+// 托管上传的图片/文件（必须在 frontend static 之前，否则 /uploads 会被 frontend 拦截）
+app.use('/uploads', express.static(join(__dirname, '../uploads')));
 
 // 托管前端静态文件（禁用 HTML 缓存）
 app.use(express.static(join(__dirname, '../frontend'), {
@@ -139,6 +144,108 @@ app.use('/api/servers', serversRoutes);
 import remoteConfigRoutes from './routes/remote-config.js';
 app.use('/api/remote-config', remoteConfigRoutes);
 
+// 用户模型偏好（公开接口）
+app.get('/api/user-models', (req, res) => {
+  res.json({
+    availableModels: [
+      { id: 'auto', name: 'Auto', provider: '系统', desc: '智能选择最优模型', tier: 'free' },
+      { id: 'glm-cn/glm-5.1', name: 'GLM-5.1 主力', provider: '智谱直连', desc: '智谱大号直接干', tier: 'pro' },
+      { id: 'cu/default', name: 'Cursor Auto', provider: 'Cursor', desc: 'Cursor 智能选模', tier: 'pro' },
+      { id: 'cu/gpt-5.5-high-fast', name: 'GPT-5.5 Fast', provider: 'Cursor', desc: '极速旗舰', tier: 'pro' },
+      { id: 'cu/gpt-5.5-high', name: 'GPT-5.5', provider: 'Cursor', desc: '顶级推理', tier: 'pro' },
+      { id: 'cu/claude-4.6-opus-max', name: 'Claude 4.6 Opus Max', provider: 'Cursor', desc: '最强 Claude', tier: 'pro' },
+      { id: 'cu/claude-4.6-sonnet-medium-thinking', name: 'Claude 4.6 Sonnet Think', provider: 'Cursor', desc: '新一代推理', tier: 'pro' },
+      { id: 'cu/claude-4.6-opus-max-thinking', name: 'Claude 4.6 Opus Think', provider: 'Cursor', desc: '最强推理链', tier: 'pro' },
+      { id: 'ocg/glm-5.1', name: 'GLM-5.1', provider: '智谱', desc: '中文最强', tier: 'free' },
+      { id: 'ocg/deepseek-v4-pro', name: 'DeepSeek V4 Pro', provider: 'DeepSeek', desc: '最强性价比', tier: 'free' },
+      { id: 'gh/gpt-5-mini', name: 'GPT-5-Mini', provider: 'OpenAI', desc: '快速免费', tier: 'free' },
+      { id: 'gh/gpt-4o', name: 'GPT-4o', provider: 'OpenAI', desc: 'GPT经典', tier: 'pro' },
+      { id: 'gh/gpt-4.1', name: 'GPT-4.1', provider: 'OpenAI', desc: '强推理', tier: 'pro' },
+      { id: 'ocg/kimi-k2.6', name: 'Kimi-K2.6', provider: '月之暗面', desc: '长上下文', tier: 'free' },
+      { id: 'openrouter/openrouter/free', name: 'Free', provider: 'OpenRouter', desc: '免费兜底', tier: 'free' },
+      { id: 'cu/gpt-5.2', name: 'GPT-5.2', provider: 'Cursor', desc: 'OpenAI 旗舰', tier: 'pro' },
+      { id: 'cu/gpt-5.2-codex', name: 'GPT-5.2 Codex', provider: 'Cursor', desc: '代码专精', tier: 'pro' },
+      { id: 'cu/gpt-5.3-codex', name: 'GPT-5.3 Codex', provider: 'Cursor', desc: '最新代码', tier: 'pro' },
+      { id: 'cu/claude-4.5-sonnet', name: 'Claude 4.5 Sonnet', provider: 'Cursor', desc: 'Anthropic 平衡', tier: 'pro' },
+      { id: 'cu/claude-4.5-haiku', name: 'Claude 4.5 Haiku', provider: 'Cursor', desc: 'Anthropic 快速', tier: 'pro' },
+      { id: 'cu/claude-4.5-opus', name: 'Claude 4.5 Opus', provider: 'Cursor', desc: 'Anthropic 高级', tier: 'pro' },
+      { id: 'cu/claude-4.5-opus-high', name: 'Claude 4.5 Opus High', provider: 'Cursor', desc: 'Anthropic 旗舰', tier: 'pro' },
+      { id: 'cu/claude-4.5-sonnet-thinking', name: 'Claude 4.5 Sonnet Think', provider: 'Cursor', desc: '带推理链', tier: 'pro' },
+      { id: 'cu/claude-4.5-opus-high-thinking', name: 'Claude 4.5 Opus Think', provider: 'Cursor', desc: '旗舰推理链', tier: 'pro' },
+      { id: 'cu/gemini-3-flash-preview', name: 'Gemini 3 Flash', provider: 'Cursor', desc: 'Google 预览', tier: 'pro' },
+      { id: 'cu/kimi-k2.5', name: 'Kimi K2.5', provider: 'Cursor', desc: '月之暗面', tier: 'pro' },
+    ]
+  });
+});
+
+// 获取用户模型偏好（需要登录）
+app.get('/api/user-models/preference', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ success: false, error: '未登录' });
+    }
+    const jwtSecret = process.env.JWT_SECRET || 'lingxi-cloud-secret-2026';
+    const decoded = jwt.verify(token, jwtSecret);
+    const userId = decoded.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'token 无效' });
+    }
+    const dbPath = join(__dirname, 'data/db.json');
+    const db = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
+    const user = db.users.find(u => u.id === userId);
+    const preferredModel = user?.preferredModel || 'auto';
+    res.json({ success: true, preferredModel });
+  } catch(e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// 用户模型偏好设置（需要登录）
+app.post('/api/user-models/preference', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ success: false, error: '未登录' });
+    }
+    // 验证 token 获取 userId
+    const jwtSecret = process.env.JWT_SECRET || 'lingxi-cloud-secret-2026';
+    const decoded = jwt.verify(token, jwtSecret);
+    const userId = decoded.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'token 无效' });
+    }
+    const { model } = req.body;
+    
+    // 写入 db.json
+    const dbPath = join(__dirname, 'data/db.json');
+    const raw = fs.readFileSync(dbPath, 'utf8');
+    const db = JSON.parse(raw);
+    const user = db.users.find(u => u.id === userId);
+    if (!user) {
+      return res.status(404).json({ success: false, error: '用户不存在' });
+    }
+    user.preferredModel = model || null;
+    fs.writeFileSync(dbPath, JSON.stringify(db, null, 2));
+    
+    console.log(`[模型偏好] ✅ 用户 ${user.nickname || userId} → ${model || 'auto'}`);
+    res.json({ success: true, model: model || 'auto' });
+    
+    // 🔥 立即通知 ai-proxy-lite 刷新用户映射（事件驱动，不再等30秒轮询）
+    try {
+      const http = await import('http');
+      http.get('http://localhost:13000/internal/refresh-users', (r) => {
+        let data = '';
+        r.on('data', c => data += c);
+        r.on('end', () => console.log(`[模型偏好] 已通知代理刷新: ${data}`));
+      }).on('error', e => console.warn('[模型偏好] 通知代理失败:', e.message));
+    } catch (_) {}
+  } catch(e) {
+    console.error('[模型偏好] 更新失败:', e.message);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 import deployRoutes from './routes/deploy.js';
 app.use('/api/deploy', deployRoutes);
 
@@ -232,11 +339,7 @@ app.use('/api/knowledge', knowledgeRoutes);
 import marketRoutes from './routes/market.js';
 app.use('/api/market', marketRoutes);
 
-// 托管上传的图片
-import { fileURLToPath as fileURLToPath2 } from 'url';
-import { dirname as dirname2, join as join2 } from 'path';
-const __dirname2 = dirname2(fileURLToPath2(import.meta.url));
-app.use('/uploads', express.static(join2(__dirname2, '../uploads')));
+// (uploads static moved to top)
 
 // 技能库同步定时任务
 import { startCronJob } from './skills/sync-cron.mjs';

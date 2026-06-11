@@ -49,11 +49,26 @@ window.addEventListener('storage', (event) => {
 
 // 🖥️ 同一 tab 返回时检测设备切换（pageshow/visibilitychange）
 // 用户在同一 tab 中从 servers.html 返回时触发
-let _lastDeviceSwitchHandled = localStorage.getItem('device_switched_at') || '0';
+// 用 sessionStorage 记录上次处理的切换时间（跨页面导航保留，但新 tab 不受影响）
+let _lastDeviceSwitchHandled = sessionStorage.getItem('last_device_switch_handled') || '0';
+// 页面加载时立即检查：如果 localStorage 里有未处理的设备切换，立即 reload
+(function checkDeviceSwitchOnLoad() {
+  const current = localStorage.getItem('device_switched_at') || '0';
+  if (current !== _lastDeviceSwitchHandled) {
+    console.log('🖥️ 检测到未处理的设备切换（页面加载），清理旧数据...');
+    sessionStorage.setItem('last_device_switch_handled', current);
+    _lastDeviceSwitchHandled = current;
+    // 清理旧会话数据，让 init() 重新加载新设备的会话
+    localStorage.removeItem('currentSessionKey');
+    localStorage.removeItem('cached_sessions');
+    localStorage.removeItem('chat_messages_cache');
+  }
+})();
 window.addEventListener('pageshow', () => {
   const current = localStorage.getItem('device_switched_at') || '0';
   if (current !== _lastDeviceSwitchHandled) {
     _lastDeviceSwitchHandled = current;
+    sessionStorage.setItem('last_device_switch_handled', current);
     console.log('🖥️ 检测到设备切换（pageshow），重新加载...');
     if (ws) { try { ws.onclose = null; ws.close(); } catch(e) {} }
     setTimeout(() => location.reload(), 300);
@@ -64,6 +79,7 @@ document.addEventListener('visibilitychange', () => {
     const current = localStorage.getItem('device_switched_at') || '0';
     if (current !== _lastDeviceSwitchHandled) {
       _lastDeviceSwitchHandled = current;
+      sessionStorage.setItem('last_device_switch_handled', current);
       console.log('🖥️ 检测到设备切换（visibilitychange），重新加载...');
       if (ws) { try { ws.onclose = null; ws.close(); } catch(e) {} }
       setTimeout(() => location.reload(), 300);
@@ -224,11 +240,29 @@ let userServerInfo = null; // 用户服务器信息（IP、端口）
 async function init() {
   console.log('初始化聊天页面...');
 
+  // 清空消息区，确保每次初始化都是干净状态（防止设备切换后残留旧消息）
+  const _msgContainer = document.getElementById('messages');
+  if (_msgContainer) _msgContainer.innerHTML = '';
+
   const token = localStorage.getItem('lingxi_token');
   if (!token) {
     console.log('没有 token，跳转到首页');
     window.location.href = 'index.html';
     return;
+  }
+
+  // 🖥️ 检测设备切换：如果从 servers.html 切换了设备回来，需要清理旧数据
+  const _lastSwitchHandled = sessionStorage.getItem('last_device_switch_handled') || '0';
+  const _currentSwitch = localStorage.getItem('device_switched_at') || '0';
+  const _deviceSwitched = _currentSwitch !== _lastSwitchHandled;
+  if (_deviceSwitched) {
+    console.log('🖥️ 检测到设备切换，清理旧会话数据...');
+    sessionStorage.setItem('last_device_switch_handled', _currentSwitch);
+    localStorage.removeItem('currentSessionKey');  // 清除旧会话 key
+    localStorage.removeItem('cached_sessions');     // 清除缓存的 session 列表
+    localStorage.removeItem('chat_messages_cache'); // 清除消息缓存
+    window.sessions = [];  // 清除内存中的旧会话列表
+    _wsIsReconnect = false; // 确保不走重连逻辑
   }
 
   // 🔒 先从服务器获取最新用户信息并检查团队状态
@@ -400,6 +434,8 @@ let statusDot = null;  // WebSocket 状态指示器（全局变量）
 // ═══════════════════════════════════════════════════════════════
 // 🔌 WebSocket 模块
 // ═══════════════════════════════════════════════════════════════
+let _wsIsReconnect = false; // 全局重连标记
+
 function connectWebSocket() {
   const statusEl = document.getElementById('connectionStatus');
   if (!statusEl) {
@@ -417,30 +453,18 @@ function connectWebSocket() {
     // 修复：通过后端 WebSocket 代理连接，解决 HTTPS 混合内容问题
     // 代理地址格式：wss://lumeword.com/api/ws?token=xxx
     const wsUrl = `${GATEWAY_WS}?token=${encodeURIComponent(GATEWAY_TOKEN)}`;
-    console.log('🔌 连接 WebSocket 代理:', wsUrl.replace(/token=[^&]+/, 'token=***'));
+    console.log('🔌 连接 WebSocket 代理:', wsUrl.replace(/token=[^&]+/, 'token=***'), '重连:', _wsIsReconnect);
 
     ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
       console.log('WebSocket 已连接，等待 750ms 后发送 connect...');
-      
-      // 🆕 标记为重连
-      const isReconnect = ws.isReconnect || false;
 
       // OpenClaw 要求等待 750ms 后再发送 connect
       setTimeout(() => {
         sendConnect();
-        
-        // 🆕 重连后加载会话列表，但不切换当前会话
-        if (isReconnect) {
-          console.log('🔄 重连完成，保持当前会话:', currentSessionKey);
-          // 延迟加载会话列表用于显示，不改变 currentSessionKey
-          setTimeout(() => {
-            if (typeof loadSessions === 'function') {
-              loadSessions();
-            }
-          }, 1000);
-        }
+        // 会话列表和历史的加载统一在 handleWebSocketMessage 的 hello-ok 回调中处理
+        // 不再在这里重复调用 loadSessions
       }, 750);
     };
 
@@ -462,6 +486,7 @@ function connectWebSocket() {
     ws.onclose = () => {
       console.log('WebSocket 已断开，5秒后重连...');
       statusDot.className = 'status-dot';  // 红色
+      _wsIsReconnect = true; // 标记下次连接为重连
       setTimeout(connectWebSocket, 5000);
     };
   } catch (e) {
@@ -473,9 +498,6 @@ function connectWebSocket() {
 // 发送 connect 请求
 function sendConnect() {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
-  
-  // 🆕 标记为重连完成
-  if (ws) ws.isReconnect = true;
 
   const params = {
     minProtocol: 3,
@@ -521,13 +543,13 @@ function handleWebSocketMessage(data) {
     const statusDot = statusEl?.querySelector('.status-dot');
     if (statusDot) statusDot.className = 'status-dot connected';  // 绿色
     
-    // 检测是否是重连（已有会话数据）
-    const isReconnect = window.sessions && window.sessions.length > 0;
+    // 检测是否是重连：用全局标记（比 window.sessions 更可靠）
+    const isReconnect = _wsIsReconnect;
     
     if (isReconnect) {
-      console.log('🔄 重连成功，保留现有消息');
-      // 重连时不重新加载历史，只更新会话列表（不触发 loadChatHistory）
-      renderSessionList();
+      console.log('🔄 重连成功，保留现有消息，只刷新会话列表');
+      _wsIsReconnect = false; // 重置标记
+      // 重连时只刷新侧边栏列表，不重新加载历史消息
       if (typeof loadSidebarSessions === 'function') {
         loadSidebarSessions();
       }
@@ -649,14 +671,15 @@ function handleWebSocketMessage(data) {
     // final - 完成
     else if (payload.state === 'final') {
       const text = extractText(payload.message);
+      const modelInfo = payload.modelInfo || null;
       removeTyping();
 
       // 如果 delta 阶段没有显示过内容，final 才显示
       if (text && !hasStreamingMessage(runId)) {
-        addMessage('assistant', text, '灵犀');
+        addMessage('assistant', text, '灵犀', modelInfo);
       } else if (hasStreamingMessage(runId)) {
         // delta 已经显示过了，确保消息完整
-        finalizeStreamingMessage(text, runId);
+        finalizeStreamingMessage(text, runId, modelInfo);
       }
 
       isGenerating = false;
@@ -766,7 +789,7 @@ function hasStreamingMessage(runId) {
 }
 
 // 完成流式消息
-function finalizeStreamingMessage(text, runId) {
+function finalizeStreamingMessage(text, runId, modelInfo) {
   if (streamingMessages[runId] && text) {
     streamingMessages[runId].text = text;
     const bubble = streamingMessages[runId].element.querySelector('.bubble');
@@ -779,7 +802,8 @@ function finalizeStreamingMessage(text, runId) {
         userId: user?.id
       } : { userId: user?.id };
       const { text: cleanText, filesHtml, imagesHtml, audioHtml } = processMessageFull(text, fileOptions);
-      bubble.innerHTML = `${cleanText ? escapeHtml(cleanText) : ''}${audioHtml}${imagesHtml}${filesHtml}`;
+      const metaHtml = modelInfo ? renderBubbleMeta(modelInfo) : '';
+      bubble.innerHTML = `${cleanText ? escapeHtml(cleanText) : ''}${audioHtml}${imagesHtml}${filesHtml}${metaHtml}`;
     }
   }
   // 清理
@@ -1051,6 +1075,11 @@ async function handleImageSelect(event) {
       });
 
       xhr.open('POST', `${API_BASE}/api/upload/image`);
+      // 携带认证 token
+      const token = localStorage.getItem('lingxi_token');
+      if (token) {
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      }
       xhr.send(formData);
     });
 
@@ -1555,17 +1584,29 @@ function abortChat() {
 // ═══════════════════════════════════════════════════════════════
 // 📝 会话模块
 // ═══════════════════════════════════════════════════════════════
+let _historyLoading = false;
+let _historyLoadSession = null; // 记录当前正在加载哪个 session
+
 async function loadChatHistory(appendOnly = false) {
+  // 防重复：同一 session 不能并发加载
+  if (_historyLoading && _historyLoadSession === currentSessionKey) {
+    console.log('⏳ 历史正在加载中，跳过重复请求, session:', currentSessionKey);
+    return;
+  }
+  _historyLoading = true;
+  _historyLoadSession = currentSessionKey;
   console.log('📚 loadChatHistory 开始, currentSessionKey:', currentSessionKey, '追加模式:', appendOnly);
 
   if (!ws || ws.readyState !== WebSocket.OPEN) {
     console.log('WebSocket 未连接，无法加载历史');
+    _historyLoading = false;
     if (!appendOnly) renderHistory([]);
     return;
   }
 
   if (!currentSessionKey) {
     console.log('currentSessionKey 未设置，跳过加载历史');
+    _historyLoading = false;
     if (!appendOnly) renderHistory([]);
     return;
   }
@@ -1626,6 +1667,9 @@ async function loadChatHistory(appendOnly = false) {
   } catch (e) {
     console.error('加载历史失败:', e);
     renderHistory([]);
+  } finally {
+    _historyLoading = false;
+    _historyLoadSession = null;
   }
 }
 
@@ -1708,6 +1752,14 @@ function renderHistory(messages, appendOnly = false) {
     // 🚫 过滤掉内容为空的消息
     if (!content || content.trim().length === 0) {
       console.log('⏭️ 跳过空消息');
+      continue;
+    }
+    
+    // 🚫 过滤心跳/系统通知消息
+    if (content.includes('HEARTBEAT.md') || content.includes('HEARTBEAT_OK') ||
+        (content.includes('Exec completed') && content.includes('Read HEARTBEAT')) ||
+        (content.includes('Exec failed') && content.includes('Read HEARTBEAT'))) {
+      console.log('⏭️ 跳过心跳消息');
       continue;
     }
     
@@ -1885,13 +1937,21 @@ function renderHistory(messages, appendOnly = false) {
 
     const name = role === 'user' ? (user?.nickname || '我') : '灵犀';
     
+    // 🆕 从历史消息中提取模型信息
+    const historyModelInfo = (role === 'assistant' && (msg.model || msg.usage)) ? {
+      model: msg.model || msg.modelProvider || 'auto',
+      provider: msg.provider,
+      inputTokens: msg.usage?.input || msg.usage?.inputTokens || null,
+      outputTokens: msg.usage?.output || msg.usage?.outputTokens || null,
+    } : null;
+    
     // 根据附件类型传递不同格式
     if (imageUrl) {
-      addMessage(role, { text: content || '', image: imageUrl }, name);
+      addMessage(role, { text: content || '', image: imageUrl }, name, historyModelInfo);
     } else if (documentInfo) {
-      addMessage(role, { text: content || '', document: documentInfo }, name);
+      addMessage(role, { text: content || '', document: documentInfo }, name, historyModelInfo);
     } else {
-      addMessage(role, content, name);
+      addMessage(role, content, name, historyModelInfo);
     }
   }
 
@@ -2121,10 +2181,15 @@ async function loadSessions() {
       // 🆕 默认加载最新会话（按时间排序后的第一个）
       if (allSessions.length > 0) {
         const latestSession = allSessions[0];  // 已经按时间排序，第一个是最新的
-        currentSessionKey = latestSession.key;
-        console.log('默认加载最新会话:', currentSessionKey);
-        // 加载该会话的历史消息
-        loadChatHistory();
+        // 重连时保留当前会话，不切换
+        if (ws?.isReconnect) {
+          console.log('🔄 重连模式，保持当前会话:', currentSessionKey);
+        } else {
+          currentSessionKey = latestSession.key;
+          console.log('默认加载最新会话:', currentSessionKey);
+          // 加载该会话的历史消息
+          loadChatHistory();
+        }
       } else {
         // 没有会话，使用主会话
         currentSessionKey = SESSION_KEY;
@@ -2444,7 +2509,7 @@ function quickSend(text) {
 }
 
 // 添加消息
-function addMessage(role, content, name) {
+function addMessage(role, content, name, modelInfo) {
   const messages = document.getElementById('messages');
   const div = document.createElement('div');
   div.className = `message ${role}`;
@@ -2522,7 +2587,10 @@ function addMessage(role, content, name) {
 
   div.innerHTML = `
     ${avatarHtml}
-    <div class="bubble">${bubbleContent}</div>
+    <div class="bubble">
+      ${bubbleContent}
+      ${role === 'assistant' && modelInfo ? renderBubbleMeta(modelInfo) : ''}
+    </div>
   `;
 
   messages.appendChild(div);
@@ -2532,6 +2600,38 @@ function addMessage(role, content, name) {
   if (window.lucide) lucide.createIcons();
 
   return div;
+}
+
+// 🆕 渲染气泡底部模型信息标签
+function renderBubbleMeta(modelInfo) {
+  const modelName = formatModelName(modelInfo.model || 'auto');
+  const parts = [`<span class="meta-model">${escapeHtml(modelName)}</span>`];
+  if (modelInfo.inputTokens != null) {
+    parts.push(`<span class="meta-tokens">&uarr;${modelInfo.inputTokens} &darr;${modelInfo.outputTokens || 0}</span>`);
+  }
+  return `<div class="bubble-meta">${parts.join('<span class="meta-sep">&middot;</span>')}</div>`;
+}
+
+// 🆕 格式化模型名：auto → Auto, ocg/deepseek-v4-pro → DeepSeek V4 Pro
+function formatModelName(model) {
+  if (!model || model === 'auto') return 'Auto';
+  // 去掉 provider 前缀
+  const name = model.includes('/') ? model.split('/').pop() : model;
+  const displayMap = {
+    'deepseek-v4-pro': 'DeepSeek V4 Pro',
+    'glm-5.1': 'GLM-5.1',
+    'glm-5': 'GLM-5',
+    'glm-4': 'GLM-4',
+    'gpt-4o': 'GPT-4o',
+    'gpt-4o-mini': 'GPT-4o Mini',
+    'gpt-4.1': 'GPT-4.1',
+    'gpt-5-mini': 'GPT-5 Mini',
+    'kimi-k2.6': 'Kimi K2.6',
+    'kimi-k2.5': 'Kimi K2.5',
+    'qwen3-max-2026-01-23': 'Qwen3 Max',
+    'qwen3.5-plus': 'Qwen3.5 Plus',
+  };
+  return displayMap[name] || displayMap[model] || name;
 }
 
 // 添加打字动画

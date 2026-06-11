@@ -2915,6 +2915,184 @@
 
   <!-- 文件预览模块 -->
 
+  <!-- 模型选择器 -->
+  <script>
+  (function() {
+    const MODEL_KEY = 'lingxi_selected_model';
+    let modelDropdownOpen = false;
+
+    // 初始化模型选择器
+    async function initModelSelector() {
+      const saved = localStorage.getItem(MODEL_KEY) || 'auto';
+      updateModelPill(saved);
+      
+      // 点击外部关闭下拉
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('.model-pill') && !e.target.closest('.model-dropdown')) {
+          closeModelDropdown();
+        }
+      });
+    }
+
+    // 更新模型药丸显示
+    function updateModelPill(modelId) {
+      const nameEl = document.getElementById('currentModelName');
+      const dotEl = document.querySelector('.model-dot');
+      if (!nameEl) return;
+      
+      // 模型名称映射
+      const names = {
+        'auto': 'Auto',
+        'ocg/deepseek-v4-pro': 'DeepSeek',
+        'ocg/glm-5.1': 'GLM-5.1',
+        'gh/gpt-4o': 'GPT-4o',
+        'gh/gpt-4.1': 'GPT-4.1',
+        'gh/gpt-5-mini': 'GPT-5-Mini',
+        'ocg/kimi-k2.6': 'Kimi-K2.6',
+        'openrouter/openrouter/free': 'Free'
+      };
+      nameEl.textContent = names[modelId] || modelId;
+      
+      // 颜色指示
+      if (dotEl) {
+        dotEl.style.background = modelId === 'auto' ? '#667eea' : '#10b981';
+      }
+    }
+
+    // 切换下拉菜单
+    window.toggleModelDropdown = function() {
+      if (modelDropdownOpen) {
+        closeModelDropdown();
+      } else {
+        openModelDropdown();
+      }
+    };
+
+    // 打开下拉菜单
+    async function openModelDropdown() {
+      const dropdown = document.getElementById('modelDropdown');
+      if (!dropdown) return;
+      
+      // 获取模型列表
+      let models = [];
+      try {
+        const token = localStorage.getItem('lingxi_token');
+        const res = await fetch(`${window.location.origin}/api/user-models`, {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+        const data = await res.json();
+        models = data.availableModels || [];
+      } catch(e) {
+        // 回退到默认列表
+        models = [
+          { id: 'auto', name: 'Auto', provider: '系统', desc: '智能选择最优模型', tier: 'free' },
+          { id: 'ocg/deepseek-v4-pro', name: 'DeepSeek V4 Pro', provider: 'DeepSeek', desc: '最强性价比', tier: 'free' },
+          { id: 'ocg/glm-5.1', name: 'GLM-5.1', provider: '智谱', desc: '中文最强', tier: 'free' },
+          { id: 'glm-cn/glm-5.1', name: 'GLM-5.1主力', provider: '智谱直连', desc: '智谱大号直接干', tier: 'pro' },
+          { id: 'gh/gpt-4o', name: 'GPT-4o', provider: 'OpenAI', desc: 'GPT经典', tier: 'pro' },
+          { id: 'gh/gpt-4.1', name: 'GPT-4.1', provider: 'OpenAI', desc: '强推理', tier: 'pro' },
+          { id: 'gh/gpt-5-mini', name: 'GPT-5-Mini', provider: 'OpenAI', desc: '快速免费', tier: 'free' },
+          { id: 'ocg/kimi-k2.6', name: 'Kimi-K2.6', provider: '月之暗面', desc: '长上下文', tier: 'free' },
+          { id: 'openrouter/openrouter/free', name: 'Free', provider: 'OpenRouter', desc: '免费兜底', tier: 'free' },
+          { id: 'cu/default', name: 'Cursor Auto', provider: 'Cursor', desc: 'Cursor 智能选模', tier: 'pro' },
+          { id: 'cu/gpt-5.2', name: 'GPT-5.2', provider: 'Cursor', desc: 'OpenAI 旗舰', tier: 'pro' },
+          { id: 'cu/gpt-5.2-codex', name: 'GPT-5.2 Codex', provider: 'Cursor', desc: '代码专精', tier: 'pro' },
+          { id: 'cu/gpt-5.3-codex', name: 'GPT-5.3 Codex', provider: 'Cursor', desc: '最新代码', tier: 'pro' },
+          { id: 'cu/gpt-5.5-high-fast', name: 'GPT-5.5 Fast', provider: 'Cursor', desc: '极速旗舰', tier: 'pro' },
+          { id: 'cu/gpt-5.5-high', name: 'GPT-5.5', provider: 'Cursor', desc: '顶级推理', tier: 'pro' },
+          { id: 'cu/claude-4.5-sonnet', name: 'Claude 4.5 Sonnet', provider: 'Cursor', desc: 'Anthropic 平衡', tier: 'pro' },
+          { id: 'cu/claude-4.5-haiku', name: 'Claude 4.5 Haiku', provider: 'Cursor', desc: 'Anthropic 快速', tier: 'pro' },
+          { id: 'cu/claude-4.5-opus', name: 'Claude 4.5 Opus', provider: 'Cursor', desc: 'Anthropic 高级', tier: 'pro' },
+          { id: 'cu/claude-4.5-opus-high', name: 'Claude 4.5 Opus High', provider: 'Cursor', desc: 'Anthropic 旗舰', tier: 'pro' },
+          { id: 'cu/claude-4.6-opus-max', name: 'Claude 4.6 Opus Max', provider: 'Cursor', desc: '最强 Claude', tier: 'pro' },
+          { id: 'cu/claude-4.5-sonnet-thinking', name: 'Claude 4.5 Sonnet Think', provider: 'Cursor', desc: '带推理链', tier: 'pro' },
+          { id: 'cu/claude-4.5-opus-high-thinking', name: 'Claude 4.5 Opus Think', provider: 'Cursor', desc: '旗舰推理链', tier: 'pro' },
+          { id: 'cu/claude-4.6-opus-max-thinking', name: 'Claude 4.6 Opus Think', provider: 'Cursor', desc: '最强推理链', tier: 'pro' },
+          { id: 'cu/claude-4.6-sonnet-medium-thinking', name: 'Claude 4.6 Sonnet Think', provider: 'Cursor', desc: '新一代推理', tier: 'pro' },
+          { id: 'cu/gemini-3-flash-preview', name: 'Gemini 3 Flash', provider: 'Cursor', desc: 'Google 预览', tier: 'pro' },
+          { id: 'cu/kimi-k2.5', name: 'Kimi K2.5', provider: 'Cursor', desc: '月之暗面', tier: 'pro' },
+        ];
+      }
+
+      const currentModel = localStorage.getItem(MODEL_KEY) || 'auto';
+      
+      // 检查是否为免费用户（读取 token 解码或 localStorage）
+      let isFreeUser = true; // 默认免费
+      try {
+        const token = localStorage.getItem('lingxi_token');
+        if (token) {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          // 从 token payload 判断（如有 subscription 信息）
+          if (payload.plan && payload.plan !== 'free') isFreeUser = false;
+        }
+        // 也检查本地存的 user 信息
+        const userStr = localStorage.getItem('lingxi_user');
+        if (userStr) {
+          const user = JSON.parse(userStr);
+          if (user.subscription?.plan && user.subscription.plan !== 'free') isFreeUser = false;
+        }
+      } catch(e) {}
+
+      dropdown.innerHTML = models.map(m => {
+        const isLocked = m.tier === 'pro' && isFreeUser;
+        return `
+        <div class="model-dropdown-item ${m.id === currentModel ? 'active' : ''} ${isLocked ? 'locked' : ''}" onclick="${isLocked ? '' : `window.selectModel('${m.id}')`}">
+          <div class="model-info">
+            <div class="model-title">${m.name}${isLocked ? ' 🔒' : (m.tier === 'pro' ? ' ⭐' : '')}</div>
+            <div class="model-desc">${isLocked ? '订阅可用' : (m.desc || '')}</div>
+          </div>
+          <span class="model-check">✓</span>
+        </div>
+      `}).join('');
+
+      dropdown.classList.add('show');
+      modelDropdownOpen = true;
+    }
+
+    // 关闭下拉菜单
+    function closeModelDropdown() {
+      const dropdown = document.getElementById('modelDropdown');
+      if (dropdown) dropdown.classList.remove('show');
+      modelDropdownOpen = false;
+    }
+
+    // 选择模型
+    window.selectModel = async function(modelId) {
+      localStorage.setItem(MODEL_KEY, modelId);
+      updateModelPill(modelId);
+      closeModelDropdown();
+      console.log('🔄 模型切换为:', modelId);
+
+      // 同步到后端（写入 db.json，让 ai-proxy-lite 读取）
+      try {
+        const token = localStorage.getItem('lingxi_token');
+        if (token) {
+          const res = await fetch(`${window.location.origin}/api/user-models/preference`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ model: modelId === 'auto' ? null : modelId })
+          });
+          const data = await res.json();
+          console.log('✅ 模型偏好已同步:', data);
+        }
+      } catch(e) {
+        console.warn('⚠️ 同步模型偏好失败:', e);
+      }
+    };
+
+    // 获取当前选择的模型
+    window.getSelectedModel = function() {
+      return localStorage.getItem(MODEL_KEY) || 'auto';
+    };
+
+    // 页面加载时初始化
+    initModelSelector();
+  })();
+  </script>
+
   <script src="assets/js/chat.js?v=20260608"></script>
 
     <!-- 统一组件加载器 -->

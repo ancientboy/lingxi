@@ -15,8 +15,10 @@ import 'package:lingxicloud/services/api_service.dart';
 import 'package:lingxicloud/services/notification_service.dart';
 import 'package:lingxicloud/widgets/file_preview.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:file_picker/file_picker.dart' as file_picker;  // 🆕 文档选择器（使用别名避免冲突）
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:lingxicloud/services/database_service.dart';
 import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/services.dart';
@@ -32,7 +34,8 @@ import 'dart:io';
 import 'dart:ui';
 
 class ChatPage extends StatefulWidget {
-  const ChatPage({super.key});
+  final void Function(void Function(String, String, String) useSkill)? onRegisterUseSkill;
+  const ChatPage({super.key, this.onRegisterUseSkill});
 
   @override
   State<ChatPage> createState() => _ChatPageState();
@@ -40,8 +43,13 @@ class ChatPage extends StatefulWidget {
 
 class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   final _controller = TextEditingController();
+  void Function(Map<String, dynamic>)? _wsListener;  // WebSocket listener 引用
   final _scrollController = ScrollController();
   bool _showScrollToBottom = false;
+  
+  // 🆕 技能 tags 管理
+  final List<_SkillTag> _skillTags = [];
+  static const int _maxSkillTags = 3;
   
   // 🆕 在 initState 里添加滚动监听（初始化在 initState 中执行）
   void _initScrollListener() {
@@ -95,6 +103,35 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   String _wsError = '';
   List<Message> _messages = [];
 
+  // 🆕 技能 tag 方法（供 MainShell 调用）
+  void useSkill(String skillId, String skillName, String example) {
+    _addSkillTag(skillId, skillName);
+    if (example.isNotEmpty) {
+      _controller.text = example;
+    }
+    setState(() {});
+  }
+
+  void _addSkillTag(String id, String name) {
+    // 去重：已存在则不重复添加
+    if (_skillTags.any((t) => t.id == id)) return;
+    // 超过上限，移除最早的
+    while (_skillTags.length >= _maxSkillTags) {
+      _skillTags.removeAt(0);
+    }
+    _skillTags.add(_SkillTag(id: id, name: name));
+  }
+
+  void _removeSkillTag(String id) {
+    setState(() {
+      _skillTags.removeWhere((t) => t.id == id);
+    });
+  }
+
+  void _clearSkillTags() {
+    _skillTags.clear();
+  }
+
   // 🔔 App 生命周期状态（用于判断是否发送通知）
   bool _isAppInBackground = false;
   
@@ -132,15 +169,37 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   String? _selectedModel = 'auto';
   bool _showModelDropdown = false;
   
-  // 模型列表
-  static const List<Map<String, String>> _models = [
-    {'id': 'auto', 'name': 'Auto', 'desc': '智能选择最佳模型', 'tier': 'free'},
-    {'id': 'glm-5.1', 'name': 'GLM-5.1', 'desc': '中文最强', 'tier': 'free'},
-    {'id': 'gpt-4o-mini', 'name': 'GPT-4o Mini', 'desc': '快速响应', 'tier': 'free'},
-    {'id': 'glm-4.6', 'name': 'GLM-4.6', 'desc': '均衡稳定', 'tier': 'free'},
-    {'id': 'gpt-4o', 'name': 'GPT-4o', 'desc': 'OpenAI 旗舰', 'tier': 'pro'},
-    {'id': 'gpt-4.1', 'name': 'GPT-4.1', 'desc': '最新 GPT', 'tier': 'pro'},
-    {'id': 'claude-4.5-sonnet', 'name': 'Claude 4.5', 'desc': '即将开放', 'tier': 'pro'},
+  // 模型列表（从 API 动态加载，fallback 用硬编码）
+  List<Map<String, String>> _models = [];
+
+  // 硬编码 fallback（与后端 /api/user-models 对齐）
+  static const List<Map<String, String>> _fallbackModels = [
+    {'id': 'auto', 'name': 'Auto', 'desc': '智能选择最优模型', 'tier': 'free'},
+    {'id': 'glm-cn/glm-5.1', 'name': 'GLM-5.1 主力', 'desc': '智谱大号直接干', 'tier': 'pro'},
+    {'id': 'cu/default', 'name': 'Cursor Auto', 'desc': 'Cursor 智能选模', 'tier': 'pro'},
+    {'id': 'cu/gpt-5.5-high-fast', 'name': 'GPT-5.5 Fast', 'desc': '极速旗舰', 'tier': 'pro'},
+    {'id': 'cu/gpt-5.5-high', 'name': 'GPT-5.5', 'desc': '顶级推理', 'tier': 'pro'},
+    {'id': 'cu/claude-4.6-opus-max', 'name': 'Claude 4.6 Opus Max', 'desc': '最强 Claude', 'tier': 'pro'},
+    {'id': 'cu/claude-4.6-sonnet-medium-thinking', 'name': 'Claude 4.6 Sonnet Think', 'desc': '新一代推理', 'tier': 'pro'},
+    {'id': 'cu/claude-4.6-opus-max-thinking', 'name': 'Claude 4.6 Opus Think', 'desc': '最强推理链', 'tier': 'pro'},
+    {'id': 'ocg/glm-5.1', 'name': 'GLM-5.1', 'desc': '中文最强', 'tier': 'free'},
+    {'id': 'ocg/deepseek-v4-pro', 'name': 'DeepSeek V4 Pro', 'desc': '最强性价比', 'tier': 'free'},
+    {'id': 'gh/gpt-5-mini', 'name': 'GPT-5-Mini', 'desc': '快速免费', 'tier': 'free'},
+    {'id': 'gh/gpt-4o', 'name': 'GPT-4o', 'desc': 'GPT经典', 'tier': 'pro'},
+    {'id': 'gh/gpt-4.1', 'name': 'GPT-4.1', 'desc': '强推理', 'tier': 'pro'},
+    {'id': 'ocg/kimi-k2.6', 'name': 'Kimi-K2.6', 'desc': '长上下文', 'tier': 'free'},
+    {'id': 'openrouter/openrouter/free', 'name': 'Free', 'desc': '免费兜底', 'tier': 'free'},
+    {'id': 'cu/gpt-5.2', 'name': 'GPT-5.2', 'desc': 'OpenAI 旗舰', 'tier': 'pro'},
+    {'id': 'cu/gpt-5.2-codex', 'name': 'GPT-5.2 Codex', 'desc': '代码专精', 'tier': 'pro'},
+    {'id': 'cu/gpt-5.3-codex', 'name': 'GPT-5.3 Codex', 'desc': '最新代码', 'tier': 'pro'},
+    {'id': 'cu/claude-4.5-sonnet', 'name': 'Claude 4.5 Sonnet', 'desc': 'Anthropic 平衡', 'tier': 'pro'},
+    {'id': 'cu/claude-4.5-haiku', 'name': 'Claude 4.5 Haiku', 'desc': 'Anthropic 快速', 'tier': 'pro'},
+    {'id': 'cu/claude-4.5-opus', 'name': 'Claude 4.5 Opus', 'desc': 'Anthropic 高级', 'tier': 'pro'},
+    {'id': 'cu/claude-4.5-opus-high', 'name': 'Claude 4.5 Opus High', 'desc': 'Anthropic 旗舰', 'tier': 'pro'},
+    {'id': 'cu/claude-4.5-sonnet-thinking', 'name': 'Claude 4.5 Sonnet Think', 'desc': '带推理链', 'tier': 'pro'},
+    {'id': 'cu/claude-4.5-opus-high-thinking', 'name': 'Claude 4.5 Opus Think', 'desc': '旗舰推理链', 'tier': 'pro'},
+    {'id': 'cu/gemini-3-flash-preview', 'name': 'Gemini 3 Flash', 'desc': 'Google 预览', 'tier': 'pro'},
+    {'id': 'cu/kimi-k2.5', 'name': 'Kimi K2.5', 'desc': '月之暗面', 'tier': 'pro'},
   ];
   
   // 会话分组展开/收缩状态
@@ -244,6 +303,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
     debugPrint('📋 ChatPage initState 开始');
     
+    // 🆕 注册 useSkill 回调给 MainShell
+    widget.onRegisterUseSkill?.call(useSkill);
+    
+    // 🖥️ 检查设备切换标记（从 servers_page 切换设备后返回）
+    _checkDeviceSwitch();
+    
     // 🆕 初始化滚动监听
     _initScrollListener();
 
@@ -263,13 +328,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     
     // 加载模型偏好
     _loadModelPreference();
+
+    // 从 API 加载模型列表（与 Web 版对齐）
+    _loadModelsFromApi();
     
-    // 💾 启动时三步走：
-    // ① 从本地缓存恢复消息（即时显示）
-    // ② 从本地缓存恢复 session 列表（即时显示侧边栏）
-    // ③ WebSocket 连上后服务器同步
-    _restoreLastSession();
-    _loadSessionsLocal();  // 不 await，立即开始
+    // 💾 启动时序列化初始化（避免 _checkDeviceSwitch 和 _restoreLastSession 竞态）
+    _initSequence();
     
     // 捕获异步错误
     _loadSessions().catchError((e, stack) {
@@ -308,6 +372,24 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     debugPrint('📋 ChatPage initState 完成');
   }
 
+  /// 序列化初始化：device check → route args → restore session → load local
+  Future<void> _initSequence() async {
+    // 检查路由参数（从 side_menu 跳转过来切换会话）
+    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    if (args?['switchToSession'] != null) {
+      _currentSessionKey = args!['switchToSession'] as String;
+      debugPrint('📋 路由参数指定会话: $_currentSessionKey');
+      await _loadMessagesLocal(_currentSessionKey);
+      if (!mounted) return;
+    }
+    
+    await _checkDeviceSwitch();
+    if (!mounted) return;
+    await _restoreLastSession();
+    if (!mounted) return;
+    _loadSessionsLocal();
+  }
+
   /// 获取用户服务器信息（用于文件预览）
   Future<void> _loadUserServerInfo() async {
     try {
@@ -344,34 +426,38 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
 
   // 💾 保存消息到本地缓存（按服务器 IP 分开存）
+  bool _isSavingMessages = false;
+  
   Future<void> _saveMessagesLocal() async {
-    if (_isRestoringFromCache) return;  // 恢复期间不保存
-    if (_messages.isEmpty) return;
+    if (_isRestoringFromCache || _isSavingMessages) return;
+    if (_messages.isEmpty || _currentSessionKey == null) return;
+    _isSavingMessages = true;
     try {
-      final prefs = await SharedPreferences.getInstance();
-      // 🔥 按服务器 IP + sessionKey 组合存储，切换设备不会串数据
       final serverId = await _getCurrentServerId();
-      final cacheKey = 'msg_cache_${serverId}_${_currentSessionKey ?? 'default'}';
-      final jsonData = _messages.map((m) {
-        final map = <String, dynamic>{
-          'id': m.id,
-          'role': m.role,
-          'content': m.content,
-          'createdAt': m.createdAt.toIso8601String(),
-          'agentId': m.agentId,
-          'imageUrl': m.imageUrl,
-        };
-        return map;
+      final msgs = _messages.map((m) => {
+        'id': m.id,
+        'role': m.role,
+        'content': m.content,
+        'createdAt': m.createdAt.millisecondsSinceEpoch,
+        'agentId': m.agentId,
+        'imageUrl': m.imageUrl,
+        'audioUrl': m.audioUrl,
+        'documentInfo': m.documentInfo?.toJson(),
+        'modelInfo': m.modelInfo,
       }).toList();
-      await prefs.setString(cacheKey, jsonEncode(jsonData));
-      // 同时保存最后活跃会话（也按服务器区分）
-      if (_currentSessionKey != null) {
-        await prefs.setString('last_active_session_$serverId', _currentSessionKey!);
-        await prefs.setString('last_active_agent_$serverId', _currentAgent);
-      }
-      debugPrint('💾 已缓存 ${_messages.length} 条消息 (server: $serverId, session: ${_currentSessionKey ?? 'default'})');
+      await DatabaseService.upsertMessages(
+        serverId: serverId,
+        sessionKey: _currentSessionKey!,
+        messages: msgs,
+      );
+      // 保存最后活跃会话
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('last_active_session_$serverId', _currentSessionKey!);
+      await prefs.setString('last_active_agent_$serverId', _currentAgent);
     } catch (e) {
-      debugPrint('❌ 保存消息缓存失败: $e');
+      debugPrint('❌ 保存消息失败: $e');
+    } finally {
+      _isSavingMessages = false;
     }
   }
   
@@ -401,53 +487,75 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     return 'default';
   }
   
-  // 💾 从本地缓存加载消息（按服务器隔离）
+  // 💾 从本地数据库加载消息（按服务器隔离）
   Future<bool> _loadMessagesLocal(String? sessionKey) async {
+    if (sessionKey == null || sessionKey.isEmpty) return false;
     try {
-      final prefs = await SharedPreferences.getInstance();
       final serverId = await _getCurrentServerId();
-      final cacheKey = 'msg_cache_${serverId}_${sessionKey ?? 'default'}';
+      
+      // 1. 先尝试从 SQLite 读取
+      final rows = await DatabaseService.loadMessages(
+        serverId: serverId,
+        sessionKey: sessionKey,
+        limit: 200,
+      );
+      
+      if (rows.isNotEmpty) {
+        _isRestoringFromCache = true;
+        setState(() {
+          _messages = rows.map((m) => Message.fromJson(m)).toList();
+        });
+        _isRestoringFromCache = false;
+        debugPrint('💾 从数据库恢复了 ${_messages.length} 条消息 (session: $sessionKey)');
+        _scrollToBottom();
+        return true;
+      }
+      
+      // 2. SQLite 没有 → 尝试从旧 SharedPreferences 迁移
+      final prefs = await SharedPreferences.getInstance();
+      final cacheKey = 'msg_cache_${serverId}_${sessionKey}';
       final jsonStr = prefs.getString(cacheKey);
-      
-      if (jsonStr == null || jsonStr.isEmpty) return false;
-      
-      final List<dynamic> jsonData = jsonDecode(jsonStr);
-      if (jsonData.isEmpty) return false;
-      
-      _isRestoringFromCache = true;
-      setState(() {
-        _messages = jsonData.map((m) {
-          return Message(
-            id: m['id']?.toString() ?? '',
-            role: m['role']?.toString() ?? 'user',
-            content: m['content']?.toString() ?? '',
-            createdAt: DateTime.tryParse(m['createdAt']?.toString() ?? '') ?? DateTime.now(),
-            agentId: m['agentId']?.toString() ?? 'lingxi',
-            imageUrl: m['imageUrl']?.toString(),
+      if (jsonStr != null && jsonStr.isNotEmpty) {
+        debugPrint('🔄 从旧缓存迁移数据到 SQLite...');
+        final List<dynamic> jsonData = jsonDecode(jsonStr);
+        if (jsonData.isNotEmpty) {
+          final msgs = jsonData.cast<Map<String, dynamic>>();
+          // 写入 SQLite
+          await DatabaseService.upsertMessages(
+            serverId: serverId,
+            sessionKey: sessionKey,
+            messages: msgs,
           );
-        }).toList();
-      });
-      _isRestoringFromCache = false;
+          // 清除旧缓存
+          await prefs.remove(cacheKey);
+          debugPrint('✅ 迁移了 ${msgs.length} 条消息到 SQLite');
+          
+          _isRestoringFromCache = true;
+          setState(() {
+            _messages = msgs.map((m) => Message.fromJson(m)).toList();
+          });
+          _isRestoringFromCache = false;
+          _scrollToBottom();
+          return true;
+        }
+      }
       
-      debugPrint('💾 从缓存恢复了 ${_messages.length} 条消息 (session: ${sessionKey ?? 'default'})');
-      _scrollToBottom();
-      return true;
+      return false;
     } catch (e) {
       _isRestoringFromCache = false;
-      debugPrint('❌ 加载消息缓存失败: $e');
+      debugPrint('❌ 加载消息失败: $e');
       return false;
     }
   }
   
-  // 💾 清除指定会话的本地缓存（按服务器隔离）
+  // 💾 清除指定会话的本地数据库
   Future<void> _clearMessagesLocal(String? sessionKey) async {
+    if (sessionKey == null || sessionKey.isEmpty) return;
     try {
-      final prefs = await SharedPreferences.getInstance();
       final serverId = await _getCurrentServerId();
-      final cacheKey = 'msg_cache_${serverId}_${sessionKey ?? 'default'}';
-      await prefs.remove(cacheKey);
+      await DatabaseService.deleteMessages(serverId: serverId, sessionKey: sessionKey);
     } catch (e) {
-      debugPrint('❌ 清除消息缓存失败: $e');
+      debugPrint('❌ 清除消息失败: $e');
     }
   }
   
@@ -489,42 +597,71 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   Future<void> _saveSessionsLocal() async {
     if (_sessions.isEmpty) return;
     try {
-      final prefs = await SharedPreferences.getInstance();
       final serverId = await _getCurrentServerId();
-      final cacheKey = 'sessions_cache_$serverId';
-      await prefs.setString(cacheKey, jsonEncode(_sessions));
-      debugPrint('💾 已缓存 ${_sessions.length} 个会话 (server: $serverId)');
+      await DatabaseService.upsertSessions(serverId: serverId, sessions: _sessions);
+      debugPrint('💾 已保存 ${_sessions.length} 个会话到数据库 (server: $serverId)');
     } catch (e) {
-      debugPrint('❌ 保存会话缓存失败: $e');
+      debugPrint('❌ 保存会话失败: $e');
     }
   }
   
-  // 💾 从本地缓存加载 session 列表
+  // 💾 从本地数据库加载 session 列表
   Future<bool> _loadSessionsLocal() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
       final serverId = await _getCurrentServerId();
-      final cacheKey = 'sessions_cache_$serverId';
-      final jsonStr = prefs.getString(cacheKey);
+      final rows = await DatabaseService.loadSessions(serverId: serverId);
       
-      if (jsonStr == null || jsonStr.isEmpty) return false;
+      // SQLite 有数据
+      if (rows.isNotEmpty) {
+        setState(() {
+          _sessions = rows.map((s) {
+            final timestamp = s['timestamp'] as int? ?? DateTime.now().millisecondsSinceEpoch;
+            return {
+              ...s,
+              'relativeTime': _formatRelativeTime(timestamp),
+            };
+          }).toList();
+        });
+        debugPrint('💾 从数据库恢复了 ${_sessions.length} 个会话');
+      } else {
+        // 尝试从旧 SharedPreferences 迁移
+        final prefs = await SharedPreferences.getInstance();
+        final cacheKey = 'sessions_cache_$serverId';
+        final jsonStr = prefs.getString(cacheKey);
+        if (jsonStr != null && jsonStr.isNotEmpty) {
+          debugPrint('🔄 从旧缓存迁移 session 列表到 SQLite...');
+          final List<dynamic> decoded = jsonDecode(jsonStr);
+          if (decoded.isNotEmpty) {
+            final sessions = decoded.cast<Map<String, dynamic>>();
+            await DatabaseService.upsertSessions(serverId: serverId, sessions: sessions);
+            await prefs.remove(cacheKey);
+            setState(() {
+              _sessions = sessions.map((s) {
+                final timestamp = s['timestamp'] as int? ?? DateTime.now().millisecondsSinceEpoch;
+                return {
+                  ...s,
+                  'relativeTime': _formatRelativeTime(timestamp),
+                };
+              }).toList();
+            });
+            debugPrint('✅ 迁移了 ${sessions.length} 个会话到 SQLite');
+          }
+        }
+      }
       
-      final List<dynamic> decoded = jsonDecode(jsonStr);
-      if (decoded.isEmpty) return false;
+      if (_sessions.isEmpty) return false;
+      debugPrint('💾 从数据库恢复了 ${_sessions.length} 个会话');
       
-      setState(() {
-        _sessions = decoded.map((s) {
-          final map = s as Map<String, dynamic>;
-          // 更新相对时间（因为时间流逝了）
-          final timestamp = map['timestamp'] as int? ?? DateTime.now().millisecondsSinceEpoch;
-          return {
-            ...map,
-            'relativeTime': _formatRelativeTime(timestamp),
-          };
-        }).toList();
-      });
+      // 🆕 如果没有当前会话但有缓存会话列表，自动选择最新的
+      if (_currentSessionKey == null && _sessions.isNotEmpty) {
+        final firstKey = _sessions.first['key']?.toString();
+        if (firstKey != null && firstKey.isNotEmpty) {
+          debugPrint('💾 自动选择缓存中最新会话: $firstKey');
+          setState(() { _currentSessionKey = firstKey; });
+          _loadMessagesLocal(firstKey);
+        }
+      }
       
-      debugPrint('💾 从缓存恢复了 ${_sessions.length} 个会话');
       return true;
     } catch (e) {
       debugPrint('❌ 加载会话缓存失败: $e');
@@ -538,6 +675,35 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
 
   // 💾 恢复最后活跃会话（按服务器隔离，启动时即时显示缓存）
+  /// 🖥️ 检查设备切换：如果从 servers_page 切换了设备，清空旧数据重新初始化
+  Future<void> _checkDeviceSwitch() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final needRefresh = prefs.getBool('need_refresh_after_switch') ?? false;
+      if (!needRefresh) return;
+      
+      debugPrint('🖥️ 检测到设备切换标记，清空旧数据...');
+      await prefs.remove('need_refresh_after_switch');
+      
+      // 清空旧消息和会话
+      setState(() {
+        _messages.clear();
+        _currentSessionKey = null;
+        _sessions.clear();
+      });
+      
+      // ⚠️ 不要调 ws.reset()！
+      // servers_page 已经 reconnected 到新设备，WS 连接是好的
+      // reset 会掐断刚建好的新连接，导致后续加载全部失败
+      
+      // 不主动加载 session，等 WS connected 事件里 _loadSessionsFromServer() 来处理
+      // （connected handler 在调完 _checkDeviceSwitch 后会自动调 _loadSessionsFromServer）
+      debugPrint('🖥️ 设备切换：已清空旧数据，等待 WS 加载新设备的会话...');
+    } catch (e) {
+      debugPrint('🖥️ 设备切换检查失败: \$e');
+    }
+  }
+
   Future<void> _restoreLastSession() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -555,6 +721,21 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         });
         // 从本地缓存加载消息（即时显示）
         await _loadMessagesLocal(lastSession);
+      } else if (_sessions.isNotEmpty) {
+        // 没有 last_active_session 但有会话列表，自动选择最新的会话
+        final firstSession = _sessions.first;
+        final firstKey = firstSession['key']?.toString();
+        if (firstKey != null && firstKey.isNotEmpty) {
+          debugPrint('💾 无上次会话记录，自动选择最新会话: $firstKey');
+          setState(() {
+            _currentSessionKey = firstKey;
+            final agentId = firstSession['agentId']?.toString();
+            if (agentId != null && _agents.containsKey(agentId)) {
+              _currentAgent = agentId;
+            }
+          });
+          await _loadMessagesLocal(firstKey);
+        }
       }
     } catch (e) {
       debugPrint('❌ 恢复最后会话失败: $e');
@@ -629,12 +810,18 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     
     // 💾 先从本地缓存加载（即时显示）
     _loadMessagesLocal(sessionKey).then((loaded) {
-      // 再从服务器增量同步最新消息
-      _loadMessageHistory(sessionKey, incremental: true);
+      if (loaded) {
+        // 有缓存，增量同步最新消息
+        _loadMessageHistory(sessionKey, incremental: true);
+      } else {
+        // 无缓存，全量加载（即使 WS 没连也尝试）
+        _loadMessageHistory(sessionKey, incremental: false);
+        debugPrint('📋 无本地缓存，等待服务器历史消息');
+      }
     });
   }
 
-  void _deleteSession(String sessionKey) {
+  void _deleteSession(String sessionKey) async {
     setState(() {
       _sessions.removeWhere((s) => s['key'] == sessionKey);
       if (_currentSessionKey == sessionKey) {
@@ -643,6 +830,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       }
     });
     _saveSessions();
+    // 从数据库删除（await 确保完成）
+    try {
+      final serverId = await _getCurrentServerId();
+      await DatabaseService.deleteSession(serverId: serverId, sessionKey: sessionKey);
+    } catch (e) {
+      debugPrint('❌ 删除会话数据库记录失败: $e');
+    }
   }
   
   /// 更新或创建会话记录（从服务器响应中获取真实 sessionKey）
@@ -704,7 +898,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       });
     }
     
-    ws.addListener((data) {
+    _wsListener = (Map<String, dynamic> data) {
       if (!mounted) return;
       
       try {
@@ -722,12 +916,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         }
         
         if (data['type'] == 'connected') {
-          // 防止重复处理
-          if (_wsConnected && _wsStatus == '已连接') {
-            debugPrint('🔔 已处理过 connected 事件，跳过');
-            return;
-          }
-          
           debugPrint('🔔 收到 connected 事件，开始处理');
           setState(() {
             _wsConnected = true;
@@ -745,16 +933,19 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             });
           }
           
-          // 异步加载会话，添加错误处理
+          // 异步处理设备切换检查 + 加载会话
           Future.microtask(() async {
             try {
+              // 🖥️ 检查设备切换标记（从 servers_page 切换设备后 WS 会重连）
+              await _checkDeviceSwitch();
+              
               debugPrint('🔄 开始加载会话列表...');
-              await Future.delayed(const Duration(milliseconds: 500));
+              await Future.delayed(const Duration(milliseconds: 300));
               _loadSessionsFromServer();
               
-              // 🆕 如果有当前会话，增量同步最新消息（处理后台完成的回复）
+              // 如果有当前会话，增量同步最新消息
               if (_currentSessionKey != null) {
-                await Future.delayed(const Duration(milliseconds: 300));
+                await Future.delayed(const Duration(milliseconds: 200));
                 _loadMessageHistory(_currentSessionKey!, incremental: true);
               }
               
@@ -833,6 +1024,22 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       content.contains('EXTERNAL, UNTRUSTED source')) {
                     debugPrint('⏭️ 跳过内部处理信息');
                     return null;
+                  }
+                  
+                  // 🚫 过滤心跳/系统事件消息（精确匹配）
+                  if (content.trim() == 'HEARTBEAT_OK' || content.trim() == 'NO_REPLY') {
+                    return null;
+                  }
+                  if (content.trim().startsWith('Read HEARTBEAT.md') && content.trim().length < 100) {
+                    return null;
+                  }
+                  
+                  // 🚫 过滤 exec/system 通知类消息
+                  if (content.contains('Exec completed') || content.contains('Exec failed')) {
+                    if (content.contains('HEARTBEAT') || content.contains('Read HEARTBEAT.md')) {
+                      debugPrint('⏭️ 跳过系统通知消息');
+                      return null;
+                    }
                   }
                   
                   // 🔍 提取图片 URL（从 attachments 或 parts）
@@ -932,14 +1139,27 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                     }
                   }
                   
+                  // 🆕 提取模型信息（从 history 的 model/usage 字段）
+                  Map<String, dynamic>? historyModelInfo;
+                  final hModel = map['model']?.toString() ?? map['modelProvider']?.toString();
+                  final hUsage = map['usage'] as Map?;
+                  if (hModel != null || hUsage != null) {
+                    historyModelInfo = {
+                      'model': hModel ?? 'auto',
+                      'inputTokens': hUsage?['input'] ?? hUsage?['inputTokens'],
+                      'outputTokens': hUsage?['output'] ?? hUsage?['outputTokens'],
+                    };
+                  }
+                  
                   return Message(
                     id: messageId,
                     role: role,
                     content: _extractText(map) ?? _toString(map['content']),
                     createdAt: createdAt,
                     agentId: msgAgentId,
-                    imageUrl: imageUrl,  // 👈 添加图片 URL
-                    documentInfo: documentInfo,  // 🆕 添加文档信息
+                    imageUrl: imageUrl,  // 添加图片 URL
+                    documentInfo: documentInfo,  // 添加文档信息
+                    modelInfo: historyModelInfo,  // 添加模型信息
                   );
                 }).whereType<Message>().toList();  // 🚫 过滤掉 null 值（工具调用结果等）
               
@@ -1063,18 +1283,30 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         
         if (state == 'delta') {
           final text = _extractText(payload['message']);
+          
+          // 🚫 过滤心跳/系统消息（精确匹配，避免误杀正常消息）
+          if (text != null) {
+            final t = text.trim();
+            if (t == 'HEARTBEAT_OK' || t == 'NO_REPLY') return;
+            if (t.startsWith('Read HEARTBEAT.md') && t.length < 100) return;
+          }
+          
           final audioUrl = payload['audio_url']?.toString();  // 🆕 提取音频 URL
           if (text != null && runId != null && runId.isNotEmpty) {
             setState(() {
               final existingIndex = _messages.indexWhere((m) => m.id == runId);
               if (existingIndex >= 0) {
+                final old = _messages[existingIndex];
                 _messages[existingIndex] = Message(
                   id: runId,
                   role: 'assistant',
                   content: text,
-                  createdAt: DateTime.now(),
+                  createdAt: old.createdAt,  // 保留原始时间
                   agentId: _currentAgent,
-                  audioUrl: audioUrl,  // 🆕
+                  audioUrl: audioUrl ?? old.audioUrl,  // 保留音频
+                  imageUrl: old.imageUrl,  // 保留图片
+                  documentInfo: old.documentInfo,  // 保留文档
+                  modelInfo: old.modelInfo,  // 保留模型信息
                 );
               } else {
                 _messages.add(Message(
@@ -1083,17 +1315,39 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   content: text,
                   createdAt: DateTime.now(),
                   agentId: _currentAgent,
-                  audioUrl: audioUrl,  // 🆕
+                  audioUrl: audioUrl,  // 保留音频
+                  modelInfo: null,  // final 阶段填充
                 ));
               }
             });
             _scrollToBottom();
           }
         } else if (state == 'final') {
+          // 🚫 过滤心跳/系统消息
+          final finalText = _extractText(payload['message']);
+          if (finalText != null && (finalText.contains('HEARTBEAT_OK') || finalText.contains('HEARTBEAT.md') || finalText.trim() == 'HEARTBEAT_OK')) {
+            debugPrint('⏭️ 跳过心跳 final 消息');
+            setState(() { _isGenerating = false; });
+            return;
+          }
+          
+          // 🆕 提取模型信息
+          final modelInfo = payload['modelInfo'] as Map<String, dynamic>?;
+          
           setState(() {
             _isGenerating = false;
             _queuePosition = 0;
             _queueTotal = 0;
+            
+            // 更新最后一条消息的模型信息
+            if (modelInfo != null && _messages.isNotEmpty) {
+              final lastAssistantIdx = _messages.lastIndexWhere((m) => m.role == 'assistant');
+              if (lastAssistantIdx >= 0) {
+                _messages[lastAssistantIdx] = _messages[lastAssistantIdx].copyWith(
+                  modelInfo: modelInfo,
+                );
+              }
+            }
           });
           // 💾 对话完成后保存消息缓存
           _saveMessagesLocal();
@@ -1134,10 +1388,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           });
         }
       }
-      } catch (e, stack) {
-        debugPrint('❌ WebSocket 消息处理异常: $e\nStack: $stack');
-      }
-    });
+    } catch (e, stack) {
+      debugPrint('❌ WebSocket 消息处理异常: $e\nStack: $stack');
+    }
+  };
+  ws.addListener(_wsListener!);
     
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (ws.isConnected || ws.isConnecting) {
@@ -1468,6 +1723,21 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       // 💾 保存 session 列表到本地缓存
       _saveSessionsLocal();
       
+      // 🆕 服务器会话列表加载后，如果没有当前会话，自动选择最新的
+      if (_currentSessionKey == null && _sessions.isNotEmpty) {
+        final firstKey = _sessions.first['key']?.toString();
+        if (firstKey != null && firstKey.isNotEmpty) {
+          debugPrint('💾 服务器会话列表返回，自动选择最新会话: $firstKey');
+          setState(() { _currentSessionKey = firstKey; });
+          _loadMessagesLocal(firstKey).then((loaded) {
+            // 缓存加载后再增量同步
+            if (WebSocketService().isConnected) {
+              _loadMessageHistory(firstKey, incremental: true);
+            }
+          });
+        }
+      }
+      
       debugPrint('✅ 解析了 ${_sessions.length} 个会话（无额外请求）');
     } catch (e, stack) {
       debugPrint('❌ _parseSessions 异常: $e\nStack: $stack');
@@ -1524,7 +1794,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     try {
       final ws = WebSocketService();
       if (!ws.isConnected) {
-        debugPrint('⚠️ WebSocket 未连接，无法加载历史消息');
+        debugPrint('⚠️ WebSocket 未连接，尝试 HTTP fallback 加载历史消息');
+        _loadMessageHistoryHTTP(sessionKey, limit: limit);
         return;
       }
       debugPrint('📚 发送 chat.history 请求，sessionKey: $sessionKey, incremental: $incremental, limit: $limit');
@@ -1544,6 +1815,24 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     }
   }
 
+  /// WS 未连接时的 fallback：尝试重连 WS 然后请求历史消息
+  Future<void> _loadMessageHistoryHTTP(String sessionKey, {int limit = 20}) async {
+    try {
+      final ws = WebSocketService();
+      debugPrint('📚 尝试重连 WebSocket 以加载历史消息...');
+      await ws.connect().timeout(const Duration(seconds: 5));
+      // 等连接建立后再发请求
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (ws.isConnected) {
+        _loadMessageHistory(sessionKey, incremental: false, limit: limit);
+      } else {
+        debugPrint('❌ WebSocket 重连失败，无法加载历史消息');
+      }
+    } catch (e) {
+      debugPrint('❌ WebSocket 重连失败: $e');
+    }
+  }
+
   @override
   void dispose() {
     _controller.dispose();
@@ -1553,8 +1842,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
 
     try {
-      WebSocketService().clearListeners();
-      debugPrint('✅ WebSocket 监听器已清理');
+      if (_wsListener != null) {
+        WebSocketService().removeListener(_wsListener!);
+        _wsListener = null;
+        debugPrint('✅ WebSocket 监听器已移除（不影响其他页面）');
+      }
     } catch (e) {
       debugPrint('❌ 清理 WebSocket 监听器失败: $e');
     }
@@ -1571,6 +1863,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         debugPrint('📱 App 回到前台');
         _isAppInBackground = false;
         
+        // 🖥️ 检查是否从设备切换页面返回
+        _checkDeviceSwitch();
+        
         // 🔥 直接重置生成状态（避免卡住的感觉）
         if (_isGenerating) {
           debugPrint('📱 后台切回，重置生成状态');
@@ -1581,14 +1876,30 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           });
         }
         
-        // 恢复最后会话（如果没有当前会话）
+        // 🔌 WebSocket 断开时主动重连
+        final ws = WebSocketService();
+        if (!ws.isConnected) {
+          debugPrint('📱 WebSocket 未连接，主动重连...');
+          ws.forceReconnect();
+        }
+        
+        // 恢复会话内容（消息被清空时重新加载）
         if (_currentSessionKey == null && _messages.isEmpty) {
           debugPrint('📱 无当前会话，尝试恢复最后活跃会话');
           _restoreLastSession();
+        } else if (_currentSessionKey != null && _messages.isEmpty) {
+          // 有 sessionKey 但消息为空（widget 重建/内存回收），从缓存恢复
+          debugPrint('📱 会话消息为空，从缓存恢复: $_currentSessionKey');
+          _loadMessagesLocal(_currentSessionKey).then((loaded) {
+            if (!loaded) {
+              // 缓存也没有，从服务器加载
+              _loadMessageHistory(_currentSessionKey!, incremental: false);
+            }
+          });
         }
         
-        // 增量同步最新消息
-        if (_currentSessionKey != null && WebSocketService().isConnected) {
+        // 增量同步最新消息（WebSocket 已连接时）
+        if (_currentSessionKey != null && ws.isConnected) {
           debugPrint('📱 后台切回，增量同步最新消息');
           _loadMessageHistory(_currentSessionKey!, incremental: true);
         }
@@ -1704,9 +2015,15 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         }
       }
       
-      // 2. 上传到服务器
+      // 2. 上传到服务器（带认证 token）
       final apiUrl = '${Constants.baseUrl}/api/upload/image';
       final request = http.MultipartRequest('POST', Uri.parse(apiUrl));
+      // 携带认证 token
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('lingxi_token');
+      if (token != null && token.isNotEmpty) {
+        request.headers['Authorization'] = 'Bearer $token';
+      }
       
       // 👈 读取文件并明确指定 MIME 类型
       String mimeType;
@@ -2176,8 +2493,14 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
 
   void _sendMessage() {
-    final text = _controller.text.trim();
+    var text = _controller.text.trim();
     final hasImage = _pendingImageUrl != null;
+    
+    // 🆕 如果有技能 tags，在消息前加前缀
+    if (_skillTags.isNotEmpty) {
+      final tagPrefix = _skillTags.map((t) => '[技能: ${t.name}]').join(' ');
+      text = '$tagPrefix $text'.trim();
+    }
     
     // 如果没有文字也没有图片，不发送
     if (text.isEmpty && !hasImage) return;
@@ -2195,6 +2518,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     if (!canUseWs) {
       // WebSocket 不可用 → HTTP 路径（所有用户都可用）
       debugPrint('📋 WebSocket 不可用，走 HTTP 路径');
+      _clearSkillTags();  // 🆕 发送前先清除 tags
       _sendMessageForFreeUser(text, hasImage);
       return;
     }
@@ -2202,6 +2526,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     debugPrint('📋 走 WebSocket 路径');
 
     _controller.clear();
+    _clearSkillTags();  // 🆕 发送后清除 tags
     
     // 🎨 区分图片和文档
     DocumentInfo? docInfo;
@@ -2891,7 +3216,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     );
   }
 // 构建文本输入区域（悬浮圆角卡片，上下分区，对齐 Web 端高级感）
-  Widget _buildTextInputArea(bool isDarkMode) {
+  Widget _buildTextInputArea(bool isDarkMode, bool isFreeUser) {
     final hasText = _controller.text.isNotEmpty;
     final showTools = !hasText && _pendingImageUrl == null && !_isGenerating;
 
@@ -2911,6 +3236,46 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // 🆕 技能 tags 区域（条件渲染）
+          if (_skillTags.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: _skillTags.map((tag) => Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Constants.primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: Constants.primaryColor.withOpacity(0.2),
+                      width: 0.5,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.auto_awesome, size: 12, color: Constants.primaryColor),
+                      const SizedBox(width: 4),
+                      Text(
+                        tag.name,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Constants.primaryColor,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      GestureDetector(
+                        onTap: () => _removeSkillTag(tag.id),
+                        child: Icon(Icons.close, size: 14, color: Constants.primaryColor.withOpacity(0.6)),
+                      ),
+                    ],
+                  ),
+                )).toList(),
+              ),
+            ),
           // 图片预览区域
           if (_pendingImageUrl != null)
             Container(
@@ -3015,23 +3380,54 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       _buildToolButton(Icons.camera_alt_outlined, () async {
-                        final picker = ImagePicker();
-                        final XFile? file = await picker.pickImage(source: ImageSource.camera);
-                        if (file != null) {
-                          await _selectImageFromXFile(file);
+                        // 请求相机权限
+                        final status = await Permission.camera.request();
+                        if (status.isGranted) {
+                          final picker = ImagePicker();
+                          final XFile? file = await picker.pickImage(source: ImageSource.camera);
+                          if (file != null) {
+                            await _selectImageFromXFile(file);
+                          }
+                        } else {
+                          debugPrint('❌ 相机权限被拒绝');
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('需要相机权限才能拍照')),
+                            );
+                          }
                         }
                       }, isDarkMode),
                       _buildToolButton(Icons.attach_file_rounded, () async {
-                        final result = await file_picker.FilePicker.platform.pickFiles(
-                          type: file_picker.FileType.custom,
-                          allowedExtensions: [
-                            'jpg', 'jpeg', 'png', 'gif', 'webp',
-                            'pdf', 'txt', 'md', 'html', 'csv', 'json',
-                          ],
-                          allowCompression: false,
-                        );
-                        if (result != null && result.files.isNotEmpty) {
-                          await _selectFile(result.files.first);
+                        // 请求存储权限
+                        PermissionStatus status;
+                        if (await Permission.photos.isGranted) {
+                          status = PermissionStatus.granted;
+                        } else {
+                          status = await Permission.photos.request();
+                          if (!status.isGranted) {
+                            // Android 12 及以下用 READ_EXTERNAL_STORAGE
+                            status = await Permission.storage.request();
+                          }
+                        }
+                        if (status.isGranted || await Permission.storage.isGranted) {
+                          final result = await file_picker.FilePicker.platform.pickFiles(
+                            type: file_picker.FileType.custom,
+                            allowedExtensions: [
+                              'jpg', 'jpeg', 'png', 'gif', 'webp',
+                              'pdf', 'txt', 'md', 'html', 'csv', 'json',
+                            ],
+                            allowCompression: false,
+                          );
+                          if (result != null && result.files.isNotEmpty) {
+                            await _selectFile(result.files.first);
+                          }
+                        } else {
+                          debugPrint('❌ 存储权限被拒绝');
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('需要存储权限才能选择文件')),
+                            );
+                          }
                         }
                       }, isDarkMode),
                       _buildToolButton(Icons.mic_rounded, _speechEnabled
@@ -3045,7 +3441,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             ),
           ),
           // 模型下拉面板
-          if (_showModelDropdown) _buildModelDropdown(isDarkMode),
+          if (_showModelDropdown) _buildModelDropdown(isDarkMode, isFreeUser),
         ],
       ),
     );
@@ -3175,9 +3571,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
 
   // 模型下拉面板（对齐 Web model-dropdown）
-  Widget _buildModelDropdown(bool isDarkMode) {
+  Widget _buildModelDropdown(bool isDarkMode, bool isFreeUser) {
     return Container(
       margin: const EdgeInsets.fromLTRB(8, 0, 8, 6),
+      constraints: const BoxConstraints(maxHeight: 360),
       decoration: BoxDecoration(
         color: isDarkMode ? const Color(0xFF2D2D30) : Constants.surfaceColor,
         borderRadius: BorderRadius.circular(Constants.radiusMd),
@@ -3188,13 +3585,15 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 16, offset: const Offset(0, 4)),
         ],
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: _models.map((m) {
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: _models.map((m) {
           final isActive = m['id'] == _selectedModel;
           final isPro = m['tier'] == 'pro';
+          final isLocked = isPro && isFreeUser; // 免费用户锁 pro 模型
           return GestureDetector(
-            onTap: () {
+            onTap: isLocked ? null : () {
               setState(() {
                 _selectedModel = m['id']!;
                 _showModelDropdown = false;
@@ -3216,21 +3615,23 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${m['name']}${isPro ? ' 🔒' : ''}',
+                          '${m['name']}${isLocked ? ' 🔒' : (isPro ? ' ⭐' : '')}',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
-                            color: isPro && !isActive
-                              ? (isDarkMode ? Colors.white38 : Constants.textTertiaryColor)
+                            color: isLocked
+                              ? (isDarkMode ? Colors.white24 : Constants.textTertiaryColor)
                               : (isDarkMode ? const Color(0xFFECECF1) : Constants.textPrimaryColor),
                           ),
                         ),
                         const SizedBox(height: 1),
                         Text(
-                          m['desc'] ?? '',
+                          isLocked ? '订阅可用' : (m['desc'] ?? ''),
                           style: TextStyle(
                             fontSize: 11,
-                            color: isDarkMode ? const Color(0xFF6E6E80) : Constants.textTertiaryColor,
+                            color: isLocked
+                              ? const Color(0xFFEAB308)
+                              : (isDarkMode ? const Color(0xFF6E6E80) : Constants.textTertiaryColor),
                           ),
                         ),
                       ],
@@ -3243,18 +3644,22 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             ),
           );
         }).toList(),
+        ),
       ),
     );
   }
 
-  // 保存模型偏好到后端
+  // 保存模型偏好到本地 + 后端
   Future<void> _saveModelPreference(String modelId) async {
     final prefs = await SharedPreferences.getInstance();
+    // 本地缓存（与 Web localStorage 对齐）
+    await prefs.setString('lingxi_selected_model', modelId);
+    // 同步到后端
     final token = prefs.getString(Constants.storageAccessToken);
     if (token == null) return;
     try {
       await http.post(
-        Uri.parse('${Constants.baseUrl}/api/user/model-preference'),
+        Uri.parse('${Constants.baseUrl}/api/user-models/preference'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -3266,14 +3671,59 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     }
   }
 
-  // 加载模型偏好
+  // 从 API 动态加载模型列表（与 Web 版对齐）
+  Future<void> _loadModelsFromApi() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString(Constants.storageAccessToken);
+      final headers = <String, String>{};
+      if (token != null) headers['Authorization'] = 'Bearer $token';
+
+      final res = await http.get(
+        Uri.parse('${Constants.baseUrl}/api/user-models'),
+        headers: headers,
+      ).timeout(const Duration(seconds: 5));
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final List<dynamic> apiModels = data['availableModels'] ?? [];
+        if (apiModels.isNotEmpty) {
+          final models = apiModels.map<Map<String, String>>((m) => {
+            'id': (m['id'] ?? '').toString(),
+            'name': (m['name'] ?? '').toString(),
+            'desc': (m['desc'] ?? '').toString(),
+            'tier': (m['tier'] ?? 'free').toString(),
+          }).where((m) => m['id']!.isNotEmpty).toList();
+          if (mounted && models.isNotEmpty) {
+            setState(() { _models = models; });
+          }
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('⚠️ 加载模型列表失败，使用 fallback: $e');
+    }
+    // Fallback: 使用硬编码列表
+    if (mounted && _models.isEmpty) {
+      setState(() { _models = List.from(_fallbackModels); });
+    }
+  }
+
+  // 加载模型偏好（本地缓存 + 后端同步）
   Future<void> _loadModelPreference() async {
     final prefs = await SharedPreferences.getInstance();
+    // 本地缓存优先（与 Web localStorage 对齐）
+    final local = prefs.getString('lingxi_selected_model');
+    if (local != null && local.isNotEmpty) {
+      setState(() { _selectedModel = local; });
+      return;
+    }
+    // 回退：从后端获取
     final token = prefs.getString(Constants.storageAccessToken);
     if (token == null) return;
     try {
       final res = await http.get(
-        Uri.parse('${Constants.baseUrl}/api/user/model-preference'),
+        Uri.parse('${Constants.baseUrl}/api/user-models/preference'),
         headers: {'Authorization': 'Bearer $token'},
       );
       final data = jsonDecode(res.body);
@@ -5063,6 +5513,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                                 imageUrl: _messages[i].imageUrl,
                                 audioUrl: _messages[i].audioUrl,
                                 documentInfo: _messages[i].documentInfo,  // 🆕 传递文档信息
+                                modelInfo: _messages[i].modelInfo,  // 🆕 传递模型信息
                                 serverIp: _userServerIp,
                                 serverPort: _userServerPort,
                                 serverToken: _userServerToken,
@@ -5090,14 +5541,15 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   ? 6
                   : MediaQuery.of(context).padding.bottom + 10,
             ),
-            child: ClipRect(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(Constants.radiusLg),
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                 child: SafeArea(
                   top: false,
                   child: _showVoiceInput 
                       ? _buildVoiceInputArea(isDarkMode)
-                      : _buildTextInputArea(isDarkMode),
+                      : _buildTextInputArea(isDarkMode, isFreeUser),
                 ),
               ),
             ),
@@ -5276,6 +5728,7 @@ class _MessageBubble extends StatelessWidget {
   final String? serverIp;
   final int? serverPort;
   final String? serverToken;
+  final Map<String, dynamic>? modelInfo;  // 🆕 模型信息
 
   const _MessageBubble({
     required this.content,
@@ -5289,12 +5742,67 @@ class _MessageBubble extends StatelessWidget {
     this.serverIp,
     this.serverPort,
     this.serverToken,
+    this.modelInfo,  // 🆕
   });
 
   // 提取音频文件路径
   static List<String> extractAudioFiles(String text) {
     final regex = RegExp(r'MEDIA:([^\s\n]+)');
     return regex.allMatches(text).map((m) => m.group(1)!).toList();
+  }
+
+  // 🆕 格式化模型名称
+  static String _formatModelName(String model) {
+    if (model.isEmpty || model == 'auto') return 'Auto';
+    final name = model.contains('/') ? model.split('/').last : model;
+    const displayMap = {
+      'deepseek-v4-pro': 'DeepSeek V4 Pro',
+      'glm-5.1': 'GLM-5.1',
+      'glm-5': 'GLM-5',
+      'glm-4': 'GLM-4',
+      'gpt-4o': 'GPT-4o',
+      'gpt-4o-mini': 'GPT-4o Mini',
+      'gpt-4.1': 'GPT-4.1',
+      'gpt-5-mini': 'GPT-5 Mini',
+      'kimi-k2.6': 'Kimi K2.6',
+      'qwen3-max-2026-01-23': 'Qwen3 Max',
+      'qwen3.5-plus': 'Qwen3.5 Plus',
+      'gpt-5.2': 'GPT-5.2',
+      'gpt-5.2-codex': 'GPT-5.2 Codex',
+      'gpt-5.3-codex': 'GPT-5.3 Codex',
+      'gpt-5.5-high-fast': 'GPT-5.5 Fast',
+      'gpt-5.5-high': 'GPT-5.5',
+      'claude-4.5-sonnet': 'Claude 4.5 Sonnet',
+      'claude-4.5-haiku': 'Claude 4.5 Haiku',
+      'claude-4.5-opus': 'Claude 4.5 Opus',
+      'claude-4.5-opus-high': 'Claude 4.5 Opus High',
+      'claude-4.6-opus-max': 'Claude 4.6 Opus',
+      'claude-4.5-sonnet-thinking': 'Claude 4.5 Sonnet Think',
+      'claude-4.5-opus-high-thinking': 'Claude 4.5 Opus Think',
+      'claude-4.6-opus-max-thinking': 'Claude 4.6 Opus Think',
+      'claude-4.6-sonnet-medium-thinking': 'Claude 4.6 Sonnet Think',
+      'gemini-3-flash-preview': 'Gemini 3 Flash',
+      'kimi-k2.5': 'Kimi K2.5',
+      'default': 'Cursor Auto',
+      'cu/default': 'Cursor Auto',
+      'cu/gpt-5.2': 'GPT-5.2',
+      'cu/gpt-5.2-codex': 'GPT-5.2 Codex',
+      'cu/gpt-5.3-codex': 'GPT-5.3 Codex',
+      'cu/gpt-5.5-high-fast': 'GPT-5.5 Fast',
+      'cu/gpt-5.5-high': 'GPT-5.5',
+      'cu/claude-4.5-sonnet': 'Claude 4.5 Sonnet',
+      'cu/claude-4.5-haiku': 'Claude 4.5 Haiku',
+      'cu/claude-4.5-opus': 'Claude 4.5 Opus',
+      'cu/claude-4.5-opus-high': 'Claude 4.5 Opus High',
+      'cu/claude-4.6-opus-max': 'Claude 4.6 Opus',
+      'cu/claude-4.5-sonnet-thinking': 'Claude 4.5 Sonnet Think',
+      'cu/claude-4.5-opus-high-thinking': 'Claude 4.5 Opus Think',
+      'cu/claude-4.6-opus-max-thinking': 'Claude 4.6 Opus Think',
+      'cu/claude-4.6-sonnet-medium-thinking': 'Claude 4.6 Sonnet Think',
+      'cu/gemini-3-flash-preview': 'Gemini 3 Flash',
+      'cu/kimi-k2.5': 'Kimi K2.5',
+    };
+    return displayMap[name] ?? displayMap[model] ?? name;
   }
   
   // 🆕 构建历史文档卡片
@@ -5638,6 +6146,47 @@ class _MessageBubble extends StatelessWidget {
               // 使用 SelectionArea 支持文本选择和复制
               SelectionArea(
                 child: Text(displayContent.trim(), style: TextStyle(color: textColor)),
+              ),
+            // 🆕 模型信息标签（仅 AI 消息显示）
+            if (!isUser && modelInfo != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: Border(top: BorderSide(color: Colors.black.withOpacity(0.04))),
+                  ),
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10a37f).withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          _formatModelName(modelInfo!['model']?.toString() ?? 'auto'),
+                          style: const TextStyle(
+                            color: Color(0xFF10a37f),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      if (modelInfo!['inputTokens'] != null) ...[
+                        const SizedBox(width: 6),
+                        Text(
+                          '↑${modelInfo!['inputTokens']} ↓${modelInfo!['outputTokens'] ?? 0}',
+                          style: TextStyle(
+                            color: isDarkMode ? Colors.grey.shade500 : Colors.grey.shade400,
+                            fontSize: 10,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
               ),
           ],
         ),
@@ -5983,6 +6532,13 @@ class _SpinProgressPainter extends CustomPainter {
   
   @override
   bool shouldRepaint(covariant _SpinProgressPainter old) => old.progress != progress;
+}
+
+// 🆕 技能 Tag 数据类
+class _SkillTag {
+  final String id;
+  final String name;
+  _SkillTag({required this.id, required this.name});
 }
 
 /// 持续旋转的圆环（豆包风格停止按钮外圈）

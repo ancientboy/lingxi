@@ -4,6 +4,7 @@ import 'package:lingxicloud/providers/app_provider.dart';
 import 'package:lingxicloud/utils/constants.dart';
 import 'package:lingxicloud/services/api_service.dart';
 import 'package:lingxicloud/pages/login_page.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -315,6 +316,35 @@ class _SettingsPageState extends State<SettingsPage> {
                 Provider.of<AppProvider>(context, listen: false).logout();
               });
             },
+          ),
+
+          // 备案信息
+          const SizedBox(height: 32),
+          Center(
+            child: Column(
+              children: [
+                Text(
+                  'Lume v1.0.0',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDarkMode ? Colors.white38 : Constants.textLightColor,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                GestureDetector(
+                  onTap: () => launchUrl(Uri.parse('https://beian.miit.gov.cn')),
+                  child: Text(
+                    '浙ICP备2026013667号-2A',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDarkMode ? Colors.white38 : Constants.textLightColor,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
           ),
         ],
       ),

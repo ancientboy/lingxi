@@ -15,13 +15,17 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
 
-  // Lazy-loaded pages
-  static const List<Widget> _pages = [
-    ChatPage(),
-    SkillsPage(),
-    ToolsPage(),
-    ProfilePage(),
-  ];
+  // 🆕 ChatPage 回调：由 ChatPage 在 initState 时注册
+  void Function(String skillId, String skillName, String example)? _chatUseSkill;
+
+  // 🆕 切换到聊天页并使用技能
+  void switchToChatWithSkill(String skillId, String skillName, String example) {
+    setState(() => _currentIndex = 0);
+    // 使用 WidgetsBinding 确保在 build 完成后调用
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _chatUseSkill?.call(skillId, skillName, example);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +37,12 @@ class _MainShellState extends State<MainShell> {
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
-        children: _pages,
+        children: [
+          ChatPage(onRegisterUseSkill: (fn) => _chatUseSkill = fn),
+          SkillsPage(onUseSkill: switchToChatWithSkill),
+          ToolsPage(),
+          ProfilePage(),
+        ],
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(

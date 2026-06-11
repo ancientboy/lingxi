@@ -2,7 +2,7 @@
  * OpenClaw WebSocket RPC 客户端
  * 通过 WebSocket 连接用户 OpenClaw Gateway 并调用 RPC 方法
  *
- * 连接流程（protocol v3 + challenge-response）：
+ * 连接流程（protocol v4 + challenge-response）：
  * 1. 连接 WS → Gateway 自动发 connect.challenge 事件（含 nonce）
  * 2. 用 Ed25519 设备签名 + token 发 connect 请求
  * 3. 收到 connect res（ok=true）后发 RPC 请求
@@ -117,8 +117,8 @@ export async function callOpenClawRPC(userServer, method, params = {}, options =
           }
 
           const connectParams = {
-            minProtocol: 3,
-            maxProtocol: 3,
+            minProtocol: 4,
+            maxProtocol: 4,
             client: { id: clientId, displayName, version: '1.0.0', platform: 'linux', mode: clientMode },
             role,
             scopes,

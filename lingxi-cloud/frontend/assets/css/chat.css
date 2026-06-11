@@ -52,9 +52,11 @@ body {
   line-height: 1.6;
   min-height: 100vh;
   overflow-x: hidden;
+  scrollbar-width: none;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+body::-webkit-scrollbar { display: none; }
 
 /* ===== SIDEBAR ===== */
 .sidebar {
@@ -303,7 +305,8 @@ body {
 }
 
 /* ===== MESSAGES ===== */
-.messages { flex: 1; padding-bottom: 16px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.messages { flex: 1; padding-bottom: 16px; overflow-y: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.messages::-webkit-scrollbar { display: none; }
 
 /* Welcome */
 .welcome { text-align: center; padding: 60px 20px; }
@@ -894,3 +897,32 @@ body {
 }
 .sidebar-session:hover .sidebar-session-delete { opacity: 0.5; }
 .sidebar-session-delete:hover { opacity: 1 !important; color: #ef4444; background: #fef2f2; }
+
+/* 🆕 气泡底部模型信息标签 */
+.bubble-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(0,0,0,0.04);
+  font-size: 11px;
+  line-height: 1;
+  color: var(--text-3, #9ca3af);
+  user-select: none;
+}
+.bubble-meta .meta-model {
+  background: var(--accent-soft, rgba(16,163,127,0.08));
+  color: var(--accent, #10a37f);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+  font-size: 10px;
+}
+.bubble-meta .meta-sep {
+  color: var(--text-3, #d1d5db);
+}
+.bubble-meta .meta-tokens {
+  color: var(--text-3, #9ca3af);
+  font-variant-numeric: tabular-nums;
+}

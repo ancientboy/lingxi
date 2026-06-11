@@ -92,7 +92,15 @@ async function sendImageMessageViaHTTP(params) {
     'text/markdown',        // Markdown
     'text/html',            // HTML
     'text/csv',             // CSV
-    'application/json'      // JSON
+    'application/json',     // JSON
+    // Office 文档（新格式）
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',  // Word (.docx)
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',        // Excel (.xlsx)
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation', // PowerPoint (.pptx)
+    // Office 文档（旧格式）
+    'application/msword',            // Word (.doc)
+    'application/vnd.ms-excel',      // Excel (.xls)
+    'application/vnd.ms-powerpoint'  // PowerPoint (.ppt)
   ];
   
   let imageCount = 0;
@@ -442,7 +450,8 @@ export function setupWebSocketProxy(app) {
             
             // 🚫 过滤心跳/静默消息 — 不转发给前端
             if (text === 'HEARTBEAT_OK' || text === 'NO_REPLY' || 
-                (text && text.startsWith('Read HEARTBEAT.md'))) {
+                (text && text.includes('HEARTBEAT.md')) ||
+                (text && text.includes('HEARTBEAT_OK'))) {
               console.log(`⏭️ [${userId?.substring(0, 8)}] 拦截心跳消息: ${text?.substring(0, 30)}`);
               return; // 不转发给前端
             }
@@ -457,7 +466,7 @@ export function setupWebSocketProxy(app) {
                 return;
               }
               // 其他空文本也跳过（避免空气泡）
-              if (payload.state === 'final') {
+              if (msg.payload?.state === 'final') {
                 console.log(`⏭️ [${userId?.substring(0, 8)}] 跳过空 final 消息`);
                 return;
               }
@@ -528,8 +537,11 @@ export function setupWebSocketProxy(app) {
                                 : (m.content?.text || m.text || ''));
               // 过滤助手的心跳/静默回复
               if (content === 'HEARTBEAT_OK' || content === 'NO_REPLY') return false;
-              // 过滤用户发送的心跳 prompt
-              if (typeof content === 'string' && content.startsWith('Read HEARTBEAT.md')) return false;
+              // 过滤包含心跳关键词的消息（prompt + 回复 + 系统通知）
+              if (typeof content === 'string' && content.includes('HEARTBEAT.md')) return false;
+              if (typeof content === 'string' && content.includes('HEARTBEAT_OK')) return false;
+              if (typeof content === 'string' && content.includes('Exec completed (') && content.includes('Read HEARTBEAT')) return false;
+              if (typeof content === 'string' && content.includes('Exec failed (') && content.includes('Read HEARTBEAT')) return false;
               // 过滤空消息（工具调用的 text block 为空）
               if (!content || content.trim().length === 0) return false;
               // 过滤纯元数据消息
@@ -543,9 +555,38 @@ export function setupWebSocketProxy(app) {
             }
           }
 
+          // 🆕 注入模型信息到 final 事件
+          if (msg.payload?.state === 'final' && userId) {
+            try {
+              // 优先从 OpenClaw payload 中提取 model/usage
+              const msgObj = msg.payload.message;
+              const ocModel = msgObj?.model || msgObj?.modelProvider;
+              const ocUsage = msgObj?.usage;
+              
+              if (ocModel || ocUsage) {
+                msg.payload.modelInfo = {
+                  model: ocModel || 'auto',
+                  inputTokens: ocUsage?.input || ocUsage?.inputTokens || null,
+                  outputTokens: ocUsage?.output || ocUsage?.outputTokens || null,
+                };
+              } else {
+                // 降级：从用户偏好获取模型名
+                const db = await getDB();
+                const u = (db.users || []).find(u => u.id === userId);
+                const preferredModel = u?.preferredModel || 'auto';
+                msg.payload.modelInfo = { model: preferredModel };
+              }
+              console.log(`🏷️ [${userId?.substring(0, 8)}] 注入 modelInfo:`, JSON.stringify(msg.payload.modelInfo));
+            } catch (_) {}
+          }
+
           // 转发给前端
           if (ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify(msg));
+            // 🔍 Debug: dump final payload keys to see if usage exists
+            if (msg.payload?.state === 'final') {
+              console.log(`📋 [${userId?.substring(0, 8)}] final payload keys:`, Object.keys(msg.payload));
+            }
             console.log(`➡️ [${userId?.substring(0, 8)}] 已转发给前端: type=${msg.type} event=${msg.event||'-'} state=${msg.payload?.state||'-'}`);
           } else {
             console.log(`❌ [${userId?.substring(0, 8)}] 前端 WebSocket 已关闭，无法转发`);

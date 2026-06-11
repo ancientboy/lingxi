@@ -74,6 +74,21 @@
       "author": "GitHub",
       "agent": "coder",
       "displayOrder": 5
+    },
+    {
+      "id": "browser-act",
+      "name": "BrowserAct 浏览器",
+      "shortDesc": "全功能浏览器自动化，替代 web_fetch",
+      "fullDesc": "BrowserAct CLI — 全功能浏览器自动化工具。支持 JS 渲染页面抓取、表单交互、截图、多浏览器并行、验证码处理、HAR 网络捕获。比内置 web_fetch 更强，是 AI Agent 的理想浏览器工具。",
+      "icon": "🌐",
+      "installCommand": "uv tool install browser-act-cli --python 3.12",
+      "features": ["JS 渲染", "表单交互", "截图", "多浏览器", "验证码"],
+      "example": "浏览器打开这个页面，填写表单并提交",
+      "tags": ["browser", "automation", "web", "screenshot", "form"],
+      "version": "2.0.2",
+      "author": "BrowserAct",
+      "agent": "coder",
+      "displayOrder": 6
     }
   ],
   "ops": [

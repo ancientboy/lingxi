@@ -74,3 +74,5 @@ flutter-app/.dart_tool/
 flutter-app/build/
 backend/data/
 *.apk
+*.bak-*
+.dart/

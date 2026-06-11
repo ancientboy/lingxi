@@ -77,8 +77,8 @@ class _ServersPageState extends State<ServersPage> {
       try {
         final ws = WebSocketService();
         ws.reset();  // 清除旧的 URL/token 缓存
-        await Future.delayed(const Duration(milliseconds: 500));
-        ws.connect();
+        await Future.delayed(const Duration(milliseconds: 1000));  // 等旧连接完全关闭
+        await ws.connect();
       } catch (_) {}
 
       if (mounted) {

@@ -8,6 +8,7 @@ class Message {
   final String? audioUrl;
   final DocumentInfo? documentInfo;  // 🆕 文档信息
   final Map<String, dynamic>? metadata;
+  final Map<String, dynamic>? modelInfo;  // 🆕 模型信息（模型名 + token 统计）
 
   Message({
     required this.id,
@@ -19,6 +20,7 @@ class Message {
     this.audioUrl,
     this.documentInfo,
     this.metadata,
+    this.modelInfo,
   }) : createdAt = createdAt ?? DateTime.now();
 
   factory Message.fromJson(Map<String, dynamic> json) {
@@ -44,9 +46,12 @@ class Message {
       }
     }
 
-    // 🆕 清理内容中的附件标记
+    // 🆕 清理内容中的附件标记（只在有附件时才清理，避免误删用户文本）
     String rawContent = json['content']?.toString() ?? '';
-    String cleanContent = rawContent.replaceAll(RegExp(r'\[附件:[^\]]+\]\s*'), '').trim();
+    final hasAttachments = docInfo != null || (json['attachments'] != null);
+    String cleanContent = hasAttachments 
+        ? rawContent.replaceAll(RegExp(r'\[附件:[^\]]+\]\s*'), '').trim() 
+        : rawContent.trim();
     
     return Message(
       id: json['id']?.toString() ?? '',
@@ -56,8 +61,9 @@ class Message {
       agentId: json['agent_id']?.toString() ?? json['agentId']?.toString(),
       imageUrl: json['imageUrl']?.toString() ?? json['image_url']?.toString(),
       audioUrl: json['audioUrl']?.toString() ?? json['audio_url']?.toString(),
-      documentInfo: docInfo,
+      documentInfo: docInfo ?? (json['documentInfo'] is Map ? DocumentInfo.fromJson(json['documentInfo'] as Map<String, dynamic>) : null),
       metadata: json['metadata'] as Map<String, dynamic>?,
+      modelInfo: json['modelInfo'] as Map<String, dynamic>?,
     );
   }
 
@@ -83,6 +89,7 @@ class Message {
       'audioUrl': audioUrl,
       'documentInfo': documentInfo?.toJson(),
       'metadata': metadata,
+      'modelInfo': modelInfo,
     };
   }
 
@@ -96,6 +103,7 @@ class Message {
     String? audioUrl,
     DocumentInfo? documentInfo,
     Map<String, dynamic>? metadata,
+    Map<String, dynamic>? modelInfo,
   }) {
     return Message(
       id: id ?? this.id,
@@ -107,6 +115,7 @@ class Message {
       audioUrl: audioUrl ?? this.audioUrl,
       documentInfo: documentInfo ?? this.documentInfo,
       metadata: metadata ?? this.metadata,
+      modelInfo: modelInfo ?? this.modelInfo,
     );
   }
 }

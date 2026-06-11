@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { verifyToken } from '../middleware/auth.js';
 import fs from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
@@ -63,13 +64,13 @@ const upload = multer({
 });
 
 // 图片上传接口 - 支持两种方式
-router.post('/image', upload.single('file'), async (req, res) => {
+router.post('/image', verifyToken, upload.single('file'), async (req, res) => {
   try {
     await ensureUploadDir();
     
     // 方式1: multipart/form-data 上传（推荐）
     if (req.file) {
-      const fileUrl = `https://lumeword.cn/uploads/${req.file.filename}`;  // 相对路径，避免 Mixed Content
+      const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;  // 相对路径，避免 Mixed Content
       const isDocument = !req.file.mimetype.startsWith('image/');
       const emoji = isDocument ? '📄' : '📷';
       
@@ -109,7 +110,7 @@ router.post('/image', upload.single('file'), async (req, res) => {
     await fs.writeFile(filepath, Buffer.from(base64Data, 'base64'));
     
     // 返回可访问的 URL
-    const imageUrl = `https://lumeword.cn/uploads/${filename}`;  // 相对路径，避免 Mixed Content
+    const imageUrl = `${req.protocol}://${req.get('host')}/uploads/${filename}`;  // 相对路径，避免 Mixed Content
     const isDocument = !mimeType.startsWith('image/');
     const emoji = isDocument ? '📄' : '📷';
     

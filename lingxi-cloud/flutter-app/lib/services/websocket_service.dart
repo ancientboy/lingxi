@@ -389,7 +389,17 @@ class WebSocketService {
 
   /// 🔄 强制重连（App 回前台时调用）
   /// 保留已有的 wsUrl/token 等信息，直接重连
+  DateTime? _lastForceReconnect;
+  
   void forceReconnect() {
+    // 防止 10 秒内重复 forceReconnect
+    final now = DateTime.now();
+    if (_lastForceReconnect != null && 
+        now.difference(_lastForceReconnect!).inSeconds < 10) {
+      debugPrint('🔄 forceReconnect: 跳过（10秒内已重连过）');
+      return;
+    }
+    _lastForceReconnect = now;
     debugPrint('🔄 forceReconnect: 重置状态并重连');
     _reconnectTimer?.cancel();
     _heartbeatTimer?.cancel();
@@ -399,6 +409,10 @@ class WebSocketService {
     _isConnected = false;
     _isConnecting = false;
     _reconnectAttempts = 0;
+    // 清除缓存确保连新设备
+    _wsUrl = null;
+    _token = null;
+    _gatewayToken = null;
     connect();
   }
 

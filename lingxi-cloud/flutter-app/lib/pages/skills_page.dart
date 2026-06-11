@@ -4,7 +4,8 @@ import 'package:lingxicloud/services/api_service.dart';
 import 'package:flutter/services.dart';
 
 class SkillsPage extends StatefulWidget {
-  const SkillsPage({super.key});
+  final void Function(String skillId, String skillName, String example)? onUseSkill;
+  const SkillsPage({super.key, this.onUseSkill});
 
   @override
   State<SkillsPage> createState() => _SkillsPageState();
@@ -349,33 +350,56 @@ class _SkillsPageState extends State<SkillsPage> {
               const SizedBox(height: 8),
               
               // 安装状态/按钮
-              if (isBuiltin || isInstalled)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Constants.primaryColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.check, size: 12, color: Constants.primaryColor),
-                      SizedBox(width: 4),
-                      Text('已安装', style: TextStyle(fontSize: 11, color: Constants.primaryColor)),
-                    ],
-                  ),
+              if (isBuiltin)
+                // 官方技能：显示已安装 + 使用按钮
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Constants.primaryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.check, size: 12, color: Constants.primaryColor),
+                            SizedBox(width: 4),
+                            Text('已安装', style: TextStyle(fontSize: 11, color: Constants.primaryColor)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    _buildUseButton(skill),
+                  ],
                 )
+              else if (isInstalled)
+                // 已安装的第三方技能：显示使用按钮
+                _buildUseButton(skill)
               else
-                OutlinedButton.icon(
-                  onPressed: () => _copyInstallCommand(skill['id']),
-                  icon: const Icon(Icons.copy, size: 14),
-                  label: const Text('复制命令', style: TextStyle(fontSize: 11)),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Constants.primaryColor,
-                    side: const BorderSide(color: Constants.primaryColor),
-                    minimumSize: const Size(0, 28),
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                  ),
+                // 未安装的技能：复制命令 + 安装并使用
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _copyInstallCommand(skill['id']),
+                        icon: const Icon(Icons.copy, size: 14),
+                        label: const Text('复制命令', style: TextStyle(fontSize: 11)),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Constants.primaryColor,
+                          side: const BorderSide(color: Constants.primaryColor),
+                          minimumSize: const Size(0, 28),
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    _buildInstallAndUseButton(skill),
+                  ],
                 ),
             ],
           ),
@@ -517,6 +541,65 @@ class _SkillsPageState extends State<SkillsPage> {
                   ],
                 ),
               ),
+              const SizedBox(height: 16),
+              
+              // 🆕 操作按钮区域
+              Row(
+                children: [
+                  if (_installedSkills.contains(skill['id']) || skill['builtin'] == true || _currentCategory == 'builtin')
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _useSkill(skill);
+                        },
+                        icon: const Icon(Icons.play_arrow),
+                        label: const Text('使用技能'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Constants.primaryColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    )
+                  else ...[
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _copyInstallCommand(skill['id']?.toString() ?? '');
+                        },
+                        icon: const Icon(Icons.copy),
+                        label: const Text('复制命令'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Constants.primaryColor,
+                          side: const BorderSide(color: Constants.primaryColor),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _installAndUse(skill);
+                        },
+                        icon: const Icon(Icons.download),
+                        label: const Text('安装并使用'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Constants.primaryColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ],
           ),
         ),
@@ -529,5 +612,103 @@ class _SkillsPageState extends State<SkillsPage> {
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textColor)),
     );
+  }
+
+  // 🆕 "使用"按钮
+  Widget _buildUseButton(Map<String, dynamic> skill) {
+    return ElevatedButton.icon(
+      onPressed: () => _useSkill(skill),
+      icon: const Icon(Icons.play_arrow, size: 14),
+      label: const Text('使用', style: TextStyle(fontSize: 11)),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Constants.primaryColor,
+        foregroundColor: Colors.white,
+        minimumSize: const Size(0, 28),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+
+  // 🆕 "安装并使用"按钮
+  Widget _buildInstallAndUseButton(Map<String, dynamic> skill) {
+    return ElevatedButton.icon(
+      onPressed: () => _installAndUse(skill),
+      icon: const Icon(Icons.download, size: 14),
+      label: const Text('安装并使用', style: TextStyle(fontSize: 11)),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Constants.primaryColor.withOpacity(0.8),
+        foregroundColor: Colors.white,
+        minimumSize: const Size(0, 28),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+
+  // 🆕 使用技能：切换到聊天页并填充
+  void _useSkill(Map<String, dynamic> skill) {
+    final skillId = skill['id']?.toString() ?? '';
+    final skillName = skill['name']?.toString() ?? skillId;
+    final example = skill['example']?.toString() ?? skill['shortDesc']?.toString() ?? '';
+    
+    if (widget.onUseSkill != null) {
+      // 在 MainShell 中：直接回调切换
+      widget.onUseSkill!.call(skillId, skillName, example);
+    } else {
+      // 独立页面：复制 example 到剪贴板并提示
+      if (example.isNotEmpty) {
+        Clipboard.setData(ClipboardData(text: example));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已复制示例文本到剪贴板'), backgroundColor: Constants.primaryColor),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('请返回主页使用此技能'), backgroundColor: Constants.primaryColor),
+        );
+      }
+    }
+  }
+
+  // 🆕 安装并使用技能
+  Future<void> _installAndUse(Map<String, dynamic> skill) async {
+    final skillId = skill['id']?.toString() ?? '';
+    final skillName = skill['name']?.toString() ?? skillId;
+
+    // 显示加载提示
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('正在安装 $skillName...'), duration: const Duration(seconds: 2)),
+    );
+
+    try {
+      final res = await ApiService().post('/api/skills/install-and-use', data: {
+        'skillId': skillId,
+        'skillName': skillName,
+      });
+
+      if (res.data['success'] == true) {
+        setState(() {
+          _installedSkills.add(skillId);
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('安装成功！'), backgroundColor: Constants.primaryColor),
+          );
+        }
+        // 安装成功后使用
+        _useSkill(skill);
+      } else {
+        // 安装失败，回退到复制命令
+        if (mounted) {
+          _copyInstallCommand(skillId);
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ 安装技能失败: $e');
+      // 网络错误，回退到复制命令
+      if (mounted) {
+        _copyInstallCommand(skillId);
+      }
+    }
   }
 }
