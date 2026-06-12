@@ -33,7 +33,47 @@ void rpcSend(String method, Map<String, dynamic> params) {
 bool get rpcConnected =>
     LumeWebSocketService().isConnected || WebSocketService().isConnected;
 
-/// 发聊天指令（Cron 等），Lume 优先
+/// Gateway 管理 RPC：Lume 走 gateway.call 代理，Gateway 直连
+Future<Map<String, dynamic>?> rpcGatewayCall(
+  String method,
+  Map<String, dynamic> params, {
+  Duration timeout = const Duration(seconds: 15),
+}) async {
+  final lume = LumeWebSocketService();
+  if (lume.isConnected) {
+    return lume.sendRequestAwait('gateway.call', {
+      'method': method,
+      'params': params,
+    }, timeout: timeout);
+  }
+  final gw = WebSocketService();
+  if (gw.isConnected) {
+    return gw.sendRequestAwait(method, params, timeout: timeout);
+  }
+  return null;
+}
+
+bool rpcGatewayOk(Map<String, dynamic>? res) =>
+    res != null && res['ok'] == true;
+
+/// Gateway RPC 响应 payload
+Map<String, dynamic>? rpcGatewayPayload(Map<String, dynamic>? res) {
+  if (!rpcGatewayOk(res)) return null;
+  final p = res!['payload'];
+  if (p is Map<String, dynamic>) return p;
+  if (p is Map) return Map<String, dynamic>.from(p);
+  return null;
+}
+
+String? rpcGatewayError(Map<String, dynamic>? res) {
+  if (res == null) return '未连接服务器';
+  if (res['ok'] == true) return null;
+  final err = res['error'];
+  if (err is Map) return err['message']?.toString() ?? err.toString();
+  return err?.toString() ?? '请求失败';
+}
+
+/// 发聊天指令（降级用），Lume 优先
 void rpcSendChat(String message, {String? sessionKey}) {
   final lume = LumeWebSocketService();
   if (lume.isConnected) {

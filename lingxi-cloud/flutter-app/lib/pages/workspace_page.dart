@@ -1,5 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:lingxicloud/services/api_service.dart';
+import 'package:lingxicloud/services/rpc_ws.dart';
+import 'package:lingxicloud/services/lume_websocket_service.dart';
 import 'package:lingxicloud/providers/app_provider.dart';
 import 'package:provider/provider.dart';
 import 'dart:math' as math;
@@ -76,8 +79,58 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
     super.dispose();
   }
 
+  static const Map<String, String> _agentIdMap = {
+    'main': 'captain', 'coder': 'coder', 'ops': 'operator', 'inventor': 'inventor',
+    'pm': 'pm', 'noter': 'notes', 'media': 'media', 'smart': 'auto',
+  };
+
+  Future<bool> _loadStatusViaLume() async {
+    if (!rpcConnected) {
+      final lume = LumeWebSocketService();
+      if (!lume.isConnecting) await lume.connect().catchError((_) {});
+      await Future.delayed(const Duration(milliseconds: 600));
+    }
+    if (!rpcConnected) return false;
+    final res = await rpcGatewayCall('tools.invoke', {
+      'name': 'sessions_list',
+      'args': {'activeMinutes': 60, 'limit': 50, 'messageLimit': 1},
+    });
+    final payload = rpcGatewayPayload(res);
+    if (payload == null || !mounted) return false;
+    dynamic raw = payload['output'];
+    if (raw is Map && raw['content'] is List) {
+      for (final block in raw['content']) {
+        if (block is Map && block['type'] == 'text' && block['text'] is String) {
+          try {
+            raw = jsonDecode(block['text'] as String);
+          } catch (_) {}
+          break;
+        }
+      }
+    }
+    final sessions = raw is Map ? (raw['sessions'] as List? ?? []) : (raw is List ? raw : []);
+    final statusByAgent = <String, String>{};
+    for (final s in sessions) {
+      if (s is! Map) continue;
+      final key = (s['key'] ?? s['sessionKey'] ?? '').toString();
+      final m = RegExp(r'^agent:(\w+)').firstMatch(key);
+      if (m == null) continue;
+      final agentKey = m.group(1)!;
+      final uiId = _agentIdMap[agentKey] ?? agentKey;
+      statusByAgent[uiId] = (s['isRunning'] == true || s['running'] == true) ? 'working' : 'idle';
+    }
+    final newAgents = _defaultAgents.map((a) {
+      final copy = Map<String, dynamic>.from(a);
+      copy['status'] = statusByAgent[a['id']] ?? 'idle';
+      return copy;
+    }).toList();
+    setState(() { _agents = newAgents; _source = 'lume'; _isLoading = false; });
+    return true;
+  }
+
   Future<void> _loadStatus() async {
     setState(() => _isLoading = true);
+    if (await _loadStatusViaLume()) return;
     try {
       final api = ApiService();
       final uid = Provider.of<AppProvider>(context, listen: false).user?.id ?? '';

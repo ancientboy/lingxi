@@ -169,6 +169,17 @@ class LumeWebSocketService {
   }
 
   void _handleMessage(Map<String, dynamic> data) {
+    if (data["type"] == "res") {
+      final id = data["id"]?.toString();
+      if (id != null && id.isNotEmpty) {
+        final c = _pendingResponses.remove(id);
+        if (c != null && !c.isCompleted) {
+          c.complete(data);
+          return;
+        }
+      }
+    }
+
     if (data['type'] == 'res' && data['ok'] == false && !_isConnected) {
       _isConnecting = false;
       _lastError = data['error']?['message']?.toString() ?? 'auth failed';
