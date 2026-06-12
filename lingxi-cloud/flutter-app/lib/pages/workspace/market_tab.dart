@@ -4,7 +4,8 @@ import 'package:lingxicloud/services/api_service.dart';
 class MarketTab extends StatefulWidget {
   final bool dk;
   final VoidCallback? onTeamChanged;
-  const MarketTab({super.key, required this.dk, this.onTeamChanged});
+  final int refreshNonce;
+  const MarketTab({super.key, required this.dk, this.onTeamChanged, this.refreshNonce = 0});
 
   @override
   State<MarketTab> createState() => _MarketTabState();
@@ -28,6 +29,12 @@ class _MarketTabState extends State<MarketTab> {
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant MarketTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.refreshNonce != oldWidget.refreshNonce) _load();
   }
 
   @override

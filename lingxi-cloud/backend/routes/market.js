@@ -419,6 +419,45 @@ router.post('/install/:id', async (req, res) => {
 });
 
 /**
+ * POST /uninstall-by-agent — 移除市场安装记录（OpenClaw 已删除后同步灵犀云状态）
+ */
+router.post('/uninstall-by-agent', async (req, res) => {
+  try {
+    const { agentId } = req.body;
+    const userId = req.user.id;
+
+    if (!agentId || typeof agentId !== 'string') {
+      return res.status(400).json({ success: false, error: '缺少 agentId' });
+    }
+
+    const db = await getDB();
+    let changed = false;
+
+    if (db.marketInstalls?.length) {
+      const before = db.marketInstalls.length;
+      db.marketInstalls = db.marketInstalls.filter(
+        m => !(m.userId === userId && m.agentId === agentId)
+      );
+      if (db.marketInstalls.length < before) changed = true;
+    }
+
+    const user = db.users?.find(u => u.id === userId);
+    if (user?.agents?.includes(agentId)) {
+      user.agents = user.agents.filter(id => id !== agentId);
+      user.agentsUpdatedAt = new Date().toISOString();
+      changed = true;
+    }
+
+    if (changed) await saveDB(db);
+
+    res.json({ success: true, removed: changed });
+  } catch (err) {
+    console.error('同步卸载市场 Agent 失败:', err);
+    res.status(500).json({ success: false, error: '同步卸载失败' });
+  }
+});
+
+/**
  * POST /rate — 评价 Agent
  */
 router.post('/rate', async (req, res) => {

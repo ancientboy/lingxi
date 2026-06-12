@@ -34,8 +34,9 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
   String _tplCategory = 'all';
   List<Map<String, dynamic>> _logs = [];
   List<Map<String, dynamic>> _openClawAgents = [];
+  int _marketRefreshNonce = 0;
 
-  static const _presetOpenClawIds = {'main', 'coder', 'ops', 'inventor', 'pm', 'noter', 'media', 'smart'};
+  static const _presetOpenClawIds = {'main', 'coder', 'ops', 'inventor', 'pm', 'noter', 'media', 'smart', 'auto', 'reviewer'};
 
   static const _defaultAgents = [
     {'id': 'captain', 'name': '灵犀', 'emoji': '⚡', 'role': '队长', 'color': '#667eea', 'gradient': ['#667eea', '#764ba2'], 'desc': '智能调度队长，负责理解需求、分配任务、协调团队，是沟通桥梁和核心大脑'},
@@ -161,7 +162,16 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
   }
 
   Future<void> _onTeamChanged() async {
+    if (mounted) setState(() => _marketRefreshNonce++);
     await Future.wait([_loadOpenClawAgents(), _loadStatus()]);
+  }
+
+  Future<void> _syncMarketUninstall(String agentId) async {
+    try {
+      await ApiService().post('/api/market/uninstall-by-agent', data: {'agentId': agentId});
+    } catch (e) {
+      debugPrint('[workspace] sync market uninstall failed: $e');
+    }
   }
 
   List<Map<String, dynamic>> get _customOpenClawAgents => _openClawAgents.where((a) {
@@ -303,7 +313,7 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
         _buildTemplatesTab(dk),
         _buildLogsTab(dk),
         KnowledgeTab(dk: dk),
-        MarketTab(dk: dk, onTeamChanged: _onTeamChanged),
+        MarketTab(dk: dk, onTeamChanged: _onTeamChanged, refreshNonce: _marketRefreshNonce),
         WorkflowTab(dk: dk),
         MemoryTab(dk: dk),
         TriggerTab(dk: dk),
@@ -419,6 +429,7 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('OpenClaw 移除失败'), backgroundColor: Colors.red));
       return;
     }
+    await _syncMarketUninstall(openClawId);
     await _onTeamChanged();
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('已移除 $name')));
   }
@@ -436,17 +447,20 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
       return;
     }
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('正在移除 ${info['name']}...')));
+    final resolvedId = GatewayAgentsService.resolveOpenClawId(id, _openClawAgents)
+        ?? GatewayAgentsService.toOpenClawId(id);
     final gwOk = await GatewayAgentsService.removeAgent(id);
     if (!gwOk) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('OpenClaw 移除失败'), backgroundColor: Colors.red));
       return;
     }
+    await _syncMarketUninstall(resolvedId);
     final r = await ApiService().updateMyAgents(uid, na);
     if (r && p.user != null) {
       p.setUser(p.user!.copyWith(agents: na));
       if (mounted) setState(() { _source = 'lume'; });
     }
-    await _loadOpenClawAgents();
+    await _onTeamChanged();
   }
 
   Future<void> _addMember(String id, AppProvider p) async {

@@ -25,7 +25,7 @@ class GatewayAgentsService {
     }).toList();
   }
 
-  /// UI id → OpenClaw agent id
+  /// UI id → OpenClaw agent id（默认映射，部分实例实际用 auto/notes 等）
   static String toOpenClawId(String uiId) {
     switch (uiId) {
       case 'lingxi':
@@ -40,6 +40,62 @@ class GatewayAgentsService {
       default:
         return uiId;
     }
+  }
+
+  static Iterable<String> candidateIds(String uiAgentId) sync* {
+    yield toOpenClawId(uiAgentId);
+    yield uiAgentId;
+    switch (uiAgentId) {
+      case 'auto':
+        yield 'smart';
+      case 'smart':
+        yield 'auto';
+      case 'notes':
+        yield 'noter';
+      case 'noter':
+        yield 'notes';
+      case 'operator':
+        yield 'ops';
+      case 'ops':
+        yield 'operator';
+      case 'lingxi':
+      case 'captain':
+        yield 'main';
+    }
+  }
+
+  /// 在 OpenClaw 配置中解析真实 agent id（兼容 auto/smart 等别名）
+  static String? resolveOpenClawId(
+    String uiAgentId,
+    List<Map<String, dynamic>> agentsList,
+  ) {
+    for (final id in candidateIds(uiAgentId)) {
+      if (agentsList.any((a) => a['id'] == id)) return id;
+    }
+    return null;
+  }
+
+  static String idForCreate(String uiAgentId, List<Map<String, dynamic>> agentsList) {
+    final usesLegacyIds = agentsList.any((a) {
+      final id = a['id']?.toString() ?? '';
+      return id == 'auto' || id == 'reviewer';
+    });
+    if (usesLegacyIds) {
+      switch (uiAgentId) {
+        case 'lingxi':
+        case 'captain':
+          return 'main';
+        case 'auto':
+          return 'auto';
+        case 'notes':
+          return 'noter';
+        case 'operator':
+          return 'ops';
+        default:
+          return uiAgentId;
+      }
+    }
+    return toOpenClawId(uiAgentId);
   }
 
   static Future<List<Map<String, dynamic>>?> fetchAgents() async {
@@ -58,9 +114,6 @@ class GatewayAgentsService {
     String? name,
     String? emoji,
   }) async {
-    final agentId = toOpenClawId(uiAgentId);
-    if (agentId == 'main') return false;
-
     final getRes = await rpcGatewayCall('config.get', {});
     final payload = _parseConfigPayload(getRes);
     if (payload == null) return false;
@@ -75,7 +128,10 @@ class GatewayAgentsService {
         ? list.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList()
         : <Map<String, dynamic>>[];
 
-    if (agentsList.any((a) => a['id'] == agentId)) return false;
+    if (resolveOpenClawId(uiAgentId, agentsList) != null) return false;
+
+    final agentId = idForCreate(uiAgentId, agentsList);
+    if (agentId == 'main') return false;
 
     final defaultWs = agents['defaults'] is Map
         ? (agents['defaults']['workspace']?.toString() ?? '~/.openclaw/workspace')
@@ -109,9 +165,6 @@ class GatewayAgentsService {
   }
 
   static Future<bool> removeAgent(String uiAgentId) async {
-    final agentId = toOpenClawId(uiAgentId);
-    if (agentId == 'main') return false;
-
     final getRes = await rpcGatewayCall('config.get', {});
     final payload = _parseConfigPayload(getRes);
     if (payload == null) return false;
@@ -125,6 +178,9 @@ class GatewayAgentsService {
     final agentsList = list is List
         ? list.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList()
         : <Map<String, dynamic>>[];
+
+    final agentId = resolveOpenClawId(uiAgentId, agentsList);
+    if (agentId == null || agentId == 'main') return false;
 
     final updatedList = agentsList.where((a) => a['id'] != agentId).toList();
     if (updatedList.length == agentsList.length) return false;
