@@ -3,7 +3,8 @@ import 'package:lingxicloud/services/api_service.dart';
 
 class MarketTab extends StatefulWidget {
   final bool dk;
-  const MarketTab({super.key, required this.dk});
+  final VoidCallback? onTeamChanged;
+  const MarketTab({super.key, required this.dk, this.onTeamChanged});
 
   @override
   State<MarketTab> createState() => _MarketTabState();
@@ -60,7 +61,7 @@ class _MarketTabState extends State<MarketTab> {
     } catch (e) {
       if (mounted) setState(() {
         _errorMessage = '加载市场失败: $e';
-        const _agents = [];
+        _agents = [];
         _loading = false;
       });
     }
@@ -92,7 +93,8 @@ class _MarketTabState extends State<MarketTab> {
       if (resp.data is Map && resp.data['success'] == true) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('安装成功！$name 已添加到团队')));
-          _load(); // Refresh list
+          widget.onTeamChanged?.call();
+          _load();
         }
       } else {
         final msg = (resp.data is Map) ? (resp.data['message'] ?? '安装失败') : '安装失败';
@@ -311,13 +313,17 @@ class _MarketTabState extends State<MarketTab> {
     try {
       final resp = await ApiService().post('/api/market/rate', data: {
         'itemId': agent['id'],
-        'score': result['rating'],
+        'score': (result['rating'] as num).toInt(),
         'review': result['content'],
       });
       if (resp.data is Map && resp.data['success'] == true) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('评价已提交')));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('评价已提交')));
+          _load();
+        }
       } else {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('评价提交失败')));
+        final msg = (resp.data is Map) ? (resp.data['error'] ?? '评价提交失败') : '评价提交失败';
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg.toString())));
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('评价提交失败: $e')));

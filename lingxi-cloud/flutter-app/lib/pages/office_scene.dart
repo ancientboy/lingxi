@@ -1001,7 +1001,7 @@ class _OfficeSceneState extends State<OfficeScene> with SingleTickerProviderStat
   void _initScene() { _buildDesks(); _rebuildChars(); _cat = _OfficeCat(); }
 
   void _buildDesks() {
-    const _desks = [];
+    _desks = [];
     final count = widget.agents.length.clamp(1, 8);
     for (int r = 0; r < (count / 2).ceil(); r++)
       for (int col = 0; col < 2 && _desks.length < count; col++)
@@ -1010,7 +1010,7 @@ class _OfficeSceneState extends State<OfficeScene> with SingleTickerProviderStat
 
   void _rebuildChars() {
     _buildDesks();
-    const _chars = [];
+    _chars = [];
     for (int i = 0; i < widget.agents.length && i < _desks.length; i++) {
       final a = widget.agents[i];
       final grad = a['gradient'] as List?;

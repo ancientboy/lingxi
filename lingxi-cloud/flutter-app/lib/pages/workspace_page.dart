@@ -33,6 +33,9 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
   Map<String, dynamic>? _selectedTemplate;
   String _tplCategory = 'all';
   List<Map<String, dynamic>> _logs = [];
+  List<Map<String, dynamic>> _openClawAgents = [];
+
+  static const _presetOpenClawIds = {'main', 'coder', 'ops', 'inventor', 'pm', 'noter', 'media', 'smart'};
 
   static const _defaultAgents = [
     {'id': 'captain', 'name': '灵犀', 'emoji': '⚡', 'role': '队长', 'color': '#667eea', 'gradient': ['#667eea', '#764ba2'], 'desc': '智能调度队长，负责理解需求、分配任务、协调团队，是沟通桥梁和核心大脑'},
@@ -71,6 +74,7 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
     _breathCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 3))..repeat();
     _typeCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 700))..repeat();
     _loadStatus();
+    _loadOpenClawAgents();
     _loadTemplates();
   }
   @override
@@ -145,6 +149,26 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
     }
   }
 
+  Future<void> _loadOpenClawAgents() async {
+    await _ensureRpc();
+    if (!rpcConnected) return;
+    try {
+      final list = await GatewayAgentsService.fetchAgents();
+      if (mounted && list != null) setState(() => _openClawAgents = list);
+    } catch (e) {
+      debugPrint('[workspace] load OpenClaw agents failed: $e');
+    }
+  }
+
+  Future<void> _onTeamChanged() async {
+    await Future.wait([_loadOpenClawAgents(), _loadStatus()]);
+  }
+
+  List<Map<String, dynamic>> get _customOpenClawAgents => _openClawAgents.where((a) {
+    final id = a['id']?.toString() ?? '';
+    return id.isNotEmpty && !_presetOpenClawIds.contains(id);
+  }).toList();
+
   Future<void> _loadStatus() async {
     if (!mounted) return;
     setState(() => _isLoading = true);
@@ -192,7 +216,7 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
       });
     } catch (_) {
       if (mounted) setState(() {
-        const _templates = [
+        _templates = [
           {'templateId': 'lingxi-team', 'templateName': '灵犀全能团队', 'description': '灵犀 + 多个专业 Agent', 'memberCount': 8, 'category': 'assistant'},
           {'templateId': 'dev-team', 'templateName': '敏捷开发团队', 'description': '灵犀 + 云溪 + 梓萱', 'memberCount': 3, 'category': 'development'},
           {'templateId': 'content-team', 'templateName': '内容创作团队', 'description': '灵犀 + 紫萱 + 音韵 + 晓琳', 'memberCount': 4, 'category': 'marketing'},
@@ -279,7 +303,7 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
         _buildTemplatesTab(dk),
         _buildLogsTab(dk),
         KnowledgeTab(dk: dk),
-        MarketTab(dk: dk),
+        MarketTab(dk: dk, onTeamChanged: _onTeamChanged),
         WorkflowTab(dk: dk),
         MemoryTab(dk: dk),
         TriggerTab(dk: dk),
@@ -319,13 +343,15 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
       final c = _cid(id);
       if (!seen.contains(c) && !seenA.contains(c)) { seenA.add(c); avail.add(id); }
     }
+    final customAgents = _customOpenClawAgents;
+    final totalCount = display.length + customAgents.length;
     return RefreshIndicator(
-      onRefresh: _loadStatus,
+      onRefresh: () async { await _loadOpenClawAgents(); await _loadStatus(); },
       child: ListView(padding: EdgeInsets.all(16), children: [
         Row(children: [
           Text('团队成员', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)),
           const Spacer(),
-          Container(padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: (_source == 'openclaw' || _source == 'lume') ? const Color(0xFF22C55E).withOpacity(0.1) : Colors.grey.withOpacity(0.1), borderRadius: BorderRadius.circular(10)), child: Text('${display.length} 人', style: TextStyle(fontSize: 11, color: (_source == 'openclaw' || _source == 'lume') ? const Color(0xFF22C55E) : Colors.grey))),
+          Container(padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: (_source == 'openclaw' || _source == 'lume') ? const Color(0xFF22C55E).withOpacity(0.1) : Colors.grey.withOpacity(0.1), borderRadius: BorderRadius.circular(10)), child: Text('$totalCount 人', style: TextStyle(fontSize: 11, color: (_source == 'openclaw' || _source == 'lume') ? const Color(0xFF22C55E) : Colors.grey))),
         ]),
         const SizedBox(height: 12),
         ...display.map((id) {
@@ -342,6 +368,20 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
             ])),
             if (isCaptain) Container(padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: const Color(0xFF667eea).withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: const Text('队长', style: TextStyle(color: Color(0xFF667eea), fontSize: 11, fontWeight: FontWeight.w600)))
             else IconButton(icon: Icon(Icons.remove_circle_outline, color: Colors.red.shade300, size: 20), onPressed: () => _removeMember(id, appProvider)),
+          ]));
+        }),
+        ...customAgents.map((agent) {
+          final id = agent['id']?.toString() ?? '';
+          final name = agent['name']?.toString() ?? id;
+          final abbr = name.length >= 2 ? name.substring(0, 2) : (name.isNotEmpty ? name : 'AI');
+          return Container(margin: EdgeInsets.only(bottom: 8), padding: EdgeInsets.all(12), decoration: BoxDecoration(color: cardBg, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))]), child: Row(children: [
+            Container(width: 40, height: 40, decoration: BoxDecoration(gradient: LinearGradient(colors: [const Color(0xFF667eea), const Color(0xFF764ba2)]), borderRadius: BorderRadius.circular(12)), child: Center(child: Text(abbr, style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)))),
+            const SizedBox(width: 12),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [Text(name, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: textColor)), const SizedBox(width: 6), Container(padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: const Color(0xFF667eea).withOpacity(0.1), borderRadius: BorderRadius.circular(4)), child: const Text('市场', style: TextStyle(fontSize: 9, color: Color(0xFF667eea), fontWeight: FontWeight.w600)))]),
+              const SizedBox(height: 2), Text(id, style: TextStyle(fontSize: 11, color: Colors.grey.shade400), maxLines: 1, overflow: TextOverflow.ellipsis),
+            ])),
+            IconButton(icon: Icon(Icons.remove_circle_outline, color: Colors.red.shade300, size: 20), onPressed: () => _removeCustomAgent(id, name)),
           ]));
         }),
         const SizedBox(height: 20),
@@ -363,6 +403,24 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
     final lume = LumeWebSocketService();
     if (!lume.isConnecting) await lume.connect().catchError((_) {});
     await Future.delayed(const Duration(milliseconds: 700));
+  }
+
+  Future<void> _removeCustomAgent(String openClawId, String name) async {
+    final ok = await showDialog<bool>(context: context, builder: (c) => AlertDialog(title: const Text('移除成员'), content: Text('确定移除 $name？将从 OpenClaw 配置中移除。'), actions: [TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('取消')), TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('确定', style: TextStyle(color: Colors.red)))]));
+    if (ok != true) return;
+    await _ensureRpc();
+    if (!rpcConnected) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('未连接服务器'), backgroundColor: Colors.red));
+      return;
+    }
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('正在移除 $name...')));
+    final gwOk = await GatewayAgentsService.removeAgent(openClawId);
+    if (!gwOk) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('OpenClaw 移除失败'), backgroundColor: Colors.red));
+      return;
+    }
+    await _onTeamChanged();
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('已移除 $name')));
   }
 
   Future<void> _removeMember(String id, AppProvider p) async {
@@ -388,6 +446,7 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
       p.setUser(p.user!.copyWith(agents: na));
       if (mounted) setState(() { _source = 'lume'; });
     }
+    await _loadOpenClawAgents();
   }
 
   Future<void> _addMember(String id, AppProvider p) async {
@@ -410,6 +469,7 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
       p.setUser(p.user!.copyWith(agents: na));
       if (mounted) setState(() { _source = 'lume'; });
     }
+    await _loadOpenClawAgents();
   }
 
   // ======================== TEMPLATES TAB ========================

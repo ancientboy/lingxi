@@ -58,6 +58,44 @@ function pinyinSlug(name) {
     .slice(0, 30) || 'agent';
 }
 
+function getItemReviews(db, itemId) {
+  return (db.marketReviews || []).filter(r => r.itemId === itemId);
+}
+
+function applyReviewStats(item, reviews) {
+  if (!reviews.length) {
+    item.rating = item.rating || 0;
+    item.reviewCount = item.reviewCount || 0;
+    item.reviews = [];
+    return item;
+  }
+  const totalScore = reviews.reduce((sum, r) => sum + (r.score || 0), 0);
+  item.reviewCount = reviews.length;
+  item.rating = Math.round((totalScore / reviews.length) * 10) / 10;
+  item.reviews = reviews.map(r => ({
+    userId: r.userId,
+    score: r.score,
+    review: r.review,
+    rating: r.score,
+    content: r.review,
+    createdAt: r.createdAt,
+  }));
+  return item;
+}
+
+function updateOfficialPresetRating(itemId, rating, reviewCount) {
+  try {
+    const presets = readOfficialPresets();
+    const preset = presets.find(o => o.id === itemId);
+    if (!preset) return;
+    preset.rating = rating;
+    preset.reviewCount = reviewCount;
+    fs.writeFileSync(getMarketPresetsPath(), JSON.stringify(presets, null, 2));
+  } catch (err) {
+    console.warn('更新官方 Agent 评分失败:', err.message);
+  }
+}
+
 // ============ API 路由 ============
 
 /**
@@ -101,10 +139,14 @@ router.get('/list', async (req, res) => {
     const userId = req.user.id;
     const installs = (db.marketInstalls || []).filter(r => r.userId === userId);
     const installedIds = new Set(installs.map(r => r.itemId));
-    allItems = allItems.map(item => ({
-      ...item,
-      installed: installedIds.has(item.id)
-    }));
+    allItems = allItems.map(item => {
+      const reviews = getItemReviews(db, item.id);
+      const merged = applyReviewStats({ ...item }, reviews.length ? reviews : (item.reviews || []));
+      return {
+        ...merged,
+        installed: installedIds.has(item.id),
+      };
+    });
 
     res.json({ success: true, items: allItems });
   } catch (err) {
@@ -135,7 +177,10 @@ router.get('/detail/:id', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Agent 不存在' });
     }
 
-    res.json({ success: true, item });
+    const reviews = getItemReviews(db, item.id);
+    const merged = applyReviewStats({ ...item }, reviews.length ? reviews : (item.reviews || []));
+
+    res.json({ success: true, item: merged });
   } catch (err) {
     console.error('获取 Agent 详情失败:', err);
     res.status(500).json({ success: false, error: '获取详情失败' });
@@ -351,6 +396,16 @@ router.post('/install/:id', async (req, res) => {
       await saveDB(db);
     }
 
+    const user = db.users?.find(u => u.id === userId);
+    if (user) {
+      if (!user.agents) user.agents = ['lingxi'];
+      if (!user.agents.includes(agentId)) {
+        user.agents.push(agentId);
+        user.agentsUpdatedAt = new Date().toISOString();
+        await saveDB(db);
+      }
+    }
+
     res.json({ success: true, agentId });
     // 更新 dispatch-config.json
     try {
@@ -383,33 +438,41 @@ router.post('/rate', async (req, res) => {
 
     const db = await getDB();
     if (!db.marketItems) db.marketItems = [];
+    if (!db.marketReviews) db.marketReviews = [];
 
-    // 查找用户发布的 Agent（官方预设不支持评价写入）
-    const item = db.marketItems.find(o => o.id === itemId);
-    if (!item) {
-      return res.status(404).json({ success: false, error: 'Agent 不存在或不支持评价' });
+    const official = readOfficialPresets();
+    const officialItem = official.find(o => o.id === itemId);
+    const userItem = db.marketItems.find(o => o.id === itemId);
+    if (!officialItem && !userItem) {
+      return res.status(404).json({ success: false, error: 'Agent 不存在' });
     }
 
-    if (!item.reviews) item.reviews = [];
-
-    // 检查是否已评价
-    const existing = item.reviews.find(r => r.userId === userId);
+    const existing = db.marketReviews.find(r => r.userId === userId && r.itemId === itemId);
     if (existing) {
       return res.status(400).json({ success: false, error: '你已经评价过该 Agent' });
     }
 
-    // 添加评价
-    item.reviews.push({
+    db.marketReviews.push({
+      itemId,
       userId,
       score,
       review: (review || '').trim().slice(0, 200),
       createdAt: new Date().toISOString(),
     });
 
-    // 更新平均评分
-    const totalScore = item.reviews.reduce((sum, r) => sum + r.score, 0);
-    item.reviewCount = item.reviews.length;
-    item.rating = Math.round((totalScore / item.reviewCount) * 10) / 10;
+    const reviews = getItemReviews(db, itemId);
+    const totalScore = reviews.reduce((sum, r) => sum + r.score, 0);
+    const reviewCount = reviews.length;
+    const rating = Math.round((totalScore / reviewCount) * 10) / 10;
+
+    if (userItem) {
+      userItem.reviews = reviews;
+      userItem.reviewCount = reviewCount;
+      userItem.rating = rating;
+    }
+    if (officialItem) {
+      updateOfficialPresetRating(itemId, rating, reviewCount);
+    }
 
     await saveDB(db);
 
