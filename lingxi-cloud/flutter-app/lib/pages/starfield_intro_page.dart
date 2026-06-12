@@ -1,3 +1,4 @@
+import 'package:lingxicloud/utils/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -9,7 +10,7 @@ import 'dart:math';
 class StarfieldIntroPage extends StatefulWidget {
   final VoidCallback onComplete;
 
-  const StarfieldIntroPage({super.key, required this.onComplete});
+  StarfieldIntroPage({super.key, required this.onComplete});
 
   // 检查是否需要显示
   static Future<bool> shouldShow() async {
@@ -75,7 +76,7 @@ class _StarfieldIntroPageState extends State<StarfieldIntroPage>
     // 初始化 Logo 发光动画
     _logoGlowController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 3),
+      duration: Duration(seconds: 3),
     )..repeat();
 
     _logoGlowAnimation = Tween<double>(begin: 0.5, end: 1.0).animate(
@@ -85,7 +86,7 @@ class _StarfieldIntroPageState extends State<StarfieldIntroPage>
     // 初始化 CTA 按钮动画控制器
     _ctaController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 600),
+      duration: Duration(milliseconds: 600),
     );
 
     // 生成星星
@@ -133,7 +134,7 @@ class _StarfieldIntroPageState extends State<StarfieldIntroPage>
         for (int charIndex = 0; charIndex < line.length; charIndex++) {
           if (!mounted) return;
           
-          await Future.delayed(const Duration(milliseconds: 50));
+          await Future.delayed(Duration(milliseconds: 50));
           
           if (mounted) {
             setState(() {
@@ -143,10 +144,10 @@ class _StarfieldIntroPageState extends State<StarfieldIntroPage>
         }
         
         // 完整一行后，等待一下再向上滚动
-        await Future.delayed(const Duration(milliseconds: 400));
+        await Future.delayed(Duration(milliseconds: 400));
       } else {
         // 空行，快速通过
-        await Future.delayed(const Duration(milliseconds: 200));
+        await Future.delayed(Duration(milliseconds: 200));
       }
       
       // 向上滚动
@@ -165,7 +166,7 @@ class _StarfieldIntroPageState extends State<StarfieldIntroPage>
       
       // 按钮淡入
       _ctaController.forward(from: 0.0);
-      await Future.delayed(const Duration(milliseconds: 300));
+      await Future.delayed(Duration(milliseconds: 300));
       
       if (mounted) {
         setState(() {
@@ -183,7 +184,7 @@ class _StarfieldIntroPageState extends State<StarfieldIntroPage>
     
     // 直接跳转到聊天页面（避免 context 丢失）
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const ChatPage()),
+      MaterialPageRoute(builder: (_) => ChatPage()),
       (route) => false,
     );
   }
@@ -206,7 +207,7 @@ class _StarfieldIntroPageState extends State<StarfieldIntroPage>
           children: [
             // 星空背景
             Container(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: RadialGradient(
                   center: Alignment.bottomCenter,
                   colors: [
@@ -225,7 +226,7 @@ class _StarfieldIntroPageState extends State<StarfieldIntroPage>
               child: Column(
                 children: [
                   // Logo 区域（固定在顶部）
-                  const SizedBox(height: 60),
+                  SizedBox(height: 60),
                   _buildLogo(),
                   
                   // 中间滚动区域
@@ -248,12 +249,12 @@ class _StarfieldIntroPageState extends State<StarfieldIntroPage>
                                   begin: Alignment.topCenter,
                                   end: Alignment.bottomCenter,
                                   colors: [
-                                    const Color(0xFF090A0F),
-                                    const Color(0xFF090A0F).withOpacity(0.8),
-                                    const Color(0xFF090A0F).withOpacity(0.4),
+                                    Color(0xFF090A0F),
+                                    Color(0xFF090A0F).withOpacity(0.8),
+                                    Color(0xFF090A0F).withOpacity(0.4),
                                     Colors.transparent,
                                   ],
-                                  stops: const [0.0, 0.3, 0.7, 1.0],
+                                  stops: [0.0, 0.3, 0.7, 1.0],
                                 ),
                               ),
                             ),
@@ -265,7 +266,7 @@ class _StarfieldIntroPageState extends State<StarfieldIntroPage>
                   
                   // 底部按钮区域
                   _buildCTAButton(),
-                  const SizedBox(height: 60),
+                  SizedBox(height: 60),
                 ],
               ),
             ),
@@ -298,18 +299,18 @@ class _StarfieldIntroPageState extends State<StarfieldIntroPage>
               width: 64,
               height: 64,
               decoration: BoxDecoration(
-                color: const Color(0xFF10a37f),
+                color: Constants.primaryColor,
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF10a37f)
+                    color: Constants.primaryColor
                         .withOpacity(_logoGlowAnimation.value * 0.8),
                     blurRadius: 30 + _logoGlowAnimation.value * 30,
                     spreadRadius: _logoGlowAnimation.value * 10,
                   ),
                 ],
               ),
-              child: const Center(
+              child: Center(
                 child: Text(
                   '◈',
                   style: TextStyle(
@@ -322,17 +323,17 @@ class _StarfieldIntroPageState extends State<StarfieldIntroPage>
           },
         ),
 
-        const SizedBox(height: 24),
+        SizedBox(height: 24),
 
         // 标题
         ShaderMask(
-          shaderCallback: (bounds) => const LinearGradient(
+          shaderCallback: (bounds) => LinearGradient(
             colors: [
               Colors.white,
-              Color(0xFF10a37f),
+              Constants.primaryColor,
             ],
           ).createShader(bounds),
-          child: const Text(
+          child: Text(
             'Lume',
             style: TextStyle(
               fontSize: 56,
@@ -343,7 +344,7 @@ class _StarfieldIntroPageState extends State<StarfieldIntroPage>
           ),
         ),
 
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
 
         // 标语
         Text(
@@ -360,7 +361,7 @@ class _StarfieldIntroPageState extends State<StarfieldIntroPage>
   // 构建滚动的文字（打字机固定在中间）
   Widget _buildScrollingText() {
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 400),
+      duration: Duration(milliseconds: 400),
       curve: Curves.easeOut,
       transform: Matrix4.translationValues(0, _scrollOffset, 0),
       alignment: Alignment.center,
@@ -378,10 +379,10 @@ class _StarfieldIntroPageState extends State<StarfieldIntroPage>
               : (isVisible ? line : '');
           
           return AnimatedOpacity(
-            duration: const Duration(milliseconds: 300),
+            duration: Duration(milliseconds: 300),
             opacity: (isCurrentLine || isVisible) ? 1.0 : 0.0,
             child: Padding(
-              padding: const EdgeInsets.symmetric(
+              padding: EdgeInsets.symmetric(
                 vertical: 6,
                 horizontal: 24,
               ),
@@ -392,7 +393,7 @@ class _StarfieldIntroPageState extends State<StarfieldIntroPage>
                   fontSize: 17,
                   height: 1.6,
                   color: isHighlight
-                      ? const Color(0xFF10a37f)
+                      ? Constants.primaryColor
                       : Colors.white.withOpacity(0.85),
                   fontWeight: isHighlight
                       ? FontWeight.w600
@@ -400,7 +401,7 @@ class _StarfieldIntroPageState extends State<StarfieldIntroPage>
                   shadows: isHighlight
                       ? [
                           Shadow(
-                            color: const Color(0xFF10a37f)
+                            color: Constants.primaryColor
                                 .withOpacity(0.5),
                             blurRadius: 20,
                           ),
@@ -427,16 +428,16 @@ class _StarfieldIntroPageState extends State<StarfieldIntroPage>
               ElevatedButton(
                 onPressed: _ctaActive ? _complete : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF10a37f),
+                  backgroundColor: Constants.primaryColor,
                   disabledBackgroundColor:
-                      const Color(0xFF10a37f).withOpacity(0.3),
-                  padding: const EdgeInsets.symmetric(
+                      Constants.primaryColor.withOpacity(0.3),
+                  padding: EdgeInsets.symmetric(
                       horizontal: 60, vertical: 20),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(50),
                   ),
                   elevation: _ctaActive ? 8 : 0,
-                  shadowColor: const Color(0xFF10a37f).withOpacity(0.5),
+                  shadowColor: Constants.primaryColor.withOpacity(0.5),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -449,7 +450,7 @@ class _StarfieldIntroPageState extends State<StarfieldIntroPage>
                         color: _ctaActive ? Colors.white : Colors.white54,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12),
                     Icon(
                       Icons.arrow_forward,
                       size: 18,
@@ -458,7 +459,7 @@ class _StarfieldIntroPageState extends State<StarfieldIntroPage>
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               if (_ctaActive)
                 Text(
                   '点击按钮或按 Enter 键继续',
@@ -496,7 +497,7 @@ class _Star {
 class _TwinklingStar extends StatefulWidget {
   final _Star star;
 
-  const _TwinklingStar({required this.star});
+  _TwinklingStar({required this.star});
 
   @override
   State<_TwinklingStar> createState() => _TwinklingStarState();

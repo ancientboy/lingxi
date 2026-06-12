@@ -7,7 +7,7 @@ import 'package:lingxicloud/pages/team_intro_page.dart';
 import 'package:lingxicloud/pages/register_page.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+  LoginPage({super.key});
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -46,7 +46,7 @@ class _LoginPageState extends State<LoginPage> {
 
         if (success) {
           Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const MainShell()),
+            MaterialPageRoute(builder: (_) => MainShell()),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -65,7 +65,7 @@ class _LoginPageState extends State<LoginPage> {
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
@@ -76,10 +76,10 @@ class _LoginPageState extends State<LoginPage> {
         ),
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(24),
             child: Container(
               width: 400,
-              padding: const EdgeInsets.all(32),
+              padding: EdgeInsets.all(32),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
@@ -87,20 +87,20 @@ class _LoginPageState extends State<LoginPage> {
                   BoxShadow(
                     color: Colors.black.withOpacity(0.1),
                     blurRadius: 20,
-                    offset: const Offset(0, 10),
+                    offset: Offset(0, 10),
                   ),
                 ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.smart_toy,
                     size: 64,
                     color: Constants.primaryColor,
                   ),
-                  const SizedBox(height: 16),
-                  const Text(
+                  SizedBox(height: 16),
+                  Text(
                     'Lume',
                     style: TextStyle(
                       fontSize: 28,
@@ -109,7 +109,7 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   Text(
                     '硅基生命，为你而来',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -117,7 +117,7 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 32),
+                  SizedBox(height: 32),
                   Form(
                     key: _formKey,
                     child: Column(
@@ -127,8 +127,8 @@ class _LoginPageState extends State<LoginPage> {
                           decoration: InputDecoration(
                             labelText: '昵称',
                             hintText: '请输入您的昵称',
-                            prefixIcon: const Icon(Icons.person_outlined),
-                            border: const OutlineInputBorder(
+                            prefixIcon: Icon(Icons.person_outlined),
+                            border: OutlineInputBorder(
                               borderRadius: BorderRadius.all(Radius.circular(12)),
                             ),
                           ),
@@ -139,14 +139,14 @@ class _LoginPageState extends State<LoginPage> {
                             return null;
                           },
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: 16),
                         TextFormField(
                           controller: _passwordController,
                           obscureText: _obscurePassword,
                           decoration: InputDecoration(
                             labelText: '密码',
                             hintText: '请输入密码',
-                            prefixIcon: const Icon(Icons.lock_outline),
+                            prefixIcon: Icon(Icons.lock_outline),
                             suffixIcon: IconButton(
                               icon: Icon(
                                 _obscurePassword
@@ -159,7 +159,7 @@ class _LoginPageState extends State<LoginPage> {
                                 });
                               },
                             ),
-                            border: const OutlineInputBorder(
+                            border: OutlineInputBorder(
                               borderRadius: BorderRadius.all(Radius.circular(12)),
                             ),
                           ),
@@ -173,7 +173,7 @@ class _LoginPageState extends State<LoginPage> {
                             return null;
                           },
                         ),
-                        const SizedBox(height: 24),
+                        SizedBox(height: 24),
                         Consumer<AppProvider>(
                           builder: (context, appProvider, child) {
                             return SizedBox(
@@ -181,7 +181,7 @@ class _LoginPageState extends State<LoginPage> {
                               child: ElevatedButton(
                                 onPressed: _isLoading ? null : _login,
                                 style: ElevatedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
+                                  padding: EdgeInsets.symmetric(
                                     vertical: 16,
                                   ),
                                   shape: RoundedRectangleBorder(
@@ -191,7 +191,7 @@ class _LoginPageState extends State<LoginPage> {
                                   foregroundColor: Colors.white,
                                 ),
                                 child: _isLoading
-                                    ? const SizedBox(
+                                    ? SizedBox(
                                         width: 20,
                                         height: 20,
                                         child: CircularProgressIndicator(
@@ -202,7 +202,7 @@ class _LoginPageState extends State<LoginPage> {
                                           ),
                                         ),
                                       )
-                                    : const Text(
+                                    : Text(
                                         '登录',
                                         style: TextStyle(
                                           fontSize: 16,
@@ -213,12 +213,12 @@ class _LoginPageState extends State<LoginPage> {
                             );
                           },
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: 16),
                         Consumer<AppProvider>(
                           builder: (context, appProvider, child) {
                             return Text(
                               appProvider.error ?? '',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: Constants.errorColor,
                                 fontSize: 14,
                               ),
@@ -229,16 +229,16 @@ class _LoginPageState extends State<LoginPage> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 24),
-                  const Divider(),
-                  const SizedBox(height: 16),
+                  SizedBox(height: 24),
+                  Divider(),
+                  SizedBox(height: 16),
                   TextButton(
                     onPressed: () {
                       Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const RegisterPage()),
+                        MaterialPageRoute(builder: (_) => RegisterPage()),
                       );
                     },
-                    child: const Text(
+                    child: Text(
                       '没有账号？去注册',
                       style: TextStyle(
                         color: Constants.primaryColor,

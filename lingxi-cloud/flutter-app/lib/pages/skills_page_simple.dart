@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:lingxicloud/utils/constants.dart';
 
 class SkillsPageSimple extends StatefulWidget {
-  const SkillsPageSimple({super.key});
+  SkillsPageSimple({super.key});
 
   @override
   State<SkillsPageSimple> createState() => _SkillsPageSimpleState();
@@ -23,7 +23,7 @@ class _SkillsPageSimpleState extends State<SkillsPageSimple> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('技能库（极简版）'),
+        title: Text('技能库（极简版）'),
         backgroundColor: Constants.primaryColor,
         foregroundColor: Colors.white,
       ),
@@ -34,7 +34,7 @@ class _SkillsPageSimpleState extends State<SkillsPageSimple> {
           return ListTile(
             title: Text(skill['name']),
             subtitle: Text(skill['desc']),
-            leading: const Icon(Icons.extension),
+            leading: Icon(Icons.extension),
           );
         },
       ),

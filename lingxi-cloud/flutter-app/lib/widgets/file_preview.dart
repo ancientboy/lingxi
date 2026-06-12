@@ -31,7 +31,7 @@ class FilePreview extends StatefulWidget {
   final String? serverToken;
   final bool isDarkMode;
 
-  const FilePreview({
+  FilePreview({
     super.key,
     required this.files,
     this.serverIp,
@@ -134,7 +134,7 @@ class _FilePreviewState extends State<FilePreview> {
   @override
   Widget build(BuildContext context) {
     if (widget.files.isEmpty) {
-      return const SizedBox.shrink();
+      return SizedBox.shrink();
     }
     
     return Column(
@@ -163,10 +163,10 @@ class _FilePreviewState extends State<FilePreview> {
   /// 图片卡片（小尺寸预览）
   Widget _buildImageCard(FileInfo file, String url) {
     return Container(
-      margin: const EdgeInsets.only(top: 8),
-      constraints: const BoxConstraints(maxWidth: 280), // 限制最大宽度
+      margin: EdgeInsets.only(top: 8),
+      constraints: BoxConstraints(maxWidth: 280), // 限制最大宽度
       decoration: BoxDecoration(
-        color: widget.isDarkMode ? const Color(0xFF444654) : Colors.grey.shade100,
+        color: widget.isDarkMode ? Color(0xFF444654) : Colors.grey.shade100,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -174,7 +174,7 @@ class _FilePreviewState extends State<FilePreview> {
         children: [
           // 图片预览（小尺寸）
           ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
             child: GestureDetector(
               onTap: () => _showImagePreview(file.name, url),
               child: Hero(
@@ -187,7 +187,7 @@ class _FilePreviewState extends State<FilePreview> {
                   errorBuilder: (_, __, ___) => Container(
                     height: 100,
                     color: Colors.grey.shade300,
-                    child: const Center(
+                    child: Center(
                       child: Icon(Icons.broken_image, size: 48, color: Colors.grey),
                     ),
                   ),
@@ -212,11 +212,11 @@ class _FilePreviewState extends State<FilePreview> {
           ),
           // 文件信息
           Padding(
-            padding: const EdgeInsets.all(8),
+            padding: EdgeInsets.all(8),
             child: Row(
               children: [
                 Icon(Icons.image, size: 16, color: widget.isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     file.name,
@@ -244,7 +244,7 @@ class _FilePreviewState extends State<FilePreview> {
       context: context,
       builder: (context) => Dialog(
         backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(10),
+        insetPadding: EdgeInsets.all(10),
         child: Stack(
           alignment: Alignment.center,
           children: [
@@ -277,7 +277,7 @@ class _FilePreviewState extends State<FilePreview> {
                     errorBuilder: (_, __, ___) => Container(
                       height: 200,
                       color: Colors.black54,
-                      child: const Center(
+                      child: Center(
                         child: Icon(Icons.broken_image, size: 64, color: Colors.white54),
                       ),
                     ),
@@ -290,7 +290,7 @@ class _FilePreviewState extends State<FilePreview> {
               top: 0,
               right: 0,
               child: IconButton(
-                icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                icon: Icon(Icons.close, color: Colors.white, size: 28),
                 onPressed: () => Navigator.pop(context),
               ),
             ),
@@ -298,14 +298,14 @@ class _FilePreviewState extends State<FilePreview> {
             Positioned(
               bottom: 10,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
                   color: Colors.black54,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
                   filename,
-                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                  style: TextStyle(color: Colors.white, fontSize: 14),
                 ),
               ),
             ),
@@ -318,23 +318,23 @@ class _FilePreviewState extends State<FilePreview> {
   /// PDF 卡片
   Widget _buildPdfCard(FileInfo file, String url) {
     return Container(
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.all(12),
+      margin: EdgeInsets.only(top: 8),
+      padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: widget.isDarkMode ? const Color(0xFF444654) : Colors.grey.shade100,
+        color: widget.isDarkMode ? Color(0xFF444654) : Colors.grey.shade100,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: Colors.red.shade100,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(Icons.picture_as_pdf, color: Colors.red.shade700),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -378,23 +378,23 @@ class _FilePreviewState extends State<FilePreview> {
   /// 文档卡片
   Widget _buildDocumentCard(FileInfo file, String url) {
     return Container(
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.all(12),
+      margin: EdgeInsets.only(top: 8),
+      padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: widget.isDarkMode ? const Color(0xFF444654) : Colors.grey.shade100,
+        color: widget.isDarkMode ? Color(0xFF444654) : Colors.grey.shade100,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: Colors.blue.shade100,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(Icons.description, color: Colors.blue.shade700),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -432,23 +432,23 @@ class _FilePreviewState extends State<FilePreview> {
   /// 其他文件卡片
   Widget _buildOtherCard(FileInfo file, String url) {
     return Container(
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.all(12),
+      margin: EdgeInsets.only(top: 8),
+      padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: widget.isDarkMode ? const Color(0xFF444654) : Colors.grey.shade100,
+        color: widget.isDarkMode ? Color(0xFF444654) : Colors.grey.shade100,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: Colors.grey.shade200,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(Icons.insert_drive_file, color: Colors.grey.shade700),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
             child: Text(
               file.name,
@@ -474,8 +474,8 @@ class _FilePreviewState extends State<FilePreview> {
   /// 错误卡片
   Widget _buildErrorCard(FileInfo file, String error) {
     return Container(
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.all(12),
+      margin: EdgeInsets.only(top: 8),
+      padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.red.shade50,
         borderRadius: BorderRadius.circular(12),
@@ -483,14 +483,14 @@ class _FilePreviewState extends State<FilePreview> {
       child: Row(
         children: [
           Icon(Icons.error_outline, color: Colors.red.shade700),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   file.name,
-                  style: const TextStyle(fontWeight: FontWeight.w500),
+                  style: TextStyle(fontWeight: FontWeight.w500),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),

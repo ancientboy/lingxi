@@ -4,7 +4,7 @@ import 'package:lingxicloud/providers/chat_provider.dart';
 import 'package:lingxicloud/utils/constants.dart';
 
 class AgentSelector extends StatelessWidget {
-  const AgentSelector({super.key});
+  AgentSelector({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +20,7 @@ class AgentSelector extends StatelessWidget {
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  prefixIcon: const Icon(
+                  prefixIcon: Icon(
                     Icons.smart_toy_outlined,
                     color: Constants.primaryColor,
                   ),
@@ -55,9 +55,9 @@ class AgentSelector extends StatelessWidget {
                 },
               ),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Container(
-              padding: const EdgeInsets.symmetric(
+              padding: EdgeInsets.symmetric(
                 horizontal: 16,
                 vertical: 10,
               ),
@@ -72,10 +72,10 @@ class AgentSelector extends StatelessWidget {
                     size: 16,
                     color: Colors.white,
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   Text(
                     '${chatProvider.availableAgents.length} 个 Agent',
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.white,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,

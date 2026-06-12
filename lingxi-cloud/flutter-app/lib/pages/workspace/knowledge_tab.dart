@@ -74,7 +74,7 @@ class _KnowledgeTabState extends State<KnowledgeTab> {
     } catch (e) {
       if (mounted) setState(() {
         _errorMessage = '搜索失败: $e';
-        _items = [];
+        const _items = [];
         _loading = false;
       });
     }
@@ -111,7 +111,7 @@ class _KnowledgeTabState extends State<KnowledgeTab> {
           builder: (ctx) => Container(
             constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.8),
             decoration: BoxDecoration(color: bg, borderRadius: const BorderRadius.vertical(top: Radius.circular(20))),
-            padding: const EdgeInsets.all(20),
+            padding: EdgeInsets.all(20),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
               Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)))),
               const SizedBox(height: 16),
@@ -224,12 +224,12 @@ class _KnowledgeTabState extends State<KnowledgeTab> {
     return Column(children: [
       // Stats bar + upload button
       Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         color: dk ? const Color(0xFF1A1A2E) : Colors.white,
         child: Row(children: [
           Icon(Icons.folder_outlined, size: 16, color: const Color(0xFF667eea)),
           const SizedBox(width: 6),
-          Text('${_items.length} 个文档', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF667eea))),
+          Text('${_items.length} 个文档', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF667eea))),
           const Spacer(),
           ElevatedButton.icon(
             onPressed: _uploadFile,
@@ -238,7 +238,7 @@ class _KnowledgeTabState extends State<KnowledgeTab> {
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF667eea),
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -248,7 +248,7 @@ class _KnowledgeTabState extends State<KnowledgeTab> {
       ),
       // Search bar
       Container(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+        padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
         color: dk ? const Color(0xFF1A1A2E) : Colors.white,
         child: TextField(
           controller: _searchCtrl,
@@ -263,7 +263,7 @@ class _KnowledgeTabState extends State<KnowledgeTab> {
             ) : null,
             filled: true, fillColor: fieldBg,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-            contentPadding: const EdgeInsets.symmetric(vertical: 10),
+            contentPadding: EdgeInsets.symmetric(vertical: 10),
           ),
           onChanged: (v) => setState(() => _query = v),
           onSubmitted: _search,
@@ -274,7 +274,7 @@ class _KnowledgeTabState extends State<KnowledgeTab> {
         ? const Center(child: CircularProgressIndicator())
         : _errorMessage != null
           ? Center(child: Padding(
-              padding: const EdgeInsets.all(24),
+              padding: EdgeInsets.all(24),
               child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                 Icon(Icons.error_outline, size: 48, color: Colors.red.shade300),
                 const SizedBox(height: 12),
@@ -299,7 +299,7 @@ class _KnowledgeTabState extends State<KnowledgeTab> {
                 Text('点击右上角「上传」添加文档', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
               ])))])
             : ListView.separated(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(16),
                 itemCount: _items.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 8),
                 itemBuilder: (_, i) => _buildCard(_items[i], dk, cardBg, textColor),
@@ -337,7 +337,7 @@ class _KnowledgeTabState extends State<KnowledgeTab> {
     final snippet = item['snippet'] ?? '';
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: cardBg,
         borderRadius: BorderRadius.circular(14),
@@ -381,14 +381,14 @@ class _KnowledgeTabState extends State<KnowledgeTab> {
             onPressed: () => _viewContent(item),
             icon: const Icon(Icons.visibility, size: 14),
             label: const Text('查看'),
-            style: TextButton.styleFrom(foregroundColor: const Color(0xFF667eea), padding: const EdgeInsets.symmetric(horizontal: 10)),
+            style: TextButton.styleFrom(foregroundColor: const Color(0xFF667eea), padding: EdgeInsets.symmetric(horizontal: 10)),
           ),
           const SizedBox(width: 4),
           TextButton.icon(
             onPressed: () => _deleteDocument(item),
             icon: const Icon(Icons.delete_outline, size: 14),
             label: const Text('删除'),
-            style: TextButton.styleFrom(foregroundColor: Colors.red.shade400, padding: const EdgeInsets.symmetric(horizontal: 10)),
+            style: TextButton.styleFrom(foregroundColor: Colors.red.shade400, padding: EdgeInsets.symmetric(horizontal: 10)),
           ),
         ]),
       ]),

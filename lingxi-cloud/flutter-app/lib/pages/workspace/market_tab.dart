@@ -60,7 +60,7 @@ class _MarketTabState extends State<MarketTab> {
     } catch (e) {
       if (mounted) setState(() {
         _errorMessage = '加载市场失败: $e';
-        _agents = [];
+        const _agents = [];
         _loading = false;
       });
     }
@@ -135,7 +135,7 @@ class _MarketTabState extends State<MarketTab> {
           builder: (ctx) => Container(
             constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.85),
             decoration: BoxDecoration(color: bg, borderRadius: const BorderRadius.vertical(top: Radius.circular(20))),
-            padding: const EdgeInsets.all(20),
+            padding: EdgeInsets.all(20),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
               Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)))),
               const SizedBox(height: 16),
@@ -149,7 +149,7 @@ class _MarketTabState extends State<MarketTab> {
                   ),
                   child: Center(child: Text(
                     (detail['name'] ?? '?').toString().substring(0, (detail['name'] ?? '?').toString().length >= 2 ? 2 : 1),
-                    style: const TextStyle(color: Color(0xFF667eea), fontWeight: FontWeight.w700, fontSize: 18),
+                    style: TextStyle(color: Color(0xFF667eea), fontWeight: FontWeight.w700, fontSize: 18),
                   )),
                 ),
                 const SizedBox(width: 12),
@@ -159,7 +159,7 @@ class _MarketTabState extends State<MarketTab> {
                     if (detail['official'] == true || detail['author'] == '官方') ...[
                       const SizedBox(width: 6),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(color: const Color(0xFF667eea).withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
                         child: const Text('官方', style: TextStyle(fontSize: 9, color: Color(0xFF667eea), fontWeight: FontWeight.w600)),
                       ),
@@ -190,9 +190,9 @@ class _MarketTabState extends State<MarketTab> {
               if ((detail['tags'] as List?)?.isNotEmpty == true) ...[
                 const SizedBox(height: 10),
                 Wrap(spacing: 6, runSpacing: 4, children: (detail['tags'] as List).map<Widget>((t) => Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(color: const Color(0xFF667eea).withOpacity(0.08), borderRadius: BorderRadius.circular(6)),
-                  child: Text(t.toString(), style: const TextStyle(fontSize: 11, color: Color(0xFF667eea))),
+                  child: Text(t.toString(), style: TextStyle(fontSize: 11, color: Color(0xFF667eea))),
                 )).toList()),
               ],
               // SOUL.md preview
@@ -203,7 +203,7 @@ class _MarketTabState extends State<MarketTab> {
                 Container(
                   width: double.infinity,
                   constraints: const BoxConstraints(maxHeight: 200),
-                  padding: const EdgeInsets.all(12),
+                  padding: EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: dk ? const Color(0xFF252540) : const Color(0xFFF5F5FA),
                     borderRadius: BorderRadius.circular(10),
@@ -222,7 +222,7 @@ class _MarketTabState extends State<MarketTab> {
                 ...((detail['reviews'] as List).take(3).map<Widget>((r) {
                   final review = r is Map ? Map<String, dynamic>.from(r) : <String, dynamic>{};
                   return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
+                    padding: EdgeInsets.only(bottom: 8),
                     child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       ...List.generate(5, (i) => Icon(
                         i < (review['rating'] ?? 0) ? Icons.star : Icons.star_border,
@@ -415,7 +415,7 @@ class _MarketTabState extends State<MarketTab> {
     return Column(children: [
       // Top bar: search + publish button
       Container(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+        padding: EdgeInsets.fromLTRB(16, 10, 16, 8),
         color: dk ? const Color(0xFF1A1A2E) : Colors.white,
         child: Row(children: [
           Expanded(child: TextField(
@@ -431,7 +431,7 @@ class _MarketTabState extends State<MarketTab> {
               ) : null,
               filled: true, fillColor: fieldBg,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-              contentPadding: const EdgeInsets.symmetric(vertical: 8),
+              contentPadding: EdgeInsets.symmetric(vertical: 8),
               isDense: true,
             ),
             onChanged: (v) => setState(() => _searchQuery = v),
@@ -445,7 +445,7 @@ class _MarketTabState extends State<MarketTab> {
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF667eea),
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -459,13 +459,13 @@ class _MarketTabState extends State<MarketTab> {
         color: dk ? const Color(0xFF1A1A2E) : Colors.white,
         child: Row(children: [
           // Categories
-          Expanded(child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 8),
+          Expanded(child: ListView(scrollDirection: Axis.horizontal, padding: EdgeInsets.symmetric(horizontal: 8),
             children: _categories.map((c) {
               final active = _category == c;
               return GestureDetector(
                 onTap: () { setState(() => _category = c); _load(); },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(border: Border(bottom: BorderSide(color: active ? const Color(0xFF667eea) : Colors.transparent, width: 2))),
                   child: Text(_categoryLabels[c]!, style: TextStyle(fontSize: 13, fontWeight: active ? FontWeight.w600 : FontWeight.normal, color: active ? const Color(0xFF667eea) : (dk ? Colors.white54 : Colors.black45))),
                 ),
@@ -474,7 +474,7 @@ class _MarketTabState extends State<MarketTab> {
           )),
           // Sort buttons
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            padding: EdgeInsets.symmetric(horizontal: 8),
             child: Row(children: [
               _sortChip('热门', 'popular', dk),
               const SizedBox(width: 4),
@@ -488,7 +488,7 @@ class _MarketTabState extends State<MarketTab> {
         ? const Center(child: CircularProgressIndicator())
         : _errorMessage != null
           ? Center(child: Padding(
-              padding: const EdgeInsets.all(24),
+              padding: EdgeInsets.all(24),
               child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                 Icon(Icons.error_outline, size: 48, color: Colors.red.shade300),
                 const SizedBox(height: 12),
@@ -511,7 +511,7 @@ class _MarketTabState extends State<MarketTab> {
                 Text('暂无可安装的 Agent', style: TextStyle(color: Colors.grey.shade400, fontSize: 14)),
               ])))])
             : GridView.builder(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(16),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 12, crossAxisSpacing: 12, childAspectRatio: 0.72),
                 itemCount: _agents.length,
                 itemBuilder: (_, i) => _buildCard(_agents[i], dk, cardBg, textColor),
@@ -526,7 +526,7 @@ class _MarketTabState extends State<MarketTab> {
     return GestureDetector(
       onTap: () { setState(() => _sort = value); _load(); },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
           color: active ? const Color(0xFF667eea).withOpacity(0.1) : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
@@ -559,7 +559,7 @@ class _MarketTabState extends State<MarketTab> {
     return GestureDetector(
       onTap: () => _showDetail(agent),
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: cardBg,
           borderRadius: BorderRadius.circular(14),
@@ -588,7 +588,7 @@ class _MarketTabState extends State<MarketTab> {
           Expanded(child: Text(desc, style: TextStyle(fontSize: 11, color: Colors.grey.shade500, height: 1.4), maxLines: 3, overflow: TextOverflow.ellipsis)),
           const SizedBox(height: 8),
           if (tags.isNotEmpty) Wrap(spacing: 4, runSpacing: 4, children: tags.take(3).map((t) => Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(color: Colors.grey.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
             child: Text(t, style: TextStyle(fontSize: 9, color: Colors.grey.shade600)),
           )).toList()),
@@ -602,7 +602,7 @@ class _MarketTabState extends State<MarketTab> {
             const Spacer(),
             if (installed)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(color: Colors.grey.withOpacity(0.15), borderRadius: BorderRadius.circular(8)),
                 child: const Text('已添加', style: TextStyle(fontSize: 11, color: Colors.grey)),
               )
@@ -613,7 +613,7 @@ class _MarketTabState extends State<MarketTab> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF667eea),
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  padding: EdgeInsets.symmetric(horizontal: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   minimumSize: Size.zero,
                 ),

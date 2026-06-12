@@ -114,7 +114,7 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
       });
     } catch (_) {
       if (mounted) setState(() {
-        _templates = [
+        const _templates = [
           {'templateId': 'lingxi-team', 'templateName': '灵犀全能团队', 'description': '灵犀 + 多个专业 Agent', 'memberCount': 8, 'category': 'assistant'},
           {'templateId': 'dev-team', 'templateName': '敏捷开发团队', 'description': '灵犀 + 云溪 + 梓萱', 'memberCount': 3, 'category': 'development'},
           {'templateId': 'content-team', 'templateName': '内容创作团队', 'description': '灵犀 + 紫萱 + 音韵 + 晓琳', 'memberCount': 4, 'category': 'marketing'},
@@ -160,7 +160,7 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
       appBar: AppBar(
         title: const Text('办公区'), backgroundColor: dk ? const Color(0xFF1A1A2E) : Colors.white, elevation: 0,
         actions: [
-          if (_source == 'openclaw') Container(margin: const EdgeInsets.only(right: 8, top: 14), padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: const Color(0xFF22C55E).withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: const Row(children: [Icon(Icons.cloud_done, size: 14, color: Color(0xFF22C55E)), SizedBox(width: 4), Text('实时', style: TextStyle(fontSize: 12, color: Color(0xFF22C55E)))])),
+          if (_source == 'openclaw') Container(margin: EdgeInsets.only(right: 8, top: 14), padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: const Color(0xFF22C55E).withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: const Row(children: [Icon(Icons.cloud_done, size: 14, color: Color(0xFF22C55E)), SizedBox(width: 4), Text('实时', style: TextStyle(fontSize: 12, color: Color(0xFF22C55E)))])),
           IconButton(icon: const Icon(Icons.refresh, size: 20), onPressed: _loadStatus),
         ],
         bottom: TabBar(
@@ -170,8 +170,8 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
           labelColor: const Color(0xFF667eea),
           unselectedLabelColor: dk ? Colors.white54 : Colors.black38,
           indicatorColor: const Color(0xFF667eea),
-          labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-          unselectedLabelStyle: const TextStyle(fontSize: 12),
+          labelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          unselectedLabelStyle: TextStyle(fontSize: 12),
           tabs: const [
             Tab(icon: Icon(Icons.grid_view_outlined, size: 18), text: '概览'),
             Tab(icon: Icon(Icons.people_outline, size: 18), text: '管理'),
@@ -233,11 +233,11 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
     }
     return RefreshIndicator(
       onRefresh: _loadStatus,
-      child: ListView(padding: const EdgeInsets.all(16), children: [
+      child: ListView(padding: EdgeInsets.all(16), children: [
         Row(children: [
           Text('团队成员', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)),
           const Spacer(),
-          Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: _source == 'openclaw' ? const Color(0xFF22C55E).withOpacity(0.1) : Colors.grey.withOpacity(0.1), borderRadius: BorderRadius.circular(10)), child: Text('${display.length} 人', style: TextStyle(fontSize: 11, color: _source == 'openclaw' ? const Color(0xFF22C55E) : Colors.grey))),
+          Container(padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: _source == 'openclaw' ? const Color(0xFF22C55E).withOpacity(0.1) : Colors.grey.withOpacity(0.1), borderRadius: BorderRadius.circular(10)), child: Text('${display.length} 人', style: TextStyle(fontSize: 11, color: _source == 'openclaw' ? const Color(0xFF22C55E) : Colors.grey))),
         ]),
         const SizedBox(height: 12),
         ...display.map((id) {
@@ -245,22 +245,22 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
           final isCaptain = id == 'lingxi' || id == 'captain';
           final as_ = _agents.cast<Map<String, dynamic>?>().firstWhere((a) => a?['id'] == id, orElse: () => null);
           final status = as_?['status'] ?? 'idle';
-          return Container(margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: cardBg, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))]), child: Row(children: [
-            Container(width: 40, height: 40, decoration: BoxDecoration(gradient: LinearGradient(colors: [_pc(info['color']!), _pc(info['color']!).withOpacity(0.7)]), borderRadius: BorderRadius.circular(12)), child: Center(child: Text(info['abbr']!, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)))),
+          return Container(margin: EdgeInsets.only(bottom: 8), padding: EdgeInsets.all(12), decoration: BoxDecoration(color: cardBg, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))]), child: Row(children: [
+            Container(width: 40, height: 40, decoration: BoxDecoration(gradient: LinearGradient(colors: [_pc(info['color']!), _pc(info['color']!).withOpacity(0.7)]), borderRadius: BorderRadius.circular(12)), child: Center(child: Text(info['abbr']!, style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)))),
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [Text(info['name']!, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: textColor)), const SizedBox(width: 6), Text(info['role']!, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)), const SizedBox(width: 6), Container(width: 6, height: 6, decoration: BoxDecoration(color: _sc(status), shape: BoxShape.circle))]),
               const SizedBox(height: 2), Text(info['desc']!, style: TextStyle(fontSize: 11, color: Colors.grey.shade400), maxLines: 1, overflow: TextOverflow.ellipsis),
             ])),
-            if (isCaptain) Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: const Color(0xFF667eea).withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: const Text('队长', style: TextStyle(color: Color(0xFF667eea), fontSize: 11, fontWeight: FontWeight.w600)))
+            if (isCaptain) Container(padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: const Color(0xFF667eea).withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: const Text('队长', style: TextStyle(color: Color(0xFF667eea), fontSize: 11, fontWeight: FontWeight.w600)))
             else IconButton(icon: Icon(Icons.remove_circle_outline, color: Colors.red.shade300, size: 20), onPressed: () => _removeMember(id, appProvider)),
           ]));
         }),
         const SizedBox(height: 20),
-        Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: dk ? const Color(0xFF1E1E38) : const Color(0xFFF8F9FA), borderRadius: BorderRadius.circular(16)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Container(padding: EdgeInsets.all(16), decoration: BoxDecoration(color: dk ? const Color(0xFF1E1E38) : const Color(0xFFF8F9FA), borderRadius: BorderRadius.circular(16)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('添加成员', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textColor)),
           const SizedBox(height: 10),
-          if (avail.isEmpty) Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text('已添加全部成员', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)))
+          if (avail.isEmpty) Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('已添加全部成员', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)))
           else Wrap(spacing: 8, runSpacing: 8, children: avail.map((id) {
             final info = _agentInfo[id]!;
             return ActionChip(avatar: Icon(Icons.add_circle_outline, size: 16, color: _pc(info['color']!)), label: Text(info['name']!), onPressed: () => _addMember(id, appProvider));
@@ -299,15 +299,15 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
         : _tplCategory == 'custom' ? _templates.where((t) => t['isCustom'] == true).toList()
         : _templates.where((t) => t['category'] == _tplCategory).toList();
     return Column(children: [
-      Container(height: 44, color: dk ? const Color(0xFF1A1A2E) : Colors.white, child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 8), children: cats.map((c) {
+      Container(height: 44, color: dk ? const Color(0xFF1A1A2E) : Colors.white, child: ListView(scrollDirection: Axis.horizontal, padding: EdgeInsets.symmetric(horizontal: 8), children: cats.map((c) {
         final active = _tplCategory == c;
-        return GestureDetector(onTap: () => setState(() => _tplCategory = c), child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), decoration: BoxDecoration(border: Border(bottom: BorderSide(color: active ? const Color(0xFF667eea) : Colors.transparent, width: 2))), child: Text(catLabels[c]!, style: TextStyle(fontSize: 13, fontWeight: active ? FontWeight.w600 : FontWeight.normal, color: active ? const Color(0xFF667eea) : (dk ? Colors.white54 : Colors.black45)))));
+        return GestureDetector(onTap: () => setState(() => _tplCategory = c), child: Container(padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10), decoration: BoxDecoration(border: Border(bottom: BorderSide(color: active ? const Color(0xFF667eea) : Colors.transparent, width: 2))), child: Text(catLabels[c]!, style: TextStyle(fontSize: 13, fontWeight: active ? FontWeight.w600 : FontWeight.normal, color: active ? const Color(0xFF667eea) : (dk ? Colors.white54 : Colors.black45)))));
       }).toList())),
       const Divider(height: 1),
       Expanded(child: _templatesLoading ? const Center(child: CircularProgressIndicator())
         : RefreshIndicator(onRefresh: _loadTemplates, child: filtered.isEmpty
           ? ListView(children: [SizedBox(height: 200, child: Center(child: Text('暂无模板', style: TextStyle(color: Colors.grey.shade400))))])
-        : GridView.builder(padding: const EdgeInsets.all(16), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 12, crossAxisSpacing: 12, childAspectRatio: 0.82), itemCount: filtered.length, itemBuilder: (_, i) => _tplCard(filtered[i], dk, cardBg)))),
+        : GridView.builder(padding: EdgeInsets.all(16), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 12, crossAxisSpacing: 12, childAspectRatio: 0.82), itemCount: filtered.length, itemBuilder: (_, i) => _tplCard(filtered[i], dk, cardBg)))),
     ]);
   }
 
@@ -325,7 +325,7 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
       final tid = t['templateId'] ?? t['id'];
       if (tid != null) { final d = await ApiService().getTemplateDetail(tid.toString()); if (d != null && mounted) { setState(() => _selectedTemplate = d); return; } }
       setState(() => _selectedTemplate = t);
-    }, child: Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: cardBg, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))], border: snap ? Border.all(color: const Color(0xFF43e97b), width: 2) : null), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    }, child: Container(padding: EdgeInsets.all(16), decoration: BoxDecoration(color: cardBg, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))], border: snap ? Border.all(color: const Color(0xFF43e97b), width: 2) : null), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Container(width: 40, height: 40, decoration: BoxDecoration(color: color.withOpacity(0.15), borderRadius: BorderRadius.circular(10)), child: Center(child: snap ? Icon(Icons.save, color: color, size: 20) : Text(abbr, style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 13)))),
       const SizedBox(height: 10),
       Text(name, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: dk ? Colors.white : Colors.black87), maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -333,9 +333,9 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
       Expanded(child: Text(desc, style: TextStyle(fontSize: 11, color: Colors.grey.shade500, height: 1.4), maxLines: 2, overflow: TextOverflow.ellipsis)),
       const SizedBox(height: 8),
       Row(children: [
-        if (mc > 0) Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: Colors.grey.withOpacity(0.1), borderRadius: BorderRadius.circular(6)), child: Text('$mc 人', style: TextStyle(fontSize: 10, color: Colors.grey.shade600))),
+        if (mc > 0) Container(padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: Colors.grey.withOpacity(0.1), borderRadius: BorderRadius.circular(6)), child: Text('$mc 人', style: TextStyle(fontSize: 10, color: Colors.grey.shade600))),
         const SizedBox(width: 6),
-        Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: Colors.grey.withOpacity(0.1), borderRadius: BorderRadius.circular(6)), child: Text(cl[cat] ?? '通用', style: TextStyle(fontSize: 10, color: Colors.grey.shade600))),
+        Container(padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: Colors.grey.withOpacity(0.1), borderRadius: BorderRadius.circular(6)), child: Text(cl[cat] ?? '通用', style: TextStyle(fontSize: 10, color: Colors.grey.shade600))),
       ]),
     ])));
   }
@@ -350,8 +350,8 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
     if (members.isEmpty && _tplMembers.containsKey(tid)) {
       dm = _tplMembers[tid]!.map((id) { final info = _agentInfo[id] ?? {'name': id, 'abbr': 'AI', 'color': '#888888', 'role': '', 'desc': ''}; return <String, dynamic>{'id': id, ...info}; }).toList();
     } else { dm = members.cast<Map<String, dynamic>>(); }
-    return ListView(padding: const EdgeInsets.all(16), children: [
-      GestureDetector(onTap: () => setState(() => _selectedTemplate = null), child: Padding(padding: const EdgeInsets.only(bottom: 12), child: Row(children: [const Icon(Icons.arrow_back, size: 16, color: Color(0xFF667eea)), const SizedBox(width: 4), const Text('返回模板列表', style: TextStyle(color: Color(0xFF667eea), fontSize: 13))]))),
+    return ListView(padding: EdgeInsets.all(16), children: [
+      GestureDetector(onTap: () => setState(() => _selectedTemplate = null), child: Padding(padding: EdgeInsets.only(bottom: 12), child: Row(children: [const Icon(Icons.arrow_back, size: 16, color: Color(0xFF667eea)), const SizedBox(width: 4), const Text('返回模板列表', style: TextStyle(color: Color(0xFF667eea), fontSize: 13))]))),
       Text(name, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textColor)),
       if (desc.isNotEmpty) ...[const SizedBox(height: 8), Text(desc, style: TextStyle(fontSize: 13, color: Colors.grey.shade600, height: 1.5))],
       const SizedBox(height: 16),
@@ -362,11 +362,11 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
           final mId = (m['id'] ?? '') as String;
           final info = _agentInfo[mId] ?? {'name': m['name'] ?? mId, 'abbr': 'AI', 'color': '#888888', 'role': m['role'] ?? '', 'desc': m['desc'] ?? ''};
           final isD = m['isDefault'] == true || mId == 'lingxi' || mId == 'captain';
-          return Container(margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: dk ? const Color(0xFF1E1E38) : const Color(0xFFF8F9FA), borderRadius: BorderRadius.circular(12)), child: Row(children: [
-            Container(width: 36, height: 36, decoration: BoxDecoration(gradient: LinearGradient(colors: [_pc(info['color']!), _pc(info['color']!).withOpacity(0.7)]), borderRadius: BorderRadius.circular(10)), child: Center(child: Text(info['abbr']!, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12)))),
+          return Container(margin: EdgeInsets.only(bottom: 8), padding: EdgeInsets.all(14), decoration: BoxDecoration(color: dk ? const Color(0xFF1E1E38) : const Color(0xFFF8F9FA), borderRadius: BorderRadius.circular(12)), child: Row(children: [
+            Container(width: 36, height: 36, decoration: BoxDecoration(gradient: LinearGradient(colors: [_pc(info['color']!), _pc(info['color']!).withOpacity(0.7)]), borderRadius: BorderRadius.circular(10)), child: Center(child: Text(info['abbr']!, style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12)))),
             const SizedBox(width: 10),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(info['name']!, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: textColor)), if ((info['role'] ?? '').isNotEmpty) Text(info['role']!, style: TextStyle(fontSize: 11, color: Colors.grey.shade500))])),
-            if (isD) Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: const Color(0xFF667eea).withOpacity(0.1), borderRadius: BorderRadius.circular(6)), child: const Text('队长', style: TextStyle(color: Color(0xFF667eea), fontSize: 10, fontWeight: FontWeight.w600))),
+            if (isD) Container(padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: const Color(0xFF667eea).withOpacity(0.1), borderRadius: BorderRadius.circular(6)), child: const Text('队长', style: TextStyle(color: Color(0xFF667eea), fontSize: 10, fontWeight: FontWeight.w600))),
           ]));
         }),
       ],
@@ -384,7 +384,7 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('操作失败')));
           }
         },
-        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF667eea), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 14)),
+        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF667eea), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: EdgeInsets.symmetric(vertical: 14)),
         child: const Text('应用此模板', style: TextStyle(fontWeight: FontWeight.w600)),
       )),
     ]);
@@ -396,7 +396,7 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
     return RefreshIndicator(
       onRefresh: () async { _logs.clear(); setState(() {}); await _loadStatus(); },
       child: ListView.separated(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(16),
         itemCount: _logs.length,
         separatorBuilder: (_, __) => Divider(height: 1, color: Colors.grey.withOpacity(0.1)),
         itemBuilder: (_, i) {
@@ -406,9 +406,9 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
           final color = log['color'] ?? '#888888';
           final msg = log['msg'] ?? '';
           final status = log['status'] ?? '';
-          return Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          return Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             SizedBox(width: 40, child: Text(time, style: TextStyle(fontSize: 10, color: Colors.grey.shade400))),
-            Container(width: 6, height: 6, margin: const EdgeInsets.only(top: 5), decoration: BoxDecoration(color: _sc(status), shape: BoxShape.circle)),
+            Container(width: 6, height: 6, margin: EdgeInsets.only(top: 5), decoration: BoxDecoration(color: _sc(status), shape: BoxShape.circle)),
             const SizedBox(width: 6),
             SizedBox(width: 32, child: Text(name, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: _pc(color)))),
             Expanded(child: Text(msg, style: TextStyle(fontSize: 12, color: dk ? Colors.white70 : Colors.black54))),
@@ -432,8 +432,8 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
     final hair = a['hair'] ?? 'purple-cape';
 
     showModalBottomSheet(context: context, backgroundColor: Colors.transparent, builder: (ctx) => Container(
-      decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      padding: EdgeInsets.all(20),
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
         // Character portrait + info
         Row(children: [
@@ -447,21 +447,21 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
           ),
           const SizedBox(width: 16),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            Text(name, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
             const SizedBox(height: 2),
-            Text(role, style: const TextStyle(fontSize: 14, color: Colors.grey)),
+            Text(role, style: TextStyle(fontSize: 14, color: Colors.grey)),
             const SizedBox(height: 4),
-            Text(a['desc'] ?? '', style: const TextStyle(fontSize: 12, color: Colors.black45), maxLines: 2, overflow: TextOverflow.ellipsis),
+            Text(a['desc'] ?? '', style: TextStyle(fontSize: 12, color: Colors.black45), maxLines: 2, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 6),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(color: _sc(s).withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
               child: Text(_sl(s), style: TextStyle(color: _sc(s), fontWeight: FontWeight.w600, fontSize: 13)),
             ),
           ]),
           ),
         ]),
-        if (t != null) ...[const SizedBox(height: 16), const Text('当前任务', style: TextStyle(fontWeight: FontWeight.w600)), const SizedBox(height: 8), Container(width: double.infinity, padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: color.withOpacity(0.05), borderRadius: BorderRadius.circular(10), border: Border.all(color: color.withOpacity(0.1))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(t['title'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600)), const SizedBox(height: 6), ClipRRect(borderRadius: BorderRadius.circular(4), child: LinearProgressIndicator(value: ((t['progress'] as int?) ?? 0) / 100.0, backgroundColor: Colors.black.withOpacity(0.05), valueColor: AlwaysStoppedAnimation(color), minHeight: 6)), const SizedBox(height: 4), Text('步骤 ${t['step'] ?? 0}/${t['totalSteps'] ?? 0} · ${t['stepName'] ?? ''}', style: const TextStyle(fontSize: 12, color: Colors.grey))]))],
+        if (t != null) ...[const SizedBox(height: 16), const Text('当前任务', style: TextStyle(fontWeight: FontWeight.w600)), const SizedBox(height: 8), Container(width: double.infinity, padding: EdgeInsets.all(12), decoration: BoxDecoration(color: color.withOpacity(0.05), borderRadius: BorderRadius.circular(10), border: Border.all(color: color.withOpacity(0.1))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(t['title'] ?? '', style: TextStyle(fontWeight: FontWeight.w600)), const SizedBox(height: 6), ClipRRect(borderRadius: BorderRadius.circular(4), child: LinearProgressIndicator(value: ((t['progress'] as int?) ?? 0) / 100.0, backgroundColor: Colors.black.withOpacity(0.05), valueColor: AlwaysStoppedAnimation(color), minHeight: 6)), const SizedBox(height: 4), Text('步骤 ${t['step'] ?? 0}/${t['totalSteps'] ?? 0} · ${t['stepName'] ?? ''}', style: TextStyle(fontSize: 12, color: Colors.grey))]))],
         if (st != null) ...[const SizedBox(height: 12), Row(children: [_chip('✅ 完成', '${st['tasksCompleted'] ?? 0}'), const SizedBox(width: 12), _chip('📅 今日', '${st['tasksToday'] ?? 0}'), const SizedBox(width: 12), _chip('⏱️ 响应', '${st['avgResponseTime'] ?? '-'}')])],
         const SizedBox(height: 20),
       ]),
@@ -480,7 +480,7 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
     );
   }
 
-  Widget _chip(String l, String v) => Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: Colors.black.withOpacity(0.03), borderRadius: BorderRadius.circular(8)), child: Column(children: [Text(v, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)), Text(l, style: const TextStyle(fontSize: 10, color: Colors.grey))]));
+  Widget _chip(String l, String v) => Container(padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: Colors.black.withOpacity(0.03), borderRadius: BorderRadius.circular(8)), child: Column(children: [Text(v, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)), Text(l, style: TextStyle(fontSize: 10, color: Colors.grey))]));
 }
 
 // ======================== FRONT-FACING CHARACTER PAINTER ========================

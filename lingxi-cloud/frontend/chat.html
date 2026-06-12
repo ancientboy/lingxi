@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://js.stripe.com/v3/"></script>
-  <link rel="stylesheet" href="assets/css/chat.css?v=20260608">
+  <link rel="stylesheet" href="assets/css/chat.css?v=20260612fix">
   <link rel="stylesheet" href="assets/css/dark.css" id="darkTheme" disabled>
   <link rel="stylesheet" href="assets/css/subscription.css">
   <link rel="stylesheet" href="assets/css/stripe-payment.css">
@@ -16,13 +16,13 @@
   <link rel="stylesheet" href="assets/css/file-preview.css">
   <!-- Lucide Icons - 使用 cdnjs 备用源 -->
   <script src="assets/libs/lucide.min.js"></script>
+  <!-- Markdown 渲染 -->
+  <script src="assets/libs/marked.min.js"></script>
   <!-- i18n 双语系统 -->
   <script src="assets/js/i18n.js?v=20260608"></script>
   <!-- 文件预览模块 -->
   <script src="components/file-preview.js?v=1773154586"></script>
   <!-- 工作流进度组件 -->
-  <link rel="stylesheet" href="components/workflow-inline.css?v=1773187200">
-  <script src="components/workflow-inline.js?v=1773187200"></script>
   <style>
     /* 顶部导航链接 */
     .nav-links {
@@ -45,7 +45,7 @@
 
     .nav-link.active {
       background: rgba(16, 163, 127, 0.1);
-      color: #10a37f;
+      color: var(--accent);
     }
 
       /* 导航栏右侧布局 */
@@ -64,7 +64,7 @@
     .icon { width: 20px; height: 20px; color: currentColor; }
     .icon-sm { width: 16px; height: 16px; }
     .icon-lg { width: 24px; height: 24px; }
-    .icon-primary { color: #10a37f; }
+    .icon-primary { color: var(--accent); }
 
     /* 输入框右侧按钮容器 */
     .input-right-btns {
@@ -150,7 +150,7 @@
     .notification-mark-all {
       border: none;
       background: none;
-      color: #10a37f;
+      color: var(--accent);
       font-size: 13px;
       cursor: pointer;
       padding: 2px 8px;
@@ -195,7 +195,7 @@
       flex-shrink: 0;
       margin-top: 2px;
     }
-    .notification-item-bar.offline { background: #10a37f; }
+    .notification-item-bar.offline { background: var(--accent); }
     .notification-item-bar.recovered { background: #43e97b; }
     .notification-item-bar.reminder { background: #fbbf24; }
     .notification-item-content {
@@ -558,7 +558,7 @@
         <!-- Step 4: 完成 -->
         <div id="onboardingStep4" class="onboarding-step" style="display:none;">
           <div class="onboarding-complete">
-            <div class="onboarding-icon" style="background:#10a37f;">
+            <div class="onboarding-icon" style="background:var(--accent);">
               <i data-lucide="check" class="icon-lg"></i>
             </div>
             <h2>配置完成!</h2>
@@ -594,7 +594,7 @@
 
     .nav-link.active {
       background: rgba(16, 163, 127, 0.1);
-      color: #10a37f;
+      color: var(--accent);
     }
 
       /* 导航栏右侧布局 */
@@ -626,7 +626,7 @@
       .onboarding-emoji {
         width: 80px;
         height: 80px;
-        background: #10a37f;
+        background: var(--accent);
         border-radius: 50%;
         display: flex;
         align-items: center;
@@ -638,7 +638,7 @@
       .onboarding-icon{
         width: 80px;
         height: 80px;
-        background: #10a37f;
+        background: var(--accent);
         border-radius: 50%;
         display: flex;
         align-items: center;
@@ -675,12 +675,12 @@
 
       .job-type-item:hover {
         background: rgba(255,255,255,0.1);
-        border-color: #10a37f;
+        border-color: var(--accent);
       }
 
       .job-type-item.selected {
-        background: rgba(16,163,127,0.2);
-        border-color: #10a37f;
+        background: var(--accent-soft);
+        border-color: var(--accent);
       }
 
       .recommendation-agents {
@@ -712,7 +712,7 @@
       .recommendation-agent .emoji svg{
         width: 24px;
         height: 24px;
-        color: #10a37f;
+        color: var(--accent);
       }
 
       .recommendation-agent .info{
@@ -756,7 +756,7 @@
       .team-preview-avatar svg{
         width: 24px;
         height: 24px;
-        color: #10a37f;
+        color: var(--accent);
       }
 
       /* 订阅后 Onboarding 引导弹窗 */
@@ -773,7 +773,7 @@
       .sub-onboarding-icon {
         width: 72px;
         height: 72px;
-        background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
+        background: linear-gradient(135deg, var(--accent) 0%, var(--accent-h) 100%);
         border-radius: 20px;
         display: flex;
         align-items: center;
@@ -805,7 +805,7 @@
       .sub-onboarding-btn-primary {
         width: 100%;
         padding: 14px;
-        background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
+        background: linear-gradient(135deg, var(--accent) 0%, var(--accent-h) 100%);
         color: #fff;
         border: none;
         border-radius: 12px;
@@ -847,7 +847,7 @@
         background: linear-gradient(90deg, rgba(16, 163, 127, 0.12) 0%, rgba(59, 130, 246, 0.12) 100%);
         border-bottom: 1px solid rgba(16, 163, 127, 0.2);
         font-size: 13px;
-        color: #10a37f;
+        color: var(--accent);
       }
 
       .onboarding-banner-text {
@@ -857,7 +857,7 @@
 
       .onboarding-banner-btn {
         padding: 5px 14px;
-        background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
+        background: linear-gradient(135deg, var(--accent) 0%, var(--accent-h) 100%);
         color: #fff;
         border: none;
         border-radius: 6px;
@@ -912,7 +912,7 @@
       }
 
       .checkin-btn.checked-in {
-        background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
+        background: linear-gradient(135deg, var(--accent) 0%, var(--accent-h) 100%);
         cursor: default;
       }
 
@@ -975,7 +975,7 @@
 
     .nav-link.active {
       background: rgba(16, 163, 127, 0.1);
-      color: #10a37f;
+      color: var(--accent);
     }
 
       /* 导航栏右侧布局 */
@@ -1067,12 +1067,12 @@
       }
 
       .skill-agent-item:hover {
-        background: rgba(16,163,127, 0.1);
+        background: var(--accent-soft);
         color: var(--accent);
       }
 
       .skill-agent-item.active {
-        background: rgba(16,163,127, 0.2);
+        background: var(--accent-soft);
         color: var(--accent);
         font-weight: 600;
         border-left: 3px solid var(--accent);
@@ -1114,7 +1114,7 @@
       .skill-search-box:hover,
       .skill-search-box:focus-within {
         border-color: var(--accent);
-        box-shadow: 0 0 0 3px rgba(16,163,127, 0.1);
+        box-shadow: 0 0 0 3px var(--accent-soft);
       }
 
       .skill-search-box .icon {
@@ -1154,7 +1154,7 @@
 
       .skill-card:hover {
         border-color: var(--accent);
-        box-shadow: 0 8px 24px rgba(16,163,127, 0.15);
+        box-shadow: 0 8px 24px var(--accent-ring);
         transform: translateY(-2px);
       }
 
@@ -1208,7 +1208,7 @@
         display: inline-block;
         font-size: 11px;
         color: var(--accent);
-        background: rgba(16,163,127, 0.1);
+        background: var(--accent-soft);
         padding: 4px 10px;
         border-radius: 12px;
         margin-top: 8px;
@@ -1244,7 +1244,7 @@
       }
 
       .skill-btn.install:hover {
-        box-shadow: 0 6px 16px rgba(16,163,127, 0.4);
+        box-shadow: 0 6px 16px var(--accent-ring);
         transform: translateY(-1px);
       }
 
@@ -1314,7 +1314,7 @@
         position: fixed;
         top: 56px;
         right: 0;
-        width: 340px;
+        width: 380px;
         height: calc(100vh - 56px);
         background: var(--bg-primary, var(--bg-card));
         border-left: 1px solid var(--border);
@@ -1322,32 +1322,48 @@
         display: flex;
         flex-direction: column;
         transform: translateX(100%);
-        transition: transform 0.3s ease;
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: -4px 0 24px rgba(0,0,0,0);
       }
       .file-explorer-panel.open {
         transform: translateX(0);
+        box-shadow: -4px 0 24px rgba(0,0,0,0.06);
       }
       .main-content.fe-open {
-        margin-right: 340px;
+        margin-right: 380px;
+        transition: margin-right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       }
 
       .fe-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 12px 16px;
+        padding: 14px 16px;
         border-bottom: 1px solid var(--border);
         background: var(--bg-secondary, #f5f5f5);
+        flex-shrink: 0;
       }
       .fe-header h3 {
         font-size: 14px;
-        font-weight: 600;
+        font-weight: 700;
         color: var(--text-primary);
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 8px;
         margin: 0;
+        font-family: var(--font-display, 'DM Sans', sans-serif);
       }
+      .fe-header-actions {
+        display: flex; align-items: center; gap: 4px;
+      }
+      .fe-header-btn {
+        width: 30px; height: 30px; border: none;
+        background: transparent; border-radius: 6px;
+        cursor: pointer; color: var(--text-secondary);
+        display: flex; align-items: center; justify-content: center;
+        transition: background 0.15s, color 0.15s;
+      }
+      .fe-header-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
       .fe-close {
         background: none;
         border: none;
@@ -1358,40 +1374,67 @@
       }
       .fe-close:hover { background: var(--bg-hover); }
 
+      /* 面包屑路径 */
       .fe-path-bar {
-        padding: 8px 16px;
+        padding: 10px 16px;
         font-size: 12px;
-        font-family: 'Menlo', 'Monaco', monospace;
+        font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
         color: var(--text-secondary);
-        background: var(--bg-tertiary, #f0f0f0);
+        background: rgba(0,0,0,0.02);
         border-bottom: 1px solid var(--border);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: 2px;
+      }
+      .fe-path-bar .fe-path-segment {
+        cursor: pointer;
+        padding: 2px 4px;
+        border-radius: 3px;
+        transition: background 0.12s, color 0.12s;
+      }
+      .fe-path-bar .fe-path-segment:hover {
+        background: var(--bg-hover);
+        color: var(--text-primary);
+      }
+      .fe-path-bar .fe-path-sep {
+        color: var(--text-tertiary);
+        opacity: 0.5;
+        margin: 0 1px;
       }
 
       .fe-body {
         flex: 1;
         overflow-y: auto;
         padding: 0;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(0,0,0,0.08) transparent;
       }
+      .fe-body::-webkit-scrollbar { width: 5px; }
+      .fe-body::-webkit-scrollbar-track { background: transparent; }
+      .fe-body::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 3px; }
+      .fe-body::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.18); }
 
       .fe-file-list {
         list-style: none;
         margin: 0;
-        padding: 0;
+        padding: 6px 0;
       }
 
       .fe-file-item {
         display: flex;
         align-items: center;
-        gap: 8px;
-        padding: 8px 16px;
+        gap: 10px;
+        padding: 9px 16px;
         cursor: pointer;
-        border-bottom: 1px solid var(--border-light);
-        transition: background 0.15s;
+        border: none;
+        transition: background 0.12s;
         font-size: 13px;
         color: var(--text-primary);
+        position: relative;
       }
       .fe-file-item:hover {
         background: var(--bg-hover);
@@ -1399,53 +1442,115 @@
       .fe-file-item.active {
         background: var(--bg-active);
       }
-      .fe-file-icon {
-        flex-shrink: 0;
-        width: 18px;
-        height: 18px;
-        color: var(--text-secondary);
+      .fe-file-item:active {
+        background: var(--accent-soft);
       }
-      .fe-file-icon.folder { color: #f0c040; }
-      .fe-file-icon.md { color: #519aba; }
-      .fe-file-icon.js { color: #f7df1e; }
-      .fe-file-icon.py { color: #3776ab; }
-      .fe-file-icon.json { color: #a8b869; }
-      .fe-file-icon.html { color: #e44d26; }
-      .fe-file-icon.css { color: #2965f1; }
+
+      /* 文件图标用圆角色块 */
+      .fe-file-icon-wrapper {
+        width: 32px; height: 32px;
+        border-radius: 7px;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+        font-size: 13px; font-weight: 600;
+        font-family: 'SF Mono', 'Menlo', monospace;
+        line-height: 1;
+      }
+      .fe-file-icon-wrapper.folder {
+        background: #fef3c7; color: #d97706;
+      }
+      .fe-file-icon-wrapper.file-md {
+        background: #dbeafe; color: #2563eb;
+      }
+      .fe-file-icon-wrapper.file-js {
+        background: #fef9c3; color: #ca8a04;
+      }
+      .fe-file-icon-wrapper.file-py {
+        background: #dbeafe; color: #1d4ed8;
+      }
+      .fe-file-icon-wrapper.file-json {
+        background: #dcfce7; color: #16a34a;
+      }
+      .fe-file-icon-wrapper.file-html {
+        background: #fee2e2; color: #dc2626;
+      }
+      .fe-file-icon-wrapper.file-css {
+        background: #e0e7ff; color: #4f46e5;
+      }
+      .fe-file-icon-wrapper.file-img {
+        background: #fce7f3; color: #db2777;
+      }
+      .fe-file-icon-wrapper.file-default {
+        background: #f3f4f6; color: #6b7280;
+      }
+
+      .fe-file-info {
+        flex: 1; min-width: 0;
+      }
       .fe-file-name {
-        flex: 1;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        font-weight: 500;
+        line-height: 1.35;
+      }
+      .fe-file-meta {
+        font-size: 11px;
+        color: var(--text-tertiary);
+        margin-top: 1px;
+        display: flex; align-items: center; gap: 6px;
       }
       .fe-file-size {
         font-size: 11px;
         color: var(--text-tertiary);
         flex-shrink: 0;
+        font-variant-numeric: tabular-nums;
       }
 
+      /* 返回上级条目 */
+      .fe-file-item.fe-back {
+        color: var(--text-secondary);
+        font-size: 12px;
+      }
+      .fe-file-item.fe-back .fe-file-icon-wrapper {
+        background: transparent;
+        width: 32px; height: 32px;
+      }
+      .fe-file-item.fe-back .fe-file-icon-wrapper svg {
+        width: 16px; height: 16px; color: var(--text-tertiary);
+      }
+
+      /* 文件预览器 */
       .fe-viewer {
         flex: 1;
         overflow-y: auto;
-        padding: 16px;
+        padding: 0;
         flex-direction: column;
       }
       .fe-viewer-header {
         display: flex;
         align-items: center;
         gap: 8px;
-        margin-bottom: 12px;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg-secondary, #f5f5f5);
+        flex-shrink: 0;
       }
       .fe-viewer-back {
         background: none;
-        border: none;
+        border: 1px solid var(--border);
         cursor: pointer;
         color: var(--text-secondary);
-        padding: 4px 8px;
-        border-radius: 4px;
-        font-size: 13px;
+        padding: 5px 10px;
+        border-radius: 6px;
+        font-size: 12px;
+        display: flex; align-items: center; gap: 4px;
+        transition: background 0.12s, border-color 0.12s;
       }
-      .fe-viewer-back:hover { background: var(--bg-hover); }
+      .fe-viewer-back:hover {
+        background: var(--bg-hover);
+        border-color: var(--text-tertiary);
+      }
       .fe-viewer-title {
         font-size: 13px;
         font-weight: 600;
@@ -1453,43 +1558,80 @@
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        font-family: 'SF Mono', 'Menlo', monospace;
       }
       .fe-viewer-meta {
         font-size: 11px;
         color: var(--text-tertiary);
-        margin-bottom: 12px;
+        padding: 8px 16px 0;
       }
       .fe-viewer-content {
-        background: var(--bg-code, #f6f8fa);
-        border: 1px solid var(--border);
-        border-radius: 8px;
+        background: #1e1e2e;
+        color: #cdd6f4;
+        border: none;
+        border-radius: 0;
         padding: 16px;
-        font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-        font-size: 12px;
-        line-height: 1.6;
+        font-family: 'SF Mono', 'Menlo', 'Courier New', monospace;
+        font-size: 12.5px;
+        line-height: 1.65;
         white-space: pre-wrap;
         word-break: break-word;
-        color: var(--text-primary);
-        max-height: calc(100vh - 220px);
+        flex: 1;
         overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(255,255,255,0.1) transparent;
       }
+      .fe-viewer-content::-webkit-scrollbar { width: 5px; }
+      .fe-viewer-content::-webkit-scrollbar-track { background: transparent; }
+      .fe-viewer-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
 
       .fe-loading {
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
-        padding: 40px;
+        padding: 48px 20px;
         color: var(--text-tertiary);
         font-size: 13px;
+        gap: 10px;
+      }
+      .fe-loading-spinner {
+        width: 24px; height: 24px;
+        border: 2px solid var(--border);
+        border-top-color: var(--accent, #10a37f);
+        border-radius: 50%;
+        animation: fe-spin 0.8s linear infinite;
+      }
+      @keyframes fe-spin {
+        to { transform: rotate(360deg); }
       }
 
       .fe-empty {
         text-align: center;
-        padding: 40px 20px;
+        padding: 48px 20px;
         color: var(--text-tertiary);
         font-size: 13px;
+        display: flex; flex-direction: column;
+        align-items: center; gap: 8px;
       }
-      .fe-empty i { margin-bottom: 8px; }
+      .fe-empty-icon {
+        width: 48px; height: 48px;
+        background: var(--bg-hover);
+        border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 20px;
+      }
+
+      /* 文件计数底栏 */
+      .fe-footer {
+        padding: 8px 16px;
+        border-top: 1px solid var(--border);
+        font-size: 11px;
+        color: var(--text-tertiary);
+        background: rgba(0,0,0,0.01);
+        flex-shrink: 0;
+        display: flex; align-items: center; justify-content: space-between;
+      }
 
       @media (max-width: 768px) {
         .file-explorer-panel {
@@ -1504,19 +1646,39 @@
     <!-- 文件管理器面板 -->
     <div class="file-explorer-panel" id="fileExplorerPanel">
       <div class="fe-header">
-        <h3>📁 文件管理器</h3>
-        <button class="fe-close" onclick="toggleFileExplorer()"><i data-lucide="x" style="width:18px;height:18px;"></i></button>
+        <h3>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent)"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          文件管理器
+        </h3>
+        <div class="fe-header-actions">
+          <button class="fe-header-btn" onclick="feRefresh()" title="刷新">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          </button>
+          <button class="fe-header-btn" onclick="toggleFileExplorer()" title="关闭">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
       </div>
       <div class="fe-path-bar" id="fePathBar">/root</div>
 
       <div class="fe-body" id="feBody">
-        <div class="fe-loading" id="feLoading">加载中...</div>
+        <div class="fe-loading" id="feLoading">
+          <div class="fe-loading-spinner"></div>
+          <span>加载中...</span>
+        </div>
         <ul class="fe-file-list" id="feFileList" style="display:none;"></ul>
+      </div>
+      <div class="fe-footer" id="feFooter" style="display:none;">
+        <span id="feFileCount">0 项</span>
+        <span id="feTotalSize"></span>
       </div>
 
       <div class="fe-viewer" id="feViewer" style="display:none;flex-direction:column;">
         <div class="fe-viewer-header">
-          <button class="fe-viewer-back" onclick="feBackToList()">← 返回</button>
+          <button class="fe-viewer-back" onclick="feBackToList()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            返回
+          </button>
           <span class="fe-viewer-title" id="feViewerTitle"></span>
         </div>
         <div class="fe-viewer-meta" id="feViewerMeta"></div>
@@ -1632,7 +1794,7 @@
           <h2 style="font-size: 18px; font-weight: 600; margin: 0;">设备管理</h2>
           <div style="display:flex;gap:8px;">
             <button onclick="loadServersView()" style="background:none; border:1px solid #ddd; border-radius:8px; padding:6px 12px; cursor:pointer; font-size:13px; color:#666;">刷新</button>
-            <button onclick="showAddServerModal()" style="background:#10a37f; color:white; border:none; padding:6px 14px; border-radius:8px; cursor:pointer; font-size:13px;">+ 添加设备</button>
+            <button onclick="showAddServerModal()" style="background:var(--accent); color:white; border:none; padding:6px 14px; border-radius:8px; cursor:pointer; font-size:13px;">+ 添加设备</button>
           </div>
         </div>
       </div>
@@ -1687,7 +1849,7 @@
             <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px;">备注</label>
             <input id="sf_desc" type="text" placeholder="可选" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box;">
           </div>
-          <button onclick="submitServerForm()" style="width:100%;padding:12px;background:#10a37f;color:white;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;" id="serverFormSubmitBtn">添加</button>
+          <button onclick="submitServerForm()" style="width:100%;padding:12px;background:var(--accent);color:white;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;" id="serverFormSubmitBtn">添加</button>
         </div>
       </div>
     </div>
@@ -1699,6 +1861,7 @@
   <!-- 文件管理器逻辑 -->
   <!-- 文件管理器逻辑 -->
   <script>
+    let feCurrentPath = '/root';
     let feOpen = false;
 
     function toggleFileExplorer() {
@@ -1710,16 +1873,50 @@
       if (feOpen) feLoadDir('/root');
     }
 
+    function feRefresh() {
+      feLoadDir(feCurrentPath);
+    }
+
+    // 获取文件扩展名
+    function feGetExt(name) {
+      const i = name.lastIndexOf('.');
+      return i > 0 ? name.slice(i + 1).toLowerCase() : '';
+    }
+
+    // 文件类型 -> 图标色块 class + 标签
+    function feFileType(name, isDir) {
+      if (isDir) return { cls: 'folder', label: '' };
+      const ext = feGetExt(name);
+      const map = {
+        'md': { cls: 'file-md', label: 'MD' },
+        'js': { cls: 'file-js', label: 'JS' },
+        'ts': { cls: 'file-js', label: 'TS' },
+        'py': { cls: 'file-py', label: 'PY' },
+        'json': { cls: 'file-json', label: 'JS' },
+        'html': { cls: 'file-html', label: 'HT' },
+        'css': { cls: 'file-css', label: 'CS' },
+        'scss': { cls: 'file-css', label: 'SC' },
+        'jpg': { cls: 'file-img', label: 'JPG' },
+        'jpeg': { cls: 'file-img', label: 'JPG' },
+        'png': { cls: 'file-img', label: 'PNG' },
+        'gif': { cls: 'file-img', label: 'GIF' },
+        'svg': { cls: 'file-img', label: 'SVG' },
+        'webp': { cls: 'file-img', label: 'IMG' },
+      };
+      return map[ext] || { cls: 'file-default', label: ext ? ext.toUpperCase().slice(0,3) : 'F' };
+    }
+
     async function feLoadDir(path) {
       const token = localStorage.getItem('lingxi_token');
       if (!token) return;
-      document.getElementById('fePathBar').textContent = path;
+      feCurrentPath = path;
+      document.getElementById('fePathBar').innerHTML = feRenderBreadcrumb(path);
       document.getElementById('feLoading').style.display = 'flex';
-      document.getElementById('feLoading').textContent = '加载中...';
       document.getElementById('feFileList').style.display = 'none';
       document.getElementById('feBody').style.display = '';
       document.getElementById('fePathBar').style.display = '';
       document.getElementById('feViewer').style.display = 'none';
+      document.getElementById('feFooter').style.display = 'none';
 
       try {
         const res = await fetch(`${API_BASE}/api/file-explorer/list?path=${encodeURIComponent(path)}`, {
@@ -1727,13 +1924,27 @@
         });
         const data = await res.json();
         if (data.error) {
-          document.getElementById('feLoading').textContent = '\u274c ' + data.error;
+          document.getElementById('feLoading').innerHTML = '<span style="color:#ef4444">' + data.error + '</span>';
           return;
         }
         feRenderFiles(data.files || [], path);
       } catch (e) {
-        document.getElementById('feLoading').textContent = '\u274c ' + e.message;
+        document.getElementById('feLoading').innerHTML = '<span style="color:#ef4444">' + e.message + '</span>';
       }
+    }
+
+    // 面包屑路径渲染
+    function feRenderBreadcrumb(path) {
+      const parts = path.split('/').filter(Boolean);
+      let html = '<span class="fe-path-segment" onclick="feLoadDir(\'/\')">/</span>';
+      let built = '';
+      parts.forEach((p, i) => {
+        built += '/' + p;
+        const fullPath = built;
+        html += '<span class="fe-path-sep">/</span>';
+        html += '<span class="fe-path-segment" onclick="feLoadDir(\'' + fullPath.replace(/'/g, "\\'") + '\')">' + p + '</span>';
+      });
+      return html;
     }
 
     function feRenderFiles(files, currentPath) {
@@ -1746,21 +1957,41 @@
       if (currentPath !== '/') {
         const parent = currentPath.split('/').slice(0, -1).join('/') || '/';
         const li = document.createElement('li');
-        li.className = 'fe-file-item';
-        li.innerHTML = '<svg class="fe-file-icon folder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg><span class="fe-file-name" style="color:var(--text-secondary)">..</span>';
+        li.className = 'fe-file-item fe-back';
+        li.innerHTML = '<div class="fe-file-icon-wrapper"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></div><span class="fe-file-name" style="color:var(--text-secondary)">返回上级</span>';
         li.addEventListener('click', () => feLoadDir(parent));
         list.appendChild(li);
       }
 
-      files.forEach(f => {
+      // 排序：文件夹优先，再按名称
+      const sorted = [...files].sort((a, b) => {
+        if (a.isDir && !b.isDir) return -1;
+        if (!a.isDir && b.isDir) return 1;
+        return a.name.localeCompare(b.name);
+      });
+
+      let totalSize = 0;
+      let fileCount = 0;
+      let dirCount = 0;
+
+      sorted.forEach(f => {
         const li = document.createElement('li');
         li.className = 'fe-file-item';
-        const iconSvg = f.isDir
-          ? '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>'
-          : '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>';
-        const cls = f.isDir ? 'folder' : '';
-        const size = f.isDir ? '' : feFormatSize(f.size);
-        li.innerHTML = `<svg class="fe-file-icon ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${iconSvg}</svg><span class="fe-file-name">${f.name}${f.isDir ? '/' : ''}</span><span class="fe-file-size">${size}</span>`;
+
+        if (f.isDir) {
+          dirCount++;
+          li.innerHTML = '<div class="fe-file-icon-wrapper folder"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div>' +
+            '<div class="fe-file-info"><div class="fe-file-name">' + f.name + '/</div></div>';
+        } else {
+          fileCount++;
+          totalSize += (f.size || 0);
+          const type = feFileType(f.name, false);
+          const size = feFormatSize(f.size);
+          li.innerHTML = '<div class="fe-file-icon-wrapper ' + type.cls + '">' + type.label + '</div>' +
+            '<div class="fe-file-info"><div class="fe-file-name">' + f.name + '</div></div>' +
+            '<span class="fe-file-size">' + size + '</span>';
+        }
+
         li.addEventListener('click', () => {
           if (f.isDir) feLoadDir(f.path);
           else feOpenFile(f.path);
@@ -1768,9 +1999,20 @@
         list.appendChild(li);
       });
 
-      if (files.length === 0 && currentPath === '/') {
-        list.innerHTML = '<div class="fe-empty">\ud83d\udced 空目录</div>';
+      // 空目录
+      if (files.length === 0) {
+        list.innerHTML = '<div class="fe-empty"><div class="fe-empty-icon">📭</div><span>空目录</span></div>';
       }
+
+      // 底栏统计
+      const footer = document.getElementById('feFooter');
+      footer.style.display = 'flex';
+      let countText = '';
+      if (dirCount > 0) countText += dirCount + ' 个文件夹';
+      if (fileCount > 0) countText += (countText ? '，' : '') + fileCount + ' 个文件';
+      if (!countText) countText = '0 项';
+      document.getElementById('feFileCount').textContent = countText;
+      document.getElementById('feTotalSize').textContent = totalSize > 0 ? feFormatSize(totalSize) : '';
     }
 
     function feFormatSize(b) {
@@ -1840,6 +2082,23 @@
       const currentTheme = localStorage.getItem(THEME_KEY) || 'light';
       const newTheme = currentTheme === 'light' ? 'dark' : 'light';
       applyTheme(newTheme);
+    }
+
+    // ===== 主题色切换 =====
+    const ACCENT_KEY = 'lingxi_accent_theme';
+
+    function setAccentTheme(accent) {
+      document.documentElement.setAttribute('data-theme', accent === 'default' ? '' : accent);
+      localStorage.setItem(ACCENT_KEY, accent);
+      // 更新按钮状态
+      document.querySelectorAll('.accent-dot').forEach(d => {
+        d.classList.toggle('active', d.dataset.accent === accent);
+      });
+    }
+
+    function initAccentTheme() {
+      const saved = localStorage.getItem(ACCENT_KEY) || 'default';
+      setAccentTheme(saved);
     }
 
     // ===== 侧边栏功能 =====
@@ -2179,7 +2438,7 @@
     function showAbout() {
       const modal = document.createElement('div');
       modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;';
-      modal.innerHTML = `<div style="background:white;border-radius:16px;padding:32px;max-width:320px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);"><h3 style="margin:0 0 16px;color:#10a37f;">Lume v1.0</h3><p style="margin:0 0 12px;color:#666;font-size:14px;">你的 AI 团队，一键拥有</p><p style="margin:16px 0 0;font-size:12px;color:#999;"><a href="https://beian.miit.gov.cn/" target="_blank" style="color:#666;">浙ICP备2026013667号-2A</a></p></div>`;
+      modal.innerHTML = `<div style="background:white;border-radius:16px;padding:32px;max-width:320px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);"><h3 style="margin:0 0 16px;color:var(--accent);">Lume v1.0</h3><p style="margin:0 0 12px;color:#666;font-size:14px;">你的 AI 团队，一键拥有</p><p style="margin:16px 0 0;font-size:12px;color:#999;"><a href="https://beian.miit.gov.cn/" target="_blank" style="color:#666;">浙ICP备2026013667号-2A</a></p></div>`;
       modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
       document.body.appendChild(modal);
       return;
@@ -2338,7 +2597,7 @@
             align-items: center;
             justify-content: space-between;
             padding: 20px 24px;
-            background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-h) 100%);
             color: white;
           }
           .lumeclaw-title {
@@ -2374,13 +2633,13 @@
             align-items: center;
             gap: 16px;
             padding: 20px 24px;
-            background: linear-gradient(135deg, rgba(16,163,127,0.08) 0%, rgba(16,163,127,0.02) 100%);
+            background: linear-gradient(135deg, var(--accent-soft) 0%, var(--accent-soft) 100%);
             border-bottom: 1px solid #e5e5e5;
           }
           .lumeclaw-intro-icon {
             width: 48px;
             height: 48px;
-            background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-h) 100%);
             border-radius: 12px;
             display: flex;
             align-items: center;
@@ -2421,12 +2680,12 @@
             transition: all 0.2s;
           }
           .lume-quick-btn:hover {
-            background: rgba(16,163,127,0.1);
-            border-color: #10a37f;
-            color: #10a37f;
+            background: var(--accent-soft);
+            border-color: var(--accent);
+            color: var(--accent);
           }
           .lume-quick-btn svg {
-            color: #10a37f;
+            color: var(--accent);
           }
 
           /* 消息区域 */
@@ -2444,7 +2703,7 @@
             line-height: 1.6;
           }
           .lume-message.user {
-            background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-h) 100%);
             color: white;
             margin-left: auto;
             text-align: right;
@@ -2483,13 +2742,13 @@
           }
           .lumeclaw-input-area input:focus {
             outline: none;
-            border-color: #10a37f;
-            box-shadow: 0 0 0 3px rgba(16,163,127,0.1);
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-soft);
           }
           .lumeclaw-send-btn {
             width: 48px;
             height: 48px;
-            background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-h) 100%);
             border: none;
             border-radius: 12px;
             color: white;
@@ -2498,11 +2757,11 @@
             align-items: center;
             justify-content: center;
             transition: all 0.2s;
-            box-shadow: 0 4px 12px rgba(16,163,127,0.3);
+            box-shadow: 0 4px 12px var(--accent-ring);
           }
           .lumeclaw-send-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(16,163,127,0.4);
+            box-shadow: 0 6px 16px var(--accent-ring);
           }
           .lumeclaw-send-btn svg {
             color: white;
@@ -2685,7 +2944,7 @@
           // Icon based on type
           var notifIcon = '';
           if (n.type === 'reminder') {
-            notifIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;flex-shrink:0;margin-right:4px;color:#10a37f"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+            notifIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;flex-shrink:0;margin-right:4px;color:var(--accent)"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
           }
           html += '<div class="notification-item' + cls + '" data-id="' + (n.id || '') + '" onclick="markNotificationRead(this)">';
           html += '<div class="notification-item-bar ' + barCls + '"></div>';
@@ -2812,6 +3071,7 @@
 
     // 页面加载时初始化
     initTheme();
+    initAccentTheme();
     initSidebar();
 
     // 自动切换视图（从 skills.html 跳转）
@@ -3093,7 +3353,7 @@
   })();
   </script>
 
-  <script src="assets/js/chat.js?v=20260608"></script>
+  <script src="assets/js/chat.js?v=1781253163"></script>
 
     <!-- 统一组件加载器 -->
     <script src="components/load-components.js"></script>

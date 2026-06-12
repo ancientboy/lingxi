@@ -6,7 +6,7 @@ import 'package:lingxicloud/pages/tools_page.dart';
 import 'package:lingxicloud/pages/profile_page.dart';
 
 class MainShell extends StatefulWidget {
-  const MainShell({super.key});
+  MainShell({super.key});
 
   @override
   State<MainShell> createState() => _MainShellState();
@@ -30,7 +30,7 @@ class _MainShellState extends State<MainShell> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? const Color(0xFF1A1A2E) : Colors.white;
+    final bgColor = isDark ? Color(0xFF1A1A2E) : Colors.white;
     final selectedColor = Constants.primaryColor;
     final unselectedColor = isDark ? Colors.white38 : Colors.black38;
 
@@ -51,7 +51,7 @@ class _MainShellState extends State<MainShell> {
             BoxShadow(
               color: Colors.black.withOpacity(0.05),
               blurRadius: 10,
-              offset: const Offset(0, -2),
+              offset: Offset(0, -2),
             ),
           ],
           border: Border(
@@ -63,7 +63,7 @@ class _MainShellState extends State<MainShell> {
         ),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
@@ -85,12 +85,12 @@ class _MainShellState extends State<MainShell> {
       behavior: HitTestBehavior.opaque,
       onTap: () => setState(() => _currentIndex = index),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
+              duration: Duration(milliseconds: 200),
               child: Icon(
                 selected ? activeIcon : icon,
                 key: ValueKey(selected),
@@ -98,7 +98,7 @@ class _MainShellState extends State<MainShell> {
                 size: 24,
               ),
             ),
-            const SizedBox(height: 2),
+            SizedBox(height: 2),
             Text(
               label,
               style: TextStyle(

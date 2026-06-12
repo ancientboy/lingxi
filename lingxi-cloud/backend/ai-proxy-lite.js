@@ -246,6 +246,35 @@ function selectModelByTokenCount(estimatedTokens, preferredModel) {
 // preferredModel 是用户在灵犀云前端选择的模型（如 "gpt-4o"、"glm-5.1"）
 const DB_FILE = join(__dirname, 'data/db.json');
 let ipUserMap = {};   // { ip: { userId, nickname, preferredModel } }
+let userModelMap = {}; // { userId: preferredModel }
+const lumeActiveUsers = new Map(); // userId -> expiresAt
+const LOCALHOST_IPS = new Set(["127.0.0.1", "::1", "::ffff:127.0.0.1", "unknown"]);
+
+function setLumeActiveUser(userId) {
+  if (!userId) return;
+  lumeActiveUsers.set(userId, Date.now() + 60_000);
+}
+
+function resolveUserInfo(req) {
+  const headerUserId = req.headers?.["x-lingxi-user-id"] || req.headers?.["X-Lingxi-User-Id"];
+  if (headerUserId && userModelMap[headerUserId] !== undefined) {
+    return { userId: headerUserId, nickname: headerUserId.slice(0, 8), preferredModel: userModelMap[headerUserId] };
+  }
+  const clientIp = req.headers?.["x-forwarded-for"]?.split(",")[0]?.trim()
+    || req.headers?.["x-real-ip"]
+    || req.socket?.remoteAddress
+    || "unknown";
+  if (LOCALHOST_IPS.has(clientIp)) {
+    const now = Date.now();
+    for (const [uid, exp] of lumeActiveUsers.entries()) {
+      if (exp >= now) {
+        return { userId: uid, nickname: uid.slice(0, 8), preferredModel: userModelMap[uid] ?? null };
+      }
+    }
+  }
+  return ipUserMap[clientIp] || null;
+}
+
 
 function loadUserPreferences() {
   try {
@@ -265,7 +294,12 @@ function loadUserPreferences() {
       };
     }
     ipUserMap = map;
-    console.log(`[用户偏好] 已加载 ${Object.keys(map)} 个 IP-用户映射`);
+    const umap = {};
+    for (const user of users) {
+      if (user?.id) umap[user.id] = user.preferredModel ?? null;
+    }
+    userModelMap = umap;
+    console.log(`[用户偏好] 已加载 ${Object.keys(map)} 个 IP-用户映射, ${Object.keys(umap).length} 个 userId 偏好`);
   } catch (e) {
     console.log('[用户偏好] 加载失败，使用默认路由:', e.message);
   }
@@ -332,8 +366,8 @@ async function updateDbWithCredits(userId, model, tokens) {
 }
 
 // 获取用户偏好的 9Router 模型
-function getUserPreferredModel(clientIp, requestedModel) {
-  const userInfo = ipUserMap[clientIp];
+function getUserPreferredModel(clientIp, requestedModel, req = null) {
+  const userInfo = req ? resolveUserInfo(req) : ipUserMap[clientIp];
   if (!userInfo?.preferredModel) {
     // 没有偏好 → 按请求的模型路由
     return mapTo9RouterModel(requestedModel, clientIp);
@@ -601,7 +635,7 @@ async function unifiedRoute(providerId, req, res) {
   const isStream = reqBody.stream === true;
 
   // === 🔑 先查用户偏好模型 ===
-  const userInfo = ipUserMap[clientIp];
+  const userInfo = resolveUserInfo(req);
   const preferredModel = userInfo?.preferredModel || null;
   const finalModel = preferredModel || originalModel;
 
@@ -616,7 +650,7 @@ async function unifiedRoute(providerId, req, res) {
 
   // === 🖼️ 图片检测：如果请求包含图片，自动切换到支持视觉的模型 ===
   const hasImage = detectImageInRequest(reqBody);
-  let selectedModel = getUserPreferredModel(clientIp, originalModel);
+  let selectedModel = getUserPreferredModel(clientIp, originalModel, req);
   
   if (hasImage && !isVisionModel(selectedModel)) {
     const visionModel = selectVisionModel(clientIp);
@@ -1574,6 +1608,21 @@ const server = http.createServer(async (req, res) => {
   }
 
     // 内部刷新端点：index.js 保存偏好后通知
+
+    if (path === '/internal/active-user' && req.method === 'POST') {
+      let body = '';
+      for await (const chunk of req) body += chunk;
+      try {
+        const data = JSON.parse(body || '{}');
+        if (data.userId) setLumeActiveUser(String(data.userId));
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ success: true, userId: data.userId || null }));
+      } catch (e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ success: false, error: String(e) }));
+      }
+    }
+
     if (path === '/internal/refresh-users') {
       loadUserPreferences();
       const count = Object.keys(ipUserMap).length;
@@ -1827,6 +1876,7 @@ export {
   proxyCursorRequest,
   getUserPreferredModel,
   loadUserPreferences,
+  setLumeActiveUser,
   updateUserModelPreference,
   ipUserMap,
   checkIpRateLimit,

@@ -274,7 +274,7 @@ class _MemoryTabState extends State<MemoryTab> {
     } catch (e) {
       if (mounted) setState(() {
         _searchError = '搜索失败: $e';
-        _searchResults = [];
+        const _searchResults = [];
         _searchLoading = false;
       });
     }
@@ -359,7 +359,7 @@ class _MemoryTabState extends State<MemoryTab> {
               Text('暂无文件', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
             ]))
           : ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              padding: EdgeInsets.symmetric(vertical: 8),
               itemCount: _files.length,
               itemBuilder: (_, i) => _buildFileItem(_files[i], dk),
             ),
@@ -377,7 +377,7 @@ class _MemoryTabState extends State<MemoryTab> {
               ]))
             : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Container(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                  padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
                   color: dk ? const Color(0xFF1A1A2E) : Colors.white,
                   child: Row(children: [
                     Icon(Icons.description, size: 16, color: const Color(0xFF667eea)),
@@ -392,7 +392,7 @@ class _MemoryTabState extends State<MemoryTab> {
                 ),
                 const Divider(height: 1),
                 Expanded(child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(16),
                   child: _fileContent.isEmpty
                     ? Center(child: Text('文件为空', style: TextStyle(color: Colors.grey.shade400, fontSize: 14)))
                     : MarkdownBody(data: _fileContent, selectable: true),
@@ -428,11 +428,11 @@ class _MemoryTabState extends State<MemoryTab> {
     return Column(children: [
       // Add button bar
       Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         color: dk ? const Color(0xFF1A1A2E) : Colors.white,
         child: Row(children: [
           Text('${_categories.fold<int>(0, (sum, c) => sum + ((c['items'] as List?)?.length ?? 0))} 条记忆',
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF667eea)),
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF667eea)),
           ),
           const Spacer(),
           ElevatedButton.icon(
@@ -442,7 +442,7 @@ class _MemoryTabState extends State<MemoryTab> {
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF667eea),
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -460,7 +460,7 @@ class _MemoryTabState extends State<MemoryTab> {
         : RefreshIndicator(
           onRefresh: _loadTeam,
           child: ListView.separated(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
             itemCount: _categories.length,
             separatorBuilder: (_, __) => const SizedBox(height: 8),
             itemBuilder: (_, i) => _buildCategoryCard(_categories[i], dk, cardBg, textColor),
@@ -488,16 +488,16 @@ class _MemoryTabState extends State<MemoryTab> {
             if (_expandedCategories.contains(name)) { _expandedCategories.remove(name); } else { _expandedCategories.add(name); }
           }),
           child: Container(
-            padding: const EdgeInsets.all(14),
+            padding: EdgeInsets.all(14),
             child: Row(children: [
               Icon(expanded ? Icons.expand_less : Icons.expand_more, color: const Color(0xFF667eea), size: 20),
               const SizedBox(width: 8),
               Text(name, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: textColor)),
               const Spacer(),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(color: const Color(0xFF667eea).withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-                child: Text('${items.length}', style: const TextStyle(fontSize: 10, color: Color(0xFF667eea), fontWeight: FontWeight.w600)),
+                child: Text('${items.length}', style: TextStyle(fontSize: 10, color: Color(0xFF667eea), fontWeight: FontWeight.w600)),
               ),
             ]),
           ),
@@ -518,11 +518,11 @@ class _MemoryTabState extends State<MemoryTab> {
     return InkWell(
       onTap: () {},
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Container(
-            width: 6, height: 6, margin: const EdgeInsets.only(top: 6),
-            decoration: const BoxDecoration(color: Color(0xFF667eea), shape: BoxShape.circle),
+            width: 6, height: 6, margin: EdgeInsets.only(top: 6),
+            decoration: BoxDecoration(color: Color(0xFF667eea), shape: BoxShape.circle),
           ),
           const SizedBox(width: 10),
           Expanded(child: Text(content, style: TextStyle(fontSize: 13, color: dk ? Colors.white70 : Colors.black87, height: 1.4))),
@@ -545,7 +545,7 @@ class _MemoryTabState extends State<MemoryTab> {
 
     return Column(children: [
       Container(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(16),
         color: dk ? const Color(0xFF1A1A2E) : Colors.white,
         child: TextField(
           controller: _searchCtrl,
@@ -560,7 +560,7 @@ class _MemoryTabState extends State<MemoryTab> {
             ) : null,
             filled: true, fillColor: fieldBg,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-            contentPadding: const EdgeInsets.symmetric(vertical: 10),
+            contentPadding: EdgeInsets.symmetric(vertical: 10),
           ),
           onChanged: (v) => setState(() => _searchQuery = v),
           onSubmitted: _doSearch,
@@ -578,7 +578,7 @@ class _MemoryTabState extends State<MemoryTab> {
                 Text('输入关键词搜索记忆', style: TextStyle(color: Colors.grey.shade400, fontSize: 14)),
               ]))
             : ListView.separated(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(16),
                 itemCount: _searchResults.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 8),
                 itemBuilder: (_, i) => _buildSearchResult(_searchResults[i], dk, cardBg, textColor),
@@ -595,7 +595,7 @@ class _MemoryTabState extends State<MemoryTab> {
     return GestureDetector(
       onTap: () => _openSearchResult(result),
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: cardBg,
           borderRadius: BorderRadius.circular(14),
@@ -607,9 +607,9 @@ class _MemoryTabState extends State<MemoryTab> {
             const SizedBox(width: 8),
             Expanded(child: Text(path.split('/').last, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: textColor), maxLines: 1, overflow: TextOverflow.ellipsis)),
             if (score > 0) Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(color: const Color(0xFF667eea).withOpacity(0.08), borderRadius: BorderRadius.circular(4)),
-              child: Text('相关度 ${(score * 100).toInt()}%', style: const TextStyle(fontSize: 10, color: Color(0xFF667eea))),
+              child: Text('相关度 ${(score * 100).toInt()}%', style: TextStyle(fontSize: 10, color: Color(0xFF667eea))),
             ),
           ]),
           if (path.isNotEmpty) ...[
@@ -643,7 +643,7 @@ class _MemoryTabState extends State<MemoryTab> {
       overflow: TextOverflow.ellipsis,
       text: TextSpan(style: TextStyle(fontSize: 12, color: Colors.grey.shade500, height: 1.4), children: [
         TextSpan(text: before),
-        TextSpan(text: match, style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF667eea), backgroundColor: Color(0x15667eea))),
+        TextSpan(text: match, style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF667eea), backgroundColor: Color(0x15667eea))),
         TextSpan(text: after),
       ]),
     );
@@ -653,7 +653,7 @@ class _MemoryTabState extends State<MemoryTab> {
 
   Widget _buildErrorView(String error, VoidCallback retry, bool dk) {
     return Center(child: Padding(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(24),
       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
         Icon(Icons.error_outline, size: 48, color: Colors.red.shade300),
         const SizedBox(height: 12),

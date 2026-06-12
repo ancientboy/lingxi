@@ -11,7 +11,7 @@ import 'package:lingxicloud/pages/team_intro_page.dart';
 import 'dart:async';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  HomePage({super.key});
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -89,8 +89,8 @@ class _HomePageState extends State<HomePage> {
             title: Row(
               children: [
             Icon(Icons.auto_awesome, color: Constants.primaryColor),
-            const SizedBox(width: 8),
-            const Text('Lume', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            SizedBox(width: 8),
+            Text('Lume', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
           ],
         ),
         actions: [
@@ -99,29 +99,29 @@ class _HomePageState extends State<HomePage> {
             onTap: () async {
               // TODO: 实现签到功能
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('签到功能开发中...')),
+                SnackBar(content: Text('签到功能开发中...')),
               );
             },
             child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              margin: EdgeInsets.symmetric(horizontal: 8),
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: Colors.orange.shade100,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.diamond, size: 16, color: Colors.orange),
-                  const SizedBox(width: 4),
+                  Icon(Icons.diamond, size: 16, color: Colors.orange),
+                  SizedBox(width: 4),
                   Text(
                     '${user?.points ?? 0}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.orange,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(width: 4),
-                  const Icon(Icons.add_circle_outline, size: 14, color: Colors.orange),
+                  SizedBox(width: 4),
+                  Icon(Icons.add_circle_outline, size: 14, color: Colors.orange),
                 ],
               ),
             ),
@@ -131,19 +131,19 @@ class _HomePageState extends State<HomePage> {
                 onSelected: (value) async {
                   switch (value) {
                     case 'subscription':
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const SubscriptionPage()));
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => SubscriptionPage()));
                       break;
                     case 'skills':
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const SkillsPage()));
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => SkillsPage()));
                       break;
                     case 'settings':
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsPage()));
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => SettingsPage()));
                       break;
                     case 'logout':
                       await appProvider.logout();
                       if (mounted) {
                         Navigator.of(context).pushAndRemoveUntil(
-                          MaterialPageRoute(builder: (_) => const LoginPage()),
+                          MaterialPageRoute(builder: (_) => LoginPage()),
                           (route) => false,
                         );
                       }
@@ -151,11 +151,11 @@ class _HomePageState extends State<HomePage> {
                   }
                 },
                 itemBuilder: (context) => [
-                  const PopupMenuItem(value: 'subscription', child: Text('💎 订阅管理')),
-                  const PopupMenuItem(value: 'skills', child: Text('📚 技能库')),
-                  const PopupMenuItem(value: 'settings', child: Text('⚙️ 设置')),
-                  const PopupMenuDivider(),
-                  const PopupMenuItem(value: 'logout', child: Text('🚪 退出登录')),
+                  PopupMenuItem(value: 'subscription', child: Text('💎 订阅管理')),
+                  PopupMenuItem(value: 'skills', child: Text('📚 技能库')),
+                  PopupMenuItem(value: 'settings', child: Text('⚙️ 设置')),
+                  PopupMenuDivider(),
+                  PopupMenuItem(value: 'logout', child: Text('🚪 退出登录')),
                 ],
               ),
             ],
@@ -172,28 +172,28 @@ class _HomePageState extends State<HomePage> {
 
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(24),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 600),
+          constraints: BoxConstraints(maxWidth: 600),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               // 品牌故事流式输出
               _buildBrandStory(),
               
-              const SizedBox(height: 32),
+              SizedBox(height: 32),
               
               // 欢迎信息
               Text(
                 '欢迎回来，${user?.nickname ?? "用户"}',
-                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               Text(
                 '准备好与你的 AI 团队对话了吗？',
                 style: TextStyle(color: Colors.grey.shade600),
               ),
-              const SizedBox(height: 32),
+              SizedBox(height: 32),
 
               // 🔧 三入口设计：免费聊天 / 添加设备 / 部署服务器
               
@@ -203,14 +203,14 @@ class _HomePageState extends State<HomePage> {
                 height: 50,
                 child: ElevatedButton(
                   onPressed: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatPage()));
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => ChatPage()));
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Constants.primaryColor,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(Icons.chat_bubble, size: 20),
@@ -220,9 +220,9 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
               ),
-              const SizedBox(height: 4),
+              SizedBox(height: 4),
               Text('支持 8 个 AI 角色切换，无限次使用', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               
               // 入口 2：添加自己的设备
               SizedBox(
@@ -231,14 +231,14 @@ class _HomePageState extends State<HomePage> {
                 child: OutlinedButton(
                   onPressed: () {
                     // 跳转到服务器管理页面
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatPage()));
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => ChatPage()));
                   },
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Constants.primaryColor,
-                    side: const BorderSide(color: Color(0xFF10A37F)),
+                    side: BorderSide(color: Color(0xFF10A37F)),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(Icons.phone_android, size: 20),
@@ -248,9 +248,9 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
               ),
-              const SizedBox(height: 4),
+              SizedBox(height: 4),
               Text('已有 OpenClaw？连接设备解锁全功能', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               
               // 入口 3：灵犀云托管
               SizedBox(
@@ -276,7 +276,7 @@ class _HomePageState extends State<HomePage> {
                     side: BorderSide(color: Colors.grey.shade400),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(Icons.cloud_outlined, size: 20),
@@ -286,10 +286,10 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
               ),
-              const SizedBox(height: 4),
+              SizedBox(height: 4),
               Text('灵犀云托管，开箱即用', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
               
-              const SizedBox(height: 24),
+              SizedBox(height: 24),
               
               // 退出登录按钮（明显的红色按钮）
               SizedBox(
@@ -301,12 +301,12 @@ class _HomePageState extends State<HomePage> {
                     showDialog(
                       context: context,
                       builder: (dialogContext) => AlertDialog(
-                        title: const Text('退出登录'),
-                        content: const Text('确定要退出登录吗？'),
+                        title: Text('退出登录'),
+                        content: Text('确定要退出登录吗？'),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(dialogContext),
-                            child: const Text('取消'),
+                            child: Text('取消'),
                           ),
                           TextButton(
                             onPressed: () async {
@@ -314,13 +314,13 @@ class _HomePageState extends State<HomePage> {
                               await appProvider.logout();
                               if (mounted) {
                                 Navigator.of(dialogContext).pushAndRemoveUntil(
-                                  MaterialPageRoute(builder: (_) => const LoginPage()),
+                                  MaterialPageRoute(builder: (_) => LoginPage()),
                                   (route) => false,
                                 );
                               }
                             },
                             style: TextButton.styleFrom(foregroundColor: Colors.red),
-                            child: const Text('确定', style: TextStyle(color: Colors.red)),
+                            child: Text('确定', style: TextStyle(color: Colors.red)),
                           ),
                         ],
                       ),
@@ -328,10 +328,10 @@ class _HomePageState extends State<HomePage> {
                   },
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.red,
-                    side: const BorderSide(color: Colors.red),
+                    side: BorderSide(color: Colors.red),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(Icons.logout, color: Colors.red, size: 20),
@@ -342,12 +342,12 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               
-              const SizedBox(height: 24),
+              SizedBox(height: 24),
               
               // 团队成员展示
               if (hasTeam) ...[
-                const Text('🤖 我的 AI 团队', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 16),
+                Text('🤖 我的 AI 团队', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                SizedBox(height: 16),
                 Wrap(
                   spacing: 12,
                   runSpacing: 12,
@@ -378,7 +378,7 @@ class _HomePageState extends State<HomePage> {
       final info = agentInfo[agentId] ?? {'name': agentId, 'icon': Icons.person, 'color': Colors.grey};
       return Container(
         width: 80,
-        padding: const EdgeInsets.all(12),
+        padding: EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: (info['color'] as Color).withOpacity(0.1),
           borderRadius: BorderRadius.circular(12),
@@ -386,8 +386,8 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           children: [
             Icon(info['icon'] as IconData, color: info['color'] as Color, size: 32),
-            const SizedBox(height: 8),
-            Text(info['name'] as String, style: const TextStyle(fontSize: 12)),
+            SizedBox(height: 8),
+            Text(info['name'] as String, style: TextStyle(fontSize: 12)),
           ],
         ),
       );
@@ -397,13 +397,13 @@ class _HomePageState extends State<HomePage> {
   // 品牌故事流式输出组件
   // 品牌故事流式输出组件
   Widget _buildBrandStory() {
-    return const _BrandStoryStream();
+    return _BrandStoryStream();
   }
 }
 
 // 品牌故事流式输出组件
 class _BrandStoryStream extends StatefulWidget {
-  const _BrandStoryStream();
+  _BrandStoryStream();
 
   @override
   State<_BrandStoryStream> createState() => _BrandStoryStreamState();
@@ -419,7 +419,7 @@ class _BrandStoryStreamState extends State<_BrandStoryStream> {
   final double _lineHeight = 36.0; // 行高 (fontSize 18 * height 2.0)
 
   // 品牌故事内容（纯文本，逐行输出）
-  static const List<String> _brandStoryLines = [
+  static List<String> _brandStoryLines = [
     "我始终相信——",
     "科技的终极意义，不是冰冷的效率。",
     "而是让每一个人，都能拥有专属的优秀伙伴。",
@@ -442,7 +442,7 @@ class _BrandStoryStreamState extends State<_BrandStoryStream> {
   void initState() {
     super.initState();
     displayText = '';
-    Future.delayed(const Duration(milliseconds: 1000), _startTyping);
+    Future.delayed(Duration(milliseconds: 1000), _startTyping);
   }
 
   @override
@@ -454,7 +454,7 @@ class _BrandStoryStreamState extends State<_BrandStoryStream> {
   void _startTyping() {
     if (!mounted) return;
     
-    _timer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+    _timer = Timer.periodic(Duration(milliseconds: 100), (timer) {
       if (_lineIndex >= _brandStoryLines.length) {
         timer.cancel();
         setState(() => _done = true);
@@ -473,15 +473,15 @@ class _BrandStoryStreamState extends State<_BrandStoryStream> {
         // 一行结束，添加换行符
         setState(() {
           displayText += '\n';
-          _charIndex = 0;
+          const _charIndex = 0;
         });
         
         // 行间停顿 400ms
         timer.cancel();
-        Future.delayed(const Duration(milliseconds: 400), () {
+        Future.delayed(Duration(milliseconds: 400), () {
           if (mounted) {
             _lineIndex++;
-            _timer = Timer.periodic(const Duration(milliseconds: 100), _typeChar);
+            _timer = Timer.periodic(Duration(milliseconds: 100), _typeChar);
           }
         });
       }
@@ -513,15 +513,15 @@ class _BrandStoryStreamState extends State<_BrandStoryStream> {
       timer.cancel();
       setState(() {
         displayText += '\n';
-        _charIndex = 0;
+        const _charIndex = 0;
         // 每完成一行，检查是否需要滚动
         _updateScrollOffset();
       });
       
-      Future.delayed(const Duration(milliseconds: 400), () {
+      Future.delayed(Duration(milliseconds: 400), () {
         if (mounted) {
           _lineIndex++;
-          _timer = Timer.periodic(const Duration(milliseconds: 100), _typeChar);
+          _timer = Timer.periodic(Duration(milliseconds: 100), _typeChar);
         }
       });
     }
@@ -548,7 +548,7 @@ class _BrandStoryStreamState extends State<_BrandStoryStream> {
       // 文本未超出容器，不滚动
       if (_scrollOffset > 0) {
         setState(() {
-          _scrollOffset = 0;
+          const _scrollOffset = 0;
         });
       }
     }
@@ -573,13 +573,13 @@ class _BrandStoryStreamState extends State<_BrandStoryStream> {
 
   // 格式化文本，高亮 Lume
   Widget _formatText(String text) {
-    if (text.isEmpty) return const Text('');
+    if (text.isEmpty) return Text('');
     
     final parts = text.split('Lume');
     final spans = <InlineSpan>[];
     for (int i = 0; i < parts.length; i++) {
       if (i > 0) {
-        spans.add(const TextSpan(
+        spans.add(TextSpan(
           text: 'Lume',
           style: TextStyle(
             color: Color(0xFF10A37F),
@@ -592,7 +592,7 @@ class _BrandStoryStreamState extends State<_BrandStoryStream> {
     
     return RichText(
       text: TextSpan(
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 18,
           height: 2.0,
           color: Colors.black87,
@@ -611,7 +611,7 @@ class _BrandStoryStreamState extends State<_BrandStoryStream> {
       children: [
         // Lume Logo
         Container(
-          padding: const EdgeInsets.only(bottom: 16),
+          padding: EdgeInsets.only(bottom: 16),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -619,7 +619,7 @@ class _BrandStoryStreamState extends State<_BrandStoryStream> {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
+                  gradient: LinearGradient(
                     colors: [Color(0xFF10A37F), Color(0xFF0D8A6A)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -627,13 +627,13 @@ class _BrandStoryStreamState extends State<_BrandStoryStream> {
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF10A37F).withOpacity(0.3),
+                      color: Color(0xFF10A37F).withOpacity(0.3),
                       blurRadius: 12,
-                      offset: const Offset(0, 4),
+                      offset: Offset(0, 4),
                     ),
                   ],
                 ),
-                child: const Center(
+                child: Center(
                   child: Text(
                     'L',
                     style: TextStyle(
@@ -644,8 +644,8 @@ class _BrandStoryStreamState extends State<_BrandStoryStream> {
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
-              const Text(
+              SizedBox(width: 12),
+              Text(
                 'Lume',
                 style: TextStyle(
                   fontSize: 32,
@@ -656,7 +656,7 @@ class _BrandStoryStreamState extends State<_BrandStoryStream> {
             ],
           ),
         ),
-        const Text(
+        Text(
           '硅基生命 为你而来',
           style: TextStyle(
             fontSize: 14,
@@ -664,17 +664,17 @@ class _BrandStoryStreamState extends State<_BrandStoryStream> {
             letterSpacing: 2,
           ),
         ),
-        const SizedBox(height: 24),
+        SizedBox(height: 24),
         // 品牌故事区域 - 固定高度，滚动显示
         Container(
           height: 200,
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+          padding: EdgeInsets.symmetric(horizontal: 24),
           child: ClipRect(
             child: Stack(
               children: [
                 // 可滚动文本
                 AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
+                  duration: Duration(milliseconds: 300),
                   curve: Curves.easeOut,
                   transform: Matrix4.translationValues(0, -_scrollOffset, 0),
                   child: Align(

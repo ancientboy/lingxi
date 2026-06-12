@@ -25,6 +25,7 @@ class LumeWebSocketService {
   String? _sessionPrefix;
   bool _authHandledByProxy = false;
   int _requestId = 1;
+  final Map<String, Completer<Map<String, dynamic>?>> _pendingResponses = {};
   Timer? _reconnectTimer;
   Timer? _heartbeatTimer;
   final int _maxReconnectAttempts = 6;
@@ -240,6 +241,32 @@ class LumeWebSocketService {
     debugPrint('[Lume] 发送请求: $method');
   }
 
+  /// 发送 RPC 并等待 res（用于删除/重命名等需要结果反馈的操作）
+  Future<Map<String, dynamic>?> sendRequestAwait(
+    String method,
+    Map<String, dynamic> params, {
+    Duration timeout = const Duration(seconds: 12),
+  }) async {
+    if (!_isConnected || _channel == null) return null;
+    final reqId = '${method.replaceAll('.', '_')}_${DateTime.now().millisecondsSinceEpoch}';
+    final completer = Completer<Map<String, dynamic>?>();
+    _pendingResponses[reqId] = completer;
+    _channel!.sink.add(json.encode({
+      'id': reqId,
+      'method': method,
+      'params': params,
+    }));
+    try {
+      return await completer.future.timeout(timeout, onTimeout: () {
+        _pendingResponses.remove(reqId);
+        return null;
+      });
+    } catch (_) {
+      _pendingResponses.remove(reqId);
+      return null;
+    }
+  }
+
   void sendMessage(
     String content, {
     String? agentId,
@@ -269,6 +296,10 @@ class LumeWebSocketService {
   }
 
   void disconnect() {
+    for (final c in _pendingResponses.values) {
+      if (!c.isCompleted) c.complete(null);
+    }
+    _pendingResponses.clear();
     _reconnectTimer?.cancel();
     _heartbeatTimer?.cancel();
     _subscription?.cancel();

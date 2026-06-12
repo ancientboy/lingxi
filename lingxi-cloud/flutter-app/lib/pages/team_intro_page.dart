@@ -8,7 +8,7 @@ import 'package:provider/provider.dart';
 class TeamIntroPage extends StatefulWidget {
   final VoidCallback onComplete;
 
-  const TeamIntroPage({super.key, required this.onComplete});
+  TeamIntroPage({super.key, required this.onComplete});
 
   @override
   State<TeamIntroPage> createState() => _TeamIntroPageState();
@@ -43,7 +43,7 @@ class _TeamIntroPageState extends State<TeamIntroPage>
 
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
+      duration: Duration(milliseconds: 1500),
     );
 
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
@@ -64,7 +64,7 @@ class _TeamIntroPageState extends State<TeamIntroPage>
     setState(() {
       _isLoading = true;
       _showProgress = true;
-      _currentStep = 1;
+      const _currentStep = 1;
       _statusText = '正在分配 AI 成员...';
     });
 
@@ -76,17 +76,17 @@ class _TeamIntroPageState extends State<TeamIntroPage>
 
       if (data['success'] == true) {
         setState(() {
-          _currentStep = 1; // 完成第一步
+          const _currentStep = 1; // 完成第一步
           _statusText = '✅ 团队已分配，正在创建服务器...';
         });
 
         // 如果服务器已就绪，直接完成
         if (data['status'] == 'ready' && data['openclawUrl'] != null) {
           setState(() {
-            _currentStep = 5;
+            const _currentStep = 5;
             _statusText = '✅ 部署完成！';
           });
-          await Future.delayed(const Duration(seconds: 1));
+          await Future.delayed(Duration(seconds: 1));
           if (mounted) widget.onComplete();
           return;
         }
@@ -133,47 +133,47 @@ class _TeamIntroPageState extends State<TeamIntroPage>
           // 根据进度更新步骤和状态文字
           if (progress < 5) {
             setState(() {
-              _currentStep = 1;
+              const _currentStep = 1;
               _statusText = '正在验证信息...';
             });
           } else if (progress < 10) {
             setState(() {
-              _currentStep = 1;
+              const _currentStep = 1;
               _statusText = '正在生成配置包...';
             });
           } else if (progress < 20) {
             setState(() {
-              _currentStep = 2;
+              const _currentStep = 2;
               _statusText = '正在创建云服务器...';
             });
           } else if (progress < 60) {
             setState(() {
-              _currentStep = 2;
+              const _currentStep = 2;
               _statusText = '等待服务器启动...';
             });
           } else if (progress < 65) {
             setState(() {
-              _currentStep = 2;
+              const _currentStep = 2;
               _statusText = '等待 SSH 就绪...';
             });
           } else if (progress < 70) {
             setState(() {
-              _currentStep = 3;
+              const _currentStep = 3;
               _statusText = '正在上传部署包...';
             });
           } else if (progress < 95) {
             setState(() {
-              _currentStep = 3;
+              const _currentStep = 3;
               _statusText = '正在安装 OpenClaw...';
             });
           } else if (progress < 100) {
             setState(() {
-              _currentStep = 4;
+              const _currentStep = 4;
               _statusText = '验证服务状态...';
             });
           } else {
             setState(() {
-              _currentStep = 5;
+              const _currentStep = 5;
               _statusText = '✅ 部署完成！';
             });
           }
@@ -185,7 +185,7 @@ class _TeamIntroPageState extends State<TeamIntroPage>
 
           // 部署完成
           if (status == 'success') {
-            await Future.delayed(const Duration(seconds: 1));
+            await Future.delayed(Duration(seconds: 1));
             if (mounted) {
               widget.onComplete();
             }
@@ -217,18 +217,18 @@ class _TeamIntroPageState extends State<TeamIntroPage>
           gradient: RadialGradient(
             center: Alignment.bottomCenter,
             colors: isDarkMode
-                ? [const Color(0xFF1B2838), const Color(0xFF090A0F)]
-                : [const Color(0xFFf0fdf4), const Color(0xFFdcfce7)],
+                ? [Color(0xFF1B2838), Color(0xFF090A0F)]
+                : [Color(0xFFf0fdf4), Color(0xFFdcfce7)],
           ),
         ),
         child: FadeTransition(
           opacity: _fadeAnimation,
           child: SafeArea(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
+              padding: EdgeInsets.all(24),
               child: Column(
                 children: [
-                  const SizedBox(height: 40),
+                  SizedBox(height: 40),
 
                   // Logo
                   Container(
@@ -245,7 +245,7 @@ class _TeamIntroPageState extends State<TeamIntroPage>
                         ),
                       ],
                     ),
-                    child: const Center(
+                    child: Center(
                       child: Text(
                         '◈',
                         style: TextStyle(fontSize: 32, color: Colors.white),
@@ -253,14 +253,14 @@ class _TeamIntroPageState extends State<TeamIntroPage>
                     ),
                   ),
 
-                  const SizedBox(height: 24),
+                  SizedBox(height: 24),
 
                   // 标题
                   ShaderMask(
                     shaderCallback: (bounds) => LinearGradient(
                       colors: isDarkMode
                           ? [Colors.white, Constants.primaryColor]
-                          : [Constants.primaryColor, const Color(0xFF0d8a6a)],
+                          : [Constants.primaryColor, Constants.secondaryColor],
                     ).createShader(bounds),
                     child: Text(
                       '认识你的 AI 团队',
@@ -272,7 +272,7 @@ class _TeamIntroPageState extends State<TeamIntroPage>
                     ),
                   ),
 
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
 
                   Text(
                     '8 位硅基伙伴，为你而来',
@@ -282,13 +282,13 @@ class _TeamIntroPageState extends State<TeamIntroPage>
                     ),
                   ),
 
-                  const SizedBox(height: 40),
+                  SizedBox(height: 40),
 
                   // 团队成员网格
                   GridView.builder(
                     shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    physics: NeverScrollableScrollPhysics(),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
                       crossAxisSpacing: 12,
                       mainAxisSpacing: 12,
@@ -301,11 +301,11 @@ class _TeamIntroPageState extends State<TeamIntroPage>
                     },
                   ),
 
-                  const SizedBox(height: 40),
+                  SizedBox(height: 40),
 
                   // 领取条件提示
                   Container(
-                    padding: const EdgeInsets.all(16),
+                    padding: EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: (isDarkMode ? Colors.white : Colors.black).withOpacity(0.05),
                       borderRadius: BorderRadius.circular(12),
@@ -319,7 +319,7 @@ class _TeamIntroPageState extends State<TeamIntroPage>
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(Icons.info_outline, size: 18, color: Colors.orange),
-                            const SizedBox(width: 8),
+                            SizedBox(width: 8),
                             Text(
                               '领取条件',
                               style: TextStyle(
@@ -330,7 +330,7 @@ class _TeamIntroPageState extends State<TeamIntroPage>
                             ),
                           ],
                         ),
-                        const SizedBox(height: 8),
+                        SizedBox(height: 8),
                         Text(
                           '订阅用户 或 累计消耗 ≥5000 积分',
                           style: TextStyle(
@@ -338,7 +338,7 @@ class _TeamIntroPageState extends State<TeamIntroPage>
                             color: isDarkMode ? Colors.white70 : Colors.grey.shade600,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        SizedBox(height: 4),
                         Text(
                           '当前积分：${user?.points ?? 0} / 5000',
                           style: TextStyle(
@@ -351,12 +351,12 @@ class _TeamIntroPageState extends State<TeamIntroPage>
                     ),
                   ),
 
-                  const SizedBox(height: 32),
+                  SizedBox(height: 32),
 
                   // 部署进度（领取时显示）
                   if (_showProgress) ...[
                     _buildDeployProgress(isDarkMode),
-                    const SizedBox(height: 32),
+                    SizedBox(height: 32),
                   ],
 
                   // 操作按钮
@@ -372,7 +372,7 @@ class _TeamIntroPageState extends State<TeamIntroPage>
                         ),
                       ),
                       child: _isLoading
-                          ? const SizedBox(
+                          ? SizedBox(
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(
@@ -380,7 +380,7 @@ class _TeamIntroPageState extends State<TeamIntroPage>
                                 valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                               ),
                             )
-                          : const Text(
+                          : Text(
                               '领取 AI 团队',
                               style: TextStyle(
                                 fontSize: 16,
@@ -391,7 +391,7 @@ class _TeamIntroPageState extends State<TeamIntroPage>
                     ),
                   ),
 
-                  const SizedBox(height: 40),
+                  SizedBox(height: 40),
                 ],
               ),
             ),
@@ -404,7 +404,7 @@ class _TeamIntroPageState extends State<TeamIntroPage>
   // 构建部署进度组件
   Widget _buildDeployProgress(bool isDarkMode) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: (isDarkMode ? Colors.white : Colors.black).withOpacity(0.05),
         borderRadius: BorderRadius.circular(16),
@@ -419,7 +419,7 @@ class _TeamIntroPageState extends State<TeamIntroPage>
           Row(
             children: [
               Icon(Icons.hourglass_empty, size: 20, color: Constants.primaryColor),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Text(
                 '部署进度',
                 style: TextStyle(
@@ -430,7 +430,7 @@ class _TeamIntroPageState extends State<TeamIntroPage>
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: 20),
 
           // 步骤列表
           _buildStepItem(1, '领取 AI 团队', isDarkMode),
@@ -438,19 +438,19 @@ class _TeamIntroPageState extends State<TeamIntroPage>
           _buildStepItem(3, '安装运行环境', isDarkMode),
           _buildStepItem(4, '启动 AI 服务', isDarkMode),
 
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
 
           // 当前状态
           if (_statusText.isNotEmpty)
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Constants.primaryColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 children: [
-                  const SizedBox(
+                  SizedBox(
                     width: 16,
                     height: 16,
                     child: CircularProgressIndicator(
@@ -458,7 +458,7 @@ class _TeamIntroPageState extends State<TeamIntroPage>
                       valueColor: AlwaysStoppedAnimation<Color>(Constants.primaryColor),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       _statusText,
@@ -483,7 +483,7 @@ class _TeamIntroPageState extends State<TeamIntroPage>
     final isCurrent = _currentStep == step;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
           // 状态图标
@@ -500,7 +500,7 @@ class _TeamIntroPageState extends State<TeamIntroPage>
             ),
             child: Center(
               child: isCompleted
-                  ? const Icon(Icons.check, size: 16, color: Colors.white)
+                  ? Icon(Icons.check, size: 16, color: Colors.white)
                   : isCurrent
                       ? Text(
                           '$step',
@@ -519,7 +519,7 @@ class _TeamIntroPageState extends State<TeamIntroPage>
                         ),
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           // 文字
           Expanded(
             child: Text(
@@ -538,7 +538,7 @@ class _TeamIntroPageState extends State<TeamIntroPage>
             Container(
               width: 2,
               height: 24,
-              margin: const EdgeInsets.only(left: 13),
+              margin: EdgeInsets.only(left: 13),
               color: isCompleted
                   ? Constants.primaryColor
                   : (isDarkMode ? Colors.white : Colors.black).withOpacity(0.1),
@@ -551,7 +551,7 @@ class _TeamIntroPageState extends State<TeamIntroPage>
   // 构建成员卡片
   Widget _buildMemberCard(Map<String, dynamic> member, bool isDarkMode) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: (member['color'] as Color).withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
@@ -574,7 +574,7 @@ class _TeamIntroPageState extends State<TeamIntroPage>
               size: 24,
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -588,7 +588,7 @@ class _TeamIntroPageState extends State<TeamIntroPage>
                     color: isDarkMode ? Colors.white : Colors.black87,
                   ),
                 ),
-                const SizedBox(height: 2),
+                SizedBox(height: 2),
                 Text(
                   member['role'] as String,
                   style: TextStyle(

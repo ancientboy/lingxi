@@ -25,6 +25,7 @@ class WebSocketService {
   String? _session;
   String? _sessionPrefix;
   int _requestId = 1;
+  final Map<String, Completer<Map<String, dynamic>?>> _pendingResponses = {};
   Timer? _reconnectTimer;
   Timer? _heartbeatTimer;  // 心跳定时器
   final int _maxReconnectAttempts = 5;
@@ -254,6 +255,17 @@ class WebSocketService {
       return;
     }
     
+    if (data['type'] == 'res') {
+      final id = data['id']?.toString();
+      if (id != null && id.isNotEmpty) {
+        final c = _pendingResponses.remove(id);
+        if (c != null && !c.isCompleted) {
+          c.complete(data);
+          return;
+        }
+      }
+    }
+
     _notifyListeners(data);
   }
 
@@ -309,7 +321,9 @@ class WebSocketService {
     }
 
     final agent = agentId ?? 'main';
-    final targetSessionKey = '${_sessionPrefix}:agent:$agent';
+    final targetSessionKey = (sessionKey != null && sessionKey.isNotEmpty)
+        ? sessionKey
+        : '${_sessionPrefix}:agent:$agent';
 
     final message = {
       'type': 'req',
@@ -342,6 +356,32 @@ class WebSocketService {
     
     debugPrint('📤 发送请求: $method');
     _channel!.sink.add(json.encode(request));
+  }
+
+  Future<Map<String, dynamic>?> sendRequestAwait(
+    String method,
+    Map<String, dynamic> params, {
+    Duration timeout = const Duration(seconds: 12),
+  }) async {
+    if (!_isConnected || _channel == null) return null;
+    final reqId = '${method.replaceAll('.', '_')}_${DateTime.now().millisecondsSinceEpoch}';
+    final completer = Completer<Map<String, dynamic>?>();
+    _pendingResponses[reqId] = completer;
+    _channel!.sink.add(json.encode({
+      'type': 'req',
+      'id': reqId,
+      'method': method,
+      'params': params,
+    }));
+    try {
+      return await completer.future.timeout(timeout, onTimeout: () {
+        _pendingResponses.remove(reqId);
+        return null;
+      });
+    } catch (_) {
+      _pendingResponses.remove(reqId);
+      return null;
+    }
   }
 
   void addListener(WebSocketMessageCallback listener) {

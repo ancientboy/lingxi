@@ -12,6 +12,7 @@ import 'package:lingxicloud/pages/workspace_page.dart';
 import 'package:lingxicloud/pages/file_explorer_page.dart';
 import 'package:lingxicloud/services/websocket_service.dart';
 import 'package:lingxicloud/services/lume_websocket_service.dart';
+import 'package:lingxicloud/services/rpc_ws.dart';
 import 'package:lingxicloud/services/api_service.dart';
 import 'package:lingxicloud/services/notification_service.dart';
 import 'package:lingxicloud/widgets/file_preview.dart';
@@ -968,19 +969,37 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       debugPrint('❌ 删除会话数据库记录失败: $e');
     }
 
-    // 🔔 同步删除 OpenClaw 服务端真实 session（确保下次加载不会回来）
-    // 优先走 WebSocket（实时），fallback 到 HTTP API（WS 断开时也能删）
-    final lume = LumeWebSocketService();
-    final ws = WebSocketService();
-    if (lume.isConnected) {
-      debugPrint('🗑️ 通过 Lume WS 删除: $sessionKey');
-      lume.sendRequest('sessions.delete', {'key': sessionKey, 'sessionKey': sessionKey});
-    } else if (ws.isConnected) {
-      debugPrint('🗑️ 通过 Gateway WS 删除: $sessionKey');
-      ws.sendRequest('sessions.delete', {'key': sessionKey, 'sessionKey': sessionKey});
+    // 🔔 同步删除 OpenClaw 服务端真实 session
+    if (rpcConnected) {
+      debugPrint('🗑️ RPC 删除 session: $sessionKey');
+      final res = await rpcSendAwait('sessions.delete', {
+        'key': sessionKey,
+        'sessionKey': sessionKey,
+      });
+      if (mounted) {
+        if (res != null && res['ok'] == true) {
+          final deleted = res['payload']?['deleted'];
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(deleted == false ? '会话不存在或已删除' : '已从服务器删除会话'),
+              backgroundColor: Constants.primaryColor,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('删除失败，请稍后重试'), backgroundColor: Colors.red),
+          );
+        }
+      }
     } else {
       debugPrint('🗑️ WS 断开，走 HTTP API 删除: $sessionKey');
-      _deleteSessionHTTP(sessionKey);
+      await _deleteSessionHTTP(sessionKey);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已通过 HTTP 请求删除'), duration: Duration(seconds: 2)),
+        );
+      }
     }
   }
 
@@ -3092,8 +3111,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           
           debugPrint('📝 更新 session label: $_currentSessionKey → $newTitle');
           
-          // 发送更新请求
-          ws.sendRequest('sessions.update', {
+          // 发送更新请求（Lume 优先）
+          rpcSendAwait('sessions.update', {
+            'key': _currentSessionKey,
             'sessionKey': _currentSessionKey,
             'label': newTitle,
           });
@@ -4604,14 +4624,20 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                 });
                 _saveSessions();
                 
-                // 同步到服务器
-                final ws = WebSocketService();
-                if (ws.isConnected) {
-                  ws.sendRequest('sessions.update', {
-                    'key': sessionKey,
-                    'title': newTitle,
-                  });
-                }
+                // 同步到服务器（Lume 优先）
+                rpcSendAwait('sessions.update', {
+                  'key': sessionKey,
+                  'sessionKey': sessionKey,
+                  'title': newTitle,
+                  'label': newTitle,
+                }).then((res) {
+                  if (!mounted) return;
+                  if (res != null && res['ok'] != true) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('重命名同步失败'), backgroundColor: Colors.red),
+                    );
+                  }
+                });
               }
               Navigator.pop(context);
             },

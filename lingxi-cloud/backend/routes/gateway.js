@@ -378,4 +378,49 @@ async function writeAgentFile(userServer, agentId, filename, content) {
   return result;
 }
 
+
+// ─── Session 管理 HTTP API ──────────────────────────────────────
+// Flutter 通过此 API 删除 OpenClaw session（WS 断开时仍可用）
+
+router.delete('/sessions/*', async (req, res) => {
+  req.params.key = req.params[0] || req.path.replace(/^\/+/, '');
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    return res.status(401).json({ success: false, error: '未登录' });
+  }
+
+  let decoded;
+  try {
+    decoded = jwt.verify(authHeader.substring(7), JWT_SECRET);
+  } catch {
+    return res.status(401).json({ success: false, error: '登录已过期' });
+  }
+
+  const db = await getDB();
+  const user = db.users?.find((u) => u.id === decoded.userId);
+  if (!user) {
+    return res.status(401).json({ success: false, error: '用户不存在' });
+  }
+
+  const sessionKey = req.params.key;
+  if (!sessionKey || !sessionKey.startsWith('agent:')) {
+    return res.status(400).json({ success: false, error: '无效的 session key' });
+  }
+
+  const userServer = getActiveServer(db, user.id);
+  if (!userServer?.ip) {
+    return res.status(400).json({ success: false, error: '无可用服务器' });
+  }
+
+  try {
+    const result = await callOpenClawRPC(userServer, 'sessions.delete', { key: sessionKey });
+    console.log(`🗑️ [gateway] HTTP sessions.delete: ${sessionKey} → ok=${result.ok}`);
+    res.json({ success: result.ok, payload: result.payload, error: result.error });
+  } catch (err) {
+    console.error(`❌ [gateway] HTTP sessions.delete failed: ${err.message}`);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 export default router;
+

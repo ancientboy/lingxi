@@ -111,7 +111,7 @@ class ChatProvider with ChangeNotifier {
 
   // 清空聊天记录
   void clearMessages() {
-    _messages = [];
+    final _messages = [];
     notifyListeners();
   }
 

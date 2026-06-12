@@ -6,7 +6,7 @@ import 'package:lingxicloud/services/api_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class SubscriptionPage extends StatefulWidget {
-  const SubscriptionPage({super.key});
+  SubscriptionPage({super.key});
 
   @override
   State<SubscriptionPage> createState() => _SubscriptionPageState();
@@ -74,7 +74,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       
       if (token == null || token.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('请先登录')),
+          SnackBar(content: Text('请先登录')),
         );
         return;
       }
@@ -83,7 +83,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
+        builder: (context) => Center(child: CircularProgressIndicator()),
       );
 
       debugPrint('📤 发送订阅请求: planId=$planId, baseUrl=${Constants.baseUrl}');
@@ -109,13 +109,13 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
           // 显示提示
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('请在浏览器中完成支付，支付完成后返回此页面')),
+              SnackBar(content: Text('请在浏览器中完成支付，支付完成后返回此页面')),
             );
           }
         } else {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('无法打开支付链接')),
+              SnackBar(content: Text('无法打开支付链接')),
             );
           }
         }
@@ -144,7 +144,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
+        builder: (context) => Center(child: CircularProgressIndicator()),
       );
 
       final response = await ApiService().post('/api/alipay/credit-pack', data: {'packId': packId});
@@ -180,7 +180,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       final response = await ApiService().post('/api/subscription/trial');
       if (response.data['success'] == true) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('🎉 试用已开启！')),
+          SnackBar(content: Text('🎉 试用已开启！')),
         );
         _loadData();
       } else {
@@ -199,10 +199,10 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('订阅管理'),
+        title: Text('订阅管理'),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator())
           : _error != null
               ? Center(child: Text('加载失败: $_error'))
               : _buildContent(),
@@ -222,25 +222,25 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     final trialUsed = sub?['trialUsed'] ?? false;
 
     return ListView(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(24),
       children: [
         // 当前状态卡片
         Container(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(24),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: currentPlan == 'free'
                   ? [Colors.grey.shade600, Colors.grey.shade800]
-                  : [Constants.primaryColor, const Color(0xFF4F46E5)],
+                  : [Constants.primaryColor, Color(0xFF4F46E5)],
             ),
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
                 color: (currentPlan == 'free' ? Colors.grey : Constants.primaryColor).withOpacity(0.3),
                 blurRadius: 20,
-                offset: const Offset(0, 10),
+                offset: Offset(0, 10),
               ),
             ],
           ),
@@ -254,10 +254,10 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                     color: Colors.white,
                     size: 32,
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   Text(
                     ' ${sub?['planName'] ?? 'Free'}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
@@ -265,28 +265,28 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               Row(
                 children: [
-                  const Icon(Icons.monetization_on, color: Colors.white70, size: 16),
-                  const SizedBox(width: 8),
+                  Icon(Icons.monetization_on, color: Colors.white70, size: 16),
+                  SizedBox(width: 8),
                   Text(
                     '积分余额: $balance',
-                    style: const TextStyle(color: Colors.white70, fontSize: 14),
+                    style: TextStyle(color: Colors.white70, fontSize: 14),
                   ),
                   if (currentPlan == 'free') ...[
-                    const SizedBox(width: 16),
-                    const Icon(Icons.bolt, color: Colors.white70, size: 16),
-                    const SizedBox(width: 4),
+                    SizedBox(width: 16),
+                    Icon(Icons.bolt, color: Colors.white70, size: 16),
+                    SizedBox(width: 4),
                     Text(
                       '今日剩余: ${freeDaily - freeDailyUsed}/$freeDaily',
-                      style: const TextStyle(color: Colors.white70, fontSize: 14),
+                      style: TextStyle(color: Colors.white70, fontSize: 14),
                     ),
                   ],
                 ],
               ),
               if (!trialUsed && currentPlan == 'free') ...[
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -295,21 +295,21 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                       backgroundColor: Colors.white,
                       foregroundColor: Constants.primaryColor,
                     ),
-                    child: const Text('开启 3 天免费试用'),
+                    child: Text('开启 3 天免费试用'),
                   ),
                 ),
               ],
             ],
           ),
         ),
-        const SizedBox(height: 32),
+        SizedBox(height: 32),
 
         // 套餐选择
-        const Text(
+        Text(
           '选择套餐',
           style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
 
         // Lite 套餐
         if (plans['lite'] != null)
@@ -318,7 +318,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
             isCurrent: currentPlan == 'lite',
             onSelect: () => _subscribePlan('lite'),
           ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
 
         // Pro 套餐
         if (plans['pro'] != null)
@@ -328,14 +328,14 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
             onSelect: () => _subscribePlan('pro'),
             isRecommended: true,
           ),
-        const SizedBox(height: 32),
+        SizedBox(height: 32),
 
         // 积分包
-        const Text(
+        Text(
           '积分包',
           style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
         Wrap(
           spacing: 12,
           runSpacing: 12,
@@ -361,7 +361,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     bool isRecommended = false,
   }) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: isRecommended ? Constants.primaryColor.withOpacity(0.05) : Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -370,7 +370,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
             blurRadius: 10,
-            offset: const Offset(0, 2),
+            offset: Offset(0, 2),
           ),
         ],
       ),
@@ -384,24 +384,24 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                 children: [
                   Text(
                     plan['name'] ?? '',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   if (isRecommended) ...[
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
                         color: Constants.primaryColor,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Text('推荐', style: TextStyle(color: Colors.white, fontSize: 12)),
+                      child: Text('推荐', style: TextStyle(color: Colors.white, fontSize: 12)),
                     ),
                   ],
                 ],
               ),
               Text(
                 '¥${plan['price']}/月',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                   color: Constants.primaryColor,
@@ -409,12 +409,12 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Text(
             '${plan['credits']} 积分/月',
             style: TextStyle(color: Colors.grey.shade600),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           // 套餐详细说明
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -424,7 +424,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
               _buildFeatureItem('优先技术支持'),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           if (!isCurrent)
             SizedBox(
               width: double.infinity,
@@ -433,18 +433,18 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: isRecommended ? Constants.primaryColor : null,
                 ),
-                child: const Text('立即订阅'),
+                child: Text('立即订阅'),
               ),
             )
           else
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Center(
+              child: Center(
                 child: Text('当前套餐', style: TextStyle(color: Colors.grey)),
               ),
             ),
@@ -455,11 +455,11 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
 
   Widget _buildFeatureItem(String text) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: EdgeInsets.symmetric(vertical: 2),
       child: Row(
         children: [
           Icon(Icons.check_circle, size: 16, color: Constants.primaryColor),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           Text(text, style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
         ],
       ),
@@ -479,7 +479,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       onTap: onSelect,
       child: Container(
         width: 160,
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
@@ -487,16 +487,16 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
             BoxShadow(
               color: Colors.black.withOpacity(0.05),
               blurRadius: 10,
-              offset: const Offset(0, 2),
+              offset: Offset(0, 2),
             ),
           ],
         ),
         child: Column(
           children: [
-            Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Text('¥$price', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Constants.primaryColor)),
-            const SizedBox(height: 4),
+            Text(name, style: TextStyle(fontWeight: FontWeight.bold)),
+            SizedBox(height: 8),
+            Text('¥$price', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Constants.primaryColor)),
+            SizedBox(height: 4),
             Text(
               bonus > 0 ? '$totalCredits 积分 (+${(bonus * 100).toInt()}%)' : '$credits 积分',
               style: TextStyle(fontSize: 12, color: Colors.grey.shade600),

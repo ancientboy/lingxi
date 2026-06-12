@@ -186,7 +186,7 @@ class _TriggerTabState extends State<TriggerTab> {
     return Column(children: [
       // Header with add button
       Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         color: dk ? const Color(0xFF1A1A2E) : Colors.white,
         child: Row(children: [
           Text('自动化触发器', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textColor)),
@@ -200,7 +200,7 @@ class _TriggerTabState extends State<TriggerTab> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF667eea),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                padding: EdgeInsets.symmetric(horizontal: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
             ),
@@ -221,7 +221,7 @@ class _TriggerTabState extends State<TriggerTab> {
                 Text('点击右上角「新建」创建', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
               ])))])
             : ListView.separated(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(16),
                 itemCount: _triggers.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 10),
                 itemBuilder: (_, i) => _buildCard(_triggers[i], dk, cardBg, textColor),
@@ -251,7 +251,7 @@ class _TriggerTabState extends State<TriggerTab> {
     };
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: cardBg,
         borderRadius: BorderRadius.circular(14),
@@ -273,7 +273,7 @@ class _TriggerTabState extends State<TriggerTab> {
             Text(name, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: textColor)),
             Row(children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(color: Colors.grey.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
                 child: Text(typeLabels[type] ?? type, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
               ),
@@ -291,12 +291,12 @@ class _TriggerTabState extends State<TriggerTab> {
         if (type == 'cron' && schedule.isNotEmpty) ...[
           const SizedBox(height: 8),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             decoration: BoxDecoration(color: (dk ? const Color(0xFF1E1E38) : const Color(0xFFF8F9FA)), borderRadius: BorderRadius.circular(8)),
             child: Row(children: [
               const Icon(Icons.access_time, size: 14, color: Color(0xFF667eea)),
               const SizedBox(width: 6),
-              Text(schedule, style: const TextStyle(fontSize: 12, fontFamily: 'monospace', color: Color(0xFF667eea))),
+              Text(schedule, style: TextStyle(fontSize: 12, fontFamily: 'monospace', color: Color(0xFF667eea))),
             ]),
           ),
         ],
@@ -314,12 +314,12 @@ class _TriggerTabState extends State<TriggerTab> {
         Row(mainAxisAlignment: MainAxisAlignment.end, children: [
           TextButton(
             onPressed: () => _testTrigger(trg),
-            style: TextButton.styleFrom(foregroundColor: const Color(0xFF667eea), padding: const EdgeInsets.symmetric(horizontal: 10), minimumSize: Size.zero),
+            style: TextButton.styleFrom(foregroundColor: const Color(0xFF667eea), padding: EdgeInsets.symmetric(horizontal: 10), minimumSize: Size.zero),
             child: const Text('测试', style: TextStyle(fontSize: 12)),
           ),
           TextButton(
             onPressed: () => _deleteTrigger(trg),
-            style: TextButton.styleFrom(foregroundColor: Colors.red.shade400, padding: const EdgeInsets.symmetric(horizontal: 10), minimumSize: Size.zero),
+            style: TextButton.styleFrom(foregroundColor: Colors.red.shade400, padding: EdgeInsets.symmetric(horizontal: 10), minimumSize: Size.zero),
             child: const Text('删除', style: TextStyle(fontSize: 12)),
           ),
         ]),

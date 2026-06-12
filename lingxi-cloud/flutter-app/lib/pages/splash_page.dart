@@ -1,3 +1,4 @@
+import 'package:lingxicloud/utils/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lingxicloud/providers/app_provider.dart';
@@ -5,7 +6,7 @@ import 'package:lingxicloud/pages/login_page.dart';
 import 'package:lingxicloud/pages/main_shell.dart';
 
 class SplashPage extends StatefulWidget {
-  const SplashPage({super.key});
+  SplashPage({super.key});
 
   @override
   State<SplashPage> createState() => _SplashPageState();
@@ -27,21 +28,21 @@ class _SplashPageState extends State<SplashPage> {
     // 未登录 → 登录页
     if (!appProvider.isLoggedIn) {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const LoginPage()),
+        MaterialPageRoute(builder: (_) => LoginPage()),
       );
       return;
     }
 
     // 已登录 → 聊天页
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const MainShell()),
+      MaterialPageRoute(builder: (_) => MainShell()),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF10a37f),
+      backgroundColor: Constants.primaryColor,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -53,14 +54,14 @@ class _SplashPageState extends State<SplashPage> {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.auto_awesome,
                 size: 40,
-                color: Color(0xFF10a37f),
+                color: Constants.primaryColor,
               ),
             ),
-            const SizedBox(height: 24),
-            const Text(
+            SizedBox(height: 24),
+            Text(
               'Lume',
               style: TextStyle(
                 fontSize: 32,
@@ -68,8 +69,8 @@ class _SplashPageState extends State<SplashPage> {
                 color: Colors.white,
               ),
             ),
-            const SizedBox(height: 48),
-            const SizedBox(
+            SizedBox(height: 48),
+            SizedBox(
               width: 24,
               height: 24,
               child: CircularProgressIndicator(

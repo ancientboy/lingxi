@@ -2,6 +2,9 @@
  * 灵犀云 - 聊天界面主脚本
  *
  * 总计: 2718 行，90 个函数
+// 全局主题色（跟随 CSS 变量）
+function _accent() { return getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#10a37f"; }
+function _accentSoft() { return getComputedStyle(document.documentElement).getPropertyValue("--accent-soft").trim() || "rgba(16,163,127,0.08)"; }
  *
  * 模块索引:
  * ─────────────────────────────────────────
@@ -401,8 +404,11 @@ async function init() {
   renderTeamTags();
   connectWebSocket();
 
+  let _isComposing = false;
+  document.getElementById('inputField').addEventListener('compositionstart', () => { _isComposing = true; });
+  document.getElementById('inputField').addEventListener('compositionend', () => { _isComposing = false; });
   document.getElementById('inputField').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && !_isComposing) {
       e.preventDefault();
       sendMessage();
     }
@@ -526,7 +532,7 @@ function sendConnect() {
 }
 
 // 处理 WebSocket 消息
-function handleWebSocketMessage(data) {
+async function handleWebSocketMessage(data) {
   console.log('📥 收到消息:', data.type, data.event || data.payload?.type);
 
   const statusEl = document.getElementById('connectionStatus');
@@ -660,32 +666,40 @@ function handleWebSocketMessage(data) {
 
     const runId = payload.runId;
 
-    // delta - 流式输出
+    // delta - 流式输出（保持打字机效果）
     if (payload.state === 'delta') {
       const text = extractText(payload.message);
       if (text) {
-        // 创建或更新流式消息
         updateStreamingMessage(text, runId);
       }
     }
-    // final - 完成
+    // final - 完成：用 chat.history 增量刷新获取核心引擎过滤后的干净消息
     else if (payload.state === 'final') {
-      const text = extractText(payload.message);
-      const modelInfo = payload.modelInfo || null;
       removeTyping();
-
-      // 如果 delta 阶段没有显示过内容，final 才显示
-      if (text && !hasStreamingMessage(runId)) {
-        addMessage('assistant', text, '灵犀', modelInfo);
-      } else if (hasStreamingMessage(runId)) {
-        // delta 已经显示过了，确保消息完整
-        finalizeStreamingMessage(text, runId, modelInfo);
-      }
-
       isGenerating = false;
       currentRunId = null;
       updateSendButton();
-      console.log('消息完成');
+      console.log('消息完成，拉取增量历史...');
+
+      // 清除当前 runId 的流式消息占位，增量历史会带回最终版本
+      if (streamingMessages[runId]) {
+        const el = streamingMessages[runId].element;
+        if (el && el.parentNode) el.parentNode.removeChild(el);
+        delete streamingMessages[runId];
+      }
+
+      // 增量拉取 chat.history（核心引擎已过滤心跳/NO_REPLY/tool痕迹）
+      try {
+        const freshMessages = await fetchChatHistory(currentSessionKey, 20);
+        if (freshMessages && freshMessages.length > 0) {
+          renderHistory(freshMessages, true);  // appendOnly = true
+        }
+      } catch (e) {
+        console.warn('增量历史拉取失败，回退到 final payload:', e);
+        // 降级：直接用 final payload 渲染
+        const text = extractText(payload.message);
+        if (text) addMessage('assistant', text, '灵犀', payload.modelInfo);
+      }
 
       // 刷新侧边栏积分
       refreshSidebarCredits();
@@ -774,7 +788,11 @@ function updateStreamingMessage(text, runId) {
     if (bubble) {
       // 使用 processMessageFull 解析 Markdown 图片
       const { text: cleanText, filesHtml, imagesHtml } = processMessageFull(text, {});
-      bubble.innerHTML = `${cleanText ? escapeHtml(cleanText) : ''}${imagesHtml}${filesHtml}`;
+      const renderedText = cleanText ? renderMarkdown(cleanText) : '';
+      // 保留复制按钮
+      const existingCopyBtn = bubble.querySelector('.bubble-copy-btn');
+      const copyHtml = existingCopyBtn ? existingCopyBtn.outerHTML : '<button class="bubble-copy-btn" onclick="copyBubble(this)" title="复制"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>';
+      bubble.innerHTML = `${renderedText}${imagesHtml}${filesHtml}${copyHtml}`;
     }
   }
 
@@ -802,8 +820,10 @@ function finalizeStreamingMessage(text, runId, modelInfo) {
         userId: user?.id
       } : { userId: user?.id };
       const { text: cleanText, filesHtml, imagesHtml, audioHtml } = processMessageFull(text, fileOptions);
+      const renderedText = cleanText ? renderMarkdown(cleanText) : '';
       const metaHtml = modelInfo ? renderBubbleMeta(modelInfo) : '';
-      bubble.innerHTML = `${cleanText ? escapeHtml(cleanText) : ''}${audioHtml}${imagesHtml}${filesHtml}${metaHtml}`;
+      const copyHtml = '<button class="bubble-copy-btn" onclick="copyBubble(this)" title="复制"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>';
+      bubble.innerHTML = `${renderedText}${audioHtml}${imagesHtml}${filesHtml}${copyHtml}${metaHtml}`;
     }
   }
   // 清理
@@ -1160,7 +1180,7 @@ function getDocumentPreviewCard(mimeType, filename, fileSize) {
     'text/plain': { type: 'TXT', icon: 'TXT', gradient: ['#757575', '#9E9E9E'], color: '#757575' }
   };
   
-  const config = typeConfig[mimeType] || { type: 'FILE', icon: 'FILE', gradient: ['#10a37f', '#764ba2'], color: '#10a37f' };
+  const config = typeConfig[mimeType] || { type: 'FILE', icon: 'FILE', gradient: [_accent(), '#764ba2'], color: _accent() };
   const displayName = filename.length > 20 ? filename.substring(0, 20) + '...' : filename;
   const displaySize = fileSize ? formatFileSize(fileSize) : '';
   
@@ -1218,7 +1238,7 @@ function getDocumentPreviewCardHTML(mimeType, filename, fileSize) {
     'application/vnd.ms-powerpoint': { type: 'PPT', icon: 'P', gradient: 'linear-gradient(135deg, #FF9800 0%, #FFA726 100%)', color: '#E65100' }
   };
   
-  const config = typeConfig[mimeType] || { type: 'FILE', icon: 'FILE', gradient: 'linear-gradient(135deg, #10a37f 0%, #764ba2 100%)', color: '#10a37f' };
+  const config = typeConfig[mimeType] || { type: 'FILE', icon: 'FILE', gradient: `linear-gradient(135deg, ${_accent()} 0%, #764ba2 100%)`, color: _accent() };
   const displayName = filename.length > 20 ? filename.substring(0, 20) + '...' : filename;
   const displaySize = fileSize ? formatFileSize(fileSize) : '';
   
@@ -1587,6 +1607,45 @@ function abortChat() {
 let _historyLoading = false;
 let _historyLoadSession = null; // 记录当前正在加载哪个 session
 
+/**
+ * 纯数据获取：通过 chat.history API 拉取消息（核心引擎已过滤心跳/NO_REPLY/tool痕迹）
+ * @returns {Array|null} messages 数组或 null
+ */
+async function fetchChatHistory(sessionKey, limit = 20) {
+  if (!ws || ws.readyState !== WebSocket.OPEN || !sessionKey) return null;
+
+  try {
+    const res = await new Promise((resolve, reject) => {
+      const id = `req_${requestId++}`;
+      const timeout = setTimeout(() => reject(new Error('timeout')), 8000);
+
+      const handler = async (event) => {
+        try {
+          const text = typeof event.data === 'string' ? event.data : await event.data.text();
+          const data = JSON.parse(text);
+          if (data.id === id) {
+            clearTimeout(timeout);
+            ws.removeEventListener('message', handler);
+            resolve(data);
+          }
+        } catch (e) { /* ignore parse errors */ }
+      };
+
+      ws.addEventListener('message', handler);
+      ws.send(JSON.stringify({
+        type: 'req', id, method: 'chat.history',
+        params: { sessionKey, limit }
+      }));
+    });
+
+    if (res.ok && res.payload?.messages) return res.payload.messages;
+    return null;
+  } catch (e) {
+    console.warn('fetchChatHistory failed:', e);
+    return null;
+  }
+}
+
 async function loadChatHistory(appendOnly = false) {
   // 防重复：同一 session 不能并发加载
   if (_historyLoading && _historyLoadSession === currentSessionKey) {
@@ -1731,60 +1790,18 @@ function renderHistory(messages, appendOnly = false) {
   // 默认模式：清空容器后重新渲染
   container.innerHTML = '';
 
-  // 渲染历史消息
+  // 渲染历史消息（chat.history 已经过核心引擎过滤，这里只做基础校验）
   for (const msg of messages) {
     const role = msg.role || 'user';
     
-    // 🚫 过滤掉工具调用结果和系统消息
-    if (role === 'toolResult' || role === 'system' || role === 'tool') {
-      console.log('⏭️ 跳过工具/系统消息:', role);
-      continue;
-    }
-    
-    // 🚫 过滤掉非用户/助手消息
-    if (role !== 'user' && role !== 'assistant') {
-      console.log('⏭️ 跳过非对话消息:', role);
-      continue;
-    }
+    // chat.history 已过滤非用户/助手角色，这里做兜底
+    if (role !== 'user' && role !== 'assistant') continue;
     
     let content = extractText(msg);
+    if (!content || content.trim().length === 0) continue;
     
-    // 🚫 过滤掉内容为空的消息
-    if (!content || content.trim().length === 0) {
-      console.log('⏭️ 跳过空消息');
-      continue;
-    }
-    
-    // 🚫 过滤心跳/系统通知消息
-    if (content.includes('HEARTBEAT.md') || content.includes('HEARTBEAT_OK') ||
-        (content.includes('Exec completed') && content.includes('Read HEARTBEAT')) ||
-        (content.includes('Exec failed') && content.includes('Read HEARTBEAT'))) {
-      console.log('⏭️ 跳过心跳消息');
-      continue;
-    }
-    
-    // 🚫 过滤掉纯元数据消息（不包含附件标记，且主要是 JSON 格式）
-    const hasAttachmentMark = content.includes('[附件:');
-    const isMetadata = content.includes('<<<EXTERNAL_UNTRUSTED_CONTENT') && 
-                       content.includes('"url":') && 
-                       content.includes('"contentType":');
-    
-    if (!hasAttachmentMark && isMetadata) {
-      console.log('⏭️ 跳过纯元数据消息（长度:', content.length, '）');
-      continue;
-    }
-    
-    // 🔍 调试：打印历史消息结构
-    console.log('📜 历史消息结构:', {
-      id: msg.id,
-      role: role,
-      contentPreview: content ? content.substring(0, 100) + '...' : '(空)',
-      hasAttachmentMark: hasAttachmentMark,
-      hasAttachments: !!msg.attachments,
-      hasParts: !!msg.parts,
-      attachmentsCount: (msg.attachments || msg.parts || []).length,
-      messageKeys: Object.keys(msg)
-    });
+    // 兜底：以防万一还有漏网的心跳消息
+    if (content.trim() === 'HEARTBEAT_OK' || content.trim() === 'NO_REPLY') continue;
     
     // 提取附件（图片或文档）
     let imageUrl = null;
@@ -2560,7 +2577,8 @@ function addMessage(role, content, name, modelInfo) {
       `;
     } else if (content.text) {
       // 普通对象消息
-      bubbleContent = `<div>${escapeHtml(content.text)}</div>`;
+      // 音频/文档/图片消息的附带文本也用 Markdown 渲染
+      bubbleContent = renderMarkdown(content.text);
     }
   } else {
     // 处理文本消息，提取 Markdown 图片和文件路径
@@ -2576,19 +2594,26 @@ function addMessage(role, content, name, modelInfo) {
     // 使用 processMessageFull 同时处理 Markdown 图片、音频和文件路径
     const { text: cleanText, filesHtml, imagesHtml, audioHtml } = processMessageFull(text, fileOptions);
 
-    // 渲染文本、图片、音频和文件附件
+    // 渲染文本（Markdown）、图片、音频和文件附件
+    const renderedText = cleanText ? renderMarkdown(cleanText) : '';
     bubbleContent = `
-      ${cleanText ? `<div>${escapeHtml(cleanText)}</div>` : ''}
+      ${renderedText}
       ${audioHtml}
       ${imagesHtml}
       ${filesHtml}
     `;
   }
 
+  // 为助手消息添加复制按钮
+  const copyBtn = role === 'assistant'
+    ? `<button class="bubble-copy-btn" onclick="copyBubble(this)" title="复制"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>`
+    : '';
+
   div.innerHTML = `
     ${avatarHtml}
     <div class="bubble">
       ${bubbleContent}
+      ${copyBtn}
       ${role === 'assistant' && modelInfo ? renderBubbleMeta(modelInfo) : ''}
     </div>
   `;
@@ -2714,7 +2739,7 @@ function renderWorkflowStartCard(data) {
       </div>
       
       <div style="display:flex;align-items:center;gap:6px;padding-top:12px;border-top:1px solid #f3f4f6;">
-        <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#10a37f;animation:pulse 1.5s infinite;"></span>
+        <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${_accent()};animation:pulse 1.5s infinite;"></span>
         <span style="font-size:13px;color:#6b7280;">执行中...</span>
       </div>
     </div>
@@ -2735,10 +2760,10 @@ function renderWorkflowProgressCard(data) {
   const isComplete = data.isComplete || false;
   
   return `
-    <div style="padding:10px 12px;margin:8px 0;background:#f9fafb;border-left:3px solid ${isComplete ? '#10a37f' : '#3b82f6'};border-radius:4px;">
+    <div style="padding:10px 12px;margin:8px 0;background:#f9fafb;border-left:3px solid ${isComplete ? _accent() : '#3b82f6'};border-radius:4px;">
       <div style="display:flex;align-items:center;gap:8px;">
         <span style="font-size:14px;"></span>
-        <span style="font-size:13px;color:${isComplete ? '#10a37f' : '#3b82f6'};font-weight:500;">
+        <span style="font-size:13px;color:${isComplete ? _accent() : '#3b82f6'};font-weight:500;">
           ${isComplete ? '完成：' : '执行中：'}${stepName}
         </span>
         ${agent ? `<span style="font-size:12px;color:#9ca3af;margin-left:auto;">🤖 ${agent}</span>` : ''}
@@ -2767,7 +2792,7 @@ function renderWorkflowCompleteCard(data) {
   ` : '';
   
   return `
-    <div style="background:#ffffff;border:1px solid #10a37f;border-radius:8px;padding:16px;margin:12px 0;">
+    <div style="background:#ffffff;border:1px solid ${_accent()};border-radius:8px;padding:16px;margin:12px 0;">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
         
         <div>
@@ -3349,7 +3374,7 @@ function showToast(type, message) {
   `;
   
   if (type === 'success') {
-    toast.style.background = '#10a37f';
+    toast.style.background = _accent();
   } else if (type === 'error') {
     toast.style.background = '#ef4444';
   }
@@ -3630,6 +3655,66 @@ function updateNavUserName() {
   if (nameEl && user?.nickname) {
     nameEl.textContent = user.nickname.charAt(0).toUpperCase();
   }
+}
+
+// Markdown 渲染（使用 marked.js）
+function renderMarkdown(text) {
+  if (!text || typeof text !== 'string') return '';
+  try {
+    // 检查是否有 Markdown 语法（避免纯文本走 Markdown）
+    const hasMarkdown = /[*_`~#>|\-]\S|\S[*_`~]|^\s*[-*+]\s|^-{3,}|^#{1,6}\s|\|.*\|/m.test(text);
+    if (!hasMarkdown) {
+      return `<div class="chat-text">${escapeHtmlBasic(text)}</div>`;
+    }
+    if (typeof marked !== 'undefined' && marked.parse) {
+      const html = marked.parse(text, {
+        breaks: true,
+        gfm: true,
+      });
+      return `<div class="chat-text">${html}</div>`;
+    }
+    // fallback：没有 marked 就纯文本
+    return `<div class="chat-text">${escapeHtmlBasic(text)}</div>`;
+  } catch (e) {
+    console.warn('Markdown 渲染失败:', e);
+    return `<div class="chat-text">${escapeHtmlBasic(text)}</div>`;
+  }
+}
+
+// 基础 HTML 转义（不处理换行，给 Markdown 用）
+function escapeHtmlBasic(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML.replace(/\n/g, '<br>');
+}
+
+// 复制气泡内容
+function copyBubble(btn) {
+  const bubble = btn.closest('.bubble');
+  if (!bubble) return;
+  // 提取纯文本（去掉 HTML 标签）
+  const clone = bubble.cloneNode(true);
+  // 移除不需要复制的元素
+  clone.querySelectorAll('.bubble-copy-btn, .bubble-meta').forEach(el => el.remove());
+  const text = clone.textContent || clone.innerText || '';
+  navigator.clipboard.writeText(text.trim()).then(() => {
+    btn.classList.add('copied');
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+    }, 2000);
+  }).catch(() => {
+    // fallback
+    const ta = document.createElement('textarea');
+    ta.value = text.trim();
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    btn.classList.add('copied');
+    setTimeout(() => btn.classList.remove('copied'), 2000);
+  });
 }
 
 // HTML 转义
@@ -4376,7 +4461,7 @@ function handleSkillSearch() {
     return `
       <div class="skill-card" onclick="handleSkillClick('${skill.id}')">
         <div class="skill-header">
-          <div class="skill-icon" style="background:${agentInfo.icon === 'bot' ? '#10a37f' : '#10a37f'}">
+          <div class="skill-icon" style="background:${_accent()}">
             <i data-lucide="${agentInfo.icon || 'package'}" style="width:24px;height:24px;color:white;"></i>
           </div>
           <div class="skill-info">
@@ -4527,17 +4612,17 @@ function renderSkills(skills, installedSet, source = 'local') {
   }
 
   const agentMap = {
-    coder: { name: '云溪', icon: 'code', color: '#10a37f' },
+    coder: { name: '云溪', icon: 'code', color: _accent() },
     ops: { name: '若曦', icon: 'bar-chart-2', color: '#f59e0b' },
     inventor: { name: '紫萱', icon: 'lightbulb', color: '#8b5cf6' },
     pm: { name: '梓萱', icon: 'target', color: '#06b6d4' },
     noter: { name: '晓琳', icon: 'file-text', color: '#ef4444' },
     media: { name: '音韵', icon: 'palette', color: '#ec4899' },
     smart: { name: '智家', icon: 'home', color: '#3b82f6' },
-    lingxi: { name: '灵犀', icon: 'zap', color: '#10a37f' }
+    lingxi: { name: '灵犀', icon: 'zap', color: _accent() }
   };
 
-  const getAgentColor = (agent) => agentMap[agent]?.color || '#10a37f';
+  const getAgentColor = (agent) => agentMap[agent]?.color || _accent();
 
   container.innerHTML = skills.map(skill => {
     const isInstalled = installedSet.has(skill.id);
@@ -4557,7 +4642,7 @@ function renderSkills(skills, installedSet, source = 'local') {
             <div style="display:flex;gap:8px;margin-top:6px;">
               <span class="skill-agent-tag"><i data-lucide="user" class="icon-sm"></i> ${skill.agent || '通用'}</span>
               ${source === 'local'
-                ? `<span class="skill-source-tag" style="background:rgba(16, 163, 127,0.1);color:#10a37f;"><i data-lucide="database" class="icon-sm"></i> 本地</span>`
+                ? `<span class="skill-source-tag" style="background:${_accentSoft()};color:${_accent()};"><i data-lucide="database" class="icon-sm"></i> 本地</span>`
                 : `<span class="skill-source-tag skill-source-hot"><i data-lucide="star" class="icon-sm"></i> 热门</span>`
               }
             </div>
@@ -4588,17 +4673,17 @@ function renderPopularSkills(skills, installedSet) {
   }
 
   const agentMap = {
-    coder: { name: '云溪', icon: 'code', color: '#10a37f' },
+    coder: { name: '云溪', icon: 'code', color: _accent() },
     ops: { name: '若曦', icon: 'bar-chart-2', color: '#f59e0b' },
     inventor: { name: '紫萱', icon: 'lightbulb', color: '#8b5cf6' },
     pm: { name: '梓萱', icon: 'target', color: '#06b6d4' },
     noter: { name: '晓琳', icon: 'file-text', color: '#ef4444' },
     media: { name: '音韵', icon: 'palette', color: '#ec4899' },
     smart: { name: '智家', icon: 'home', color: '#3b82f6' },
-    lingxi: { name: '灵犀', icon: 'zap', color: '#10a37f' }
+    lingxi: { name: '灵犀', icon: 'zap', color: _accent() }
   };
 
-  const getAgentColor = (agent) => agentMap[agent]?.color || '#10a37f';
+  const getAgentColor = (agent) => agentMap[agent]?.color || _accent();
 
   container.innerHTML = skills.map(skill => {
     const isInstalled = installedSet.has(skill.id);
@@ -5338,7 +5423,7 @@ async function loadNotificationList() {
       let icon = '';
       if (n.type === 'reminder') {
         barClass = 'reminder';
-        icon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;flex-shrink:0;margin-right:4px;color:#10a37f"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+        icon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;flex-shrink:0;margin-right:4px;color:${_accent()}"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
       } else if (n.type === 'server_offline') {
         barClass = 'offline';
         icon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;flex-shrink:0;margin-right:4px;color:#f5576c"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>';

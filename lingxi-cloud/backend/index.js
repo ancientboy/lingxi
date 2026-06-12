@@ -31,6 +31,14 @@ expressWs(app);
 
 // 中间件
 app.use(cors());
+// 🔍 ALL requests logger
+app.use((req, res, next) => {
+  if (req.path.includes('lume') || req.path.includes('session') || req.method === 'DELETE') {
+    console.log('📩 ALL:', req.method, req.path, 'auth:', !!req.headers.authorization);
+  }
+  next();
+});
+
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -96,6 +104,14 @@ app.get('/lingxi-minimal.apk', (req, res) => {
 
 // 实例管理
 import instanceRoutes from './routes/instance.js';
+// 🔍 请求日志（调试用）
+app.use((req, res, next) => {
+  if (req.method !== 'GET' || req.path.includes('session') || req.path.includes('delete')) {
+    console.log(`📩 ${req.method} ${req.path} user=${req.user?.id || req.headers.authorization?.substring(7, 20) || 'anon'}`);
+  }
+  next();
+});
+
 app.use('/api/instance', instanceRoutes);
 
 // Agent 配置
@@ -285,7 +301,9 @@ import downloadsRoutes from './routes/downloads.js';
 app.use('/api/downloads', downloadsRoutes);
 
 // LumeClaw 维护 Agent
+import lumeWsRoutes from './routes/lume-ws.js';
 import lumeclawRoutes from './routes/lumeclaw.js';
+app.use('/api/lume', lumeWsRoutes);
 app.use('/api/lumeclaw', lumeclawRoutes);
 
 // Agent 办公区

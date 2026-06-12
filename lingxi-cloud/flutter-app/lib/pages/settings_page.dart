@@ -199,7 +199,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         user.nickname.isNotEmpty
                             ? user.nickname.substring(0, 1).toUpperCase()
                             : 'U',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 40,
                           fontWeight: FontWeight.bold,
                           color: Constants.primaryColor,
@@ -327,7 +327,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   'Lume v1.0.0',
                   style: TextStyle(
                     fontSize: 12,
-                    color: isDarkMode ? Colors.white38 : Constants.textLightColor,
+                    color: Theme.of(context).brightness == Brightness.dark ? Colors.white38 : Constants.textLightColor,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -337,7 +337,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     '浙ICP备2026013667号-2A',
                     style: TextStyle(
                       fontSize: 11,
-                      color: isDarkMode ? Colors.white38 : Constants.textLightColor,
+                      color: Theme.of(context).brightness == Brightness.dark ? Colors.white38 : Constants.textLightColor,
                       decoration: TextDecoration.underline,
                     ),
                   ),
@@ -375,7 +375,7 @@ class _SettingsPageState extends State<SettingsPage> {
               await Future.delayed(const Duration(milliseconds: 100));
               if (context.mounted) {
                 Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const LoginPage()),
+                  MaterialPageRoute(builder: (_) => LoginPage()),
                   (route) => false,
                 );
               }

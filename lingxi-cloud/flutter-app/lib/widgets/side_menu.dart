@@ -10,6 +10,8 @@ import 'package:lingxicloud/pages/settings_page.dart';
 import 'package:lingxicloud/pages/lumeclaw_page.dart';
 import 'package:lingxicloud/services/api_service.dart';
 import 'package:lingxicloud/services/websocket_service.dart';
+import 'package:lingxicloud/services/lume_websocket_service.dart';
+import 'package:lingxicloud/services/rpc_ws.dart';
 import 'package:lingxicloud/pages/main_shell.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
@@ -20,7 +22,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class SideMenu extends StatelessWidget {
   final bool asDrawer;
-  const SideMenu({super.key, this.asDrawer = false});
+  SideMenu({super.key, this.asDrawer = false});
 
   @override
   Widget build(BuildContext context) {
@@ -36,8 +38,8 @@ class SideMenu extends StatelessWidget {
       children: [
         // 品牌区域
         Container(
-          padding: const EdgeInsets.all(16),
-          decoration: const BoxDecoration(
+          padding: EdgeInsets.all(16),
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -51,15 +53,15 @@ class SideMenu extends StatelessWidget {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(8),
+                      padding: EdgeInsets.all(8),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.auto_awesome, color: Colors.white, size: 24),
+                      child: Icon(Icons.auto_awesome, color: Colors.white, size: 24),
                     ),
-                    const SizedBox(width: 12),
-                    const Text(
+                    SizedBox(width: 12),
+                    Text(
                       '灵犀云',
                       style: TextStyle(
                         fontSize: 20,
@@ -80,11 +82,11 @@ class SideMenu extends StatelessWidget {
         // 底部版本信息
         Divider(height: 1, color: Constants.textLightColor.withOpacity(0.2)),
         Padding(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(16),
           child: Row(
             children: [
               Icon(Icons.info_outlined, color: Constants.textSecondaryColor, size: 16),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -92,7 +94,7 @@ class SideMenu extends StatelessWidget {
                     'Version ${Constants.appVersion}',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Constants.textSecondaryColor),
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: 4),
                   Text(
                     '灵犀云 AI Assistant',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Constants.textLightColor),
@@ -111,9 +113,9 @@ class SideMenu extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(feature),
-        content: const Text('此功能即将上线，敬请期待！'),
+        content: Text('此功能即将上线，敬请期待！'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('知道了')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('知道了')),
         ],
       ),
     );
@@ -123,14 +125,14 @@ class SideMenu extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
             Icon(Icons.people_outline, color: Constants.primaryColor),
             SizedBox(width: 8),
             Text('我的团队'),
           ],
         ),
-        content: const Column(
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
@@ -151,7 +153,7 @@ class SideMenu extends StatelessWidget {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('关闭')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('关闭')),
         ],
       ),
     );
@@ -168,7 +170,7 @@ class SideMenu extends StatelessWidget {
   Map<SessionGroup, List<Map<String, dynamic>>> _groupSessionsByDate(List<Map<String, dynamic>> sessions) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final sevenDaysAgo = today.subtract(const Duration(days: 7));
+    final sevenDaysAgo = today.subtract(Duration(days: 7));
 
     final Map<SessionGroup, List<Map<String, dynamic>>> grouped = {
       SessionGroup.today: [],
@@ -213,7 +215,7 @@ class SideMenu extends StatelessWidget {
     
     if (date.isAfter(today)) {
       return '今天 ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
-    } else if (date.isAfter(today.subtract(const Duration(days: 7)))) {
+    } else if (date.isAfter(today.subtract(Duration(days: 7)))) {
       final daysAgo = today.difference(date).inDays;
       if (daysAgo == 1) return '昨天';
       if (daysAgo == 2) return '前天';
@@ -237,9 +239,9 @@ class SideMenu extends StatelessWidget {
       barrierDismissible: false,
       builder: (_) => Dialog(
         child: Padding(
-          padding: const EdgeInsets.all(24.0),
+          padding: EdgeInsets.all(24.0),
           child: Row(
-            children: const [
+            children: [
               SizedBox(
                 width: 24,
                 height: 24,
@@ -273,7 +275,7 @@ class SideMenu extends StatelessWidget {
             final credits = appProvider.user?.points ?? 0;
 
             return AlertDialog(
-              title: const Row(
+              title: Row(
                 children: [
                   Icon(Icons.bar_chart_outlined, color: Constants.primaryColor),
                   SizedBox(width: 8),
@@ -284,30 +286,30 @@ class SideMenu extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   ListTile(
-                    leading: const Icon(Icons.token),
-                    title: const Text('积分余额'),
+                    leading: Icon(Icons.token),
+                    title: Text('积分余额'),
                     trailing: Text(
                       '💎 $credits',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
                   ListTile(
-                    leading: const Icon(Icons.today),
-                    title: const Text('今日使用'),
+                    leading: Icon(Icons.today),
+                    title: Text('今日使用'),
                     trailing: Text(
                       _formatNumber(todayTokens) + ' tokens',
                     ),
                   ),
                   ListTile(
-                    leading: const Icon(Icons.calendar_today),
-                    title: const Text('本周使用'),
+                    leading: Icon(Icons.calendar_today),
+                    title: Text('本周使用'),
                     trailing: Text(
                       _formatNumber(weekTokens) + ' tokens',
                     ),
                   ),
                   ListTile(
-                    leading: const Icon(Icons.calendar_month),
-                    title: const Text('本月使用'),
+                    leading: Icon(Icons.calendar_month),
+                    title: Text('本月使用'),
                     trailing: Text(
                       _formatNumber(monthTokens) + ' tokens',
                     ),
@@ -317,7 +319,7 @@ class SideMenu extends StatelessWidget {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('关闭'),
+                  child: Text('关闭'),
                 ),
               ],
             );
@@ -370,11 +372,16 @@ class _SessionsDialogState extends State<_SessionsDialog> {
     });
 
     try {
-      // 尝试通过 WebSocket 加载会话列表
-      final ws = WebSocketService();
-      
-      if (!ws.isConnected) {
-        // WebSocket 未连接，尝试从本地加载
+      // Lume 优先拉取会话列表
+      if (!rpcConnected) {
+        final lume = LumeWebSocketService();
+        if (!lume.isConnecting) {
+          await lume.connect().catchError((_) {});
+        }
+        await Future.delayed(const Duration(milliseconds: 800));
+      }
+
+      if (!rpcConnected) {
         final prefs = await SharedPreferences.getInstance();
         final sessionsJson = prefs.getString('chat_sessions');
         if (sessionsJson != null) {
@@ -387,7 +394,6 @@ class _SessionsDialogState extends State<_SessionsDialog> {
           }
           return;
         }
-        
         if (mounted) {
           setState(() {
             _loading = false;
@@ -397,16 +403,23 @@ class _SessionsDialogState extends State<_SessionsDialog> {
         return;
       }
 
-      // 通过 WebSocket 获取会话列表
-      debugPrint('📋 发送 sessions.list 请求');
-      ws.sendRequest('sessions.list', {});
-      
-      // 等待 WebSocket 响应（最多 10 秒）
-      final result = await _waitForSessionList(ws, 10000);
-      
+      debugPrint('📋 发送 sessions.list (Lume 优先)');
+      final res = await rpcSendAwait('sessions.list', {
+        'limit': 50,
+        'includeLastMessage': true,
+        'includeDerivedTitles': true,
+      });
+      List<Map<String, dynamic>> result = [];
+      if (res != null && res['ok'] == true && res['payload']?['sessions'] is List) {
+        result = (res['payload']['sessions'] as List)
+            .map((s) => Map<String, dynamic>.from(s as Map))
+            .toList();
+        _filterDeletedSessions(result);
+      }
+
       if (mounted) {
         setState(() {
-          _sessions = result ?? [];
+          _sessions = result;
           _loading = false;
         });
       }
@@ -498,7 +511,7 @@ class _SessionsDialogState extends State<_SessionsDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Row(
+      title: Row(
         children: [
           Icon(Icons.history_outlined, color: Constants.primaryColor),
           SizedBox(width: 8),
@@ -508,7 +521,7 @@ class _SessionsDialogState extends State<_SessionsDialog> {
       content: SizedBox(
         width: double.maxFinite,
         child: _loading
-            ? const Center(child: CircularProgressIndicator())
+            ? Center(child: CircularProgressIndicator())
             : _error != null
                 ? Center(
                     child: Column(
@@ -517,7 +530,7 @@ class _SessionsDialogState extends State<_SessionsDialog> {
                         Text('加载失败: $_error'),
                         TextButton(
                           onPressed: _loadSessions,
-                          child: const Text('重试'),
+                          child: Text('重试'),
                         ),
                       ],
                     ),
@@ -527,7 +540,7 @@ class _SessionsDialogState extends State<_SessionsDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('关闭'),
+          child: Text('关闭'),
         ),
       ],
     );
@@ -540,7 +553,7 @@ class _SessionsDialogState extends State<_SessionsDialog> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.chat_outlined, size: 48, color: Constants.textLightColor),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             Text('暂无历史会话', style: TextStyle(color: Constants.textSecondaryColor)),
           ],
         ),
@@ -555,24 +568,24 @@ class _SessionsDialogState extends State<_SessionsDialog> {
     children.add(
       ListTile(
         leading: Icon(Icons.business_outlined, color: Constants.primaryColor),
-        title: const Text('办公区', style: TextStyle(fontWeight: FontWeight.w600)),
+        title: Text('办公区', style: TextStyle(fontWeight: FontWeight.w600)),
         trailing: Icon(Icons.chevron_right, size: 18, color: Constants.textTertiaryColor),
         onTap: () {
           Navigator.pop(context);
           Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const WorkspacePage()),
+            MaterialPageRoute(builder: (_) => WorkspacePage()),
           );
         },
       ),
     );
-    children.add(const Divider(height: 1, thickness: 0.5));
+    children.add(Divider(height: 1, thickness: 0.5));
 
     // 添加"新会话"按钮
     children.add(
       ListTile(
-        leading: const Icon(Icons.add, color: Constants.primaryColor),
-        title: const Text('新会话'),
-        subtitle: const Text('开始新的对话'),
+        leading: Icon(Icons.add, color: Constants.primaryColor),
+        title: Text('新会话'),
+        subtitle: Text('开始新的对话'),
         onTap: () {
           Navigator.pop(context);
           _createNewSession();
@@ -692,7 +705,7 @@ class _SessionsDialogState extends State<_SessionsDialog> {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        subtitle: Text(timeStr, style: const TextStyle(fontSize: 12)),
+        subtitle: Text(timeStr, style: TextStyle(fontSize: 12)),
         trailing: Icon(
           Icons.chevron_right,
           color: Constants.textLightColor,
@@ -719,14 +732,14 @@ class _SessionsDialogState extends State<_SessionsDialog> {
         // 传递 sessionKey 让 ChatPage 切换到指定会话
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
-            builder: (_) => const MainShell(),
+            builder: (_) => MainShell(),
             settings: RouteSettings(arguments: {'switchToSession': sessionKey}),
           ),
           (route) => route.isFirst,
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('请先连接到服务器')),
+          SnackBar(content: Text('请先连接到服务器')),
         );
       }
     } catch (e) {
@@ -741,19 +754,19 @@ class _SessionsDialogState extends State<_SessionsDialog> {
     // 创建新会话逻辑
     // TODO: 实际创建新会话
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('新会话已创建')),
+      SnackBar(content: Text('新会话已创建')),
     );
   }
 }
 
 class _MenuSection extends StatelessWidget {
   final String title;
-  const _MenuSection({required this.title});
+  _MenuSection({required this.title});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
       child: Text(
         title,
         style: TextStyle(
@@ -771,7 +784,7 @@ class _MenuItem extends StatelessWidget {
   final String title;
   final VoidCallback onTap;
 
-  const _MenuItem({
+  _MenuItem({
     required this.icon,
     required this.title,
     required this.onTap,
@@ -781,8 +794,8 @@ class _MenuItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       leading: Icon(icon, color: Constants.textSecondaryColor),
-      title: Text(title, style: const TextStyle(color: Constants.textPrimaryColor)),
-      trailing: const Icon(Icons.chevron_right_outlined, color: Constants.textLightColor, size: 20),
+      title: Text(title, style: TextStyle(color: Constants.textPrimaryColor)),
+      trailing: Icon(Icons.chevron_right_outlined, color: Constants.textLightColor, size: 20),
       onTap: onTap,
     );
   }

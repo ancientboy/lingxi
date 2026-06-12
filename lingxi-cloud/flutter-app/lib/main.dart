@@ -40,11 +40,11 @@ void main() async {
     debugPrint('Stack: ${details.stack}');
   };
   
-  runApp(const MyApp());
+  runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -57,13 +57,13 @@ class MyApp extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, size: 48, color: Colors.red),
-              const SizedBox(height: 16),
-              const Text('出现错误', style: TextStyle(fontSize: 18)),
-              const SizedBox(height: 16),
+              Icon(Icons.error_outline, size: 48, color: Colors.red),
+              SizedBox(height: 16),
+              Text('出现错误', style: TextStyle(fontSize: 18)),
+              SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () {},
-                child: const Text('返回'),
+                child: Text('返回'),
               ),
             ],
           ),
@@ -89,7 +89,7 @@ class MyApp extends StatelessWidget {
                 seedColor: Constants.primaryColor,
                 brightness: Brightness.light,
               ),
-              appBarTheme: const AppBarTheme(
+              appBarTheme: AppBarTheme(
                 centerTitle: true,
                 elevation: 0,
               ),
@@ -110,7 +110,7 @@ class MyApp extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Constants.primaryColor,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
+                  padding: EdgeInsets.symmetric(
                     horizontal: 24,
                     vertical: 12,
                   ),
@@ -126,7 +126,7 @@ class MyApp extends StatelessWidget {
                 seedColor: Constants.primaryColor,
                 brightness: Brightness.dark,
               ),
-              appBarTheme: const AppBarTheme(
+              appBarTheme: AppBarTheme(
                 centerTitle: true,
                 elevation: 0,
               ),
@@ -146,7 +146,7 @@ class MyApp extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Constants.primaryColor,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
+                  padding: EdgeInsets.symmetric(
                     horizontal: 24,
                     vertical: 12,
                   ),
@@ -157,7 +157,7 @@ class MyApp extends StatelessWidget {
               ),
             ),
             themeMode: appProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
-            home: const SplashPage(),
+            home: SplashPage(),
           );
         },
       ),

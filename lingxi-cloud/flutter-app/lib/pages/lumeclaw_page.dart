@@ -8,7 +8,7 @@ import 'package:lingxicloud/pages/subscription_page.dart';
 import 'package:dio/dio.dart'; // ✅ 终极防崩：导入 CancelToken
 
 class LumeClawPage extends StatefulWidget {
-  const LumeClawPage({super.key});
+  LumeClawPage({super.key});
 
   @override
   State<LumeClawPage> createState() => _LumeClawPageState();
@@ -170,7 +170,7 @@ class _LumeClawPageState extends State<LumeClawPage> {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
           _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
+          duration: Duration(milliseconds: 300),
           curve: Curves.easeOut,
         );
       }
@@ -193,10 +193,10 @@ class _LumeClawPageState extends State<LumeClawPage> {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Row(
+        title: Row(
           children: [
             Icon(Icons.build_outlined),
             SizedBox(width: 8),
@@ -207,7 +207,7 @@ class _LumeClawPageState extends State<LumeClawPage> {
         foregroundColor: Colors.white,
         actions: [
           IconButton(
-            icon: const Icon(Icons.delete_outline),
+            icon: Icon(Icons.delete_outline),
             tooltip: '清空对话',
             onPressed: _clearChat,
           ),
@@ -221,7 +221,7 @@ class _LumeClawPageState extends State<LumeClawPage> {
               children: [
                 // 功能介绍
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: Constants.primaryColor.withOpacity(0.1),
                     border: Border(
@@ -233,15 +233,15 @@ class _LumeClawPageState extends State<LumeClawPage> {
                   child: Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(12),
+                        padding: EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: Constants.primaryColor.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Text('🤖', style: TextStyle(fontSize: 24)),
+                        child: Text('🤖', style: TextStyle(fontSize: 24)),
                       ),
-                      const SizedBox(width: 12),
-                      const Expanded(
+                      SizedBox(width: 12),
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -270,7 +270,7 @@ class _LumeClawPageState extends State<LumeClawPage> {
                 // 快捷功能
                 Container(
                   height: 60,
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                   child: ListView(
                     scrollDirection: Axis.horizontal,
                     children: [
@@ -315,7 +315,7 @@ class _LumeClawPageState extends State<LumeClawPage> {
                                 size: 64,
                                 color: Constants.textLightColor,
                               ),
-                              const SizedBox(height: 16),
+                              SizedBox(height: 16),
                               Text(
                                 '遇到问题？告诉我',
                                 style: TextStyle(
@@ -323,7 +323,7 @@ class _LumeClawPageState extends State<LumeClawPage> {
                                   color: Constants.textSecondaryColor,
                                 ),
                               ),
-                              const SizedBox(height: 8),
+                              SizedBox(height: 8),
                               Text(
                                 '例如：Gateway启动失败 / 模型调用超时',
                                 style: TextStyle(
@@ -336,11 +336,11 @@ class _LumeClawPageState extends State<LumeClawPage> {
                         )
                       : ListView.builder(
                           controller: _scrollController,
-                          padding: const EdgeInsets.all(16),
+                          padding: EdgeInsets.all(16),
                           itemCount: _messages.length + (_isLoading ? 1 : 0),
                           itemBuilder: (context, index) {
                             if (index == _messages.length && _isLoading) {
-                              return const Padding(
+                              return Padding(
                                 padding: EdgeInsets.all(16),
                                 child: Center(
                                   child: Row(
@@ -367,14 +367,14 @@ class _LumeClawPageState extends State<LumeClawPage> {
 
                 // 输入区域
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withOpacity(0.05),
                         blurRadius: 10,
-                        offset: const Offset(0, -2),
+                        offset: Offset(0, -2),
                       ),
                     ],
                   ),
@@ -392,7 +392,7 @@ class _LumeClawPageState extends State<LumeClawPage> {
                               ),
                               filled: true,
                               fillColor: Colors.grey[100],
-                              contentPadding: const EdgeInsets.symmetric(
+                              contentPadding: EdgeInsets.symmetric(
                                 horizontal: 16,
                                 vertical: 12,
                               ),
@@ -402,10 +402,10 @@ class _LumeClawPageState extends State<LumeClawPage> {
                             onSubmitted: (_) => _sendMessage(),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8),
                         IconButton(
                           onPressed: _isLoading ? null : _sendMessage,
-                          icon: const Icon(Icons.send),
+                          icon: Icon(Icons.send),
                           style: IconButton.styleFrom(
                             backgroundColor: Constants.primaryColor,
                             foregroundColor: Colors.white,
@@ -430,19 +430,19 @@ class _LumeClawPageState extends State<LumeClawPage> {
             size: 64,
             color: Constants.textLightColor,
           ),
-          const SizedBox(height: 16),
-          const Text(
+          SizedBox(height: 16),
+          Text(
             'LumeClaw 仅对订阅用户开放',
             style: TextStyle(fontSize: 16),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           TextButton(
             onPressed: () {
               Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const SubscriptionPage()),
+                MaterialPageRoute(builder: (_) => SubscriptionPage()),
               );
             },
-            child: const Text('升级订阅'),
+            child: Text('升级订阅'),
           ),
         ],
       ),
@@ -453,7 +453,7 @@ class _LumeClawPageState extends State<LumeClawPage> {
   Widget _buildError() {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(24),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -462,20 +462,20 @@ class _LumeClawPageState extends State<LumeClawPage> {
               size: 64,
               color: Colors.red.shade300,
             ),
-            const SizedBox(height: 16),
-            const Text(
+            SizedBox(height: 16),
+            Text(
               '连接失败',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Text(
               '无法连接到服务器，请检查网络',
               style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(8),
@@ -486,7 +486,7 @@ class _LumeClawPageState extends State<LumeClawPage> {
                 textAlign: TextAlign.center,
               ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: 24),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -497,18 +497,18 @@ class _LumeClawPageState extends State<LumeClawPage> {
                     });
                     _checkAccess();
                   },
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('重试'),
+                  icon: Icon(Icons.refresh),
+                  label: Text('重试'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Constants.primaryColor,
                     foregroundColor: Colors.white,
                   ),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: 16),
                 OutlinedButton.icon(
                   onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.arrow_back),
-                  label: const Text('返回'),
+                  icon: Icon(Icons.arrow_back),
+                  label: Text('返回'),
                 ),
               ],
             ),
@@ -524,7 +524,7 @@ class _QuickButton extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
 
-  const _QuickButton({
+  _QuickButton({
     required this.icon,
     required this.label,
     required this.onTap,
@@ -533,7 +533,7 @@ class _QuickButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      padding: EdgeInsets.symmetric(horizontal: 4),
       child: ActionChip(
         avatar: Icon(icon, size: 16, color: Constants.primaryColor),
         label: Text(label),
@@ -548,14 +548,14 @@ class _QuickButton extends StatelessWidget {
 class _MessageBubble extends StatelessWidget {
   final _ChatMessage message;
 
-  const _MessageBubble({required this.message});
+  _MessageBubble({required this.message});
 
   @override
   Widget build(BuildContext context) {
     final isUser = message.role == 'user';
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: EdgeInsets.only(bottom: 12),
       child: Row(
         mainAxisAlignment:
             isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
@@ -569,13 +569,13 @@ class _MessageBubble extends StatelessWidget {
                 color: Constants.primaryColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Center(child: Text('🤖')),
+              child: Center(child: Text('🤖')),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
           ],
           Flexible(
             child: Container(
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: isUser
                     ? Constants.primaryColor
@@ -585,23 +585,23 @@ class _MessageBubble extends StatelessWidget {
               child: isUser
                   ? Text(
                       message.content,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: Colors.white),
                     )
                   : MarkdownBody(
                       data: message.content,
                       styleSheet: MarkdownStyleSheet(
-                        p: const TextStyle(fontSize: 14),
+                        p: TextStyle(fontSize: 14),
                         code: TextStyle(fontSize: 12, backgroundColor: Colors.grey.shade200),
                       ),
                     ),
             ),
           ),
           if (isUser) ...[
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             CircleAvatar(
               radius: 16,
               backgroundColor: Constants.primaryColor.withOpacity(0.1),
-              child: const Icon(Icons.person, size: 18, color: Constants.primaryColor),
+              child: Icon(Icons.person, size: 18, color: Constants.primaryColor),
             ),
           ],
         ],

@@ -221,7 +221,7 @@ class _WorkflowTabState extends State<WorkflowTab> {
                   Text('切换到「可安装」查看更多', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
                 ])))])
               : ListView.separated(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(16),
                   itemCount: _active.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 10),
                   itemBuilder: (_, i) => _buildActiveCard(_active[i], dk, cardBg, textColor),
@@ -233,7 +233,7 @@ class _WorkflowTabState extends State<WorkflowTab> {
                   Text('暂无可安装的工作流', style: TextStyle(color: Colors.grey.shade400, fontSize: 14)),
                 ])))])
               : ListView.separated(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(16),
                 itemCount: _available.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 10),
                 itemBuilder: (_, i) => _buildAvailableCard(_available[i], dk, cardBg, textColor),
@@ -245,7 +245,7 @@ class _WorkflowTabState extends State<WorkflowTab> {
 
   Widget _buildError(bool dk) {
     return Center(child: Padding(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(24),
       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
         Icon(Icons.error_outline, size: 48, color: Colors.red.shade300),
         const SizedBox(height: 12),
@@ -286,7 +286,7 @@ class _WorkflowTabState extends State<WorkflowTab> {
     final agents = _parseAgents(wf['agents']);
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: cardBg,
         borderRadius: BorderRadius.circular(14),
@@ -309,24 +309,24 @@ class _WorkflowTabState extends State<WorkflowTab> {
         const SizedBox(height: 8),
         // Agent tags
         if (agents.isNotEmpty) Wrap(spacing: 4, runSpacing: 4, children: agents.map((a) => Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(color: const Color(0xFF4facfe).withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             const Icon(Icons.smart_toy, size: 10, color: Color(0xFF4facfe)),
             const SizedBox(width: 2),
-            Text(a, style: const TextStyle(fontSize: 10, color: Color(0xFF4facfe))),
+            Text(a, style: TextStyle(fontSize: 10, color: Color(0xFF4facfe))),
           ]),
         )).toList()),
         const SizedBox(height: 8),
         // Status + time
         Wrap(spacing: 8, runSpacing: 6, children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
             child: Text(statusLabel, style: TextStyle(fontSize: 11, color: statusColor, fontWeight: FontWeight.w600)),
           ),
           if (activatedAt.isNotEmpty) Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(color: Colors.grey.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               Icon(Icons.access_time, size: 12, color: Colors.grey.shade500),
@@ -352,7 +352,7 @@ class _WorkflowTabState extends State<WorkflowTab> {
             onPressed: () => _deactivate(wf),
             icon: const Icon(Icons.stop_circle_outlined, size: 16),
             label: const Text('停用'),
-            style: TextButton.styleFrom(foregroundColor: Colors.red.shade400, padding: const EdgeInsets.symmetric(horizontal: 12)),
+            style: TextButton.styleFrom(foregroundColor: Colors.red.shade400, padding: EdgeInsets.symmetric(horizontal: 12)),
           ),
         ]),
       ]),
@@ -371,7 +371,7 @@ class _WorkflowTabState extends State<WorkflowTab> {
     final expanded = _expandedCards.contains(id);
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: cardBg,
         borderRadius: BorderRadius.circular(14),
@@ -399,7 +399,7 @@ class _WorkflowTabState extends State<WorkflowTab> {
             ])),
             // Status or expand icon
             if (isActive) Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(color: const Color(0xFF22C55E).withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
               child: const Text('已激活', style: TextStyle(fontSize: 10, color: Color(0xFF22C55E), fontWeight: FontWeight.w600)),
             ) else Icon(
@@ -415,12 +415,12 @@ class _WorkflowTabState extends State<WorkflowTab> {
         if (agents.isNotEmpty) ...[
           const SizedBox(height: 8),
           Wrap(spacing: 4, runSpacing: 4, children: agents.map((a) => Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(color: const Color(0xFF4facfe).withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               const Icon(Icons.smart_toy, size: 10, color: Color(0xFF4facfe)),
               const SizedBox(width: 2),
-              Text(a, style: const TextStyle(fontSize: 10, color: Color(0xFF4facfe))),
+              Text(a, style: TextStyle(fontSize: 10, color: Color(0xFF4facfe))),
             ]),
           )).toList()),
         ],
@@ -448,7 +448,7 @@ class _WorkflowTabState extends State<WorkflowTab> {
         if (expanded && steps.isNotEmpty) ...[
           const SizedBox(height: 12),
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: (dk ? const Color(0xFF1A1A2E) : const Color(0xFFF5F5FA)),
               borderRadius: BorderRadius.circular(10),
@@ -457,12 +457,12 @@ class _WorkflowTabState extends State<WorkflowTab> {
               Text('工作原理', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textColor)),
               const SizedBox(height: 8),
               ...steps.asMap().entries.map((entry) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
+                padding: EdgeInsets.only(bottom: 8),
                 child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Container(
                     width: 22, height: 22,
                     decoration: BoxDecoration(color: const Color(0xFF667eea).withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-                    child: Center(child: Text('${entry.key + 1}', style: const TextStyle(fontSize: 10, color: Color(0xFF667eea), fontWeight: FontWeight.w600))),
+                    child: Center(child: Text('${entry.key + 1}', style: TextStyle(fontSize: 10, color: Color(0xFF667eea), fontWeight: FontWeight.w600))),
                   ),
                   const SizedBox(width: 8),
                   Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -487,7 +487,7 @@ class _WorkflowTabState extends State<WorkflowTab> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF667eea),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 0),
+                padding: EdgeInsets.symmetric(vertical: 0),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
               child: const Text('激活', style: TextStyle(fontSize: 12)),

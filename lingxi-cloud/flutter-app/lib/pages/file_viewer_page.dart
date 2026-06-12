@@ -5,7 +5,7 @@ import 'package:lingxicloud/services/api_service.dart';
 class FileViewerPage extends StatefulWidget {
   final String filePath;
   final String fileName;
-  const FileViewerPage({super.key, required this.filePath, required this.fileName});
+  FileViewerPage({super.key, required this.filePath, required this.fileName});
 
   @override
   State<FileViewerPage> createState() => _FileViewerPageState();
@@ -72,18 +72,18 @@ class _FileViewerPageState extends State<FileViewerPage> {
       appBar: AppBar(
         title: Text(
           widget.fileName,
-          style: const TextStyle(fontSize: 16),
+          style: TextStyle(fontSize: 16),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: Icon(Icons.refresh),
             onPressed: _isLoading ? null : _loadFile,
             tooltip: '刷新',
           ),
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator())
           : _error != null
               ? _buildErrorView()
               : _buildContent(),
@@ -96,16 +96,16 @@ class _FileViewerPageState extends State<FileViewerPage> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.error_outline, size: 48, color: Constants.textLightColor),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
+            padding: EdgeInsets.symmetric(horizontal: 32),
             child: Text(
               _error ?? '未知错误',
               style: TextStyle(color: Constants.textSecondaryColor),
               textAlign: TextAlign.center,
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           if (_error?.contains('太大') != true)
             ElevatedButton(
               onPressed: _loadFile,
@@ -113,7 +113,7 @@ class _FileViewerPageState extends State<FileViewerPage> {
                 backgroundColor: Constants.primaryColor,
                 foregroundColor: Colors.white,
               ),
-              child: const Text('重试'),
+              child: Text('重试'),
             ),
         ],
       ),
@@ -126,12 +126,12 @@ class _FileViewerPageState extends State<FileViewerPage> {
         // 文件信息栏
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           color: Colors.grey.shade100,
           child: Row(
             children: [
               Icon(Icons.insert_drive_file, size: 14, color: Constants.textLightColor),
-              const SizedBox(width: 6),
+              SizedBox(width: 6),
               Expanded(
                 child: Text(
                   widget.filePath,
@@ -144,7 +144,7 @@ class _FileViewerPageState extends State<FileViewerPage> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Text(
                 _formatSize(_fileSize),
                 style: TextStyle(
@@ -155,17 +155,17 @@ class _FileViewerPageState extends State<FileViewerPage> {
             ],
           ),
         ),
-        const Divider(height: 1),
+        Divider(height: 1),
 
         // 文件内容
         Expanded(
           child: Container(
-            color: const Color(0xFF1E1E1E),
+            color: Color(0xFF1E1E1E),
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(16),
               child: SelectableText(
                 _content.isEmpty ? '（空文件）' : _content,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'monospace',
                   fontSize: 13,
                   color: Color(0xFFD4D4D4),

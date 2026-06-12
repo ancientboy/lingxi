@@ -166,7 +166,7 @@ class OfficeChar {
     else { tx = tx2; ty = ty2; }
     nextState = next;
     state = CharState.walking;
-    anim = 0;
+    const anim = 0;
   }
 
   void setCharState(CharState s, math.Random rng) {
@@ -1001,7 +1001,7 @@ class _OfficeSceneState extends State<OfficeScene> with SingleTickerProviderStat
   void _initScene() { _buildDesks(); _rebuildChars(); _cat = _OfficeCat(); }
 
   void _buildDesks() {
-    _desks = [];
+    const _desks = [];
     final count = widget.agents.length.clamp(1, 8);
     for (int r = 0; r < (count / 2).ceil(); r++)
       for (int col = 0; col < 2 && _desks.length < count; col++)
@@ -1010,7 +1010,7 @@ class _OfficeSceneState extends State<OfficeScene> with SingleTickerProviderStat
 
   void _rebuildChars() {
     _buildDesks();
-    _chars = [];
+    const _chars = [];
     for (int i = 0; i < widget.agents.length && i < _desks.length; i++) {
       final a = widget.agents[i];
       final grad = a['gradient'] as List?;
@@ -1164,10 +1164,10 @@ class _OfficeSceneState extends State<OfficeScene> with SingleTickerProviderStat
     } else if (mounted) {
       ScaffoldMessenger.of(context).clearSnackBars();
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(message, style: const TextStyle(fontSize: 14)),
+        content: Text(message, style: TextStyle(fontSize: 14)),
         duration: const Duration(seconds: 2),
         behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.only(bottom: 60, left: 20, right: 20),
+        margin: EdgeInsets.only(bottom: 60, left: 20, right: 20),
       ));
     }
   }

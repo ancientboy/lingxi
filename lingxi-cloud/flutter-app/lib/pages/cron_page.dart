@@ -2,12 +2,13 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lingxicloud/utils/constants.dart';
-import 'package:lingxicloud/services/websocket_service.dart';
+import 'package:lingxicloud/services/rpc_ws.dart';
+import 'package:lingxicloud/services/lume_websocket_service.dart';
 
 /// 定时任务页面
 class CronPage extends StatefulWidget {
   final String? sessionKey;
-  const CronPage({super.key, this.sessionKey});
+  CronPage({super.key, this.sessionKey});
 
   @override
   State<CronPage> createState() => _CronPageState();
@@ -22,7 +23,7 @@ class _CronPageState extends State<CronPage> {
   List<Map<String, dynamic>> _tasks = [];
   bool _isLoadingTasks = false;
 
-  static const String _storageKey = 'cron_tasks';
+  static String _storageKey = 'cron_tasks';
 
   final List<String> _frequencies = ['仅一次', '每天', '每周', '每小时', '自定义'];
   final List<String> _weekDays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
@@ -50,7 +51,7 @@ class _CronPageState extends State<CronPage> {
       final prefs = await SharedPreferences.getInstance();
       final json = prefs.getString(_storageKey);
       if (json != null) {
-        final List<dynamic> decoded = const JsonDecoder().convert(json);
+        final List<dynamic> decoded = JsonDecoder().convert(json);
         setState(() {
           _tasks = decoded.cast<Map<String, dynamic>>();
         });
@@ -112,7 +113,7 @@ class _CronPageState extends State<CronPage> {
   Future<void> _createTask() async {
     if (_taskController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请输入任务内容'), backgroundColor: Colors.red),
+        SnackBar(content: Text('请输入任务内容'), backgroundColor: Colors.red),
       );
       return;
     }
@@ -121,23 +122,21 @@ class _CronPageState extends State<CronPage> {
 
     final prompt = _buildPrompt();
 
-    // 通过 WebSocket 发送给 AI，AI 会自动调用 cron add
-    final ws = WebSocketService();
-    if (!ws.isConnected) {
+    if (!rpcConnected) {
+      final lume = LumeWebSocketService();
+      if (!lume.isConnecting) await lume.connect().catchError((_) {});
+      await Future.delayed(const Duration(milliseconds: 600));
+    }
+    if (!rpcConnected) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('WebSocket 未连接，请先连接服务器'), backgroundColor: Colors.red),
+        const SnackBar(content: Text('未连接服务器，请先打开聊天页'), backgroundColor: Colors.red),
       );
       setState(() => _isCreating = false);
       return;
     }
 
-    // 构建 sessionKey
-    final sessionKey = widget.sessionKey ?? 'main';
-
-    ws.sendRequest('chat.send', {
-      'sessionKey': sessionKey,
-      'message': prompt,
-    });
+    final sessionKey = widget.sessionKey ?? 'agent:main:main';
+    rpcSendChat(prompt, sessionKey: sessionKey);
 
     // 保存任务到本地列表
     final newTask = {
@@ -173,14 +172,12 @@ class _CronPageState extends State<CronPage> {
     final isActive = task['status'] == 'active';
     final newStatus = isActive ? 'paused' : 'active';
 
-    // 通过 AI 操作
-    final ws = WebSocketService();
-    if (ws.isConnected) {
+    if (rpcConnected) {
       final action = isActive ? '暂停' : '恢复';
-      ws.sendRequest('chat.send', {
-        'sessionKey': widget.sessionKey ?? 'main',
-        'message': '请${action}定时任务：${task['title']}（任务ID: ${task['id']}）',
-      });
+      rpcSendChat(
+        '请${action}定时任务：${task['title']}（任务ID: ${task['id']}）',
+        sessionKey: widget.sessionKey ?? 'agent:main:main',
+      );
     }
 
     setState(() {
@@ -192,13 +189,11 @@ class _CronPageState extends State<CronPage> {
   Future<void> _deleteTask(int index) async {
     final task = _tasks[index];
 
-    // 通过 AI 操作
-    final ws = WebSocketService();
-    if (ws.isConnected) {
-      ws.sendRequest('chat.send', {
-        'sessionKey': widget.sessionKey ?? 'main',
-        'message': '请删除定时任务：${task['title']}（任务ID: ${task['id']}）',
-      });
+    if (rpcConnected) {
+      rpcSendChat(
+        '请删除定时任务：${task['title']}（任务ID: ${task['id']}）',
+        sessionKey: widget.sessionKey ?? 'agent:main:main',
+      );
     }
 
     setState(() {
@@ -210,30 +205,30 @@ class _CronPageState extends State<CronPage> {
   @override
   Widget build(BuildContext context) {
     final dk = Theme.of(context).brightness == Brightness.dark;
-    final bg = dk ? const Color(0xFF1A1A2E) : const Color(0xFFF5F5F7);
-    final cardColor = dk ? const Color(0xFF252540) : Colors.white;
+    final bg = dk ? Color(0xFF1A1A2E) : Color(0xFFF5F5F7);
+    final cardColor = dk ? Color(0xFF252540) : Colors.white;
     final textColor = dk ? Colors.white : Colors.black87;
     final subColor = dk ? Colors.white54 : Colors.black45;
-    final fieldBg = dk ? const Color(0xFF2A2A45) : const Color(0xFFF0F0F5);
+    final fieldBg = dk ? Color(0xFF2A2A45) : Color(0xFFF0F0F5);
 
     return Scaffold(
       backgroundColor: bg,
       appBar: AppBar(
-        title: const Text('⏰ 定时任务'),
+        title: Text('⏰ 定时任务'),
         backgroundColor: bg,
         foregroundColor: textColor,
         elevation: 0,
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(16),
         children: [
           // ===== 创建任务卡片 =====
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: cardColor,
               borderRadius: BorderRadius.circular(16),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))],
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: Offset(0, 2))],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -241,18 +236,18 @@ class _CronPageState extends State<CronPage> {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(8),
+                      padding: EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF8B5CF6).withOpacity(0.1),
+                        color: Color(0xFF8B5CF6).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(Icons.add_circle_outline, color: Color(0xFF8B5CF6), size: 20),
+                      child: Icon(Icons.add_circle_outline, color: Color(0xFF8B5CF6), size: 20),
                     ),
-                    const SizedBox(width: 10),
+                    SizedBox(width: 10),
                     Text('创建任务', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: textColor)),
                   ],
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
 
                 // 任务输入
                 TextField(
@@ -268,19 +263,19 @@ class _CronPageState extends State<CronPage> {
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
                     ),
-                    contentPadding: const EdgeInsets.all(14),
+                    contentPadding: EdgeInsets.all(14),
                   ),
                 ),
-                const SizedBox(height: 14),
+                SizedBox(height: 14),
 
                 // 频率选择
                 Row(
                   children: [
                     Text('🕐 频率', style: TextStyle(fontSize: 13, color: subColor, fontWeight: FontWeight.w500)),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     Expanded(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        padding: EdgeInsets.symmetric(horizontal: 12),
                         decoration: BoxDecoration(
                           color: fieldBg,
                           borderRadius: BorderRadius.circular(10),
@@ -308,7 +303,7 @@ class _CronPageState extends State<CronPage> {
                 ),
 
                 // 时间和星期选择
-                const SizedBox(height: 10),
+                SizedBox(height: 10),
                 Row(
                   children: [
                     // 时间选择
@@ -317,10 +312,10 @@ class _CronPageState extends State<CronPage> {
                         child: Row(
                           children: [
                             Text('⏰ 时间', style: TextStyle(fontSize: 13, color: subColor, fontWeight: FontWeight.w500)),
-                            const SizedBox(width: 8),
+                            SizedBox(width: 8),
                             Expanded(
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                padding: EdgeInsets.symmetric(horizontal: 12),
                                 decoration: BoxDecoration(
                                   color: fieldBg,
                                   borderRadius: BorderRadius.circular(10),
@@ -342,10 +337,10 @@ class _CronPageState extends State<CronPage> {
                       ),
                     // 星期选择
                     if (_frequency == '每周') ...[
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8),
                       Expanded(
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          padding: EdgeInsets.symmetric(horizontal: 12),
                           decoration: BoxDecoration(
                             color: fieldBg,
                             borderRadius: BorderRadius.circular(10),
@@ -366,7 +361,7 @@ class _CronPageState extends State<CronPage> {
                   ],
                 ),
 
-                const SizedBox(height: 18),
+                SizedBox(height: 18),
 
                 // 启动按钮
                 SizedBox(
@@ -375,14 +370,14 @@ class _CronPageState extends State<CronPage> {
                   child: ElevatedButton(
                     onPressed: _isCreating ? null : _createTask,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF8B5CF6),
+                      backgroundColor: Color(0xFF8B5CF6),
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       elevation: 0,
                     ),
                     child: _isCreating
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                        : const Row(
+                        ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(Icons.rocket_launch, size: 18),
@@ -396,17 +391,17 @@ class _CronPageState extends State<CronPage> {
             ),
           ),
 
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
 
           // ===== 任务列表 =====
           Row(
             children: [
               Text('我的任务', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: textColor)),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: _tasks.isEmpty ? Colors.grey.withOpacity(0.1) : const Color(0xFF8B5CF6).withOpacity(0.1),
+                  color: _tasks.isEmpty ? Colors.grey.withOpacity(0.1) : Color(0xFF8B5CF6).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
@@ -414,20 +409,20 @@ class _CronPageState extends State<CronPage> {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: _tasks.isEmpty ? Colors.grey : const Color(0xFF8B5CF6),
+                    color: _tasks.isEmpty ? Colors.grey : Color(0xFF8B5CF6),
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
 
           if (_isLoadingTasks)
-            const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()))
+            Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()))
 
           else if (_tasks.isEmpty)
             Container(
-              padding: const EdgeInsets.all(32),
+              padding: EdgeInsets.all(32),
               decoration: BoxDecoration(
                 color: cardColor,
                 borderRadius: BorderRadius.circular(16),
@@ -435,9 +430,9 @@ class _CronPageState extends State<CronPage> {
               child: Column(
                 children: [
                   Icon(Icons.schedule, size: 40, color: subColor),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   Text('暂无定时任务', style: TextStyle(fontSize: 15, color: subColor)),
-                  const SizedBox(height: 4),
+                  SizedBox(height: 4),
                   Text('创建你的第一个任务吧', style: TextStyle(fontSize: 13, color: subColor)),
                 ],
               ),
@@ -476,13 +471,13 @@ class _CronPageState extends State<CronPage> {
               }
 
               return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
+                padding: EdgeInsets.only(bottom: 10),
                 child: Container(
-                  padding: const EdgeInsets.all(14),
+                  padding: EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     color: cardColor,
                     borderRadius: BorderRadius.circular(14),
-                    border: isActive ? Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.2)) : null,
+                    border: isActive ? Border.all(color: Color(0xFF8B5CF6).withOpacity(0.2)) : null,
                   ),
                   child: Row(
                     children: [
@@ -492,10 +487,10 @@ class _CronPageState extends State<CronPage> {
                         height: 8,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: isActive ? const Color(0xFF22C55E) : Colors.grey,
+                          color: isActive ? Color(0xFF22C55E) : Colors.grey,
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      SizedBox(width: 12),
 
                       // 任务信息
                       Expanded(
@@ -513,7 +508,7 @@ class _CronPageState extends State<CronPage> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            const SizedBox(height: 3),
+                            SizedBox(height: 3),
                             Text(
                               '$scheduleDesc · $createdStr',
                               style: TextStyle(fontSize: 12, color: subColor),
@@ -530,26 +525,26 @@ class _CronPageState extends State<CronPage> {
                           GestureDetector(
                             onTap: () => _toggleTask(i),
                             child: Container(
-                              padding: const EdgeInsets.all(6),
+                              padding: EdgeInsets.all(6),
                               decoration: BoxDecoration(
                                 color: isActive
                                     ? Colors.orange.withOpacity(0.1)
-                                    : const Color(0xFF22C55E).withOpacity(0.1),
+                                    : Color(0xFF22C55E).withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Icon(
                                 isActive ? Icons.pause_rounded : Icons.play_arrow_rounded,
                                 size: 18,
-                                color: isActive ? Colors.orange : const Color(0xFF22C55E),
+                                color: isActive ? Colors.orange : Color(0xFF22C55E),
                               ),
                             ),
                           ),
-                          const SizedBox(width: 6),
+                          SizedBox(width: 6),
                           // 删除
                           GestureDetector(
                             onTap: () => _deleteTask(i),
                             child: Container(
-                              padding: const EdgeInsets.all(6),
+                              padding: EdgeInsets.all(6),
                               decoration: BoxDecoration(
                                 color: Colors.red.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(8),

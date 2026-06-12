@@ -6,7 +6,7 @@ import 'package:lingxicloud/services/api_service.dart';
 import 'dart:convert';
 
 class RegisterPage extends StatefulWidget {
-  const RegisterPage({super.key});
+  RegisterPage({super.key});
 
   @override
   State<RegisterPage> createState() => _RegisterPageState();
@@ -42,7 +42,7 @@ class _RegisterPageState extends State<RegisterPage> {
     
     if (email.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('请输入邮箱地址'),
           backgroundColor: Constants.errorColor,
         ),
@@ -52,7 +52,7 @@ class _RegisterPageState extends State<RegisterPage> {
     
     if (!emailRegex.hasMatch(email)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('邮箱格式不正确'),
           backgroundColor: Constants.errorColor,
         ),
@@ -86,17 +86,17 @@ class _RegisterPageState extends State<RegisterPage> {
       if (data['success'] == true) {
         // 开始倒计时
         setState(() {
-          _countdown = 60;
+          const _countdown = 60;
         });
         
         // 倒计时定时器
-        Future.delayed(const Duration(seconds: 1), () {
+        Future.delayed(Duration(seconds: 1), () {
           if (mounted) {
             setState(() {
               _countdown--;
             });
             if (_countdown > 0) {
-              Future.delayed(const Duration(seconds: 1), () {
+              Future.delayed(Duration(seconds: 1), () {
                 // 递归调用继续倒计时
               });
             }
@@ -105,7 +105,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Text('验证码已发送，请检查邮箱'),
               backgroundColor: Constants.secondaryColor,
             ),
@@ -149,7 +149,7 @@ class _RegisterPageState extends State<RegisterPage> {
     // 验证验证码
     if (_verifyCodeController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('请填写邮箱验证码'),
           backgroundColor: Constants.errorColor,
         ),
@@ -181,7 +181,7 @@ class _RegisterPageState extends State<RegisterPage> {
         
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Text('注册成功！请登录'),
               backgroundColor: Constants.secondaryColor,
             ),
@@ -222,7 +222,7 @@ class _RegisterPageState extends State<RegisterPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('注册'),
+        title: Text('注册'),
         backgroundColor: Constants.primaryColor,
         foregroundColor: Colors.white,
       ),
@@ -233,16 +233,16 @@ class _RegisterPageState extends State<RegisterPage> {
             end: Alignment.bottomRight,
             colors: [
               Constants.primaryColor,
-              const Color(0xFF4F46E5),
+              Color(0xFF4F46E5),
             ],
           ),
         ),
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(24),
             child: Container(
               width: 400,
-              padding: const EdgeInsets.all(32),
+              padding: EdgeInsets.all(32),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
@@ -250,7 +250,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   BoxShadow(
                     color: Colors.black.withOpacity(0.1),
                     blurRadius: 20,
-                    offset: const Offset(0, 10),
+                    offset: Offset(0, 10),
                   ),
                 ],
               ),
@@ -259,13 +259,13 @@ class _RegisterPageState extends State<RegisterPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.person_add,
                       size: 64,
                       color: Constants.primaryColor,
                     ),
-                    const SizedBox(height: 16),
-                    const Text(
+                    SizedBox(height: 16),
+                    Text(
                       '创建账号',
                       style: TextStyle(
                         fontSize: 28,
@@ -274,27 +274,27 @@ class _RegisterPageState extends State<RegisterPage> {
                       ),
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 32),
+                    SizedBox(height: 32),
 
                     // 邀请码（可选）
                     TextFormField(
                       controller: _inviteCodeController,
                       decoration: InputDecoration(
                         labelText: '邀请码（可选）',
-                        prefixIcon: const Icon(Icons.card_giftcard, color: Constants.primaryColor),
+                        prefixIcon: Icon(Icons.card_giftcard, color: Constants.primaryColor),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
 
                     // 昵称
                     TextFormField(
                       controller: _nicknameController,
                       decoration: InputDecoration(
                         labelText: '昵称',
-                        prefixIcon: const Icon(Icons.person, color: Constants.primaryColor),
+                        prefixIcon: Icon(Icons.person, color: Constants.primaryColor),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -309,14 +309,14 @@ class _RegisterPageState extends State<RegisterPage> {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
 
                     // 邮箱
                     TextFormField(
                       controller: _emailController,
                       decoration: InputDecoration(
                         labelText: '邮箱',
-                        prefixIcon: const Icon(Icons.email, color: Constants.primaryColor),
+                        prefixIcon: Icon(Icons.email, color: Constants.primaryColor),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -334,7 +334,7 @@ class _RegisterPageState extends State<RegisterPage> {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
 
                     // 发送验证码按钮
                     Row(
@@ -353,7 +353,7 @@ class _RegisterPageState extends State<RegisterPage> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Constants.primaryColor,
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
@@ -366,14 +366,14 @@ class _RegisterPageState extends State<RegisterPage> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
 
                     // 验证码输入框
                     TextFormField(
                       controller: _verifyCodeController,
                       decoration: InputDecoration(
                         labelText: '验证码',
-                        prefixIcon: const Icon(Icons.security, color: Constants.primaryColor),
+                        prefixIcon: Icon(Icons.security, color: Constants.primaryColor),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -382,7 +382,7 @@ class _RegisterPageState extends State<RegisterPage> {
                       keyboardType: TextInputType.number,
                       maxLength: 6,
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
 
                     // 密码
                     TextFormField(
@@ -390,7 +390,7 @@ class _RegisterPageState extends State<RegisterPage> {
                       obscureText: _obscurePassword,
                       decoration: InputDecoration(
                         labelText: '密码',
-                        prefixIcon: const Icon(Icons.lock, color: Constants.primaryColor),
+                        prefixIcon: Icon(Icons.lock, color: Constants.primaryColor),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -416,7 +416,7 @@ class _RegisterPageState extends State<RegisterPage> {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 24),
+                    SizedBox(height: 24),
 
                     // 注册按钮
                     ElevatedButton(
@@ -424,13 +424,13 @@ class _RegisterPageState extends State<RegisterPage> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Constants.primaryColor,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        padding: EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
                       child: _isLoading
-                          ? const SizedBox(
+                          ? SizedBox(
                               height: 20,
                               width: 20,
                               child: CircularProgressIndicator(
@@ -438,17 +438,17 @@ class _RegisterPageState extends State<RegisterPage> {
                                 valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                               ),
                             )
-                          : const Text(
+                          : Text(
                               '注册',
                               style: TextStyle(fontSize: 18),
                             ),
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
 
                     // 返回登录
                     TextButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      child: const Text(
+                      child: Text(
                         '已有账号？去登录',
                         style: TextStyle(color: Constants.primaryColor),
                       ),
