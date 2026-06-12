@@ -1086,6 +1086,7 @@
   </style>
   <script src="assets/js/i18n.js?v=20260608"></script>
   <script src="assets/libs/lucide.min.js"></script>
+  <script src="assets/js/lume-rpc.js?v=20260613"></script>
   <script src="assets/js/office-engine.js?v=20260608b"></script>
 </head>
 <body>
@@ -1649,19 +1650,33 @@ function getApiBase() {
   try { const u = JSON.parse(localStorage.getItem('lingxi_user') || '{}'); return u.serverUrl || ''; } catch { return ''; }
 }
 
-// 从 OpenClaw API 拉取真实 Agent 列表
+// 从 OpenClaw API 拉取真实 Agent 列表（Lume 优先，HTTP 降级）
 async function fetchOpenClawAgents() {
   const token = getToken();
   if (!token) return;
   try {
-    const res = await fetch(`${getApiBase()}/api/gateway/agents`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    const data = await res.json();
-    if (data.success && data.agents) {
-      openClawAgents = data.agents;
+    let agents = null;
+    try {
+      if (typeof LumeRpc !== 'undefined' && await LumeRpc.connect()) {
+        agents = await LumeAgents.fetchList();
+        openClawSource = 'lume';
+        console.log('[Lume] config.get 拉取到', agents.length, '个 Agent');
+      }
+    } catch (lumeErr) {
+      console.warn('Lume Agent 拉取失败，降级 HTTP:', lumeErr.message);
+    }
+    if (!agents) {
+      const res = await fetch(`${getApiBase()}/api/gateway/agents`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!data.success || !data.agents) return;
+      agents = data.agents;
       openClawSource = 'openclaw';
-      console.log('从 OpenClaw 拉取到', data.agents.length, '个 Agent');
+      console.log('从 HTTP 拉取到', agents.length, '个 Agent');
+    }
+    if (agents) {
+      openClawAgents = agents;
       // 刷新概览办公桌（基于真实数据重建 AGENTS 数组）
       AGENTS = buildAgentsList();
       // 重建状态（保留已有状态，新 Agent 默认 idle）
@@ -1712,8 +1727,10 @@ function renderManageTab() {
   const available = document.getElementById('manageAvailable');
   if (!container) return;
 
-  const isRealData = openClawSource === 'openclaw';
-  const statusLabel = isRealData ? '<span class="badge-live">实时</span>' : '<span class="badge-local">本地</span>';
+  const isRealData = openClawSource === 'openclaw' || openClawSource === 'lume';
+  const statusLabel = isRealData
+    ? '<span class="badge-live">' + (openClawSource === 'lume' ? 'Lume' : '实时') + '</span>'
+    : '<span class="badge-local">本地</span>';
 
   container.innerHTML = `
     <div class="info-row">
@@ -1756,29 +1773,39 @@ function renderManageTab() {
 async function addMember(agentId) {
   const token = getToken();
   const a = AGENT_MAP[agentId];
-  showToast(`Adding ${a?.name || agentId}...`);
+  showToast(`正在添加 ${a?.name || agentId}...`);
 
   try {
-    const res = await fetch(`${getApiBase()}/api/gateway/agents`, {
-      method: 'POST',
-      headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${token}` },
-      body: JSON.stringify({
-        agentId,
-        name: a?.name,
-        emoji: a?.abbr,
-        soulContent: buildSoulMd(agentId, a),
-      })
-    });
-    const data = await res.json();
-    if (data.success) {
-      showToast(`${a?.name} added to OpenClaw- restarting`);
-      // Refresh agent list after a delay (OpenClaw needs to restart)
-      setTimeout(() => { fetchOpenClawAgents().then(() => renderManageTab()); }, 6000);
-    } else {
-      showToast('操作失败: ' + (data.error || '未知错误'));
+    let ok = false;
+    if (typeof LumeRpc !== 'undefined' && await LumeRpc.connect()) {
+      try {
+        await LumeAgents.addAgent(agentId, a?.name, a?.abbr);
+        ok = true;
+      } catch (lumeErr) {
+        console.warn('Lume addAgent 失败，降级 HTTP:', lumeErr.message);
+      }
     }
+    if (!ok) {
+      const res = await fetch(`${getApiBase()}/api/gateway/agents`, {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${token}` },
+        body: JSON.stringify({
+          agentId,
+          name: a?.name,
+          emoji: a?.abbr,
+          soulContent: buildSoulMd(agentId, a),
+        })
+      });
+      const data = await res.json();
+      if (!data.success) {
+        showToast('操作失败: ' + (data.error || '未知错误'));
+        return;
+      }
+    }
+    showToast(`${a?.name} 已添加，OpenClaw 正在重启`);
+    setTimeout(() => { fetchOpenClawAgents().then(() => renderManageTab()); }, 6000);
   } catch(e) {
-    console.error('removeMember error:', e);
+    console.error('addMember error:', e);
     // 即使网络错误，也从本地移除（防止卡住）
     if (e.message.includes('服务器响应异常') || e.message.includes('Failed to fetch')) {
       const doLocal = confirm(`移除失败：${e.message}\n\n是否先从本地列表中移除？\n（下次连接设备时会重新同步）`);
@@ -1803,12 +1830,23 @@ async function removeMember(agentId) {
   showToast(`正在移除 ${agentName}...`);
 
   try {
-    const res = await fetch(`${getApiBase()}/api/gateway/agents/${agentId}`, {
-      method: 'DELETE',
-      headers: { 'Authorization':`Bearer ${token}` }
-    });
-    let data;
-    try { data = await res.json(); } catch(e) { throw new Error('服务器响应异常 (HTTP ' + res.status + ')'); }
+    let ok = false;
+    if (typeof LumeRpc !== 'undefined' && await LumeRpc.connect()) {
+      try {
+        await LumeAgents.removeAgent(agentId);
+        ok = true;
+      } catch (lumeErr) {
+        console.warn('Lume removeAgent 失败，降级 HTTP:', lumeErr.message);
+      }
+    }
+    let data = { success: ok };
+    if (!ok) {
+      const res = await fetch(`${getApiBase()}/api/gateway/agents/${agentId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization':`Bearer ${token}` }
+      });
+      try { data = await res.json(); } catch(e) { throw new Error('服务器响应异常 (HTTP ' + res.status + ')'); }
+    }
     if (data.success) {
       const wsNote = data.workspaceCleaned === false && data.workspaceDir 
         ? '\n⚠️ 工作区目录清理失败，下次重启可能恢复' 

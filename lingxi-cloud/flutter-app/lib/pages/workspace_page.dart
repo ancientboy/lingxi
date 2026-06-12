@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:lingxicloud/services/api_service.dart';
 import 'package:lingxicloud/services/rpc_ws.dart';
 import 'package:lingxicloud/services/lume_websocket_service.dart';
+import 'package:lingxicloud/services/gateway_agents.dart';
 import 'package:lingxicloud/providers/app_provider.dart';
 import 'package:provider/provider.dart';
 import 'dart:math' as math;
@@ -290,7 +291,7 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
         Row(children: [
           Text('团队成员', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)),
           const Spacer(),
-          Container(padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: _source == 'openclaw' ? const Color(0xFF22C55E).withOpacity(0.1) : Colors.grey.withOpacity(0.1), borderRadius: BorderRadius.circular(10)), child: Text('${display.length} 人', style: TextStyle(fontSize: 11, color: _source == 'openclaw' ? const Color(0xFF22C55E) : Colors.grey))),
+          Container(padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: (_source == 'openclaw' || _source == 'lume') ? const Color(0xFF22C55E).withOpacity(0.1) : Colors.grey.withOpacity(0.1), borderRadius: BorderRadius.circular(10)), child: Text('${display.length} 人', style: TextStyle(fontSize: 11, color: (_source == 'openclaw' || _source == 'lume') ? const Color(0xFF22C55E) : Colors.grey))),
         ]),
         const SizedBox(height: 12),
         ...display.map((id) {
@@ -323,22 +324,58 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
     );
   }
 
+  Future<void> _ensureRpc() async {
+    if (rpcConnected) return;
+    final lume = LumeWebSocketService();
+    if (!lume.isConnecting) await lume.connect().catchError((_) {});
+    await Future.delayed(const Duration(milliseconds: 700));
+  }
+
   Future<void> _removeMember(String id, AppProvider p) async {
     final info = _agentInfo[id] ?? {'name': id};
-    final ok = await showDialog<bool>(context: context, builder: (c) => AlertDialog(title: const Text('移除成员'), content: Text('确定移除 ${info['name']}？'), actions: [TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('取消')), TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('确定', style: TextStyle(color: Colors.red)))]));
+    final ok = await showDialog<bool>(context: context, builder: (c) => AlertDialog(title: const Text('移除成员'), content: Text('确定移除 ${info['name']}？将从 OpenClaw 配置中移除。'), actions: [TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('取消')), TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('确定', style: TextStyle(color: Colors.red)))]));
     if (ok != true) return;
     final uid = p.user?.id ?? '';
     final na = p.user?.agents.where((a) => a != id).toList() ?? [];
     if (na.isEmpty) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('至少保留一个成员'))); return; }
+    await _ensureRpc();
+    if (!rpcConnected) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('未连接服务器'), backgroundColor: Colors.red));
+      return;
+    }
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('正在移除 ${info['name']}...')));
+    final gwOk = await GatewayAgentsService.removeAgent(id);
+    if (!gwOk) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('OpenClaw 移除失败'), backgroundColor: Colors.red));
+      return;
+    }
     final r = await ApiService().updateMyAgents(uid, na);
-    if (r && p.user != null) { p.setUser(p.user!.copyWith(agents: na)); if (mounted) setState(() {}); }
+    if (r && p.user != null) {
+      p.setUser(p.user!.copyWith(agents: na));
+      if (mounted) setState(() { _source = 'lume'; });
+    }
   }
 
   Future<void> _addMember(String id, AppProvider p) async {
+    final info = _agentInfo[id] ?? {'name': id, 'abbr': 'AI'};
     final uid = p.user?.id ?? '';
     final na = [...?p.user?.agents, id];
+    await _ensureRpc();
+    if (!rpcConnected) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('未连接服务器'), backgroundColor: Colors.red));
+      return;
+    }
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('正在添加 ${info['name']}...')));
+    final gwOk = await GatewayAgentsService.addAgent(id, name: info['name'], emoji: info['abbr']);
+    if (!gwOk) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('OpenClaw 添加失败'), backgroundColor: Colors.red));
+      return;
+    }
     final r = await ApiService().updateMyAgents(uid, na);
-    if (r && p.user != null) { p.setUser(p.user!.copyWith(agents: na)); if (mounted) setState(() {}); }
+    if (r && p.user != null) {
+      p.setUser(p.user!.copyWith(agents: na));
+      if (mounted) setState(() { _source = 'lume'; });
+    }
   }
 
   // ======================== TEMPLATES TAB ========================
