@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lingxicloud/services/api_service.dart';
+import 'package:lingxicloud/services/rpc_ws.dart';
+import 'package:lingxicloud/services/lume_websocket_service.dart';
 
 class WorkflowTab extends StatefulWidget {
   final bool dk;
@@ -26,22 +28,35 @@ class _WorkflowTabState extends State<WorkflowTab> {
   Future<void> _load() async {
     setState(() { _loading = true; _errorMessage = null; });
     try {
-      final api = ApiService();
-      final results = await Future.wait([
-        api.get('/api/team/workflows/available').catchError((_) => _.data),
-        api.get('/api/team/workflows/list').catchError((_) => _.data),
-      ]);
-      final availData = results[0].data;
-      final activeData = results[1].data;
+      if (!rpcConnected) {
+        final lume = LumeWebSocketService();
+        if (!lume.isConnecting) await lume.connect().catchError((_) {});
+      }
 
       List<Map<String, dynamic>> avail = [];
-      List<Map<String, dynamic>> activeRaw = [];
-
-      if (availData is Map && availData['success'] == true && availData['workflows'] != null) {
-        avail = List<Map<String, dynamic>>.from(availData['workflows']);
-      } else if (availData is List) {
-        avail = List<Map<String, dynamic>>.from(availData);
+      final lumeWf = await rpcPluginCall('workflow.list', {});
+      if (lumeWf != null && lumeWf['ok'] == true) {
+        final payload = lumeWf['payload'];
+        if (payload is Map && payload['workflows'] is List) {
+          avail = List<Map<String, dynamic>>.from(payload['workflows'] as List);
+        }
       }
+
+      final api = ApiService();
+      if (avail.isEmpty) {
+        final availResp = await api.get('/api/team/workflows/available').catchError((_) => _.data);
+        final availData = availResp.data;
+        if (availData is Map && availData['success'] == true && availData['workflows'] != null) {
+          avail = List<Map<String, dynamic>>.from(availData['workflows']);
+        } else if (availData is List) {
+          avail = List<Map<String, dynamic>>.from(availData);
+        }
+      }
+
+      final activeResp = await api.get('/api/team/workflows/list').catchError((_) => _.data);
+      final activeData = activeResp.data;
+
+      List<Map<String, dynamic>> activeRaw = [];
 
       if (activeData is Map && activeData['success'] == true && activeData['workflows'] != null) {
         activeRaw = List<Map<String, dynamic>>.from(activeData['workflows']);

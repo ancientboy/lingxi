@@ -1,5 +1,6 @@
 /**
- * Lume WebSocket RPC — 付费用户优先连接 Lume 插件，通过 gateway.call 代理 Gateway RPC
+ * Lume WebSocket RPC — 付费用户优先连接 Lume 插件
+ * 支持 gateway.call 代理 + 原生管理 RPC + 聊天
  */
 const LumeRpc = (function () {
   let ws = null;
@@ -8,6 +9,7 @@ const LumeRpc = (function () {
   let userId = null;
   let secret = null;
   const pending = new Map();
+  const eventListeners = [];
   let reqSeq = 1;
 
   function getToken() {
@@ -20,6 +22,14 @@ const LumeRpc = (function () {
       return u.serverUrl || '';
     } catch {
       return '';
+    }
+  }
+
+  function emitEvent(msg) {
+    for (const fn of eventListeners) {
+      try {
+        fn(msg);
+      } catch (_) {}
     }
   }
 
@@ -77,6 +87,10 @@ const LumeRpc = (function () {
           } catch {
             return;
           }
+          if (msg.type === 'event') {
+            emitEvent(msg);
+            return;
+          }
           if (msg.id === authId) {
             if (msg.ok) {
               connected = true;
@@ -113,12 +127,9 @@ const LumeRpc = (function () {
     }
   }
 
-  async function gatewayCall(method, params, timeoutMs) {
+  function sendRequest(method, params, timeoutMs) {
     const timeout = timeoutMs || 15000;
-    if (!connected) {
-      const ok = await connect();
-      if (!ok) throw new Error('Lume 未连接');
-    }
+    if (!connected) throw new Error('Lume 未连接');
     const id = 'rpc-' + reqSeq++;
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -127,23 +138,75 @@ const LumeRpc = (function () {
       }, timeout);
       pending.set(id, {
         timer,
-        resolve: (msg) => resolve(msg.payload),
+        resolve,
         reject,
       });
-      ws.send(
-        JSON.stringify({
-          id,
-          method: 'gateway.call',
-          params: { method, params: params || {} },
-        }),
-      );
+      ws.send(JSON.stringify({ id, method, params: params || {} }));
     });
+  }
+
+  async function gatewayCall(method, params, timeoutMs) {
+    if (!connected) {
+      const ok = await connect();
+      if (!ok) throw new Error('Lume 未连接');
+    }
+    const msg = await sendRequest(
+      'gateway.call',
+      { method, params: params || {} },
+      timeoutMs,
+    );
+    return msg.payload;
+  }
+
+  async function pluginCall(method, params, timeoutMs) {
+    if (!connected) {
+      const ok = await connect();
+      if (!ok) throw new Error('Lume 未连接');
+    }
+    const msg = await sendRequest(method, params || {}, timeoutMs);
+    return msg.payload;
+  }
+
+  async function sendChat(message, sessionKey, agentId) {
+    if (!connected) {
+      const ok = await connect();
+      if (!ok) throw new Error('Lume 未连接');
+    }
+    await sendRequest(
+      'chat.send',
+      {
+        message,
+        sessionKey,
+        agentId: agentId || 'lingxi',
+      },
+      20000,
+    );
+  }
+
+  function onEvent(fn) {
+    eventListeners.push(fn);
+  }
+
+  function disconnect() {
+    if (ws) {
+      try {
+        ws.close();
+      } catch (_) {}
+    }
+    ws = null;
+    connected = false;
+    connecting = false;
   }
 
   return {
     connect,
+    disconnect,
     isConnected: () => connected,
     gatewayCall,
+    pluginCall,
+    sendChat,
+    sendRequest,
+    onEvent,
   };
 })();
 
@@ -236,9 +299,7 @@ const LumeAgents = (function () {
 
     try {
       await LumeRpc.gatewayCall('agents.delete', { agentId }, 8000);
-    } catch (_) {
-      /* OpenClaw 重启时可能失败，可忽略 */
-    }
+    } catch (_) {}
   }
 
   return { fetchList, addAgent, removeAgent };

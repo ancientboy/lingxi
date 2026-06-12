@@ -387,7 +387,9 @@ app.use((err, req, res, next) => {
 
 // 设置 WebSocket 代理（必须在 app.listen 之前）
 import { setupWebSocketProxy } from './routes/ws-proxy.js';
+import { setupLumeWebSocketProxy } from './routes/lume-ws-proxy.js';
 setupWebSocketProxy(app);
+setupLumeWebSocketProxy(app);
 
 // ============ 合并 AI 代理路由 ============
 import http from 'http';

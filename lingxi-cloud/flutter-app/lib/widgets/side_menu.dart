@@ -725,11 +725,14 @@ class _SessionsDialogState extends State<_SessionsDialog> {
 
     // 加载该会话的最近10条消息
     try {
-      final ws = WebSocketService();
-      if (ws.isConnected) {
-        // TODO: 实际加载历史消息
-        // 这里先跳转到聊天页面
-        // 传递 sessionKey 让 ChatPage 切换到指定会话
+      if (!rpcConnected) {
+        final lume = LumeWebSocketService();
+        if (!lume.isConnecting) {
+          await lume.connect().catchError((_) {});
+        }
+        await Future.delayed(const Duration(milliseconds: 600));
+      }
+      if (rpcConnected) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
             builder: (_) => MainShell(),
@@ -739,7 +742,7 @@ class _SessionsDialogState extends State<_SessionsDialog> {
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('请先连接到服务器')),
+          const SnackBar(content: Text('请先连接到服务器')),
         );
       }
     } catch (e) {

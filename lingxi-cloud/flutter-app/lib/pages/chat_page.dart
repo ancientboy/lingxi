@@ -3111,19 +3111,25 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           
           debugPrint('📝 更新 session label: $_currentSessionKey → $newTitle');
           
-          // 发送更新请求（Lume 优先）
-          rpcSendAwait('sessions.update', {
-            'key': _currentSessionKey,
-            'sessionKey': _currentSessionKey,
-            'label': newTitle,
-          });
-          
           // 更新本地缓存
           setState(() {
             final index = _sessions.indexWhere((s) => s['key'] == _currentSessionKey);
             if (index >= 0) {
               _sessions[index]['title'] = newTitle;
               _sessions[index]['label'] = newTitle;
+            }
+          });
+
+          rpcSendAwait('sessions.update', {
+            'key': _currentSessionKey,
+            'sessionKey': _currentSessionKey,
+            'label': newTitle,
+          }).then((res) {
+            if (!mounted) return;
+            if (res != null && res['ok'] != true) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('标题同步失败'), backgroundColor: Colors.red),
+              );
             }
           });
         }

@@ -74,6 +74,19 @@ String? rpcGatewayError(Map<String, dynamic>? res) {
 }
 
 /// 发聊天指令（降级用），Lume 优先
+/// Lume 插件原生管理 RPC（skills / workflow / native.*）
+Future<Map<String, dynamic>?> rpcPluginCall(
+  String method,
+  Map<String, dynamic> params, {
+  Duration timeout = const Duration(seconds: 15),
+}) async {
+  final lume = LumeWebSocketService();
+  if (lume.isConnected) {
+    return lume.sendRequestAwait(method, params, timeout: timeout);
+  }
+  return null;
+}
+
 void rpcSendChat(String message, {String? sessionKey}) {
   final lume = LumeWebSocketService();
   if (lume.isConnected) {

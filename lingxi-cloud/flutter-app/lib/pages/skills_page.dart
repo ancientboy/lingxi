@@ -1,6 +1,8 @@
 import 'package:lingxicloud/utils/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:lingxicloud/services/api_service.dart';
+import 'package:lingxicloud/services/rpc_ws.dart';
+import 'package:lingxicloud/services/lume_websocket_service.dart';
 import 'package:flutter/services.dart';
 
 class SkillsPage extends StatefulWidget {
@@ -50,18 +52,35 @@ class _SkillsPageState extends State<SkillsPage> {
     setState(() => _isLoading = true);
 
     try {
+      if (!rpcConnected) {
+        final lume = LumeWebSocketService();
+        if (!lume.isConnecting) await lume.connect().catchError((_) {});
+      }
       // 加载技能库
       final res = await ApiService().get('/api/skills/library');
       if (res.data['skills'] != null) {
         _allSkills = List<Map<String, dynamic>>.from(res.data['skills']);
       }
       
-      // 加载已安装技能
-      final res2 = await ApiService().get('/api/skills/installed');
+      // 加载已安装技能 — Lume 优先
       Set<String> installedFromApi = {};
-      if (res2.data['skills'] != null) {
-        final installed = res2.data['skills'] as List;
-        installedFromApi = installed.map((s) => (s['id'] ?? s).toString()).toSet();
+      final lumeRes = await rpcPluginCall('skills.installed', {});
+      if (lumeRes != null && lumeRes['ok'] == true) {
+        final payload = lumeRes['payload'];
+        final skills = payload is Map ? payload['skills'] : null;
+        if (skills is List) {
+          installedFromApi = skills.map((s) {
+            if (s is Map) return (s['id'] ?? s['name'] ?? '').toString();
+            return s.toString();
+          }).where((e) => e.isNotEmpty).toSet();
+        }
+      }
+      if (installedFromApi.isEmpty) {
+        final res2 = await ApiService().get('/api/skills/installed');
+        if (res2.data['skills'] != null) {
+          final installed = res2.data['skills'] as List;
+          installedFromApi = installed.map((s) => (s['id'] ?? s).toString()).toSet();
+        }
       }
       
       // 如果 API 返回空，合并本地技能

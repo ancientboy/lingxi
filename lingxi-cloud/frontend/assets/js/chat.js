@@ -402,7 +402,13 @@ async function init() {
   }
 
   renderTeamTags();
-  connectWebSocket();
+
+  const lumeOk = await tryConnectLume();
+  if (lumeOk) {
+    initLumeChatMode();
+  } else {
+    connectWebSocket();
+  }
 
   let _isComposing = false;
   document.getElementById('inputField').addEventListener('compositionstart', () => { _isComposing = true; });
@@ -1475,6 +1481,12 @@ async function sendMessage() {
 
   // 更新按钮显示状态（恢复到初始状态）
   updateInputButtons();
+
+  // Lume 优先发送（付费用户）
+  if (window.USE_LUME && typeof sendMessageViaLume === 'function') {
+    const sent = await sendMessageViaLume(text);
+    if (sent) return;
+  }
 
   // 通过 WebSocket 发送
   console.log('🔌 WebSocket 状态:', ws ? ws.readyState : 'null', '(OPEN=1)');
