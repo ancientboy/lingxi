@@ -74,6 +74,15 @@ class LumeWebSocketService {
             _isConnecting = false;
             _notify({'type': 'status', 'status': 'unavailable', 'message': '免费用户'});
             return;
+          } else if (mode == 'gateway' || info['lumeAvailable'] == false) {
+            _lumeAvailable = false;
+            _isConnecting = false;
+            _notify({
+              'type': 'status',
+              'status': 'gateway_fallback',
+              'message': info['message']?.toString() ?? 'Lume 插件不可用',
+            });
+            return;
           }
         }
       }
@@ -159,6 +168,13 @@ class LumeWebSocketService {
   }
 
   void _handleMessage(Map<String, dynamic> data) {
+    if (data['type'] == 'res' && data['ok'] == false && !_isConnected) {
+      _isConnecting = false;
+      _lastError = data['error']?['message']?.toString() ?? 'auth failed';
+      debugPrint('❌ [Lume] auth 失败: $_lastError');
+      _scheduleReconnect();
+      return;
+    }
     if (data['type'] == 'res' && data['ok'] == true) {
       final payload = data['payload'];
       if (payload is Map && payload['userId'] != null && !_isConnected) {
@@ -195,7 +211,15 @@ class LumeWebSocketService {
   }
 
   void _scheduleReconnect() {
-    if (_reconnectAttempts >= _maxReconnectAttempts) return;
+    if (_reconnectAttempts >= _maxReconnectAttempts) {
+      _isConnecting = false;
+      _notify({
+        'type': 'status',
+        'status': 'gateway_fallback',
+        'message': 'Lume 重连失败，降级 Gateway',
+      });
+      return;
+    }
     _reconnectAttempts++;
     _reconnectTimer?.cancel();
     _reconnectTimer = Timer(Duration(seconds: _reconnectAttempts * 3), connect);

@@ -356,11 +356,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     } else {
       Future.microtask(() async {
         try {
-          debugPrint('📋 初始化 Lume + Gateway WebSocket');
+          debugPrint('📋 初始化连接（Lume 优先，失败再降级 Gateway）');
           WebSocketService().clearListeners();
           await _loadLumeTestPref();
           _initLumeWebSocket();
-          _initWebSocket();
         } catch (e, stack) {
           debugPrint('❌ WebSocket 初始化异常: $e\nStack: $stack');
           if (mounted) setState(() { _wsStatus = '连接初始化失败'; _wsError = e.toString(); });
@@ -463,14 +462,17 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     final user = Provider.of<AppProvider>(context, listen: false).user;
     final isFreeUser = user?.subscription?['plan'] == 'free' || user?.subscription?['plan'] == null;
     if (isFreeUser) return;
-    final ws = WebSocketService();
-    if (!ws.isConnected && !ws.isConnecting) {
-      WebSocketService().clearListeners();
-      _initWebSocket();
+    if (!_isPaidUser(user)) return;
+    final lume = LumeWebSocketService();
+    if (!lume.isConnected && !lume.isConnecting) {
+      _initLumeWebSocket();
+      return;
     }
-    if (_lumeTestEnabled && _isPaidUser(user)) {
-      final lume = LumeWebSocketService();
-      if (!lume.isConnected && !lume.isConnecting) _initLumeWebSocket();
+    if (!_lumeReady) {
+      final ws = WebSocketService();
+      if (!ws.isConnected && !ws.isConnecting) {
+        _ensureGatewayFallback(reason: '重连');
+      }
     }
   }
 
@@ -1050,23 +1052,36 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     _lumeListener = (Map<String, dynamic> data) {
       if (!mounted) return;
       if (data['type'] == 'status') {
+        if (data['status'] == 'gateway_fallback') {
+          _ensureGatewayFallback(reason: data['message']?.toString() ?? '');
+          return;
+        }
         setState(() {
-          if (data['status'] == 'gateway_fallback') {
-            _lumeConnected = false;
-            _lumeStatus = 'Gateway模式';
-          } else {
-            _lumeStatus = data['status'] == 'connecting' ? '连接中...' : data['status']?.toString() ?? '';
-            _lumeConnected = data['status'] == 'connected';
-          }
+          _lumeStatus = data['status'] == 'connecting' ? '连接中...' : data['status']?.toString() ?? '';
+          _lumeConnected = data['status'] == 'connected';
         });
         return;
       }
+      if (data['type'] == 'error') {
+        debugPrint('❌ Lume 错误: ${data['error']}');
+        if (!LumeWebSocketService().isConnected && !LumeWebSocketService().isConnecting) {
+          _ensureGatewayFallback(reason: data['error']?.toString() ?? '连接失败');
+        }
+        return;
+      }
       if (data['type'] == 'connected') {
+        // Lume 已连通，断开 Gateway，保持单连接
+        final gw = WebSocketService();
+        if (gw.isConnected || gw.isConnecting) {
+          debugPrint('🔌 Lume 已连接，断开 Gateway 备用连接');
+          gw.disconnect();
+        }
         _gatewaySessionDeferTimer?.cancel();
         _replaceSessionsOnNextParse = true;
         setState(() {
           _lumeConnected = true;
           _lumeStatus = '已连接';
+          _wsConnected = true;
           _wsStatus = 'Lume已连接';
         });
         Future.microtask(() => _onWsReadyLoadSessions(source: 'Lume'));
@@ -1084,6 +1099,21 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     lume.addListener(_lumeListener!);
     if (!lume.isConnected && !lume.isConnecting) {
       lume.connect().catchError((e) => debugPrint('❌ Lume 连接失败: $e'));
+    }
+  }
+
+  /// Lume 不可用或连接失败时，降级到 Gateway（仅维持一条活跃连接）
+  void _ensureGatewayFallback({String reason = ''}) {
+    if (_lumeReady) return;
+    if (reason.isNotEmpty) debugPrint('⬇️ Lume 不可用，降级 Gateway: $reason');
+    final ws = WebSocketService();
+    if (!ws.isConnected && !ws.isConnecting) {
+      setState(() {
+        _lumeConnected = false;
+        _lumeStatus = 'Gateway模式';
+        _wsStatus = '连接中...';
+      });
+      _initWebSocket();
     }
   }
 
@@ -1251,13 +1281,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             });
           }
           
-          // Lume 已连接时以 Lume 为准；否则稍等 Lume，避免 Gateway 先拉到不完整会话
+          // 仅 Gateway 降级模式才加载会话（Lume 模式不会走到这里）
           if (!_lumeReady) {
-            _gatewaySessionDeferTimer?.cancel();
-            _gatewaySessionDeferTimer = Timer(const Duration(seconds: 4), () {
-              if (!mounted || _lumeReady) return;
-              Future.microtask(() => _onWsReadyLoadSessions(source: 'Gateway'));
-            });
+            Future.microtask(() => _onWsReadyLoadSessions(source: 'Gateway'));
           }
           return;
         }
@@ -2279,17 +2305,16 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           });
         }
         
-        // 🔌 后台切回时重连 WS（Gateway + Lume）
-        final ws = WebSocketService();
+        // 🔌 后台切回：Lume 优先，失败再 Gateway
         final lume = LumeWebSocketService();
-        if (!ws.isConnected) {
-          debugPrint('📱 Gateway WS 未连接，主动重连...');
-          ws.forceReconnect();
-        }
-        debugPrint('📱 设备/前台恢复，重新探测 Lume...');
+        debugPrint('📱 设备/前台恢复，重新连接 Lume...');
         lume.reconnectForDevice().then((_) {
-          if (mounted && lume.isConnected) {
-            _onWsReadyLoadSessions(source: 'resume');
+          if (!mounted) return;
+          if (lume.isConnected) {
+            WebSocketService().disconnect();
+            _onWsReadyLoadSessions(source: 'resume-Lume');
+          } else {
+            _ensureGatewayFallback(reason: '前台恢复');
           }
         });
         
@@ -3276,7 +3301,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               _buildDebugItem('Lume 状态', _lumeStatus, _lumeConnected ? Colors.green : Colors.grey),
               SwitchListTile(
                 title: const Text('启用 Lume 测试模式'),
-                subtitle: const Text('Lume 已默认启用；Gateway 仅作降级备用'),
+                subtitle: const Text('Lume 优先单连接；仅插件不可用时降级 Gateway'),
                 value: _lumeTestEnabled,
                 activeColor: Constants.primaryColor,
                 onChanged: (v) async { await _setLumeTestEnabled(v); },
