@@ -21,6 +21,7 @@ class _CronPageState extends State<CronPage> {
   List<Map<String, dynamic>> _tasks = [];
   bool _isLoadingTasks = false;
   String? _loadError;
+  final Set<String> _expandedTaskIds = {};
 
   final List<String> _frequencies = ['仅一次', '每天', '每周', '每小时', '自定义'];
   final List<String> _weekDays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
@@ -47,6 +48,16 @@ class _CronPageState extends State<CronPage> {
     final lume = LumeWebSocketService();
     if (!lume.isConnecting) await lume.connect().catchError((_) {});
     await Future.delayed(const Duration(milliseconds: 800));
+  }
+
+  String _formatMs(dynamic ms) {
+    if (ms is! num) return '—';
+    try {
+      final dt = DateTime.fromMillisecondsSinceEpoch(ms.toInt()).toLocal();
+      return '${dt.month}/${dt.day} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return '—';
+    }
   }
 
   Map<String, dynamic> _buildSchedule() {
@@ -81,7 +92,9 @@ class _CronPageState extends State<CronPage> {
     String frequency = '自定义';
     String time = '';
     String? day;
+    String scheduleRaw = '';
     if (schedule is Map) {
+      scheduleRaw = schedule['expr']?.toString() ?? schedule['at']?.toString() ?? '';
       if (schedule['kind'] == 'cron') {
         final expr = schedule['expr']?.toString() ?? '';
         final p = expr.split(RegExp(r'\s+'));
@@ -109,17 +122,27 @@ class _CronPageState extends State<CronPage> {
         }
       }
     }
+    final payload = job['payload'];
+    final message = payload is Map ? payload['message']?.toString() ?? '' : '';
+    final state = job['state'] is Map ? Map<String, dynamic>.from(job['state'] as Map) : <String, dynamic>{};
     final createdMs = job['createdAtMs'];
     return {
       'id': job['id']?.toString() ?? '',
-      'title': job['name']?.toString() ?? (job['payload'] is Map ? (job['payload']['message']?.toString() ?? '') : ''),
+      'title': job['name']?.toString() ?? message,
       'frequency': frequency,
       'time': time,
       'day': day,
       'status': job['enabled'] == true ? 'active' : 'paused',
+      'message': message,
+      'scheduleRaw': scheduleRaw,
+      'agentId': job['agentId']?.toString() ?? 'main',
+      'sessionKey': job['sessionKey']?.toString() ?? '',
+      'lastRunAt': _formatMs(state['lastRunAtMs'] ?? job['lastRunAtMs']),
+      'nextRunAt': _formatMs(state['nextRunAtMs']),
       'createdAt': createdMs is num
           ? DateTime.fromMillisecondsSinceEpoch(createdMs.toInt()).toIso8601String()
           : DateTime.now().toIso8601String(),
+      'raw': job,
     };
   }
 
@@ -138,7 +161,8 @@ class _CronPageState extends State<CronPage> {
       }
       return;
     }
-    final res = await rpcGatewayCall('cron.list', {});
+    // OpenClaw 默认 cron.list 不返回已暂停任务，必须带 includeDisabled
+    final res = await rpcGatewayCall('cron.list', {'includeDisabled': true});
     final payload = rpcGatewayPayload(res);
     if (!mounted) return;
     if (payload == null) {
@@ -156,6 +180,7 @@ class _CronPageState extends State<CronPage> {
       _tasks = list;
       _isLoadingTasks = false;
       _loadError = null;
+      _expandedTaskIds.removeWhere((id) => !list.any((t) => t['id'] == id));
     });
   }
 
@@ -215,13 +240,39 @@ class _CronPageState extends State<CronPage> {
       }
       return;
     }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(isActive ? '任务已暂停' : '任务已恢复'),
+          backgroundColor: Constants.primaryColor,
+        ),
+      );
+    }
     await _loadTasks();
   }
 
   Future<void> _deleteTask(int index) async {
     final task = _tasks[index];
     final jobId = task['id']?.toString() ?? '';
+    final title = task['title']?.toString() ?? '此任务';
     if (jobId.isEmpty) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('删除定时任务'),
+        content: Text('确定删除「$title」？\n\n此操作不可恢复。'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('删除', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
     final res = await rpcGatewayCall('cron.remove', {'id': jobId});
     if (!rpcGatewayOk(res)) {
       if (mounted) {
@@ -231,7 +282,75 @@ class _CronPageState extends State<CronPage> {
       }
       return;
     }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('任务已删除'), backgroundColor: Constants.primaryColor),
+      );
+    }
     await _loadTasks();
+  }
+
+  void _toggleExpand(String taskId) {
+    setState(() {
+      if (_expandedTaskIds.contains(taskId)) {
+        _expandedTaskIds.remove(taskId);
+      } else {
+        _expandedTaskIds.add(taskId);
+      }
+    });
+  }
+
+  Widget _buildTaskDetail(Map<String, dynamic> task, Color subColor, Color textColor, Color fieldBg) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: fieldBg,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _detailRow('任务内容', task['message']?.toString() ?? '—', subColor, textColor),
+          const SizedBox(height: 8),
+          _detailRow('执行计划', task['scheduleRaw']?.toString().isNotEmpty == true ? task['scheduleRaw'] : '—', subColor, textColor),
+          const SizedBox(height: 8),
+          _detailRow('Agent', task['agentId']?.toString() ?? 'main', subColor, textColor),
+          if ((task['sessionKey']?.toString() ?? '').isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _detailRow('会话', task['sessionKey']?.toString() ?? '', subColor, textColor),
+          ],
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(child: _detailRow('上次执行', task['lastRunAt']?.toString() ?? '—', subColor, textColor, compact: true)),
+              Expanded(child: _detailRow('下次执行', task['nextRunAt']?.toString() ?? '—', subColor, textColor, compact: true)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _detailRow('任务 ID', task['id']?.toString() ?? '', subColor, textColor, mono: true),
+        ],
+      ),
+    );
+  }
+
+  Widget _detailRow(String label, String value, Color subColor, Color textColor, {bool compact = false, bool mono = false}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(fontSize: 11, color: subColor, fontWeight: FontWeight.w500)),
+        if (!compact) const SizedBox(height: 2),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: compact ? 12 : 13,
+            color: textColor,
+            fontFamily: mono ? 'monospace' : null,
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -429,7 +548,9 @@ class _CronPageState extends State<CronPage> {
           else
             ...List.generate(_tasks.length, (i) {
               final task = _tasks[i];
+              final taskId = task['id']?.toString() ?? '';
               final isActive = task['status'] == 'active';
+              final expanded = _expandedTaskIds.contains(taskId);
               final freq = task['frequency'] ?? '每天';
               final time = task['time'] ?? '';
               final day = task['day'] ?? '';
@@ -453,39 +574,96 @@ class _CronPageState extends State<CronPage> {
                   decoration: BoxDecoration(
                     color: cardColor,
                     borderRadius: BorderRadius.circular(14),
-                    border: isActive ? Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.2)) : null,
+                    border: isActive
+                        ? Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.2))
+                        : Border.all(color: Colors.grey.withOpacity(0.15)),
                   ),
-                  child: Row(
+                  child: Column(
                     children: [
-                      Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle, color: isActive ? const Color(0xFF22C55E) : Colors.grey)),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(task['title'] ?? '', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: textColor, decoration: isActive ? null : TextDecoration.lineThrough), maxLines: 2, overflow: TextOverflow.ellipsis),
-                            const SizedBox(height: 3),
-                            Text(scheduleDesc, style: TextStyle(fontSize: 12, color: subColor)),
-                          ],
-                        ),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            margin: const EdgeInsets.only(top: 6),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: isActive ? const Color(0xFF22C55E) : Colors.grey,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: InkWell(
+                              onTap: taskId.isEmpty ? null : () => _toggleExpand(taskId),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 2),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            task['title'] ?? '',
+                                            style: TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w500,
+                                              color: textColor,
+                                              decoration: isActive ? null : TextDecoration.lineThrough,
+                                            ),
+                                            maxLines: expanded ? null : 2,
+                                            overflow: expanded ? null : TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        Icon(
+                                          expanded ? Icons.expand_less : Icons.expand_more,
+                                          size: 18,
+                                          color: subColor,
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      '${isActive ? '运行中' : '已暂停'} · $scheduleDesc',
+                                      style: TextStyle(fontSize: 12, color: subColor),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () => _toggleTask(i),
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: isActive ? Colors.orange.withOpacity(0.1) : const Color(0xFF22C55E).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                isActive ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                                size: 18,
+                                color: isActive ? Colors.orange : const Color(0xFF22C55E),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          GestureDetector(
+                            onTap: () => _deleteTask(i),
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: Colors.red.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(Icons.delete_outline, size: 18, color: Colors.red.shade400),
+                            ),
+                          ),
+                        ],
                       ),
-                      GestureDetector(
-                        onTap: () => _toggleTask(i),
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(color: isActive ? Colors.orange.withOpacity(0.1) : const Color(0xFF22C55E).withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-                          child: Icon(isActive ? Icons.pause_rounded : Icons.play_arrow_rounded, size: 18, color: isActive ? Colors.orange : const Color(0xFF22C55E)),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      GestureDetector(
-                        onTap: () => _deleteTask(i),
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-                          child: Icon(Icons.delete_outline, size: 18, color: Colors.red.shade400),
-                        ),
-                      ),
+                      if (expanded) _buildTaskDetail(task, subColor, textColor, fieldBg),
                     ],
                   ),
                 ),

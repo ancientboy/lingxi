@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:lingxicloud/services/api_service.dart';
 import 'package:lingxicloud/services/rpc_ws.dart';
@@ -85,51 +86,67 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
     'pm': 'pm', 'noter': 'notes', 'media': 'media', 'smart': 'auto',
   };
 
-  Future<bool> _loadStatusViaLume() async {
-    if (!rpcConnected) {
-      final lume = LumeWebSocketService();
-      if (!lume.isConnecting) await lume.connect().catchError((_) {});
-      await Future.delayed(const Duration(milliseconds: 600));
-    }
-    if (!rpcConnected) return false;
-    final res = await rpcGatewayCall('tools.invoke', {
-      'name': 'sessions_list',
-      'args': {'activeMinutes': 60, 'limit': 50, 'messageLimit': 1},
+  void _applyDefaultAgents({String source = 'local'}) {
+    if (!mounted) return;
+    setState(() {
+      _agents = _defaultAgents.map((a) => Map<String, dynamic>.from(a)..['status'] = 'idle').toList();
+      _source = source;
+      _isLoading = false;
     });
-    final payload = rpcGatewayPayload(res);
-    if (payload == null || !mounted) return false;
-    dynamic raw = payload['output'];
-    if (raw is Map && raw['content'] is List) {
-      for (final block in raw['content']) {
-        if (block is Map && block['type'] == 'text' && block['text'] is String) {
-          try {
-            raw = jsonDecode(block['text'] as String);
-          } catch (_) {}
-          break;
+  }
+
+  Future<bool> _loadStatusViaLume() async {
+    try {
+      if (!rpcConnected) {
+        final lume = LumeWebSocketService();
+        if (!lume.isConnecting) await lume.connect().catchError((_) {});
+        await Future.delayed(const Duration(milliseconds: 600));
+      }
+      if (!rpcConnected) return false;
+      final res = await rpcGatewayCall('tools.invoke', {
+        'name': 'sessions_list',
+        'args': {'activeMinutes': 60, 'limit': 50, 'messageLimit': 1},
+      });
+      final payload = rpcGatewayPayload(res);
+      if (payload == null || !mounted) return false;
+      dynamic raw = payload['output'];
+      if (raw is Map && raw['content'] is List) {
+        for (final block in raw['content']) {
+          if (block is Map && block['type'] == 'text' && block['text'] is String) {
+            try {
+              raw = jsonDecode(block['text'] as String);
+            } catch (_) {}
+            break;
+          }
         }
       }
+      final sessions = raw is Map ? (raw['sessions'] as List? ?? []) : (raw is List ? raw : []);
+      final statusByAgent = <String, String>{};
+      for (final s in sessions) {
+        if (s is! Map) continue;
+        final key = (s['key'] ?? s['sessionKey'] ?? '').toString();
+        final m = RegExp(r'^agent:(\w+)').firstMatch(key);
+        if (m == null) continue;
+        final agentKey = m.group(1)!;
+        final uiId = _agentIdMap[agentKey] ?? agentKey;
+        statusByAgent[uiId] = (s['isRunning'] == true || s['running'] == true) ? 'working' : 'idle';
+      }
+      final newAgents = _defaultAgents.map((a) {
+        final copy = Map<String, dynamic>.from(a);
+        copy['status'] = statusByAgent[a['id']] ?? 'idle';
+        return copy;
+      }).toList();
+      if (!mounted) return false;
+      setState(() { _agents = newAgents; _source = 'lume'; _isLoading = false; });
+      return true;
+    } catch (e, st) {
+      debugPrint('[workspace] Lume status failed: $e\n$st');
+      return false;
     }
-    final sessions = raw is Map ? (raw['sessions'] as List? ?? []) : (raw is List ? raw : []);
-    final statusByAgent = <String, String>{};
-    for (final s in sessions) {
-      if (s is! Map) continue;
-      final key = (s['key'] ?? s['sessionKey'] ?? '').toString();
-      final m = RegExp(r'^agent:(\w+)').firstMatch(key);
-      if (m == null) continue;
-      final agentKey = m.group(1)!;
-      final uiId = _agentIdMap[agentKey] ?? agentKey;
-      statusByAgent[uiId] = (s['isRunning'] == true || s['running'] == true) ? 'working' : 'idle';
-    }
-    final newAgents = _defaultAgents.map((a) {
-      final copy = Map<String, dynamic>.from(a);
-      copy['status'] = statusByAgent[a['id']] ?? 'idle';
-      return copy;
-    }).toList();
-    setState(() { _agents = newAgents; _source = 'lume'; _isLoading = false; });
-    return true;
   }
 
   Future<void> _loadStatus() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
     if (await _loadStatusViaLume()) return;
     try {
@@ -137,19 +154,26 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
       final uid = Provider.of<AppProvider>(context, listen: false).user?.id ?? '';
       final resp = await api.get('/api/agent-workspace/status', queryParameters: uid.isNotEmpty ? {'userId': uid} : null);
       final data = resp.data;
-      if (data is Map && data['agents'] != null && mounted) {
-        final newAgents = List<Map<String, dynamic>>.from(data['agents']);
+      if (!mounted) return;
+      if (data is Map && data['agents'] is List) {
+        final newAgents = List<Map<String, dynamic>>.from(data['agents'] as List);
         for (final a in newAgents) {
           final old = _agents.cast<Map<String, dynamic>?>().firstWhere((e) => e?['id'] == a['id'], orElse: () => null);
-          if (old != null && old['status'] != a['status']) _addLog(a['id'] ?? '', a['status'] ?? 'idle', a['currentTask']?['title'] ?? '');
+          if (old != null && old['status'] != a['status']) {
+            _addLog(a['id'] ?? '', a['status'] ?? 'idle', a['currentTask']?['title'] ?? '');
+          }
         }
-        setState(() { _agents = newAgents; _source = data['source'] ?? 'mock'; _isLoading = false; });
+        setState(() {
+          _agents = newAgents;
+          _source = data['source']?.toString() ?? 'mock';
+          _isLoading = false;
+        });
+        return;
       }
-    } catch (_) {
-      if (mounted) setState(() {
-        _agents = _defaultAgents.map((a) => Map<String, dynamic>.from(a)..['status'] = 'idle').toList();
-        _source = 'local'; _isLoading = false;
-      });
+      _applyDefaultAgents(source: 'local');
+    } catch (e) {
+      debugPrint('[workspace] HTTP status failed: $e');
+      _applyDefaultAgents(source: 'local');
     }
   }
 
@@ -214,7 +238,17 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
       appBar: AppBar(
         title: const Text('办公区'), backgroundColor: dk ? const Color(0xFF1A1A2E) : Colors.white, elevation: 0,
         actions: [
-          if (_source == 'openclaw') Container(margin: EdgeInsets.only(right: 8, top: 14), padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: const Color(0xFF22C55E).withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: const Row(children: [Icon(Icons.cloud_done, size: 14, color: Color(0xFF22C55E)), SizedBox(width: 4), Text('实时', style: TextStyle(fontSize: 12, color: Color(0xFF22C55E)))])),
+          if (_source == 'openclaw' || _source == 'lume')
+            Container(
+              margin: const EdgeInsets.only(right: 8, top: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(color: const Color(0xFF22C55E).withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+              child: Row(children: [
+                const Icon(Icons.cloud_done, size: 14, color: Color(0xFF22C55E)),
+                const SizedBox(width: 4),
+                Text(_source == 'lume' ? 'Lume' : '实时', style: const TextStyle(fontSize: 12, color: Color(0xFF22C55E))),
+              ]),
+            ),
           IconButton(icon: const Icon(Icons.refresh, size: 20), onPressed: _loadStatus),
         ],
         bottom: TabBar(

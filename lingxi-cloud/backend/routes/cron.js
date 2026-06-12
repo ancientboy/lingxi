@@ -178,7 +178,7 @@ router.get('/list', async (req, res) => {
   const userServer = await resolveServer(req, res);
   if (!userServer) return;
 
-  const result = await rpc(res, userServer, 'cron.list', {}, 10000);
+  const result = await rpc(res, userServer, 'cron.list', { includeDisabled: true }, 10000);
   if (!result) return;
 
   const jobs = result.payload?.jobs || result.payload || [];
