@@ -11,6 +11,7 @@ import 'package:lingxicloud/pages/login_page.dart';
 import 'package:lingxicloud/pages/workspace_page.dart';
 import 'package:lingxicloud/pages/file_explorer_page.dart';
 import 'package:lingxicloud/services/websocket_service.dart';
+import 'package:lingxicloud/services/lume_websocket_service.dart';
 import 'package:lingxicloud/services/api_service.dart';
 import 'package:lingxicloud/services/notification_service.dart';
 import 'package:lingxicloud/widgets/file_preview.dart';
@@ -55,11 +56,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   void _initScrollListener() {
     _scrollController.addListener(() {
       // 滚到顶部时加载更早消息
+      if (!_scrollController.hasClients) return;
       if (_scrollController.position.pixels <= 50 && 
           !_isLoadingOlderMessages && 
           _hasMoreOlderMessages && 
           _currentSessionKey != null &&
-          WebSocketService().isConnected) {
+          _canUseWsRpc) {
         _loadOlderMessages();
       }
       // 🆕 滚动到底部按钮显示逻辑
@@ -99,6 +101,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   String _currentAgent = 'lingxi';
   bool _wsConnected = false;
+  bool _lumeTestEnabled = false;
+  bool _lumeConnected = false;
+  String _lumeStatus = '未启用';
+  void Function(Map<String, dynamic>)? _lumeListener;
   String _wsStatus = '连接中...';
   String _wsError = '';
   List<Message> _messages = [];
@@ -138,7 +144,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   // 💾 本地消息缓存
   bool _isRestoringFromCache = false;  // 标记正在从缓存恢复，避免触发不必要的保存
   String? _incrementalHistorySessionKey;  // 增量模式标记：收到历史消息时做合并而非替换
-  String? _lastHistoryRequestSessionKey;  // 🔒 竞态保护：记录最后一次发出的历史请求 sessionKey
+  String? _lastHistoryRequestSessionKey;
+  bool _replaceSessionsOnNextParse = false;  // 设备切换后 sessions.list 全量替换
+  Timer? _gatewaySessionDeferTimer;  // 等待 Lume 连接后再降级 Gateway 拉会话
+  // 🔒 竞态保护：记录最后一次发出的历史请求 sessionKey
   bool _isLoadingOlderMessages = false;   // 正在加载更早消息
   bool _hasMoreOlderMessages = true;      // 是否还有更早的消息可加载
   String? _loadingOlderSessionKey;        // 标记正在加载更早消息的 session
@@ -300,7 +309,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
-
     debugPrint('📋 ChatPage initState 开始');
     
     // 🆕 注册 useSkill 回调给 MainShell
@@ -340,36 +348,130 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       debugPrint('❌ 加载会话失败: $e\nStack: $stack');
     });
     
-    // ✅ 检查是否是免费用户
     final user = Provider.of<AppProvider>(context, listen: false).user;
     final isFreeUser = user?.subscription?['plan'] == 'free' || user?.subscription?['plan'] == null;
-    
+
     if (isFreeUser) {
-      // 免费用户不需要 WebSocket
-      debugPrint('📋 免费用户，跳过 WebSocket 初始化');
+      debugPrint('📋 免费用户，跳过 Gateway WebSocket');
     } else {
-      // 订阅用户：初始化 WebSocket
-      // 捕获 WebSocket 初始化错误
       Future.microtask(() async {
         try {
-          debugPrint('📋 开始初始化 WebSocket');
-          // 先清理旧 listener，避免重复注册
+          debugPrint('📋 初始化 Lume + Gateway WebSocket');
           WebSocketService().clearListeners();
+          await _loadLumeTestPref();
+          _initLumeWebSocket();
           _initWebSocket();
-          debugPrint('✅ WebSocket 初始化完成');
         } catch (e, stack) {
           debugPrint('❌ WebSocket 初始化异常: $e\nStack: $stack');
-          if (mounted) {
-            setState(() {
-              _wsStatus = '连接初始化失败';
-              _wsError = e.toString();
-            });
-          }
+          if (mounted) setState(() { _wsStatus = '连接初始化失败'; _wsError = e.toString(); });
         }
       });
     }
-    
+
+    Provider.of<AppProvider>(context, listen: false).addListener(_onAppProviderUpdate);
+
     debugPrint('📋 ChatPage initState 完成');
+  }
+
+
+
+  /// OpenClaw 合法 sessionKey 必须以 agent:main: 开头
+
+  bool get _lumeReady => LumeWebSocketService().isConnected;
+
+  /// 历史/会话优先走 Lume 插件，否则降级 Gateway
+  dynamic _rpcWs() {
+    final lume = LumeWebSocketService();
+    if (lume.isConnected) return lume;
+    return WebSocketService();
+  }
+
+  bool get _canUseWsRpc {
+    final lume = LumeWebSocketService();
+    final gw = WebSocketService();
+    return lume.isConnected || gw.isConnected;
+  }
+
+  bool _isValidSessionKey(String? key) {
+    return key != null && key.isNotEmpty && key.startsWith('agent:main:');
+  }
+
+  /// 解析发送用的 sessionKey，拒绝 agent:lingxi 这类残缺 key
+
+  String? _resolveSessionPrefix() {
+    final ws = WebSocketService();
+    final lume = LumeWebSocketService();
+    return lume.isConnected ? (lume.sessionPrefix ?? ws.sessionPrefix) : ws.sessionPrefix;
+  }
+
+  String? _resolveTargetSessionKey(WebSocketService ws) {
+    final lume = LumeWebSocketService();
+    final prefix = lume.isConnected ? (lume.sessionPrefix ?? ws.sessionPrefix) : ws.sessionPrefix;
+    if (prefix == null || prefix.isEmpty) {
+      debugPrint('❌ sessionPrefix 未就绪，请等待 Gateway 连接完成');
+      return null;
+    }
+    if (_isValidSessionKey(_currentSessionKey)) {
+      return _currentSessionKey;
+    }
+    if (_currentSessionKey != null && _currentSessionKey!.isNotEmpty) {
+      debugPrint('⚠️ 忽略无效 sessionKey: $_currentSessionKey');
+    }
+    final resolved = '$prefix:agent:$_currentAgent';
+    debugPrint('🔑 使用规范 sessionKey: $resolved');
+    return resolved;
+  }
+
+  bool _isPaidUser(dynamic user) {
+    if (user == null) return false;
+    final sub = user.subscription as Map<String, dynamic>?;
+    final plan = sub?['plan']?.toString() ?? user.subscriptionPlan?.toString();
+    if (plan == null || plan.isEmpty || plan == 'free') return false;
+    if (sub == null) return plan != 'free';
+    final status = sub['status']?.toString();
+    final endDate = sub['endDate'];
+    if (status == 'active') return true;
+    if (endDate != null) {
+      try { return DateTime.parse(endDate.toString()).isAfter(DateTime.now()); } catch (_) {}
+    }
+    return true;
+  }
+
+  Future<void> _loadLumeTestPref() async {
+    final prefs = await SharedPreferences.getInstance();
+    _lumeTestEnabled = prefs.getBool(Constants.storageLumeTestMode) ?? false;
+  }
+
+  Future<void> _setLumeTestEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(Constants.storageLumeTestMode, enabled);
+    setState(() => _lumeTestEnabled = enabled);
+    if (enabled && _isPaidUser(Provider.of<AppProvider>(context, listen: false).user)) {
+      _initLumeWebSocket();
+    } else if (!enabled) {
+      if (_lumeListener != null) {
+        LumeWebSocketService().removeListener(_lumeListener!);
+        _lumeListener = null;
+      }
+      LumeWebSocketService().disconnect();
+      setState(() { _lumeConnected = false; _lumeStatus = '未启用'; });
+    }
+  }
+
+  void _onAppProviderUpdate() {
+    if (!mounted) return;
+    final user = Provider.of<AppProvider>(context, listen: false).user;
+    final isFreeUser = user?.subscription?['plan'] == 'free' || user?.subscription?['plan'] == null;
+    if (isFreeUser) return;
+    final ws = WebSocketService();
+    if (!ws.isConnected && !ws.isConnecting) {
+      WebSocketService().clearListeners();
+      _initWebSocket();
+    }
+    if (_lumeTestEnabled && _isPaidUser(user)) {
+      final lume = LumeWebSocketService();
+      if (!lume.isConnected && !lume.isConnecting) _initLumeWebSocket();
+    }
   }
 
   /// 序列化初始化：device check → route args → restore session → load local
@@ -465,22 +567,24 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   Future<String> _getCurrentServerId() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      // 尝试从 WebSocket URL 中提取服务器标识
+      // 优先用设备页写入的活跃设备 ID（按设备隔离本地缓存）
+      final activeId = prefs.getString('active_server_id');
+      if (activeId != null && activeId.isNotEmpty) return activeId;
+      final activeIp = prefs.getString('active_server_ip');
+      if (activeIp != null && activeIp.isNotEmpty) {
+        return activeIp.replaceAll('.', '_');
+      }
+      // 兜底：从 Gateway WS URL 提取（跳过统一代理域名）
       final ws = WebSocketService();
-      final debugInfo = ws.getDebugInfo();
-      final wsUrl = debugInfo['wsUrl']?.toString() ?? '';
+      final wsUrl = ws.getDebugInfo()['wsUrl']?.toString() ?? '';
       if (wsUrl.isNotEmpty) {
-        // 从 ws://ip:port 提取 ip 作为 serverId
         final uri = Uri.tryParse(wsUrl);
-        if (uri != null && uri.host.isNotEmpty) {
+        if (uri != null && uri.host.isNotEmpty && uri.host != 'lumeword.cn') {
           return uri.host.replaceAll('.', '_');
         }
       }
-      // 兜底：用 userId
       final token = prefs.getString(Constants.storageAccessToken);
-      if (token != null) {
-        return 'user_${token.hashCode.abs()}';
-      }
+      if (token != null) return 'user_${token.hashCode.abs()}';
     } catch (e) {
       debugPrint('❌ 获取服务器标识失败: $e');
     }
@@ -685,6 +789,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       debugPrint('🖥️ 检测到设备切换标记，清空旧数据...');
       await prefs.remove('need_refresh_after_switch');
       
+      _replaceSessionsOnNextParse = true;
+
       // 清空旧消息和会话
       setState(() {
         _messages.clear();
@@ -711,7 +817,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       final lastSession = prefs.getString('last_active_session_$serverId');
       final lastAgent = prefs.getString('last_active_agent_$serverId');
       
-      if (lastSession != null && lastSession.isNotEmpty) {
+      if (lastSession != null && lastSession.isNotEmpty && _isValidSessionKey(lastSession)) {
         debugPrint('💾 恢复最后会话: $lastSession, agent: $lastAgent');
         setState(() {
           _currentSessionKey = lastSession;
@@ -721,7 +827,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         });
         // 从本地缓存加载消息（即时显示）
         await _loadMessagesLocal(lastSession);
-      } else if (_sessions.isNotEmpty) {
+      } else if (lastSession != null && lastSession.isNotEmpty) {
+        debugPrint('⚠️ 跳过无效缓存 sessionKey: $lastSession');
+      }
+      
+      if (_currentSessionKey == null && _sessions.isNotEmpty) {
         // 没有 last_active_session 但有会话列表，自动选择最新的会话
         final firstSession = _sessions.first;
         final firstKey = firstSession['key']?.toString();
@@ -763,9 +873,23 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       });
     }
     
+    final prefix = _resolveSessionPrefix();
+    final newKey = prefix != null ? '$prefix:chat_${DateTime.now().millisecondsSinceEpoch}' : null;
+
     setState(() {
-      _currentSessionKey = null;  // 清空，表示新会话
+      _currentSessionKey = newKey;
       _messages.clear();
+      if (newKey != null) {
+        _sessions.insert(0, {
+          'key': newKey,
+          'title': '新对话',
+          'agentId': _currentAgent,
+          'updatedAt': DateTime.now().toIso8601String(),
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+          'relativeTime': '刚刚',
+          'lastMessage': '暂无消息',
+        });
+      }
       _hasMoreOlderMessages = true;
       _isLoadingOlderMessages = false;
     });
@@ -812,7 +936,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     _loadMessagesLocal(sessionKey).then((loaded) {
       if (loaded) {
         // 有缓存，增量同步最新消息
-        _loadMessageHistory(sessionKey, incremental: true);
+        _loadMessageHistory(sessionKey, incremental: false);
       } else {
         // 无缓存，全量加载（即使 WS 没连也尝试）
         _loadMessageHistory(sessionKey, incremental: false);
@@ -822,6 +946,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
 
   void _deleteSession(String sessionKey) async {
+    debugPrint('🗑️ 删除会话: $sessionKey');
+
+    // 先从本地状态移除（即时 UI 反馈）
     setState(() {
       _sessions.removeWhere((s) => s['key'] == sessionKey);
       if (_currentSessionKey == sessionKey) {
@@ -830,12 +957,52 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       }
     });
     _saveSessions();
-    // 从数据库删除（await 确保完成）
+    // 从本地数据库删除
     try {
       final serverId = await _getCurrentServerId();
       await DatabaseService.deleteSession(serverId: serverId, sessionKey: sessionKey);
+      debugPrint('✅ 本地数据库已删除: $sessionKey');
     } catch (e) {
       debugPrint('❌ 删除会话数据库记录失败: $e');
+    }
+
+    // 🔔 同步删除 OpenClaw 服务端真实 session（确保下次加载不会回来）
+    // 优先走 WebSocket（实时），fallback 到 HTTP API（WS 断开时也能删）
+    final lume = LumeWebSocketService();
+    final ws = WebSocketService();
+    if (lume.isConnected) {
+      debugPrint('🗑️ 通过 Lume WS 删除: $sessionKey');
+      lume.sendRequest('sessions.delete', {'key': sessionKey, 'sessionKey': sessionKey});
+    } else if (ws.isConnected) {
+      debugPrint('🗑️ 通过 Gateway WS 删除: $sessionKey');
+      ws.sendRequest('sessions.delete', {'key': sessionKey, 'sessionKey': sessionKey});
+    } else {
+      debugPrint('🗑️ WS 断开，走 HTTP API 删除: $sessionKey');
+      _deleteSessionHTTP(sessionKey);
+    }
+  }
+
+  /// 通过 HTTP API 删除服务端 session（WS 不可用时的 fallback）
+  Future<void> _deleteSessionHTTP(String sessionKey) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString(Constants.storageAccessToken);
+      if (token == null || token.isEmpty) {
+        debugPrint('❌ 无 token，HTTP 删除跳过');
+        return;
+      }
+      final apiService = ApiService();
+      apiService.setAuthToken(token);
+      final encoded = Uri.encodeComponent(sessionKey);
+      final response = await apiService.delete('/api/gateway/sessions/$encoded');
+      final data = response.data;
+      if (data is Map && data['success'] == true) {
+        debugPrint('✅ HTTP 删除成功: $sessionKey');
+      } else {
+        debugPrint('⚠️ HTTP 删除返回: $data');
+      }
+    } catch (e) {
+      debugPrint('❌ HTTP 删除失败: $e');
     }
   }
   
@@ -874,6 +1041,157 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     _saveSessions();
   }
 
+
+  void _initLumeWebSocket() {
+    final lume = LumeWebSocketService();
+    if (_lumeListener != null) {
+      lume.removeListener(_lumeListener!);
+    }
+    _lumeListener = (Map<String, dynamic> data) {
+      if (!mounted) return;
+      if (data['type'] == 'status') {
+        setState(() {
+          if (data['status'] == 'gateway_fallback') {
+            _lumeConnected = false;
+            _lumeStatus = 'Gateway模式';
+          } else {
+            _lumeStatus = data['status'] == 'connecting' ? '连接中...' : data['status']?.toString() ?? '';
+            _lumeConnected = data['status'] == 'connected';
+          }
+        });
+        return;
+      }
+      if (data['type'] == 'connected') {
+        _gatewaySessionDeferTimer?.cancel();
+        _replaceSessionsOnNextParse = true;
+        setState(() {
+          _lumeConnected = true;
+          _lumeStatus = '已连接';
+          _wsStatus = 'Lume已连接';
+        });
+        Future.microtask(() => _onWsReadyLoadSessions(source: 'Lume'));
+        return;
+      }
+      if (data['type'] == 'event' && data['event'] == 'chat') {
+        _handleLumeChatEvent(data['payload'] as Map<String, dynamic>?);
+        return;
+      }
+      // RPC 响应（sessions.list / chat.history）交给主 listener
+      if (data['type'] == 'res' && _wsListener != null) {
+        _wsListener!(data);
+      }
+    };
+    lume.addListener(_lumeListener!);
+    if (!lume.isConnected && !lume.isConnecting) {
+      lume.connect().catchError((e) => debugPrint('❌ Lume 连接失败: $e'));
+    }
+  }
+
+  void _handleLumeChatEvent(Map<String, dynamic>? payload) {
+    if (payload == null) return;
+
+    final serverSessionKey = payload['sessionKey']?.toString();
+    if (serverSessionKey != null && serverSessionKey.isNotEmpty) {
+      if (_currentSessionKey == null || _currentSessionKey != serverSessionKey) {
+        setState(() { _currentSessionKey = serverSessionKey; });
+        _updateOrCreateSession(serverSessionKey);
+      }
+    }
+
+    final state = payload['state'];
+    final runId = payload['runId']?.toString() ?? payload['messageId']?.toString() ?? '';
+
+    if (state == 'queued') {
+      setState(() {
+        _queuePosition = payload['position'] ?? 1;
+        _queueTotal = payload['total'] ?? 1;
+        _isGenerating = true;
+      });
+      return;
+    }
+
+    if (state == 'start' || state == 'begin') {
+      setState(() {
+        _queuePosition = 0;
+        _queueTotal = 0;
+        _isGenerating = true;
+      });
+      return;
+    }
+
+    if (state == 'block' || state == 'delta') {
+      final text = _extractText(payload['message']) ?? payload['message']?.toString() ?? '';
+      if (text.isNotEmpty) {
+        final t = text.trim();
+        if (t == 'HEARTBEAT_OK' || t == 'NO_REPLY') return;
+      }
+      setState(() { _isGenerating = true; });
+      if (text.isNotEmpty && runId.isNotEmpty) {
+        final blockId = runId;
+        setState(() {
+          final idx = _messages.indexWhere((m) => m.id == blockId);
+          if (idx >= 0) {
+            _messages[idx] = _messages[idx].copyWith(content: text);
+          } else {
+            _messages.add(Message(id: blockId, role: 'assistant', content: text, createdAt: DateTime.now(), agentId: _currentAgent));
+          }
+        });
+        _scrollToBottom();
+      }
+      return;
+    }
+
+    if (state == 'error') {
+      final errText = payload['message']?.toString() ?? '消息处理失败';
+      setState(() {
+        _isGenerating = false;
+        _queuePosition = 0;
+        _queueTotal = 0;
+        _messages.add(Message(
+          id: runId.isNotEmpty ? runId : DateTime.now().millisecondsSinceEpoch.toString(),
+          role: 'assistant',
+          content: errText,
+          createdAt: DateTime.now(),
+          agentId: _currentAgent,
+        ));
+      });
+      _saveMessagesLocal();
+      _scrollToBottom();
+      return;
+    }
+
+    if (state == 'final') {
+      final finalText = payload['message']?.toString() ?? _extractText(payload['message']) ?? '';
+      if (finalText.contains('HEARTBEAT_OK') || finalText.contains('HEARTBEAT.md')) {
+        setState(() { _isGenerating = false; });
+        return;
+      }
+      final msgId = runId.isNotEmpty ? runId : DateTime.now().millisecondsSinceEpoch.toString();
+      setState(() {
+        _isGenerating = false;
+        _queuePosition = 0;
+        _queueTotal = 0;
+        if (finalText.isNotEmpty) {
+          final idx = _messages.indexWhere((m) => m.id == msgId);
+          if (idx >= 0) {
+            _messages[idx] = _messages[idx].copyWith(content: finalText);
+          } else {
+            _messages.add(Message(id: msgId, role: 'assistant', content: finalText, createdAt: DateTime.now(), agentId: _currentAgent));
+          }
+        }
+      });
+      _saveMessagesLocal();
+      _scrollToBottom();
+      _refreshUserData();
+      // 🔔 对话完成后增量刷新核心过滤的历史（清理 HEARTBEAT_OK / tool traces 等）
+      if (_currentSessionKey != null) {
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) _loadMessageHistory(_currentSessionKey!, incremental: true);
+        });
+      }
+    }
+  }
+
   void _initWebSocket() {
     final ws = WebSocketService();
     
@@ -909,7 +1227,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           setState(() {
             _wsConnected = status == 'connected';
             _wsStatus = status == 'connecting' ? '连接中...' 
-                      : status == 'connected' ? '已连接' 
+                      : status == 'connected' ? (_lumeReady ? 'Lume已连接' : (_lumeStatus.contains('Gateway') ? 'Gateway已连接' : '已连接')) 
                       : status == 'disconnected' ? '已断开' : '连接失败';
           });
           return;
@@ -919,7 +1237,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           debugPrint('🔔 收到 connected 事件，开始处理');
           setState(() {
             _wsConnected = true;
-            _wsStatus = '已连接';
+            _wsStatus = _lumeReady ? 'Lume已连接' : 'Gateway已连接';
           });
           debugPrint('✅ WebSocket 已连接（状态已更新）');
           
@@ -933,27 +1251,14 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             });
           }
           
-          // 异步处理设备切换检查 + 加载会话
-          Future.microtask(() async {
-            try {
-              // 🖥️ 检查设备切换标记（从 servers_page 切换设备后 WS 会重连）
-              await _checkDeviceSwitch();
-              
-              debugPrint('🔄 开始加载会话列表...');
-              await Future.delayed(const Duration(milliseconds: 300));
-              _loadSessionsFromServer();
-              
-              // 如果有当前会话，增量同步最新消息
-              if (_currentSessionKey != null) {
-                await Future.delayed(const Duration(milliseconds: 200));
-                _loadMessageHistory(_currentSessionKey!, incremental: true);
-              }
-              
-              debugPrint('✅ 会话列表加载完成');
-            } catch (e, stack) {
-              debugPrint('❌ 加载会话列表失败: $e\nStack: $stack');
-            }
-          });
+          // Lume 已连接时以 Lume 为准；否则稍等 Lume，避免 Gateway 先拉到不完整会话
+          if (!_lumeReady) {
+            _gatewaySessionDeferTimer?.cancel();
+            _gatewaySessionDeferTimer = Timer(const Duration(seconds: 4), () {
+              if (!mounted || _lumeReady) return;
+              Future.microtask(() => _onWsReadyLoadSessions(source: 'Gateway'));
+            });
+          }
           return;
         }
         
@@ -1002,9 +1307,15 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               debugPrint('✅ 加载了 ${messages.length} 条历史消息');
               
               // 🆕 解析服务器消息
-              final serverMessages = messages.map((m) {
+              final serverMessages = messages.asMap().entries.map((entry) {
+                final i = entry.key;
+                final m = entry.value;
                 final map = m is Map ? m as Map<String, dynamic> : {};
-                  final messageId = map['id']?.toString() ?? map['runId']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString();
+                  final openclawMeta = map['__openclaw'] as Map?;
+                  final messageId = map['id']?.toString()
+                      ?? openclawMeta?['id']?.toString()
+                      ?? map['runId']?.toString()
+                      ?? '${map['role']}-${map['timestamp'] ?? map['createdAt'] ?? i}';
                   final createdAt = _parseDateTime(map['createdAt'] ?? map['created_at']);
                   // 使用消息自己的 agentId，如果没有则使用当前 Agent
                   final msgAgentId = map['agentId']?.toString() ?? map['agent_id']?.toString() ?? _currentAgent;
@@ -1272,6 +1583,25 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         }
         
         // 处理开始生成
+        if (state == 'start' || state == 'begin' || state == 'block') {
+          final blockText = payload['message']?.toString() ?? _extractText(payload['message']) ?? '';
+          setState(() { _queuePosition = 0; _queueTotal = 0; _isGenerating = true; });
+          if (state == 'block' && blockText.isNotEmpty) {
+            final blockId = runId.isNotEmpty ? runId : 'lume-stream';
+            setState(() {
+              final idx = _messages.indexWhere((m) => m.id == blockId);
+              if (idx >= 0) {
+                final old = _messages[idx];
+                _messages[idx] = Message(id: blockId, role: 'assistant', content: blockText, createdAt: old.createdAt, agentId: _currentAgent);
+              } else {
+                _messages.add(Message(id: blockId, role: 'assistant', content: blockText, createdAt: DateTime.now(), agentId: _currentAgent));
+              }
+            });
+            _scrollToBottom();
+          }
+          return;
+        }
+
         if (state == 'start' || state == 'begin') {
           setState(() {
             _queuePosition = 0;
@@ -1324,7 +1654,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           }
         } else if (state == 'final') {
           // 🚫 过滤心跳/系统消息
-          final finalText = _extractText(payload['message']);
+          final finalText = payload['message']?.toString() ?? _extractText(payload['message']);
           if (finalText != null && (finalText.contains('HEARTBEAT_OK') || finalText.contains('HEARTBEAT.md') || finalText.trim() == 'HEARTBEAT_OK')) {
             debugPrint('⏭️ 跳过心跳 final 消息');
             setState(() { _isGenerating = false; });
@@ -1333,14 +1663,34 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           
           // 🆕 提取模型信息
           final modelInfo = payload['modelInfo'] as Map<String, dynamic>?;
+          final msgId = runId.isNotEmpty
+              ? runId
+              : (payload['messageId']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString());
           
           setState(() {
             _isGenerating = false;
             _queuePosition = 0;
             _queueTotal = 0;
             
-            // 更新最后一条消息的模型信息
-            if (modelInfo != null && _messages.isNotEmpty) {
+            // Lume final：message 为纯字符串，需写入/更新助手消息
+            if (finalText != null && finalText.isNotEmpty) {
+              final idx = _messages.indexWhere((m) => m.id == msgId);
+              if (idx >= 0) {
+                _messages[idx] = _messages[idx].copyWith(
+                  content: finalText,
+                  modelInfo: modelInfo ?? _messages[idx].modelInfo,
+                );
+              } else {
+                _messages.add(Message(
+                  id: msgId,
+                  role: 'assistant',
+                  content: finalText,
+                  createdAt: DateTime.now(),
+                  agentId: _currentAgent,
+                  modelInfo: modelInfo,
+                ));
+              }
+            } else if (modelInfo != null && _messages.isNotEmpty) {
               final lastAssistantIdx = _messages.lastIndexWhere((m) => m.role == 'assistant');
               if (lastAssistantIdx >= 0) {
                 _messages[lastAssistantIdx] = _messages[lastAssistantIdx].copyWith(
@@ -1353,6 +1703,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           _saveMessagesLocal();
           // 对话完成后刷新用户数据（更新 token 使用量）
           _refreshUserData();
+
+          // 🔔 对话完成后增量刷新核心过滤的历史（清理 HEARTBEAT_OK / tool traces 等）
+          if (_currentSessionKey != null) {
+            Future.delayed(const Duration(milliseconds: 500), () {
+              if (mounted) _loadMessageHistory(_currentSessionKey!, incremental: true);
+            });
+          }
 
           // 🔔 如果 App 在后台，发送通知
           if (_isAppInBackground) {
@@ -1663,8 +2020,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         return !key.contains(':subagent:');
       }).toList();
       
-      setState(() {
-        _sessions = filteredSessions.map((s) {
+      final parsed = filteredSessions.map((s) {
           final map = s is Map ? s as Map<String, dynamic> : {};
           
           // 标题优先级：label > title > lastMessagePreview > agent名 > 默认
@@ -1711,13 +2067,29 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             'lastMessage': preview.isNotEmpty ? preview : '暂无消息',
           };
         }).toList();
-        
-        // 按时间倒序排列
-        _sessions.sort((a, b) {
-          final timeA = a['timestamp'] as int? ?? 0;
-          final timeB = b['timestamp'] as int? ?? 0;
-          return timeB.compareTo(timeA);
-        });
+
+      final List<Map<String, dynamic>> mergedList;
+      if (_replaceSessionsOnNextParse) {
+        _replaceSessionsOnNextParse = false;
+        mergedList = List<Map<String, dynamic>>.from(parsed)
+          ..sort((a, b) => (b['timestamp'] as int? ?? 0).compareTo(a['timestamp'] as int? ?? 0));
+        debugPrint('🖥️ 设备切换：用服务器 sessions 全量替换本地列表');
+      } else {
+        final merged = <String, Map<String, dynamic>>{};
+        for (final s in _sessions) {
+          final k = s['key']?.toString() ?? '';
+          if (k.isNotEmpty) merged[k] = Map<String, dynamic>.from(s);
+        }
+        for (final s in parsed) {
+          final k = s['key']?.toString() ?? '';
+          if (k.isNotEmpty) merged[k] = s;
+        }
+        mergedList = merged.values.toList()
+          ..sort((a, b) => (b['timestamp'] as int? ?? 0).compareTo(a['timestamp'] as int? ?? 0));
+      }
+
+      setState(() {
+        _sessions = mergedList;
       });
       
       // 💾 保存 session 列表到本地缓存
@@ -1760,19 +2132,47 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     return '${date.month}月${date.day}日';
   }
   
+
+  /// WS（Gateway 或 Lume）连接就绪后：设备切换检查 + 拉取新设备 sessions/history
+  Future<void> _onWsReadyLoadSessions({String source = 'ws'}) async {
+    try {
+      await _checkDeviceSwitch();
+      debugPrint('🔄 [$source] 连接就绪，加载 sessions.list (${_lumeReady ? "Lume" : "Gateway"})');
+      await Future.delayed(const Duration(milliseconds: 300));
+      _loadSessionsFromServer();
+
+      if (_currentSessionKey == null) {
+        await _restoreLastSession();
+      }
+
+      if (_currentSessionKey != null) {
+        await Future.delayed(const Duration(milliseconds: 200));
+        setState(() { _messages.clear(); });
+        final loaded = await _loadMessagesLocal(_currentSessionKey);
+        if (!loaded) {
+          _loadMessageHistory(_currentSessionKey!, incremental: false);
+        } else {
+          _loadMessageHistory(_currentSessionKey!, incremental: true);
+        }
+      }
+      debugPrint('✅ [$source] 会话/历史加载完成');
+    } catch (e, stack) {
+      debugPrint('❌ [$source] 加载会话失败: $e\nStack: $stack');
+    }
+  }
+
   void _loadSessionsFromServer() {
     try {
-      final ws = WebSocketService();
-      if (!ws.isConnected) {
+      if (!_canUseWsRpc) {
         debugPrint('⚠️ WebSocket 未连接，无法加载会话列表');
         return;
       }
-      debugPrint('📋 发送 sessions.list 请求');
-      // 🚀 懒加载：只拿列表，不发额外请求
-      // 传入 includeLastMessage 以获取 lastMessagePreview 字段，用于会话列表预览
+      final ws = _rpcWs();
+      debugPrint('📋 发送 sessions.list (${_lumeReady ? "Lume" : "Gateway"})');
       ws.sendRequest('sessions.list', {
         'includeLastMessage': true,
         'includeDerivedTitles': true,
+        'limit': 100,
       });
     } catch (e, stack) {
       debugPrint('❌ _loadSessionsFromServer 异常: $e\nStack: $stack');
@@ -1790,22 +2190,19 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     }
   }
 
-  void _loadMessageHistory(String sessionKey, {bool incremental = false, int limit = 20}) {
+  void _loadMessageHistory(String sessionKey, {bool incremental = false, int limit = 50}) {
     try {
-      final ws = WebSocketService();
-      if (!ws.isConnected) {
+      if (!_canUseWsRpc) {
         debugPrint('⚠️ WebSocket 未连接，尝试 HTTP fallback 加载历史消息');
         _loadMessageHistoryHTTP(sessionKey, limit: limit);
         return;
       }
-      debugPrint('📚 发送 chat.history 请求，sessionKey: $sessionKey, incremental: $incremental, limit: $limit');
-      // 🔒 记录请求时的 sessionKey，用于竞态检测
+      debugPrint('📚 发送 chat.history (${_lumeReady ? "Lume" : "Gateway"}) sessionKey: $sessionKey');
       _lastHistoryRequestSessionKey = sessionKey;
-      // 标记当前请求是否为增量模式
       if (incremental) {
         _incrementalHistorySessionKey = sessionKey;
       }
-      ws.sendRequest('chat.history', {
+      _rpcWs().sendRequest('chat.history', {
         'sessionKey': sessionKey,
         'limit': limit,
       });
@@ -1835,17 +2232,23 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    try { Provider.of<AppProvider>(context, listen: false).removeListener(_onAppProviderUpdate); } catch (_) {}
     _controller.dispose();
     _scrollController.dispose();
 
     // 🔔 移除生命周期监听器
     WidgetsBinding.instance.removeObserver(this);
 
+    _gatewaySessionDeferTimer?.cancel();
     try {
       if (_wsListener != null) {
         WebSocketService().removeListener(_wsListener!);
         _wsListener = null;
         debugPrint('✅ WebSocket 监听器已移除（不影响其他页面）');
+      }
+      if (_lumeListener != null) {
+        LumeWebSocketService().removeListener(_lumeListener!);
+        _lumeListener = null;
       }
     } catch (e) {
       debugPrint('❌ 清理 WebSocket 监听器失败: $e');
@@ -1876,12 +2279,19 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           });
         }
         
-        // 🔌 WebSocket 断开时主动重连
+        // 🔌 后台切回时重连 WS（Gateway + Lume）
         final ws = WebSocketService();
+        final lume = LumeWebSocketService();
         if (!ws.isConnected) {
-          debugPrint('📱 WebSocket 未连接，主动重连...');
+          debugPrint('📱 Gateway WS 未连接，主动重连...');
           ws.forceReconnect();
         }
+        debugPrint('📱 设备/前台恢复，重新探测 Lume...');
+        lume.reconnectForDevice().then((_) {
+          if (mounted && lume.isConnected) {
+            _onWsReadyLoadSessions(source: 'resume');
+          }
+        });
         
         // 恢复会话内容（消息被清空时重新加载）
         if (_currentSessionKey == null && _messages.isEmpty) {
@@ -1898,10 +2308,18 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           });
         }
         
-        // 增量同步最新消息（WebSocket 已连接时）
-        if (_currentSessionKey != null && ws.isConnected) {
+        // 增量同步最新消息（WS 就绪后）
+        if (_currentSessionKey != null && _canUseWsRpc) {
           debugPrint('📱 后台切回，增量同步最新消息');
-          _loadMessageHistory(_currentSessionKey!, incremental: true);
+          Future.delayed(const Duration(milliseconds: 300), () {
+            if (mounted) _loadMessageHistory(_currentSessionKey!, incremental: true);
+          });
+        }
+        // 刷新会话列表
+        if (_canUseWsRpc) {
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) _loadSessionsFromServer();
+          });
         }
         break;
       case AppLifecycleState.paused:
@@ -2511,7 +2929,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     final ws = WebSocketService();
     
     // 判断是否能走 WebSocket
-    final canUseWs = ws.isConnected && userId != null;
+    final lumeWs = LumeWebSocketService();
+    final canUseWs = userId != null && (ws.isConnected || lumeWs.isConnected);
     
     debugPrint('📤 发送消息: text="${text.length > 20 ? text.substring(0, 20) : text}", canUseWs=$canUseWs');
     
@@ -2564,25 +2983,22 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     
     _scrollToBottom();
 
-    // ✅ 新会话时，使用 sessionPrefix 构建临时 sessionKey
-    String targetSessionKey;
-    if (_currentSessionKey != null && _currentSessionKey!.isNotEmpty) {
-      targetSessionKey = _currentSessionKey!;
-    } else {
-      // 新会话：使用 sessionPrefix + agentId
-      final sessionPrefix = ws.sessionPrefix;
-      if (sessionPrefix != null && sessionPrefix.isNotEmpty) {
-        targetSessionKey = '$sessionPrefix:agent:$_currentAgent';
-        debugPrint('🆕 新会话，构建 sessionKey: $targetSessionKey');
-      } else {
-        // 降级方案：直接用 agentId
-        targetSessionKey = 'agent:$_currentAgent';
-        debugPrint('⚠️ 没有获取到 sessionPrefix，使用降级方案: $targetSessionKey');
-      }
-      // 更新当前 sessionKey
+    final targetSessionKey = _resolveTargetSessionKey(ws);
+    if (targetSessionKey == null) {
       setState(() {
-        _currentSessionKey = targetSessionKey;
+        _isGenerating = false;
+        _messages.add(Message(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          role: 'assistant',
+          content: '⚠️ 连接尚未就绪，请稍等几秒后重试',
+          createdAt: DateTime.now(),
+          agentId: _currentAgent,
+        ));
       });
+      return;
+    }
+    if (_currentSessionKey != targetSessionKey) {
+      setState(() { _currentSessionKey = targetSessionKey; });
     }
 
     // 构建发送参数（与Web版格式一致）
@@ -2612,7 +3028,19 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     debugPrint('📤 发送消息: sessionKey=$targetSessionKey, message=${text.substring(0, text.length > 50 ? 50 : text.length)}');
     
     debugPrint('📤 完整参数: $params');
-    ws.sendRequest('chat.send', params);
+    final lume = LumeWebSocketService();
+    if (lume.isConnected) {
+      debugPrint('📤 通过 Lume 插件发送');
+      lume.sendMessage(
+        text.isNotEmpty ? text : '请识别这张图片',
+        agentId: _currentAgent,
+        sessionKey: targetSessionKey,
+        attachments: params['attachments'] as List<Map<String, dynamic>>?,
+      );
+    } else {
+      debugPrint('📤 通过 Gateway 发送');
+      ws.sendRequest('chat.send', params);
+    }
     
     // 🆕 自动更新 session label（如果是第一条消息或有意义的消息）
     if (_currentSessionKey != null && text.isNotEmpty) {
@@ -2762,7 +3190,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         IconButton(
           icon: const Icon(Icons.folder_outlined, size: 22),
           onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const FileExplorerPage()),
+            MaterialPageRoute(builder: (_) => FileExplorerPage()),
           ),
         ),
       ],
@@ -2770,18 +3198,38 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
 
   Widget _buildConnectionIndicator() {
-    final color = _wsConnected ? Colors.green : Colors.orange;
-    return Container(
-      width: 12,
-      height: 12,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: color.withOpacity(0.5),
-            blurRadius: 4,
-            spreadRadius: 1,
+    final lumeReady = _lumeReady;
+    final connected = lumeReady || _wsConnected;
+    final color = !connected
+        ? Colors.orange
+        : (lumeReady ? const Color(0xFF00BFA5) : Colors.green);
+    final label = lumeReady
+        ? 'Lume'
+        : (_wsConnected ? 'Gateway' : '连接中');
+    return GestureDetector(
+      onTap: _showConnectionDebug,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: color.withOpacity(0.5),
+                  blurRadius: 4,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -2822,6 +3270,17 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               _buildDebugItem('Gateway Token', debugInfo['hasGatewayToken'] == true ? '已获取' : '未获取',
                 debugInfo['hasGatewayToken'] == true ? Colors.green : Colors.red),
               _buildDebugItem('重连次数', '${debugInfo['reconnectAttempts'] ?? 0}', Colors.grey),
+              const Divider(),
+              const SizedBox(height: 8),
+              const Text('Lume 插件 (18790) — 可选测试', style: TextStyle(fontWeight: FontWeight.bold)),
+              _buildDebugItem('Lume 状态', _lumeStatus, _lumeConnected ? Colors.green : Colors.grey),
+              SwitchListTile(
+                title: const Text('启用 Lume 测试模式'),
+                subtitle: const Text('Lume 已默认启用；Gateway 仅作降级备用'),
+                value: _lumeTestEnabled,
+                activeColor: Constants.primaryColor,
+                onChanged: (v) async { await _setLumeTestEnabled(v); },
+              ),
               const SizedBox(height: 16),
               const Divider(),
               const SizedBox(height: 8),
@@ -2981,7 +3440,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               // 直接跳转到订阅页面
               Navigator.push(
                 dialogContext,
-                MaterialPageRoute(builder: (_) => const SubscriptionPage()),
+                MaterialPageRoute(builder: (_) => SubscriptionPage()),
               );
             },
             child: const Text('立即订阅'),
@@ -3737,16 +4196,18 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
   // 取消对话
   void _abortChat() {
+    final lume = LumeWebSocketService();
     final ws = WebSocketService();
-    if (!ws.isConnected) {
+    if (lume.isConnected) {
+      debugPrint('🛑 [Lume] 发送取消请求');
+      lume.sendRequest('chat.abort', {'sessionKey': _currentSessionKey});
+    } else if (ws.isConnected) {
+      debugPrint('🛑 [Gateway] 发送取消请求');
+      ws.sendRequest('chat.abort', {'sessionKey': _currentSessionKey});
+    } else {
       debugPrint('⚠️ WebSocket 未连接，无法取消');
       return;
     }
-    
-    debugPrint('🛑 发送取消请求');
-    ws.sendRequest('chat.abort', {
-      'sessionKey': _currentSessionKey,
-    });
     
     setState(() {
       _isGenerating = false;
@@ -3894,7 +4355,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               onTap: () {
                 Navigator.pop(context);
-                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WorkspacePage()));
+                Navigator.of(context).push(MaterialPageRoute(builder: (_) => WorkspacePage()));
               },
             ),
           ),
@@ -4285,7 +4746,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                 onTap: () async {
                   Navigator.pop(context);
                   Navigator.pop(context);
-                  await Navigator.push(context, MaterialPageRoute(builder: (_) => const SubscriptionPage()));
+                  await Navigator.push(context, MaterialPageRoute(builder: (_) => SubscriptionPage()));
                 },
               ),
               ListTile(
@@ -4294,7 +4755,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                 onTap: () async {
                   Navigator.pop(context);
                   Navigator.pop(context);
-                  await Navigator.push(context, MaterialPageRoute(builder: (_) => const SkillsPage()));
+                  await Navigator.push(context, MaterialPageRoute(builder: (_) => SkillsPage()));
                 },
               ),
               const Divider(height: 1),
@@ -4305,7 +4766,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                 onTap: () async {
                   Navigator.pop(context);
                   Navigator.pop(context);
-                  await Navigator.push(context, MaterialPageRoute(builder: (_) => const LumeClawPage()));
+                  await Navigator.push(context, MaterialPageRoute(builder: (_) => LumeClawPage()));
                 },
               ),
               ListTile(
@@ -4353,7 +4814,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   await appProvider.logout();
                   if (mounted) {
                     Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(builder: (_) => const LoginPage()),
+                      MaterialPageRoute(builder: (_) => LoginPage()),
                       (route) => false,
                     );
                   }
@@ -5367,7 +5828,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               padding: const EdgeInsets.all(12),
               color: const Color(0xFFEAB308),
               child: GestureDetector(
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SubscriptionPage())),
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SubscriptionPage())),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -5564,6 +6025,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               left: MediaQuery.of(context).size.width / 2 - 20,
               child: GestureDetector(
                 onTap: () {
+                  if (!_scrollController.hasClients) return;
                   _scrollController.animateTo(
                     _scrollController.position.maxScrollExtent,
                     duration: const Duration(milliseconds: 300),
