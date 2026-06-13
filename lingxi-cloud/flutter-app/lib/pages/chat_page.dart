@@ -296,60 +296,59 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     debugPrint('📋 ChatPage initState 开始');
-    
+
     // 🆕 注册 useSkill 回调给 MainShell
     widget.onRegisterUseSkill?.call(useSkill);
     widget.onRegisterOpenSkills?.call((fn) => _switchToSkillsTab = fn);
-    
-    _lastDeviceSwitchGeneration =
-        Provider.of<AppProvider>(context, listen: false).deviceSwitchGeneration;
-    _getCurrentServerId().then((id) => _trackedServerId = id);
 
-    // 🆕 初始化滚动监听
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    _lastDeviceSwitchGeneration = appProvider.deviceSwitchGeneration;
+    appProvider.addListener(_onAppProviderUpdate);
+
+    // 同步初始化（无 IO，纯内存操作）
     _initScrollListener();
-
-    // 🔔 添加生命周期监听器
     WidgetsBinding.instance.addObserver(this);
-
-    // 监听输入框文字变化（用于显示/隐藏发送按钮）
     _controller.addListener(() {
       if (!mounted) return;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) setState(() {});
       });
     });
-
-    // 初始化语音识别
     _initSpeech();
-    
-    // 获取用户服务器信息（用于文件预览）
-    _loadUserServerInfo();
-    
-    // 加载模型偏好
-    _loadModelPreference();
 
-    // 从 API 加载模型列表（与 Web 版对齐）
+    // 🚀 并行启动所有异步初始化（原串行 → 并行，冷启动快 1-2s）
+    final user = appProvider.user;
+    final isFreeUser = user?.subscription?['plan'] == 'free' || user?.subscription?['plan'] == null;
+
+    // 组 A：本地 IO（SharedPreferences）并行
+    final serverIdFuture = _getCurrentServerId().then((id) {
+      if (mounted) _trackedServerId = id;
+    });
+    final lumeTestFuture = _loadLumeTestPref();
+    final modelPrefFuture = _loadModelPreference();
+    final serverInfoFuture = _loadUserServerInfo();
+
+    // 组 B：模型列表 API（独立）
     _loadModelsFromApi();
-    
-    // 💾 启动时序列化初始化（避免 _checkDeviceSwitch 和 _restoreLastSession 竞态）
-    _initSequence();
-    
-    // 捕获异步错误
+
+    // 组 C：序列化初始化（依赖 serverId）
+    serverIdFuture.then((_) {
+      if (!mounted) return;
+      _initSequence();
+    });
+
+    // 组 D：会话列表加载
     _loadSessions().catchError((e, stack) {
       debugPrint('❌ 加载会话失败: $e\nStack: $stack');
     });
-    
-    final user = Provider.of<AppProvider>(context, listen: false).user;
-    final isFreeUser = user?.subscription?['plan'] == 'free' || user?.subscription?['plan'] == null;
 
-    if (isFreeUser) {
-      debugPrint('📋 免费用户，跳过 Gateway WebSocket');
-    } else {
+    // 组 E：WS 连接（Lume 优先，不等其他初始化）
+    if (!isFreeUser) {
       Future.microtask(() async {
         try {
-          debugPrint('📋 初始化连接（Lume 优先，失败再降级 Gateway）');
           WebSocketService().clearListeners();
-          await _loadLumeTestPref();
+          await lumeTestFuture; // 只等 lume test pref
+          if (!mounted) return;
           _initLumeWebSocket();
         } catch (e, stack) {
           debugPrint('❌ WebSocket 初始化异常: $e\nStack: $stack');
@@ -358,7 +357,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       });
     }
 
-    Provider.of<AppProvider>(context, listen: false).addListener(_onAppProviderUpdate);
+    // modelPrefFuture 和 serverInfoFuture 不需要 await（fire-and-forget）
+    modelPrefFuture.catchError((_) {});
+    serverInfoFuture.catchError((_) {});
 
     debugPrint('📋 ChatPage initState 完成');
   }
