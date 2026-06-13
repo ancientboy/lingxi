@@ -18,7 +18,11 @@ import 'package:lingxicloud/services/device_switch_manager.dart';
 import 'package:lingxicloud/services/session_repository.dart';
 import 'package:lingxicloud/services/api_service.dart';
 import 'package:lingxicloud/services/notification_service.dart';
-import 'package:lingxicloud/widgets/file_preview.dart';
+import 'package:lingxicloud/widgets/message_bubble.dart';
+import 'package:lingxicloud/widgets/chat_misc_widgets.dart';
+import 'package:lingxicloud/widgets/model_selector.dart';
+import 'package:lingxicloud/widgets/voice_input_section.dart';
+import 'package:lingxicloud/widgets/chat_dialogs.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:file_picker/file_picker.dart' as file_picker;  // 🆕 文档选择器（使用别名避免冲突）
@@ -31,10 +35,6 @@ import 'dart:math' show pow;  // 🆕 导入 pow 函数
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:audioplayers/audioplayers.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
-import 'package:markdown/markdown.dart' as md;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -56,7 +56,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   bool _showScrollToBottom = false;
   
   // 🆕 技能 tags 管理
-  final List<_SkillTag> _skillTags = [];
+  final List<SkillTag> _skillTags = [];
   static const int _maxSkillTags = 3;
   
   // 🆕 在 initState 里添加滚动监听（初始化在 initState 中执行）
@@ -131,7 +131,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     while (_skillTags.length >= _maxSkillTags) {
       _skillTags.removeAt(0);
     }
-    _skillTags.add(_SkillTag(id: id, name: name));
+    _skillTags.add(SkillTag(id: id, name: name));
   }
 
   void _removeSkillTag(String id) {
@@ -1815,31 +1815,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     }
   }
   
-  // 语音波浪动画
-  Widget _buildVoiceWaveAnimation() {
-    return SizedBox(
-      width: 24,
-      height: 24,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: List.generate(4, (index) {
-          // 根据动画索引计算每个条的高度
-          final height = 8.0 + ((_waveIndex + index) % 4) * 4.0;
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            height: _isListening ? height : 8,
-            width: 3,
-            margin: const EdgeInsets.symmetric(horizontal: 1),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          );
-        }),
-      ),
-    );
-  }
-  
   // 调用后端语音识别 API
   void _recognizeSpeech(String base64Audio) async {
     try {
@@ -3499,41 +3474,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             });
           } else if (v != null && !availableAgents.containsKey(v)) {
             // 选中被锁定的 Agent，弹出升级提示
-            _showUpgradeDialog();
+            showUpgradeDialog(context);
           }
         },
       ),
     );
   }
   
-  // 升级提示对话框
-  void _showUpgradeDialog() {
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('解锁 AI 团队'),
-        content: const Text('订阅后可以使用完整的 8 位 Agent 团队'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('稍后再说'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(dialogContext);
-              // 直接跳转到订阅页面
-              Navigator.push(
-                dialogContext,
-                MaterialPageRoute(builder: (_) => SubscriptionPage()),
-              );
-            },
-            child: const Text('立即订阅'),
-          ),
-        ],
-      ),
-    );
-  }
-
   // 保存当前会话
   void _saveCurrentSession() {
     if (_messages.isEmpty) return;
@@ -3985,12 +3932,30 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                     ],
                   ),
                 // 右边：模型选择器
-                _buildModelPill(isDarkMode),
+                ModelSelectorPill(
+                  models: _models,
+                  selectedModel: _selectedModel ?? 'auto',
+                  showDropdown: _showModelDropdown,
+                  isDarkMode: isDarkMode,
+                  onTap: () => setState(() { _showModelDropdown = !_showModelDropdown; }),
+                ),
               ],
             ),
           ),
           // 模型下拉面板
-          if (_showModelDropdown) _buildModelDropdown(isDarkMode, isFreeUser),
+          if (_showModelDropdown) ModelSelectorDropdown(
+            models: _models,
+            selectedModel: _selectedModel ?? 'auto',
+            isDarkMode: isDarkMode,
+            isFreeUser: isFreeUser,
+            onSelect: (modelId) {
+              setState(() {
+                _selectedModel = modelId;
+                _showModelDropdown = false;
+              });
+              _saveModelPreference(modelId);
+            },
+          ),
         ],
       ),
     );
@@ -4034,7 +3999,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           alignment: Alignment.center,
           children: [
             // 外圈持续旋转
-            _SpinningRing(color: Constants.primaryColor, strokeWidth: 2.5, size: size),
+            SpinningRing(color: Constants.primaryColor, strokeWidth: 2.5, size: size),
             // 内部停止图标（圆角方块）
             Container(
               width: size * 0.38,
@@ -4066,133 +4031,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           icon,
           size: 18,
           color: isDarkMode ? const Color(0xFF8E8EA0) : Constants.textTertiaryColor,
-        ),
-      ),
-    );
-  }
-
-  // 模型选择 Pill（对齐 Web model-pill）
-  Widget _buildModelPill(bool isDarkMode) {
-    final currentModel = _models.firstWhere(
-      (m) => m['id'] == _selectedModel,
-      orElse: () => _models.first,
-    );
-    return GestureDetector(
-      onTap: () => setState(() { _showModelDropdown = !_showModelDropdown; }),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          color: _showModelDropdown
-            ? (isDarkMode ? const Color(0xFF404040) : Constants.bgHover)
-            : Colors.transparent,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 小圆点
-            Container(
-              width: 5, height: 5,
-              decoration: BoxDecoration(
-                color: Constants.primaryColor,
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 4),
-            Text(
-              currentModel['name'] ?? 'GLM-5.2',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: isDarkMode ? const Color(0xFF8E8EA0) : Constants.textTertiaryColor,
-              ),
-            ),
-            const SizedBox(width: 2),
-            Icon(
-              _showModelDropdown ? Icons.expand_less : Icons.expand_more,
-              size: 12,
-              color: isDarkMode ? const Color(0xFF8E8EA0) : Constants.textTertiaryColor,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // 模型下拉面板（对齐 Web model-dropdown）
-  Widget _buildModelDropdown(bool isDarkMode, bool isFreeUser) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(8, 0, 8, 6),
-      constraints: const BoxConstraints(maxHeight: 360),
-      decoration: BoxDecoration(
-        color: isDarkMode ? const Color(0xFF2D2D30) : Constants.surfaceColor,
-        borderRadius: BorderRadius.circular(Constants.radiusMd),
-        border: Border.all(
-          color: isDarkMode ? const Color(0xFF404040) : Constants.borderDefault,
-        ),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 16, offset: const Offset(0, 4)),
-        ],
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: _models.map((m) {
-          final isActive = m['id'] == _selectedModel;
-          final isPro = m['tier'] == 'pro';
-          final isLocked = isPro && isFreeUser; // 免费用户锁 pro 模型
-          return GestureDetector(
-            onTap: isLocked ? null : () {
-              setState(() {
-                _selectedModel = m['id']!;
-                _showModelDropdown = false;
-              });
-              _saveModelPreference(m['id']!);
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: isActive
-                  ? Constants.primaryColor.withOpacity(0.08)
-                  : Colors.transparent,
-                borderRadius: BorderRadius.circular(Constants.radiusSm),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${m['name']}${isLocked ? ' 🔒' : (isPro ? ' ⭐' : '')}',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: isLocked
-                              ? (isDarkMode ? Colors.white24 : Constants.textTertiaryColor)
-                              : (isDarkMode ? const Color(0xFFECECF1) : Constants.textPrimaryColor),
-                          ),
-                        ),
-                        const SizedBox(height: 1),
-                        Text(
-                          isLocked ? '订阅可用' : (m['desc'] ?? ''),
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: isLocked
-                              ? const Color(0xFFEAB308)
-                              : (isDarkMode ? const Color(0xFF6E6E80) : Constants.textTertiaryColor),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (isActive)
-                    Icon(Icons.check, size: 16, color: Constants.primaryColor),
-                ],
-              ),
-            ),
-          );
-        }).toList(),
         ),
       ),
     );
@@ -4312,105 +4150,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       ),
     );
   }
-  Widget _buildVoiceInputArea(bool isDarkMode) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // 显示识别中的文字
-        if (_lastWords.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Text(
-              _lastWords,
-              style: TextStyle(
-                color: isDarkMode ? Colors.white70 : Colors.black54,
-                fontSize: 14,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        // 语音输入按钮行
-        Row(
-          children: [
-            // 取消按钮
-            IconButton(
-              icon: Icon(Icons.keyboard, color: isDarkMode ? const Color(0xFFECECF1) : null),
-              onPressed: () {
-                setState(() {
-                  _showVoiceInput = false;
-                  _lastWords = '';
-                });
-              },
-            ),
-            Expanded(
-              child: GestureDetector(
-                onLongPressStart: (_) {
-                  _startListening();
-                },
-                onLongPressMoveUpdate: (details) {
-                  // 检测上移（Y 轴负方向移动超过 100 像素）
-                  final isCanceling = details.localOffsetFromOrigin.dy < -100;
-                  if (isCanceling != _isCanceling) {
-                    HapticFeedback.selectionClick();
-                    setState(() {
-                      _isCanceling = isCanceling;
-                    });
-                  }
-                },
-                onLongPressEnd: (_) {
-                  if (_isCanceling) {
-                    // 上移取消
-                    _stopListening(cancel: true);
-                    setState(() {
-                      _showVoiceInput = false;
-                      _isCanceling = false;
-                    });
-                  } else {
-                    // 正常发送（_recognizeSpeech 会处理成功/失败）
-                    _stopListening();
-                  }
-                },
-                child: Container(
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: _isCanceling 
-                        ? Colors.grey.shade600 
-                        : (_isListening ? Colors.red.shade400 : Constants.primaryColor),
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // 语音波浪动画或取消图标
-                      _isCanceling
-                          ? const Icon(Icons.cancel, color: Colors.white)
-                          : (_isListening 
-                              ? _buildVoiceWaveAnimation()
-                              : const Icon(Icons.mic_none, color: Colors.white)),
-                      const SizedBox(width: 8),
-                      Text(
-                        _isCanceling 
-                            ? '松开取消' 
-                            : (_isListening ? '松开发送' : '按住说话'),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 48),  // 平衡左边的图标按钮
-          ],
-        ),
-      ],
-    );
-  }
-
   Widget _buildSidebar(bool isDarkMode) {
     final bgColor = isDarkMode ? const Color(0xFF202123) : const Color(0xFFF7F7F8);
     final textColor = isDarkMode ? Colors.white : Colors.black87;
@@ -4691,20 +4430,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildToolItem(IconData icon, String title, VoidCallback onTap, bool isDarkMode) {
-    final textColor = isDarkMode ? Colors.white : Colors.black87;
-    
-    return ListTile(
-      dense: true,
-      leading: Icon(icon, color: Constants.primaryColor, size: 20),
-      title: Text(title, style: TextStyle(color: textColor, fontSize: 14)),
-      onTap: () {
-        Navigator.pop(context);
-        onTap();
-      },
     );
   }
 
@@ -5375,9 +5100,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildInviteStat(inviteCount.toString(), '已邀请人数'),
+                InviteStat(inviteCount.toString(), '已邀请人数'),
                 Container(width: 1, height: 40, color: Colors.grey.shade300),
-                _buildInviteStat(earnedPoints.toString(), '获得积分'),
+                InviteStat(earnedPoints.toString(), '获得积分'),
               ],
             ),
             const SizedBox(height: 16),
@@ -5402,23 +5127,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildInviteStat(String value, String label) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            color: Constants.primaryColor,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-      ],
     );
   }
 
@@ -5832,10 +5540,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      _buildUsageRow('总积分', '${usageData?['credits']?['total'] ?? appProvider.user?.points ?? 0}'),
-                      _buildUsageRow('充值积分', '${usageData?['credits']?['balance'] ?? appProvider.user?.points ?? 0}'),
-                      _buildUsageRow('今日免费', '${usageData?['credits']?['freeRemaining'] ?? 100} / ${usageData?['credits']?['freeDaily'] ?? 100}'),
-                      _buildUsageRow('预计可用', '约 ${formatTokens((usageData?['credits']?['total'] ?? 0) / 0.3 * 1000)} tokens'),
+                      UsageRow('总积分', '${usageData?['credits']?['total'] ?? appProvider.user?.points ?? 0}'),
+                      UsageRow('充值积分', '${usageData?['credits']?['balance'] ?? appProvider.user?.points ?? 0}'),
+                      UsageRow('今日免费', '${usageData?['credits']?['freeRemaining'] ?? 100} / ${usageData?['credits']?['freeDaily'] ?? 100}'),
+                      UsageRow('预计可用', '约 ${formatTokens((usageData?['credits']?['total'] ?? 0) / 0.3 * 1000)} tokens'),
                     ],
                   ),
                 ),
@@ -5846,17 +5554,17 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                 
                 Row(
                   children: [
-                    Expanded(child: _buildTokenCard('今日', formatTokens(usageData?['today']?['tokens']), '${usageData?['today']?['requests'] ?? 0} 次')),
+                    Expanded(child: TokenCard('今日', formatTokens(usageData?['today']?['tokens']), '${usageData?['today']?['requests'] ?? 0} 次')),
                     const SizedBox(width: 8),
-                    Expanded(child: _buildTokenCard('本周', formatTokens(usageData?['week']?['tokens']), '${usageData?['week']?['requests'] ?? 0} 次')),
+                    Expanded(child: TokenCard('本周', formatTokens(usageData?['week']?['tokens']), '${usageData?['week']?['requests'] ?? 0} 次')),
                   ],
                 ),
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Expanded(child: _buildTokenCard('本月', formatTokens(usageData?['month']?['tokens']), '${usageData?['month']?['requests'] ?? 0} 次')),
+                    Expanded(child: TokenCard('本月', formatTokens(usageData?['month']?['tokens']), '${usageData?['month']?['requests'] ?? 0} 次')),
                     const SizedBox(width: 8),
-                    Expanded(child: _buildTokenCard('总计', formatTokens(usageData?['totalTokens']), '${usageData?['totalRequests'] ?? 0} 次')),
+                    Expanded(child: TokenCard('总计', formatTokens(usageData?['totalTokens']), '${usageData?['totalRequests'] ?? 0} 次')),
                   ],
                 ),
               ],
@@ -5870,37 +5578,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     );
   }
   
-  Widget _buildUsageRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(fontSize: 13, color: Colors.grey)),
-          Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildTokenCard(String label, String tokens, String requests) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        children: [
-          Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-          const SizedBox(height: 4),
-          Text(tokens, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          Text(requests, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-        ],
-      ),
-    );
-  }
-
   Widget _buildMainContent() {
     final appProvider = Provider.of<AppProvider>(context, listen: false);
     final user = appProvider.user;
@@ -6060,7 +5737,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                                       ? msgAgentId.toString() 
                                       : _currentAgent;
                               
-                              return _MessageBubble(
+                              return MessageBubble(
                                 content: _messages[i].content,
                                 isUser: _messages[i].role == 'user',
                                 agentId: safeAgentId,
@@ -6104,7 +5781,42 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                 child: SafeArea(
                   top: false,
                   child: _showVoiceInput 
-                      ? _buildVoiceInputArea(isDarkMode)
+                      ? VoiceInputArea(
+                        isDarkMode: isDarkMode,
+                        isListening: _isListening,
+                        isCanceling: _isCanceling,
+                        waveIndex: _waveIndex,
+                        lastWords: _lastWords,
+                        onKeyboardToggle: () {
+                          setState(() {
+                            _showVoiceInput = false;
+                            _lastWords = '';
+                          });
+                        },
+                        onLongPressStart: (_) {
+                          _startListening();
+                        },
+                        onLongPressMoveUpdate: (details) {
+                          final isCanceling = details.localOffsetFromOrigin.dy < -100;
+                          if (isCanceling != _isCanceling) {
+                            HapticFeedback.selectionClick();
+                            setState(() {
+                              _isCanceling = isCanceling;
+                            });
+                          }
+                        },
+                        onLongPressEnd: (_) {
+                          if (_isCanceling) {
+                            _stopListening(cancel: true);
+                            setState(() {
+                              _showVoiceInput = false;
+                              _isCanceling = false;
+                            });
+                          } else {
+                            _stopListening();
+                          }
+                        },
+                      )
                       : _buildTextInputArea(isDarkMode, isFreeUser),
                 ),
               ),
@@ -6171,1189 +5883,3 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
 }
 
-// 图片预览函数（点击放大）
-void _showImagePreview(BuildContext context, String imageUrl) {
-  showDialog(
-    context: context,
-    builder: (context) => GestureDetector(
-      onTap: () => Navigator.of(context).pop(),
-      child: Dialog(
-        backgroundColor: Colors.transparent,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 图片
-            InteractiveViewer(
-              child: imageUrl.startsWith('data:')
-                  ? Image.memory(
-                      base64Decode(imageUrl.split(',').last),
-                      fit: BoxFit.contain,
-                    )
-                  : Image.network(
-                      imageUrl,
-                      fit: BoxFit.contain,
-                    ),
-            ),
-            const SizedBox(height: 16),
-            // 按钮
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // 下载按钮
-                ElevatedButton.icon(
-                  onPressed: () async {
-                    try {
-                      // 使用 url_launcher 打开浏览器下载
-                      final uri = Uri.parse(imageUrl);
-                      if (await canLaunchUrl(uri)) {
-                        await launchUrl(uri, mode: LaunchMode.platformDefault);
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('✅ 已在浏览器中打开图片，长按可保存'),
-                              backgroundColor: Colors.green,
-                            ),
-                          );
-                        }
-                      } else {
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('❌ 无法打开图片链接'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        }
-                      }
-                    } catch (e) {
-                      debugPrint('❌ 下载图片失败: $e');
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('下载失败: $e'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      }
-                    }
-                  },
-                  icon: const Icon(Icons.download, size: 18),
-                  label: const Text('下载图片'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Constants.primaryColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // 关闭按钮
-                TextButton.icon(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close, size: 18),
-                  label: const Text('关闭'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      side: const BorderSide(color: Colors.white54),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
-
-class _MessageBubble extends StatelessWidget {
-  final String content;
-  final bool isUser;
-  final String agentId;
-  final Map<String, Map<String, dynamic>> agents;
-  final bool isDarkMode;
-  final String? imageUrl;
-  final String? audioUrl;
-  final DocumentInfo? documentInfo;  // 🆕 文档信息
-  final String? serverIp;
-  final int? serverPort;
-  final String? serverToken;
-  final Map<String, dynamic>? modelInfo;  // 🆕 模型信息
-
-  const _MessageBubble({
-    required this.content,
-    required this.isUser,
-    required this.agentId,
-    required this.agents,
-    this.isDarkMode = false,
-    this.imageUrl,
-    this.audioUrl,
-    this.documentInfo,  // 🆕
-    this.serverIp,
-    this.serverPort,
-    this.serverToken,
-    this.modelInfo,  // 🆕
-  });
-
-  // 提取音频文件路径
-  static List<String> extractAudioFiles(String text) {
-    final regex = RegExp(r'MEDIA:([^\s\n]+)');
-    return regex.allMatches(text).map((m) => m.group(1)!).toList();
-  }
-
-  // 🆕 格式化模型名称
-  static String _formatModelName(String model) {
-    if (model.isEmpty || model == 'auto') return 'Auto';
-    final name = model.contains('/') ? model.split('/').last : model;
-    const displayMap = {
-      'deepseek-v4-pro': 'DeepSeek V4 Pro',
-      'glm-5.1': 'GLM-5.2',
-      'glm-5.2': 'GLM-5.2',
-      'glm-5': 'GLM-5',
-      'glm-4': 'GLM-4',
-      'gpt-4o': 'GPT-4o',
-      'gpt-4o-mini': 'GPT-4o Mini',
-      'gpt-4.1': 'GPT-4.1',
-      'gpt-5-mini': 'GPT-5 Mini',
-      'kimi-k2.6': 'Kimi K2.6',
-      'qwen3-max-2026-01-23': 'Qwen3 Max',
-      'qwen3.5-plus': 'Qwen3.5 Plus',
-      'gpt-5.2': 'GPT-5.2',
-      'gpt-5.2-codex': 'GPT-5.2 Codex',
-      'gpt-5.3-codex': 'GPT-5.3 Codex',
-      'gpt-5.5-high-fast': 'GPT-5.5 Fast',
-      'gpt-5.5-high': 'GPT-5.5',
-      'claude-4.5-sonnet': 'Claude 4.5 Sonnet',
-      'claude-4.5-haiku': 'Claude 4.5 Haiku',
-      'claude-4.5-opus': 'Claude 4.5 Opus',
-      'claude-4.5-opus-high': 'Claude 4.5 Opus High',
-      'claude-4.6-opus-max': 'Claude 4.6 Opus',
-      'claude-4.5-sonnet-thinking': 'Claude 4.5 Sonnet Think',
-      'claude-4.5-opus-high-thinking': 'Claude 4.5 Opus Think',
-      'claude-4.6-opus-max-thinking': 'Claude 4.6 Opus Think',
-      'claude-4.6-sonnet-medium-thinking': 'Claude 4.6 Sonnet Think',
-      'gemini-3-flash-preview': 'Gemini 3 Flash',
-      'kimi-k2.5': 'Kimi K2.5',
-      'default': 'Cursor Auto',
-      'cu/default': 'Cursor Auto',
-      'cu/gpt-5.2': 'GPT-5.2',
-      'cu/gpt-5.2-codex': 'GPT-5.2 Codex',
-      'cu/gpt-5.3-codex': 'GPT-5.3 Codex',
-      'cu/gpt-5.5-high-fast': 'GPT-5.5 Fast',
-      'cu/gpt-5.5-high': 'GPT-5.5',
-      'cu/claude-4.5-sonnet': 'Claude 4.5 Sonnet',
-      'cu/claude-4.5-haiku': 'Claude 4.5 Haiku',
-      'cu/claude-4.5-opus': 'Claude 4.5 Opus',
-      'cu/claude-4.5-opus-high': 'Claude 4.5 Opus High',
-      'cu/claude-4.6-opus-max': 'Claude 4.6 Opus',
-      'cu/claude-4.5-sonnet-thinking': 'Claude 4.5 Sonnet Think',
-      'cu/claude-4.5-opus-high-thinking': 'Claude 4.5 Opus Think',
-      'cu/claude-4.6-opus-max-thinking': 'Claude 4.6 Opus Think',
-      'cu/claude-4.6-sonnet-medium-thinking': 'Claude 4.6 Sonnet Think',
-      'cu/gemini-3-flash-preview': 'Gemini 3 Flash',
-      'cu/kimi-k2.5': 'Kimi K2.5',
-    };
-    return displayMap[name] ?? displayMap[model] ?? name;
-  }
-  
-  // 🆕 构建历史文档卡片
-  static Widget _buildHistoryDocumentCard(DocumentInfo doc, bool isDarkMode) {
-    final config = _getDocumentConfig(doc.mimeType, doc.filename);
-    
-    return Container(
-      width: 120,
-      height: 120,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: config['gradientColors'] as List<Color>,
-        ),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.15),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          // 类型徽章
-          Positioned(
-            top: 8,
-            right: 8,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.95),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                config['type'] as String,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: config['accentColor'] as Color,
-                ),
-              ),
-            ),
-          ),
-          // 内容
-          Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // 图标
-                Text(
-                  config['icon'] as String,
-                  style: const TextStyle(fontSize: 40),
-                ),
-                const SizedBox(height: 8),
-                // 文件名
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Text(
-                    doc.filename.length > 20 ? '${doc.filename.substring(0, 20)}...' : doc.filename,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Colors.white,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-  
-  // 🆕 获取文档类型配置
-  static Map<String, dynamic> _getDocumentConfig(String mimeType, String filename) {
-    final configs = {
-      'application/pdf': {
-        'type': 'PDF',
-        'icon': 'PDF',
-        'gradientColors': [const Color(0xFFFF5252), const Color(0xFFFF8A80)],
-        'accentColor': const Color(0xFFFF5252),
-      },
-      'text/markdown': {
-        'type': 'MD',
-        'icon': 'MD',
-        'gradientColors': [const Color(0xFF4CAF50), const Color(0xFF81C784)],
-        'accentColor': const Color(0xFF4CAF50),
-      },
-      'text/html': {
-        'type': 'HTML',
-        'icon': '<>',
-        'gradientColors': [const Color(0xFFFF9800), const Color(0xFFFFB74D)],
-        'accentColor': const Color(0xFFFF9800),
-      },
-      'text/csv': {
-        'type': 'CSV',
-        'icon': 'CSV',
-        'gradientColors': [const Color(0xFF2196F3), const Color(0xFF64B5F6)],
-        'accentColor': const Color(0xFF2196F3),
-      },
-      'application/json': {
-        'type': 'JSON',
-        'icon': '{ }',
-        'gradientColors': [const Color(0xFF9C27B0), const Color(0xFFBA68C8)],
-        'accentColor': const Color(0xFF9C27B0),
-      },
-      'text/plain': {
-        'type': 'TXT',
-        'icon': 'TXT',
-        'gradientColors': [const Color(0xFF757575), const Color(0xFF9E9E9E)],
-        'accentColor': const Color(0xFF757575),
-      },
-      // Office 文档（新格式）
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': {
-        'type': 'DOCX',
-        'icon': 'W',
-        'gradientColors': [const Color(0xFF2196F3), const Color(0xFF42A5F5)],
-        'accentColor': const Color(0xFF1565C0),
-      },
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': {
-        'type': 'XLSX',
-        'icon': 'X',
-        'gradientColors': [const Color(0xFF4CAF50), const Color(0xFF66BB6A)],
-        'accentColor': const Color(0xFF2E7D32),
-      },
-      'application/vnd.openxmlformats-officedocument.presentationml.presentation': {
-        'type': 'PPTX',
-        'icon': 'P',
-        'gradientColors': [const Color(0xFFFF9800), const Color(0xFFFFA726)],
-        'accentColor': const Color(0xFFE65100),
-      },
-      // Office 文档（旧格式）
-      'application/msword': {
-        'type': 'DOC',
-        'icon': 'W',
-        'gradientColors': [const Color(0xFF2196F3), const Color(0xFF42A5F5)],
-        'accentColor': const Color(0xFF1565C0),
-      },
-      'application/vnd.ms-excel': {
-        'type': 'XLS',
-        'icon': 'X',
-        'gradientColors': [const Color(0xFF4CAF50), const Color(0xFF66BB6A)],
-        'accentColor': const Color(0xFF2E7D32),
-      },
-      'application/vnd.ms-powerpoint': {
-        'type': 'PPT',
-        'icon': 'P',
-        'gradientColors': [const Color(0xFFFF9800), const Color(0xFFFFA726)],
-        'accentColor': const Color(0xFFE65100),
-      },
-    };
-    
-    // 检查文件扩展名
-    if (filename.endsWith('.md')) {
-      return configs['text/markdown']!;
-    }
-    
-    return configs[mimeType] ?? {
-      'type': 'FILE',
-      'icon': '📎',
-      'gradientColors': [const Color(0xFF667eea), const Color(0xFF764ba2)],
-      'accentColor': const Color(0xFF667eea),
-    };
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // 对齐 Web 端气泡样式
-    final bgColor = isUser
-        ? (isDarkMode ? const Color(0xFF444654) : Constants.primaryColor)
-        : (isDarkMode ? const Color(0xFF343541) : Constants.surfaceColor);
-    final textColor = isDarkMode 
-        ? const Color(0xFFECECF1) 
-        : (isUser ? Colors.white : Constants.textPrimaryColor);
-    final iconColor = isDarkMode ? const Color(0xFF10A37F) : Constants.primaryColor;
-
-    // 安全获取 agent 信息
-    final agent = agents[agentId];
-    String agentName = 'AI';
-    IconData? agentIcon;
-
-    if (agent != null) {
-      // 安全获取 name
-      final nameValue = agent['name'];
-      if (nameValue is String) {
-        agentName = nameValue;
-      } else if (nameValue != null) {
-        agentName = nameValue.toString();
-      }
-      // 安全获取 icon
-      final iconValue = agent['icon'];
-      if (iconValue is IconData) {
-        agentIcon = iconValue;
-      }
-    }
-
-    // ✅ 提取 markdown 图片
-    final imageRegex = RegExp(r'!\[([^\]]*)\]\(([^)]+)\)');
-    final markdownImages = <Map<String, String>>[];
-    String displayContent = content;
-
-    for (final match in imageRegex.allMatches(content)) {
-      markdownImages.add({
-        'alt': match.group(1) ?? '',
-        'url': match.group(2) ?? '',
-      });
-      displayContent = displayContent.replaceAll(match.group(0)!, '');
-    }
-    
-    // ✅ 提取音频文件
-    final audioFiles = extractAudioFiles(displayContent);
-    for (final audio in audioFiles) {
-      displayContent = displayContent.replaceAll('MEDIA:$audio', '');
-    }
-
-    return Align(
-      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 3, horizontal: 4),
-        padding: const EdgeInsets.all(14),
-        constraints: const BoxConstraints(maxWidth: 400),
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(Constants.radiusMd),
-          border: isUser ? null : Border.all(
-            color: isDarkMode ? const Color(0xFF404040) : Constants.borderLight,
-            width: 0.5,
-          ),
-          boxShadow: isDarkMode 
-            ? null 
-            : [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6, offset: const Offset(0, 1))],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (!isUser)
-              Row(
-                children: [
-                  if (agentIcon != null) Icon(agentIcon, size: 16, color: iconColor),
-                  const SizedBox(width: 4),
-                  Text(
-                    agentName,
-                    style: TextStyle(color: iconColor, fontWeight: FontWeight.bold, fontSize: 12),
-                  ),
-                ],
-              ),
-            if (!isUser) const SizedBox(height: 8),
-            // 显示用户上传的图片（缩略图）
-            if (imageUrl != null && imageUrl!.isNotEmpty)
-              GestureDetector(
-                onTap: () => _showImagePreview(context, imageUrl!),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: imageUrl!.startsWith('data:')
-                      ? Image.memory(
-                          base64Decode(imageUrl!.split(',').last),
-                          width: 120,
-                          height: 120,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 48),
-                        )
-                      : Image.network(
-                          imageUrl!,
-                          width: 120,
-                          height: 120,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 48),
-                        ),
-                ),
-              ),
-            if (imageUrl != null && imageUrl!.isNotEmpty) const SizedBox(height: 8),
-            // 🆕 显示用户上传的文档
-            if (documentInfo != null)
-              _buildHistoryDocumentCard(documentInfo!, isDarkMode),
-            if (documentInfo != null) const SizedBox(height: 8),
-            // ✅ 显示 AI 生成的 markdown 图片
-            for (final img in markdownImages)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: GestureDetector(
-                  onTap: () => _showImagePreview(context, img['url']!),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.network(
-                      img['url']!,
-                      width: 250,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        width: 250,
-                        height: 150,
-                        color: Colors.grey.shade200,
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.broken_image, size: 48, color: Colors.grey),
-                              const SizedBox(height: 8),
-                              Text('图片加载失败', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            // ✅ 显示音频播放按钮
-            for (final audioPath in audioFiles)
-              _AudioPlayerWidget(
-                audioPath: audioPath,
-                serverIp: serverIp,
-                serverPort: serverPort,
-                serverToken: serverToken,
-                isDarkMode: isDarkMode,
-              ),
-            // 🆕 显示自动生成的语音（audioUrl）
-            if (audioUrl != null && audioUrl!.isNotEmpty)
-              _AudioPlayerWidget(
-                audioPath: audioUrl!,
-                serverIp: serverIp,
-                serverPort: serverPort,
-                serverToken: serverToken,
-                isDarkMode: isDarkMode,
-              ),
-            // 文件预览
-            if (!isUser && displayContent.isNotEmpty)
-              FilePreview(
-                files: FilePreview.extractFiles(displayContent),
-                serverIp: serverIp,
-                serverPort: serverPort,
-                serverToken: serverToken,
-                isDarkMode: isDarkMode,
-              ),
-            if (displayContent.trim().isNotEmpty)
-              isUser
-                ? SelectionArea(
-                    child: Text(displayContent.trim(), style: TextStyle(color: textColor, fontSize: 14, height: 1.55)),
-                  )
-                : Stack(
-                    children: [
-                      SelectionArea(
-                        child: MarkdownBody(
-                          data: displayContent.trim(),
-                          onTapLink: (text, href, title) {
-                            if (href != null) {
-                              final uri = Uri.tryParse(href);
-                              if (uri != null) {
-                                launchUrl(uri, mode: LaunchMode.externalApplication);
-                              }
-                            }
-                          },
-                    builders: {
-                      'code': _ChatCodeBlockBuilder(isDarkMode: isDarkMode),
-                    },
-                    extensionSet: md.ExtensionSet(
-                      md.ExtensionSet.gitHubFlavored.blockSyntaxes,
-                      [
-                        md.EmojiSyntax(),
-                        ...md.ExtensionSet.gitHubFlavored.inlineSyntaxes,
-                      ],
-                    ),
-                    styleSheet: MarkdownStyleSheet(
-                      p: TextStyle(
-                        color: textColor,
-                        fontSize: 14,
-                        height: 1.65,
-                      ),
-                      h1: TextStyle(
-                        color: textColor,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        height: 1.4,
-                      ),
-                      h2: TextStyle(
-                        color: textColor,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        height: 1.4,
-                      ),
-                      h3: TextStyle(
-                        color: textColor,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        height: 1.4,
-                      ),
-                      h4: TextStyle(
-                        color: textColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        height: 1.4,
-                      ),
-                      strong: TextStyle(
-                        color: textColor,
-                        fontWeight: FontWeight.w700,
-                      ),
-                      em: TextStyle(fontStyle: FontStyle.italic),
-                      a: TextStyle(
-                        color: Constants.primaryColor,
-                        decoration: TextDecoration.underline,
-                        decorationColor: Constants.primaryColor,
-                      ),
-                      code: TextStyle(
-                        color: isDarkMode ? const Color(0xFF90CAF9) : Constants.primaryColor,
-                        backgroundColor: isDarkMode ? const Color(0xFF3D3D40) : const Color(0xFFEBEDF0),
-                        fontSize: 13,
-                        fontFamily: 'SF Mono',
-                      ),
-                      codeblockDecoration: BoxDecoration(
-                        color: const Color(0xFF1E1E2E),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: isDarkMode ? const Color(0xFF3D3D40) : const Color(0xFF2D2D30),
-                          width: 0.5,
-                        ),
-                      ),
-                      codeblockPadding: const EdgeInsets.all(12),
-                      blockquote: TextStyle(
-                        color: isDarkMode ? const Color(0xFF9CA3AF) : Constants.textSecondaryColor,
-                        fontSize: 14,
-                        height: 1.55,
-                      ),
-                      blockquoteDecoration: BoxDecoration(
-                        color: isDarkMode ? const Color(0xFF2D2D30) : const Color(0xFFF5F5F5),
-                        borderRadius: const BorderRadius.only(
-                          topRight: Radius.circular(8),
-                          bottomRight: Radius.circular(8),
-                        ),
-                        border: Border(
-                          left: BorderSide(
-                            color: Constants.primaryColor,
-                            width: 3,
-                          ),
-                        ),
-                      ),
-                      blockquotePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      listBullet: TextStyle(
-                        color: isDarkMode ? const Color(0xFF9CA3AF) : Constants.textSecondaryColor,
-                        fontSize: 14,
-                      ),
-                      listIndent: 20,
-                      listBulletPadding: const EdgeInsets.only(top: 4, bottom: 4),
-                      tableBody: TextStyle(
-                        color: textColor,
-                        fontSize: 13,
-                        height: 1.45,
-                      ),
-                      tableHead: TextStyle(
-                        color: textColor,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      tableBorder: TableBorder.all(
-                        color: isDarkMode ? const Color(0xFF3D3D40) : const Color(0xFFE5E5E5),
-                        width: 0.5,
-                      ),
-                      tableCellsPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                      horizontalRuleDecoration: BoxDecoration(
-                        border: Border(
-                          top: BorderSide(
-                            color: isDarkMode ? const Color(0xFF3D3D40) : const Color(0xFFE5E5E5),
-                            width: 0.5,
-                          ),
-                        ),
-                      ),
-                    ),
-                        ),
-                      ),
-                      // 复制按钮
-                      Positioned(
-                        top: 0,
-                        right: 0,
-                        child: _BubbleCopyButton(
-                          text: displayContent.trim(),
-                          isDarkMode: isDarkMode,
-                        ),
-                      ),
-                    ],
-                  ),
-            // 🆕 模型信息标签（仅 AI 消息显示）
-            if (!isUser && modelInfo != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Container(
-                  decoration: BoxDecoration(
-                    border: Border(top: BorderSide(color: Colors.black.withOpacity(0.04))),
-                  ),
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF10a37f).withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          _formatModelName(modelInfo!['model']?.toString() ?? 'auto'),
-                          style: const TextStyle(
-                            color: Color(0xFF10a37f),
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      if (modelInfo!['inputTokens'] != null) ...[
-                        const SizedBox(width: 6),
-                        Text(
-                          '↑${modelInfo!['inputTokens']} ↓${modelInfo!['outputTokens'] ?? 0}',
-                          style: TextStyle(
-                            color: isDarkMode ? Colors.grey.shade500 : Colors.grey.shade400,
-                            fontSize: 10,
-                            fontFeatures: const [FontFeature.tabularFigures()],
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ✅ 音频播放组件
-class _AudioPlayerWidget extends StatefulWidget {
-  final String audioPath;
-  final String? serverIp;
-  final int? serverPort;
-  final String? serverToken;
-  final bool isDarkMode;
-
-  const _AudioPlayerWidget({
-    required this.audioPath,
-    this.serverIp,
-    this.serverPort,
-    this.serverToken,
-    this.isDarkMode = false,
-  });
-
-  @override
-  State<_AudioPlayerWidget> createState() => _AudioPlayerWidgetState();
-}
-
-class _AudioPlayerWidgetState extends State<_AudioPlayerWidget> {
-  bool _isPlaying = false;
-  bool _isLoading = false;
-  String? _error;
-  Duration _duration = Duration.zero;
-  Duration _position = Duration.zero;
-  
-  // 单例音频播放器
-  static final AudioPlayer _audioPlayer = AudioPlayer();
-  
-  // 格式化时间为 mm:ss
-  String _formatDuration(Duration duration) {
-    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return '$minutes:$seconds';
-  }
-  
-  String get _audioUrl {
-    // 构建音频 URL
-    if (widget.audioPath.startsWith('http')) {
-      return widget.audioPath;
-    }
-    
-    // 如果有用户服务器信息，使用用户的 file-server (端口 9876)
-    if (widget.serverIp != null && widget.serverIp!.isNotEmpty) {
-      // 文件路径如 /tmp/openclaw/tts-xxx/voice.mp3 或 /root/.openclaw/tts-xxx/voice.mp3
-      final port = widget.serverPort ?? 9876;
-      final token = widget.serverToken ?? '';
-      debugPrint('🔊 使用用户服务器: ${widget.serverIp}:$port');
-      return 'http://${widget.serverIp}:$port/preview?path=${Uri.encodeComponent(widget.audioPath)}&token=$token';
-    }
-    
-    // 否则使用灵犀云后端的 TTS 代理 API（主服务器）
-    // 尝试多个可能的文件服务器
-    const backendIp = 'lumeword.cn';
-    const backendPort = 3000;
-    
-    debugPrint('🔊 使用主服务器代理: $backendIp:$backendPort');
-    return 'http://$backendIp:$backendPort/api/files/tts?path=${Uri.encodeComponent(widget.audioPath)}';
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    
-    // 监听播放完成
-    _audioPlayer.onPlayerComplete.listen((_) {
-      if (mounted) {
-        setState(() {
-          _isPlaying = false;
-          _position = Duration.zero;
-        });
-      }
-    });
-    
-    // 监听音频时长
-    _audioPlayer.onDurationChanged.listen((duration) {
-      if (mounted) {
-        setState(() => _duration = duration);
-      }
-    });
-    
-    // 监听播放进度
-    _audioPlayer.onPositionChanged.listen((position) {
-      if (mounted) {
-        setState(() => _position = position);
-      }
-    });
-    
-    // 监听播放错误
-    _audioPlayer.onLog.listen((msg) {
-      debugPrint('🔊 AudioPlayer log: $msg');
-    });
-  }
-
-  Future<void> _togglePlay() async {
-    if (_isPlaying) {
-      await _audioPlayer.stop();
-      setState(() => _isPlaying = false);
-    } else {
-      setState(() {
-        _isLoading = true;
-        _error = null;
-      });
-      
-      try {
-        debugPrint('🔊 播放音频: $_audioUrl');
-        
-        // 设置音频源
-        await _audioPlayer.setSource(UrlSource(_audioUrl));
-        
-        // 播放
-        await _audioPlayer.resume();
-        
-        setState(() {
-          _isPlaying = true;
-          _isLoading = false;
-        });
-      } catch (e) {
-        debugPrint('❌ 播放失败: $e');
-        setState(() {
-          _isLoading = false;
-          _error = '播放失败: ${e.toString().split('\n').first}';
-          _isPlaying = false;
-        });
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final bgColor = widget.isDarkMode ? const Color(0xFF424454) : Colors.grey.shade200;
-    final iconColor = widget.isDarkMode ? const Color(0xFF10A37F) : Constants.primaryColor;
-    
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // 播放/停止按钮
-          GestureDetector(
-            onTap: _isLoading ? null : _togglePlay,
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: iconColor,
-                shape: BoxShape.circle,
-              ),
-              child: _isLoading
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : Icon(
-                      _isPlaying ? Icons.stop : Icons.play_arrow,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          // 音频信息和进度
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '语音消息',
-                        style: TextStyle(
-                          color: widget.isDarkMode ? const Color(0xFFECECF1) : Colors.black87,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    // 时间显示
-                    Text(
-                      '${_formatDuration(_position)} / ${_formatDuration(_duration)}',
-                      style: TextStyle(
-                        color: widget.isDarkMode ? Colors.white70 : Colors.black54,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-                // 进度条
-                if (_duration.inSeconds > 0)
-                  Container(
-                    height: 3,
-                    margin: const EdgeInsets.only(top: 4),
-                    decoration: BoxDecoration(
-                      color: widget.isDarkMode ? Colors.white24 : Colors.black12,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                    child: FractionallySizedBox(
-                      alignment: Alignment.centerLeft,
-                      widthFactor: _position.inMilliseconds / _duration.inMilliseconds,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: iconColor,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                  ),
-                // 错误信息
-                if (_error != null)
-                  Text(
-                    _error!,
-                    style: const TextStyle(color: Colors.red, fontSize: 10),
-                  ),
-              ],
-            ),
-          ),
-          if (_isPlaying) ...[
-            const SizedBox(width: 12),
-            // 播放动画
-            const SizedBox(
-              width: 24,
-              height: 16,
-              child: _AudioWaveAnimation(),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-// 音频波形动画
-class _AudioWaveAnimation extends StatefulWidget {
-  const _AudioWaveAnimation();
-
-  @override
-  State<_AudioWaveAnimation> createState() => _AudioWaveAnimationState();
-}
-
-class _AudioWaveAnimationState extends State<_AudioWaveAnimation>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 500),
-      vsync: this,
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: List.generate(3, (i) {
-            return Container(
-              width: 3,
-              height: 8 + (_controller.value * 8),
-              decoration: BoxDecoration(
-                color: Constants.primaryColor,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            );
-          }),
-        );
-      },
-    );
-  }
-}
-
-// 旋转进度画笔（停止按钮外圈动画）
-class _SpinProgressPainter extends CustomPainter {
-  final double progress;
-  final Color color;
-  final double strokeWidth;
-  
-  _SpinProgressPainter({
-    required this.progress,
-    required this.color,
-    this.strokeWidth = 2.5,
-  });
-  
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = (size.width - strokeWidth) / 2;
-    
-    // 背景圆（浅色）
-    final bgPaint = Paint()
-      ..color = color.withOpacity(0.15)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
-    canvas.drawCircle(center, radius, bgPaint);
-    
-    // 前景弧（旋转）
-    final fgPaint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
-    
-    final startAngle = progress * 2 * 3.14159265; // 旋转起点
-    const sweepAngle = 3.14159265 * 1.2; // 约 216 度弧
-    
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      startAngle,
-      sweepAngle,
-      false,
-      fgPaint,
-    );
-  }
-  
-  @override
-  bool shouldRepaint(covariant _SpinProgressPainter old) => old.progress != progress;
-}
-
-// 🆕 技能 Tag 数据类
-class _SkillTag {
-  final String id;
-  final String name;
-  _SkillTag({required this.id, required this.name});
-}
-
-/// 持续旋转的圆环（豆包风格停止按钮外圈）
-class _SpinningRing extends StatefulWidget {
-  final Color color;
-  final double strokeWidth;
-  final double size;
-  const _SpinningRing({required this.color, this.strokeWidth = 2.5, this.size = 32});
-  @override
-  State<_SpinningRing> createState() => _SpinningRingState();
-}
-
-class _SpinningRingState extends State<_SpinningRing> with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1500))
-      ..repeat(); // 持续循环
-  }
-  @override
-  void dispose() { _ctrl.dispose(); super.dispose(); }
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (_, __) => CustomPaint(
-        size: Size(widget.size, widget.size),
-        painter: _SpinProgressPainter(
-          progress: _ctrl.value,
-          color: widget.color,
-          strokeWidth: widget.strokeWidth,
-        ),
-      ),
-    );
-  }
-}
-
-/// 自定义代码块渲染器（chat_page 内用）
-class _ChatCodeBlockBuilder extends MarkdownElementBuilder {
-  final bool isDarkMode;
-  _ChatCodeBlockBuilder({required this.isDarkMode});
-
-  @override
-  Widget? visitElementAfterWithContext(
-    BuildContext context,
-    md.Element element,
-    TextStyle? _,
-    TextStyle? __,
-  ) {
-    final code = element.textContent;
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E1E2E),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: isDarkMode ? const Color(0xFF3D3D40) : const Color(0xFF2D2D30),
-          width: 0.5,
-        ),
-      ),
-      child: SelectableText(
-        code,
-        style: const TextStyle(
-          color: Color(0xFFCDD6F4),
-          fontFamily: 'SF Mono',
-          fontSize: 12.5,
-          height: 1.6,
-        ),
-      ),
-    );
-  }
-}
-
-/// 气泡复制按钮
-class _BubbleCopyButton extends StatefulWidget {
-  final String text;
-  final bool isDarkMode;
-
-  const _BubbleCopyButton({required this.text, required this.isDarkMode});
-
-  @override
-  State<_BubbleCopyButton> createState() => _BubbleCopyButtonState();
-}
-
-class _BubbleCopyButtonState extends State<_BubbleCopyButton> {
-  bool _copied = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = widget.isDarkMode
-        ? Colors.white.withOpacity(0.4)
-        : Colors.black54;
-    return GestureDetector(
-      onTap: () async {
-        await Clipboard.setData(ClipboardData(text: widget.text));
-        setState(() => _copied = true);
-        if (mounted) {
-          Future.delayed(const Duration(seconds: 2), () {
-            if (mounted) setState(() => _copied = false);
-          });
-        }
-      },
-      child: Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: widget.isDarkMode
-              ? Colors.white.withOpacity(0.05)
-              : Colors.black.withOpacity(0.03),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Icon(
-          _copied ? Icons.check : Icons.copy,
-          size: 14,
-          color: color,
-        ),
-      ),
-    );
-  }
-}
