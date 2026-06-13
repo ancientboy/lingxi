@@ -55,6 +55,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   final _scrollController = ScrollController();
   bool _showScrollToBottom = false;
   
+  // 🚀 流式渲染优化：throttle + 批量更新
+  String? _streamingBlockId;  // 当前流式消息的 blockId
+  String _pendingStreamContent = '';  // 待刷新的流式内容
+  Timer? _streamThrottleTimer;  // throttle 定时器
+  bool _streamDirty = false;  // 是否有未刷新的内容
+  static const Duration _streamThrottleDuration = Duration(milliseconds: 50);
+  
   // 🆕 技能 tags 管理
   final List<SkillTag> _skillTags = [];
   static const int _maxSkillTags = 3;
@@ -395,11 +402,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     return lume.isConnected ? (lume.sessionPrefix ?? ws.sessionPrefix) : ws.sessionPrefix;
   }
 
-  String? _resolveTargetSessionKey(WebSocketService ws) {
+  String? _resolveTargetSessionKey() {
     final lume = LumeWebSocketService();
-    final prefix = lume.isConnected ? (lume.sessionPrefix ?? ws.sessionPrefix) : ws.sessionPrefix;
+    final prefix = lume.sessionPrefix;
     if (prefix == null || prefix.isEmpty) {
-      debugPrint('❌ sessionPrefix 未就绪，请等待 Gateway 连接完成');
+      debugPrint('❌ Lume sessionPrefix 未就绪');
       return null;
     }
     if (_isValidSessionKey(_currentSessionKey)) {
@@ -867,6 +874,38 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
 
 
+  /// 增量更新单个 session（来自 sessions.updated 事件）
+  void _incrementalUpdateSession(Map<String, dynamic>? payload) {
+    if (payload == null) return;
+    final sessionKey = payload['sessionKey']?.toString();
+    if (sessionKey == null || sessionKey.isEmpty) return;
+    final timestamp = payload['timestamp'] as int? ?? DateTime.now().millisecondsSinceEpoch;
+    final preview = payload['lastMessagePreview']?.toString();
+
+    // 尝试在现有列表中找到并更新
+    final index = _sessions.indexWhere((s) => s['key'] == sessionKey);
+    if (index >= 0) {
+      setState(() {
+        _sessions[index]['timestamp'] = timestamp;
+        _sessions[index]['relativeTime'] = _formatRelativeTime(timestamp);
+        if (preview != null && preview.isNotEmpty) {
+          _sessions[index]['lastMessagePreview'] = preview;
+        }
+        // 移到列表顶部（最近活跃）
+        final updated = _sessions.removeAt(index);
+        _sessions.insert(0, updated);
+      });
+    } else {
+      // 不在列表中 → 全量刷新作为 fallback
+      debugPrint('📋 session 不在本地列表，触发全量刷新');
+      _fetchAndApplySessions(
+        epoch: DeviceSwitchManager.instance.deviceEpoch,
+      ).catchError((e) {
+        debugPrint('❌ sessions.updated fallback 刷新失败: $e');
+      });
+    }
+  }
+
   Future<bool> _fetchAndApplySessions({int? epoch}) async {
     final e = epoch ?? DeviceSwitchManager.instance.deviceEpoch;
     final list = await SessionRepository.fetchSessions(epoch: e);
@@ -1175,10 +1214,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         return;
       }
       if (data['type'] == 'event' && data['event'] == 'sessions.updated') {
-        debugPrint('📋 [Lume] sessions.updated → 刷新会话列表');
-        _fetchAndApplySessions(epoch: DeviceSwitchManager.instance.deviceEpoch).catchError((e) {
-          debugPrint('❌ sessions.updated 刷新失败: $e');
-        });
+        debugPrint('📋 [Lume] sessions.updated → 增量更新会话');
+        _incrementalUpdateSession(data['payload'] as Map<String, dynamic>?);
         return;
       }
       if (data['type'] == 'event' && data['event'] == 'chat') {
@@ -1252,15 +1289,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       setState(() { _isGenerating = true; });
       if (text.isNotEmpty && runId.isNotEmpty) {
         final blockId = runId;
-        setState(() {
-          final idx = _messages.indexWhere((m) => m.id == blockId);
-          if (idx >= 0) {
-            _messages[idx] = _messages[idx].copyWith(content: text);
-          } else {
-            _messages.add(Message(id: blockId, role: 'assistant', content: text, createdAt: DateTime.now(), agentId: _currentAgent));
-          }
-        });
-        _scrollToBottom();
+        _onStreamDelta(blockId, text);
       }
       return;
     }
@@ -1291,8 +1320,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         return;
       }
       final msgId = runId.isNotEmpty ? runId : DateTime.now().millisecondsSinceEpoch.toString();
+      _onStreamEnd();
       setState(() {
         _isGenerating = false;
+        _streamingBlockId = null;
         _queuePosition = 0;
         _queueTotal = 0;
         if (finalText.isNotEmpty) {
@@ -1453,6 +1484,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           setState(() { _queuePosition = 0; _queueTotal = 0; _isGenerating = true; });
           if (state == 'block' && blockText.isNotEmpty) {
             final blockId = runId.isNotEmpty ? runId : 'lume-stream';
+            _streamingBlockId = blockId;
             setState(() {
               final idx = _messages.indexWhere((m) => m.id == blockId);
               if (idx >= 0) {
@@ -1488,34 +1520,14 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           
           final audioUrl = payload['audio_url']?.toString();  // 🆕 提取音频 URL
           if (text != null && runId != null && runId.isNotEmpty) {
-            setState(() {
+            _onStreamDelta(runId, text);
+            // 保存 audioUrl 到现有消息（不触发 setState）
+            if (audioUrl != null && audioUrl.isNotEmpty) {
               final existingIndex = _messages.indexWhere((m) => m.id == runId);
               if (existingIndex >= 0) {
-                final old = _messages[existingIndex];
-                _messages[existingIndex] = Message(
-                  id: runId,
-                  role: 'assistant',
-                  content: text,
-                  createdAt: old.createdAt,  // 保留原始时间
-                  agentId: _currentAgent,
-                  audioUrl: audioUrl ?? old.audioUrl,  // 保留音频
-                  imageUrl: old.imageUrl,  // 保留图片
-                  documentInfo: old.documentInfo,  // 保留文档
-                  modelInfo: old.modelInfo,  // 保留模型信息
-                );
-              } else {
-                _messages.add(Message(
-                  id: runId,
-                  role: 'assistant',
-                  content: text,
-                  createdAt: DateTime.now(),
-                  agentId: _currentAgent,
-                  audioUrl: audioUrl,  // 保留音频
-                  modelInfo: null,  // final 阶段填充
-                ));
+                _messages[existingIndex] = _messages[existingIndex].copyWith(audioUrl: audioUrl);
               }
-            });
-            _scrollToBottom();
+            }
           }
         } else if (state == 'final') {
           // 🚫 过滤心跳/系统消息
@@ -1532,8 +1544,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               ? runId
               : (payload['messageId']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString());
           
+          _onStreamEnd();
           setState(() {
             _isGenerating = false;
+            _streamingBlockId = null;
             _queuePosition = 0;
             _queueTotal = 0;
             
@@ -1671,16 +1685,55 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     return null;
   }
 
-  void _scrollToBottom() {
+  void _scrollToBottom({bool instant = false}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
+        if (instant) {
+          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+        } else {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
       }
     });
+  }
+  
+  // 🚀 流式渲染优化：批量刷新 UI（50ms throttle）
+  void _flushStreamUpdate() {
+    if (!_streamDirty || _streamingBlockId == null) return;
+    _streamDirty = false;
+    final content = _pendingStreamContent;
+    final blockId = _streamingBlockId!;
+    setState(() {
+      final idx = _messages.indexWhere((m) => m.id == blockId);
+      if (idx >= 0) {
+        _messages[idx] = _messages[idx].copyWith(content: content);
+      } else {
+        _messages.add(Message(id: blockId, role: 'assistant', content: content, createdAt: DateTime.now(), agentId: _currentAgent));
+      }
+    });
+    _scrollToBottom(instant: true);
+  }
+  
+  // 🚀 流式渲染优化：接收 delta 时 throttle 刷新
+  void _onStreamDelta(String blockId, String content) {
+    _streamingBlockId = blockId;
+    _pendingStreamContent = content;
+    _streamDirty = true;
+    _isGenerating = true;
+    _streamThrottleTimer?.cancel();
+    _streamThrottleTimer = Timer(_streamThrottleDuration, () {
+      if (mounted) _flushStreamUpdate();
+    });
+  }
+  
+  // 🚀 流式渲染优化：流结束时立即刷新
+  void _onStreamEnd() {
+    _streamThrottleTimer?.cancel();
+    if (mounted) _flushStreamUpdate();
   }
 
   // ===== 语音识别功能（录音 + 后端阿里云识别）=====
@@ -2281,6 +2334,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     // 🔔 移除生命周期监听器
     WidgetsBinding.instance.removeObserver(this);
 
+    _streamThrottleTimer?.cancel();
     _gatewaySessionDeferTimer?.cancel();
     try {
       if (_wsListener != null) {
@@ -2967,23 +3021,21 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     
     final user = Provider.of<AppProvider>(context, listen: false).user;
     final userId = user?.id;
-    final ws = WebSocketService();
-    
-    // 判断是否能走 WebSocket
+    // 统一消息通道：Lume WS 优先，不可用降级 HTTP
     final lumeWs = LumeWebSocketService();
-    final canUseWs = userId != null && (ws.isConnected || lumeWs.isConnected);
+    final canUseLume = userId != null && lumeWs.isConnected;
     
-    debugPrint('📤 发送消息: text="${text.length > 20 ? text.substring(0, 20) : text}", canUseWs=$canUseWs');
+    debugPrint('📤 发送消息: text="${text.length > 20 ? text.substring(0, 20) : text}", canUseLume=$canUseLume');
     
-    if (!canUseWs) {
-      // WebSocket 不可用 → HTTP 路径（所有用户都可用）
-      debugPrint('📋 WebSocket 不可用，走 HTTP 路径');
-      _clearSkillTags();  // 🆕 发送前先清除 tags
+    if (!canUseLume) {
+      // Lume WS 不可用 → HTTP 路径（所有用户统一降级）
+      debugPrint('📋 Lume 不可用，走 HTTP 路径');
+      _clearSkillTags();
       _sendMessageForFreeUser(text, hasImage);
       return;
     }
     
-    debugPrint('📋 走 WebSocket 路径');
+    debugPrint('📋 走 Lume WS 路径');
 
     _controller.clear();
     _clearSkillTags();  // 🆕 发送后清除 tags
@@ -3024,7 +3076,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     
     _scrollToBottom();
 
-    final targetSessionKey = _resolveTargetSessionKey(ws);
+    final targetSessionKey = _resolveTargetSessionKey();
     if (targetSessionKey == null) {
       setState(() {
         _isGenerating = false;
@@ -3071,7 +3123,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     debugPrint('📤 完整参数: $params');
     final lume = LumeWebSocketService();
     if (lume.isConnected) {
-      debugPrint('📤 通过 Lume 插件发送');
+      debugPrint('📤 通过 Lume WS 发送');
       lume.sendMessage(
         text.isNotEmpty ? text : '请识别这张图片',
         agentId: _currentAgent,
@@ -3079,8 +3131,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         attachments: params['attachments'] as List<Map<String, dynamic>>?,
       );
     } else {
-      debugPrint('📤 通过 Gateway 发送');
-      ws.sendRequest('chat.send', params);
+      // Gateway WS fallback 已废弃，降级到 HTTP 路径
+      debugPrint('📤 Lume 不可用，降级 HTTP 发送');
+      _clearPendingImage();
+      _sendMessageForFreeUser(text, hasImage);
+      return;
     }
     
     // 🆕 自动更新 session label（如果是第一条消息或有意义的消息）
@@ -5724,6 +5779,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                         child: ListView.builder(
                           controller: _scrollController,
                           padding: const EdgeInsets.only(bottom: 16),
+                          addAutomaticKeepAlives: true,
+                          addRepaintBoundaries: true,
                           itemCount: _messages.length + (_isGenerating ? 1 : 0),
                           itemBuilder: (context, i) {
                             try {
@@ -5738,19 +5795,22 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                                       ? msgAgentId.toString() 
                                       : _currentAgent;
                               
-                              return MessageBubble(
-                                content: _messages[i].content,
-                                isUser: _messages[i].role == 'user',
-                                agentId: safeAgentId,
-                                agents: _agents,
-                                isDarkMode: isDarkMode,
-                                imageUrl: _messages[i].imageUrl,
-                                audioUrl: _messages[i].audioUrl,
-                                documentInfo: _messages[i].documentInfo,  // 🆕 传递文档信息
-                                modelInfo: _messages[i].modelInfo,  // 🆕 传递模型信息
-                                serverIp: _userServerIp,
-                                serverPort: _userServerPort,
-                                serverToken: _userServerToken,
+                              return RepaintBoundary(
+                                child: MessageBubble(
+                                  key: ValueKey<String>(_messages[i].id),
+                                  content: _messages[i].content,
+                                  isUser: _messages[i].role == 'user',
+                                  agentId: safeAgentId,
+                                  agents: _agents,
+                                  isDarkMode: isDarkMode,
+                                  imageUrl: _messages[i].imageUrl,
+                                  audioUrl: _messages[i].audioUrl,
+                                  documentInfo: _messages[i].documentInfo,  // 🆕 传递文档信息
+                                  modelInfo: _messages[i].modelInfo,  // 🆕 传递模型信息
+                                  serverIp: _userServerIp,
+                                  serverPort: _userServerPort,
+                                  serverToken: _userServerToken,
+                                ),
                               );
                             } catch (e, stack) {
                               debugPrint('❌ 构建 MessageBubble 失败: $e');
