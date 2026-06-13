@@ -33,6 +33,11 @@ class LumeWebSocketService {
   String _lastError = '';
   bool _lumeAvailable = true;
   String? _fallbackMessage;
+
+  // ── 离线消息队列 ──
+  final List<Map<String, dynamic>> _offlineQueue = [];
+  static const int _maxOfflineQueue = 20;
+  DateTime? _lastDisconnectTime;
   Completer<bool>? _authCompleter;  // 🔧 等 auth 握手完成
 
   Future<void> connect() async {
@@ -163,6 +168,7 @@ class LumeWebSocketService {
         final was = _isConnected;
         _isConnected = false;
         _isConnecting = false;
+        if (was) _lastDisconnectTime = DateTime.now();
         _authCompleter?.complete(false);
         _notify({'type': 'status', 'status': 'disconnected'});
         if (was) _scheduleReconnect();
@@ -249,6 +255,8 @@ class LumeWebSocketService {
         }
         _notify({'type': 'connected'});
         _startHeartbeat();
+        // 重连成功后 flush 离线队列
+        _flushOfflineQueue();
         return;
       }
       if (data['payload']?['pong'] == true) return;
@@ -335,15 +343,49 @@ class LumeWebSocketService {
     String? sessionKey,
     List<Map<String, dynamic>>? attachments,
   }) {
-    if (!_isConnected || _channel == null) return;
     final params = <String, dynamic>{'message': content, 'agentId': agentId ?? 'main'};
     if (sessionKey != null && sessionKey.isNotEmpty) params['sessionKey'] = sessionKey;
     if (attachments != null && attachments.isNotEmpty) params['attachments'] = attachments;
+
+    if (!_isConnected || _channel == null) {
+      // 离线队列：缓存消息，重连后 flush
+      if (_offlineQueue.length < _maxOfflineQueue) {
+        _offlineQueue.add({'params': params, 'timestamp': DateTime.now().millisecondsSinceEpoch});
+        debugPrint('📥 [Lume] 离线队列缓存消息 (${_offlineQueue.length}/$_maxOfflineQueue)');
+      } else {
+        debugPrint('⚠️ [Lume] 离线队列已满，丢弃消息');
+      }
+      return;
+    }
+    _sendChat(params);
+  }
+
+  void _sendChat(Map<String, dynamic> params) {
     _channel!.sink.add(json.encode({
       'id': 'chat-${DateTime.now().millisecondsSinceEpoch}',
       'method': 'chat.send',
       'params': params,
     }));
+  }
+
+  /// 重连成功后 flush 离线队列
+  void _flushOfflineQueue() {
+    if (_offlineQueue.isEmpty) return;
+    debugPrint('📤 [Lume] Flush 离线队列: ${_offlineQueue.length} 条消息');
+    final queued = List<Map<String, dynamic>>.from(_offlineQueue);
+    _offlineQueue.clear();
+    for (final item in queued) {
+      final params = item['params'] as Map<String, dynamic>;
+      // 加小延迟避免服务端过载
+      Future.delayed(Duration(milliseconds: 200), () {
+        if (_isConnected && _channel != null) {
+          _sendChat(params);
+        } else {
+          // 又断了，放回队列
+          _offlineQueue.add(item);
+        }
+      });
+    }
   }
 
   /// 切换设备后重新探测并连接

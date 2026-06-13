@@ -1,9 +1,9 @@
 /**
- * Lume WebSocket WSS 代理 — 设备热切换版
+ * Lume WebSocket WSS 代理 — 多设备并发 + 离线消息缓冲
  *
- * 客户端保持一个长连接，proxy 内部按 device.switch 切换后端。
- * 切换流程：Flutter 发 device.switch → proxy 断开旧后端 → 连新后端 → auth → 响应 OK
- * 之后 sessions.list / chat.history 等自动走新设备。
+ * - 每个前端连接独立管理后端连接（支持同 userId 多设备并发）
+ * - device.switch 只影响当前连接，不干扰同 userId 的其他连接
+ * - 前端断开时后端保留 30s，期间消息缓存（上限 50 条），重连时 flush
  */
 
 import expressWs from "express-ws";
@@ -19,6 +19,12 @@ const LUME_SECRET = process.env.LUME_WS_SECRET || "lume-secret-2026";
 const CONNECT_TIMEOUT_MS = 15_000;
 const AUTH_TIMEOUT_MS = 10_000;
 const IDLE_TIMEOUT_MS = 10 * 60 * 1000;
+const RECONNECT_TIMEOUT_MS = 30_000;
+const MAX_PENDING_MESSAGES = 50;
+
+// ── 全局重连缓存 ──
+// userId → { targetWs, pendingMessages: string[], currentServerId, timer }
+const reconnectCache = new Map();
 
 export function setupLumeWebSocketProxy(app) {
   expressWs(app);
@@ -82,6 +88,41 @@ export function setupLumeWebSocketProxy(app) {
       if (clientWs.readyState === WebSocket.OPEN) {
         clientWs.send(typeof data === "string" ? data : JSON.stringify(data));
       }
+    };
+
+    // ── 后端消息转发（用于复用已 auth 的连接）──
+
+    const bindTargetForwarding = (ws) => {
+      ws.on("message", (data) => {
+        resetIdleTimer();
+        const raw = data.toString();
+        try {
+          const parsed = JSON.parse(raw);
+          if (parsed.type === "event" && parsed.event === "health.status") return;
+        } catch (_) {}
+        sendToClient(raw);
+      });
+
+      ws.on("error", (err) => {
+        console.error(`❌ [Lume-WS] ${userId?.substring(0, 8)} target error:`, err.message);
+        if (!switchCallback) {
+          sendToClient({ type: "error", error: "Lume 连接异常" });
+          cleanupAll();
+          if (clientWs.readyState === WebSocket.OPEN) {
+            clientWs.close(1011, "target error");
+          }
+        }
+      });
+
+      ws.on("close", (code) => {
+        if (!switchCallback) {
+          sendToClient({ type: "error", error: "Lume 连接断开" });
+          cleanupAll();
+          if (clientWs.readyState === WebSocket.OPEN) {
+            clientWs.close(1000, "target closed");
+          }
+        }
+      });
     };
 
     // ── 连接到后端 Lume ──
@@ -402,14 +443,45 @@ export function setupLumeWebSocketProxy(app) {
 
       resetIdleTimer();
 
-      // 连接到活跃设备的 Lume
-      connectToTarget(host, (err) => {
-        if (err) {
-          console.error(`❌ [Lume-WS] 初始连接失败: ${err.message}`);
-          sendToClient({ type: "error", error: `初始连接失败: ${err.message}` });
-          // 不关闭客户端连接，允许发 device.switch 重试
+      // 检查重连缓存 — 复用 30s 内的后端连接
+      const cached = reconnectCache.get(userId);
+      if (cached && cached.targetWs?.readyState === WebSocket.OPEN) {
+        // ✅ 复用后端连接
+        targetWs = cached.targetWs;
+        targetReady = true;
+        currentServerId = cached.currentServerId;
+
+        if (cached.timer) clearTimeout(cached.timer);
+        reconnectCache.delete(userId);
+
+        // 重新绑定监听器（指向当前 clientWs）
+        targetWs.removeAllListeners();
+        bindTargetForwarding(targetWs);
+
+        // Flush pending messages
+        const pending = cached.pendingMessages;
+        for (const raw of pending) {
+          sendToClient(raw);
         }
-      });
+
+        console.log(`♻️ [Lume-WS] ${userId?.substring(0, 8)} 重连复用后端，flush ${pending.length} 条消息`);
+      } else {
+        // 清理无效缓存
+        if (cached) {
+          if (cached.timer) clearTimeout(cached.timer);
+          try { cached.targetWs?.removeAllListeners(); cached.targetWs?.close(); } catch (_) {}
+          reconnectCache.delete(userId);
+        }
+
+        // 正常连接到活跃设备的 Lume
+        connectToTarget(host, (err) => {
+          if (err) {
+            console.error(`❌ [Lume-WS] 初始连接失败: ${err.message}`);
+            sendToClient({ type: "error", error: `初始连接失败: ${err.message}` });
+            // 不关闭客户端连接，允许发 device.switch 重试
+          }
+        });
+      }
 
       // ── 客户端消息路由 ──
 
@@ -471,11 +543,69 @@ export function setupLumeWebSocketProxy(app) {
 
       clientWs.on("close", () => {
         console.log(`👋 [Lume-WS] ${userId?.substring(0, 8)} 客户端断开`);
-        cleanupAll();
+        // 清理 idle / switch 状态（不影响后端连接）
+        if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
+        switchCallback = null;
+
+        // 后端连接就绪 → 缓存 30s 等重连
+        if (targetWs?.readyState === WebSocket.OPEN && targetReady) {
+          // 清理同 userId 的旧缓存条目（多设备场景）
+          const existing = reconnectCache.get(userId);
+          if (existing) {
+            if (existing.timer) clearTimeout(existing.timer);
+            try { existing.targetWs.removeAllListeners(); existing.targetWs.close(); } catch (_) {}
+          }
+
+          const pending = [];
+          const wsRef = targetWs;
+          targetWs.removeAllListeners();
+          // 缓冲模式：后端消息存入 pending
+          targetWs.on("message", (data) => {
+            const raw = data.toString();
+            try {
+              const parsed = JSON.parse(raw);
+              if (parsed.type === "event" && parsed.event === "health.status") return;
+            } catch (_) {}
+            if (pending.length < MAX_PENDING_MESSAGES) pending.push(raw);
+          });
+          targetWs.on("error", () => {
+            // 静默：close handler 会清理
+          });
+          targetWs.on("close", () => {
+            const entry = reconnectCache.get(userId);
+            if (entry && entry.targetWs === wsRef) {
+              if (entry.timer) clearTimeout(entry.timer);
+              reconnectCache.delete(userId);
+            }
+          });
+
+          const reconnectTimer = setTimeout(() => {
+            console.log(`⏰ [Lume-WS] ${userId?.substring(0, 8)} 重连超时，关闭后端`);
+            try { wsRef.removeAllListeners(); wsRef.close(); } catch (_) {}
+            reconnectCache.delete(userId);
+          }, RECONNECT_TIMEOUT_MS);
+
+          reconnectCache.set(userId, {
+            targetWs: wsRef,
+            pendingMessages: pending,
+            currentServerId,
+            timer: reconnectTimer,
+          });
+
+          // 清除本地引用（防止其他 timer 引用旧连接）
+          targetWs = null;
+          targetReady = false;
+
+          console.log(`📦 [Lume-WS] ${userId?.substring(0, 8)} 后端缓存 ${RECONNECT_TIMEOUT_MS / 1000}s`);
+        } else {
+          // 后端未就绪，直接清理
+          cleanupTarget();
+        }
       });
 
-      clientWs.on("error", () => {
-        cleanupAll();
+      clientWs.on("error", (err) => {
+        console.error(`❌ [Lume-WS] ${userId?.substring(0, 8)} client error:`, err?.message);
+        // close handler 会处理缓存/清理
       });
 
     } catch (err) {
