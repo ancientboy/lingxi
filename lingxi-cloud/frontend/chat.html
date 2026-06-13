@@ -1754,7 +1754,7 @@
           <div class="input-tools-right">
             <button class="model-pill" onclick="toggleModelDropdown()">
               <span class="model-dot"></span>
-              <span id="currentModelName">GLM-5.1</span>
+              <span id="currentModelName">GLM-5.2</span>
               <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" style="opacity:0.4;"><path d="M2.5 3.75L5 6.25L7.5 3.75" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
             </button>
           </div>
@@ -3204,7 +3204,7 @@
       const names = {
         'auto': 'Auto',
         'ocg/deepseek-v4-pro': 'DeepSeek',
-        'ocg/glm-5.1': 'GLM-5.1',
+        'ocg/glm-5.1': 'GLM-5.2',
         'gh/gpt-4o': 'GPT-4o',
         'gh/gpt-4.1': 'GPT-4.1',
         'gh/gpt-5-mini': 'GPT-5-Mini',
@@ -3247,8 +3247,8 @@
         models = [
           { id: 'auto', name: 'Auto', provider: '系统', desc: '智能选择最优模型', tier: 'free' },
           { id: 'ocg/deepseek-v4-pro', name: 'DeepSeek V4 Pro', provider: 'DeepSeek', desc: '最强性价比', tier: 'free' },
-          { id: 'ocg/glm-5.1', name: 'GLM-5.1', provider: '智谱', desc: '中文最强', tier: 'free' },
-          { id: 'glm-cn/glm-5.1', name: 'GLM-5.1主力', provider: '智谱直连', desc: '智谱大号直接干', tier: 'pro' },
+          { id: 'ocg/glm-5.1', name: 'GLM-5.2', provider: 'OpenCode Go', desc: '中文最强', tier: 'free' },
+          { id: 'glm-cn/glm-5.1', name: 'GLM-5.2主力', provider: '智谱 Coding Plan', desc: '智谱大号直接干', tier: 'pro' },
           { id: 'gh/gpt-4o', name: 'GPT-4o', provider: 'OpenAI', desc: 'GPT经典', tier: 'pro' },
           { id: 'gh/gpt-4.1', name: 'GPT-4.1', provider: 'OpenAI', desc: '强推理', tier: 'pro' },
           { id: 'gh/gpt-5-mini', name: 'GPT-5-Mini', provider: 'OpenAI', desc: '快速免费', tier: 'free' },

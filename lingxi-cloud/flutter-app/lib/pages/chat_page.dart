@@ -13,6 +13,8 @@ import 'package:lingxicloud/pages/file_explorer_page.dart';
 import 'package:lingxicloud/services/websocket_service.dart';
 import 'package:lingxicloud/services/lume_websocket_service.dart';
 import 'package:lingxicloud/services/rpc_ws.dart';
+import 'package:lingxicloud/services/device_switch_manager.dart';
+import 'package:lingxicloud/services/session_repository.dart';
 import 'package:lingxicloud/services/api_service.dart';
 import 'package:lingxicloud/services/notification_service.dart';
 import 'package:lingxicloud/widgets/file_preview.dart';
@@ -37,7 +39,8 @@ import 'dart:ui';
 
 class ChatPage extends StatefulWidget {
   final void Function(void Function(String, String, String) useSkill)? onRegisterUseSkill;
-  const ChatPage({super.key, this.onRegisterUseSkill});
+  final void Function(void Function(VoidCallback switchToSkillsTab))? onRegisterOpenSkills;
+  const ChatPage({super.key, this.onRegisterUseSkill, this.onRegisterOpenSkills});
 
   @override
   State<ChatPage> createState() => _ChatPageState();
@@ -84,14 +87,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       _isLoadingOlderMessages = true;
     });
     
-    final ws = WebSocketService();
+    _ensureWsListener();
     // 用最早一条消息的 createdAt 作为游标
     final oldestMsg = _messages.first;
     
     debugPrint('📜 加载更早消息，当前 ${_messages.length} 条');
     
-    // 请求更多历史（limit 20）
-    ws.sendRequest('chat.history', {
+    _rpcWs().sendRequest('chat.history', {
       'sessionKey': _currentSessionKey!,
       'limit': 40,  // 多拉一些，过滤掉已有的
     });
@@ -150,6 +152,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   String? _trackedServerId;  // 当前 ChatPage 绑定的设备 ID
   int _lastDeviceSwitchGeneration = 0;
   bool _isApplyingDeviceSwitch = false;
+  bool _deviceSwitchLoading = false;
+  VoidCallback _switchToSkillsTab = () {};
   Timer? _gatewaySessionDeferTimer;  // 等待 Lume 连接后再降级 Gateway 拉会话
   // 🔒 竞态保护：记录最后一次发出的历史请求 sessionKey
   bool _isLoadingOlderMessages = false;   // 正在加载更早消息
@@ -188,14 +192,14 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   // 硬编码 fallback（与后端 /api/user-models 对齐）
   static const List<Map<String, String>> _fallbackModels = [
     {'id': 'auto', 'name': 'Auto', 'desc': '智能选择最优模型', 'tier': 'free'},
-    {'id': 'glm-cn/glm-5.1', 'name': 'GLM-5.1 主力', 'desc': '智谱大号直接干', 'tier': 'pro'},
+    {'id': 'glm-cn/glm-5.1', 'name': 'GLM-5.2 主力', 'desc': '智谱 Coding Plan', 'tier': 'pro'},
     {'id': 'cu/default', 'name': 'Cursor Auto', 'desc': 'Cursor 智能选模', 'tier': 'pro'},
     {'id': 'cu/gpt-5.5-high-fast', 'name': 'GPT-5.5 Fast', 'desc': '极速旗舰', 'tier': 'pro'},
     {'id': 'cu/gpt-5.5-high', 'name': 'GPT-5.5', 'desc': '顶级推理', 'tier': 'pro'},
     {'id': 'cu/claude-4.6-opus-max', 'name': 'Claude 4.6 Opus Max', 'desc': '最强 Claude', 'tier': 'pro'},
     {'id': 'cu/claude-4.6-sonnet-medium-thinking', 'name': 'Claude 4.6 Sonnet Think', 'desc': '新一代推理', 'tier': 'pro'},
     {'id': 'cu/claude-4.6-opus-max-thinking', 'name': 'Claude 4.6 Opus Think', 'desc': '最强推理链', 'tier': 'pro'},
-    {'id': 'ocg/glm-5.1', 'name': 'GLM-5.1', 'desc': '中文最强', 'tier': 'free'},
+    {'id': 'ocg/glm-5.1', 'name': 'GLM-5.2', 'desc': 'OpenCode Go', 'tier': 'free'},
     {'id': 'ocg/deepseek-v4-pro', 'name': 'DeepSeek V4 Pro', 'desc': '最强性价比', 'tier': 'free'},
     {'id': 'gh/gpt-5-mini', 'name': 'GPT-5-Mini', 'desc': '快速免费', 'tier': 'free'},
     {'id': 'gh/gpt-4o', 'name': 'GPT-4o', 'desc': 'GPT经典', 'tier': 'pro'},
@@ -317,6 +321,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     
     // 🆕 注册 useSkill 回调给 MainShell
     widget.onRegisterUseSkill?.call(useSkill);
+    widget.onRegisterOpenSkills?.call((fn) => _switchToSkillsTab = fn);
     
     _lastDeviceSwitchGeneration =
         Provider.of<AppProvider>(context, listen: false).deviceSwitchGeneration;
@@ -330,7 +335,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
     // 监听输入框文字变化（用于显示/隐藏发送按钮）
     _controller.addListener(() {
-      setState(() {});  // 有文字变化时触发重建
+      if (!mounted) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() {});
+      });
     });
 
     // 初始化语音识别
@@ -810,13 +818,17 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     }
   }
 
-  /// 切换设备后：清空旧 UI，按新设备重载会话与消息
+  /// 切换设备后：Lume device.switch + 重载 sessions/history（对齐 Web）
   Future<void> _applyDeviceSwitch() async {
-    if (_isApplyingDeviceSwitch) return;
+    final dsm = DeviceSwitchManager.instance;
+    if (_isApplyingDeviceSwitch || dsm.switching) return;
     _isApplyingDeviceSwitch = true;
+    if (mounted) setState(() => _deviceSwitchLoading = true);
     try {
+      _ensureWsListener();
       final serverId = await _getCurrentServerId();
-      debugPrint('🖥️ 设备切换 → $serverId，清空旧会话/消息...');
+      final epoch = await dsm.beginSwitch(serverId);
+      debugPrint('🖥️ 设备切换 → $serverId epoch=$epoch');
       _trackedServerId = serverId;
       _replaceSessionsOnNextParse = true;
       _isGenerating = false;
@@ -833,19 +845,56 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         });
       }
 
-      // servers_page 已重连 WS；最多等待约 6 秒
-      for (var i = 0; i < 20; i++) {
-        if (_canUseWsRpc) break;
-        await Future.delayed(const Duration(milliseconds: 300));
-        if (!mounted) return;
+      var transportOk = await dsm.rebindTransport(serverId);
+      if (!dsm.isEpochValid(epoch)) return;
+      if (!transportOk) {
+        _ensureGatewayFallback(reason: '设备切换');
+        await dsm.waitForRpc(timeoutMs: 10000);
+        transportOk = _canUseWsRpc;
+      }
+      if (!transportOk) {
+        debugPrint('❌ 设备切换：无可用 RPC');
+        return;
       }
 
-      await _onWsReadyLoadSessions(source: 'device-switch');
-    } catch (e) {
-      debugPrint('🖥️ 应用设备切换失败: $e');
+      var fetched = await _fetchAndApplySessions(epoch: epoch);
+      if (!fetched && _sessions.isEmpty) await _loadSessionsLocal();
+
+      if (_currentSessionKey == null) await _restoreLastSession();
+      if (_currentSessionKey == null && _sessions.isNotEmpty) {
+        final firstKey = _sessions.first['key']?.toString();
+        if (firstKey != null && firstKey.isNotEmpty) {
+          if (mounted) setState(() => _currentSessionKey = firstKey);
+        }
+      }
+
+      if (_currentSessionKey != null && dsm.isEpochValid(epoch)) {
+        final key = _currentSessionKey!;
+        if (mounted) setState(() => _messages.clear());
+        if (_canUseWsRpc) {
+          await _loadMessageHistory(key, incremental: false);
+        }
+      }
+      dsm.markInitialLoadDone();
+      _trackedServerId = serverId;
+      debugPrint('✅ 设备切换完成 server=$serverId sessions=${_sessions.length}');
+    } catch (e, stack) {
+      debugPrint('🖥️ 应用设备切换失败: $e\nStack: $stack');
     } finally {
+      dsm.endSwitch();
       _isApplyingDeviceSwitch = false;
+      if (mounted) setState(() => _deviceSwitchLoading = false);
     }
+  }
+
+
+  Future<bool> _fetchAndApplySessions({int? epoch}) async {
+    final e = epoch ?? DeviceSwitchManager.instance.deviceEpoch;
+    final list = await SessionRepository.fetchSessions(epoch: e);
+    if (list == null) return false;
+    _replaceSessionsOnNextParse = true;
+    _parseSessions(list);
+    return true;
   }
 
   Future<void> _restoreLastSession() async {
@@ -971,14 +1020,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     Navigator.pop(context);
     
     // 💾 先从本地缓存加载（即时显示）
-    _loadMessagesLocal(sessionKey).then((loaded) {
-      if (loaded) {
-        // 有缓存，增量同步最新消息
-        _loadMessageHistory(sessionKey, incremental: false);
-      } else {
-        // 无缓存，全量加载（即使 WS 没连也尝试）
-        _loadMessageHistory(sessionKey, incremental: false);
-        debugPrint('📋 无本地缓存，等待服务器历史消息');
+    _loadMessagesLocal(sessionKey).then((loaded) async {
+      await _loadMessageHistory(sessionKey, incremental: loaded);
+      if (!loaded) {
+        debugPrint('📋 无本地缓存，已从服务器拉取历史');
       }
     });
   }
@@ -1099,6 +1144,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
 
   void _initLumeWebSocket() {
+    _ensureWsListener();
     final lume = LumeWebSocketService();
     if (_lumeListener != null) {
       lume.removeListener(_lumeListener!);
@@ -1138,7 +1184,15 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           _wsConnected = true;
           _wsStatus = 'Lume已连接';
         });
-        Future.microtask(() => _onWsReadyLoadSessions(source: 'Lume'));
+        Future.microtask(() async => await _onWsReadyLoadSessions(source: 'Lume'));
+        return;
+      }
+      if (data['type'] == 'event' && data['event'] == 'device.switched') {
+        final payload = data['payload'] as Map<String, dynamic>?;
+        if (payload != null) DeviceSwitchManager.instance.onDeviceSwitchedEvent(payload);
+        if (!_isApplyingDeviceSwitch && !DeviceSwitchManager.instance.switching) {
+          Future.microtask(() => _onWsReadyLoadSessions(source: 'device.switched'));
+        }
         return;
       }
       if (data['type'] == 'event' && data['event'] == 'chat') {
@@ -1276,30 +1330,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     }
   }
 
-  void _initWebSocket() {
+  /// RPC 响应处理器（chat.history 等），Lume / Gateway 共用
+  void _ensureWsListener() {
+    if (_wsListener != null) return;
     final ws = WebSocketService();
-    
-    // 注意：不要在这里 clearListeners()，因为 initState 已经清理过了
-    // 如果在这里再次清理，会把刚添加的 listener 清除掉！
-    
-    // 如果已经连接，直接更新状态
-    if (ws.isConnected) {
-      setState(() {
-        _wsConnected = true;
-        _wsStatus = '已连接';
-      });
-      debugPrint('✅ WebSocket 已连接（复用现有连接）');
-      // 加载会话列表
-      Future.microtask(() async {
-        try {
-          await Future.delayed(const Duration(milliseconds: 300));
-          _loadSessionsFromServer();
-        } catch (e) {
-          debugPrint('❌ 加载会话列表失败: $e');
-        }
-      });
-    }
-    
     _wsListener = (Map<String, dynamic> data) {
       if (!mounted) return;
       
@@ -1363,249 +1397,14 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           return;
         }
       
-      // 处理历史消息响应
-      if (data['type'] == 'res' && data['id']?.toString().contains('chat_history') == true) {
-        debugPrint('📚 收到历史消息响应：ok=${data['ok']}');
-        
-        // 🔒 竞态保护：如果会话已经切走了，丢弃响应
-        if (_lastHistoryRequestSessionKey != null && 
-            _currentSessionKey != _lastHistoryRequestSessionKey) {
-          debugPrint('📚 ⏭️ 会话已切换，丢弃历史响应 (期望: $_lastHistoryRequestSessionKey, 当前: $_currentSessionKey)');
-          return;
-        }
-        
-        // 如果正在生成消息，不要替换当前消息
-        if (_isGenerating) {
-          debugPrint('⏳ 正在生成消息，跳过历史消息更新');
-          return;
-        }
-        
-        if (data['ok'] == true && data['payload'] != null) {
-          try {
-            final messages = data['payload']?['messages'] as List? ?? data['payload']?['transcript'] as List?;
-            if (messages != null && messages.isNotEmpty) {
-              debugPrint('✅ 加载了 ${messages.length} 条历史消息');
-              
-              // 🆕 解析服务器消息
-              final serverMessages = messages.asMap().entries.map((entry) {
-                final i = entry.key;
-                final m = entry.value;
-                final map = m is Map ? m as Map<String, dynamic> : {};
-                  final openclawMeta = map['__openclaw'] as Map?;
-                  final messageId = map['id']?.toString()
-                      ?? openclawMeta?['id']?.toString()
-                      ?? map['runId']?.toString()
-                      ?? '${map['role']}-${map['timestamp'] ?? map['createdAt'] ?? i}';
-                  final createdAt = _parseDateTime(map['createdAt'] ?? map['created_at']);
-                  // 使用消息自己的 agentId，如果没有则使用当前 Agent
-                  final msgAgentId = map['agentId']?.toString() ?? map['agent_id']?.toString() ?? _currentAgent;
-                  
-                  // 🚫 过滤掉工具调用结果和系统消息
-                  final role = map['role']?.toString() ?? 'assistant';
-                  if (role == 'toolResult' || role == 'system' || role == 'tool') {
-                    debugPrint('⏭️ 跳过工具/系统消息: $role');
-                    return null;  // 返回 null，稍后过滤掉
-                  }
-                  
-                  // 🚫 过滤掉包含内部标记的内容
-                  final content = _extractText(map) ?? map['content']?.toString() ?? '';
-                  if (content.contains('<<<EXTERNAL_UNTRUSTED_CONTENT') ||
-                      content.contains('<<<END_EXTERNAL_UNTRUSTED_CONTENT') ||
-                      content.contains('SECURITY NOTICE:') ||
-                      content.contains('EXTERNAL, UNTRUSTED source')) {
-                    debugPrint('⏭️ 跳过内部处理信息');
-                    return null;
-                  }
-                  
-                  // 🚫 过滤心跳/系统事件消息（精确匹配）
-                  if (content.trim() == 'HEARTBEAT_OK' || content.trim() == 'NO_REPLY') {
-                    return null;
-                  }
-                  if (content.trim().startsWith('Read HEARTBEAT.md') && content.trim().length < 100) {
-                    return null;
-                  }
-                  
-                  // 🚫 过滤 exec/system 通知类消息
-                  if (content.contains('Exec completed') || content.contains('Exec failed')) {
-                    if (content.contains('HEARTBEAT') || content.contains('Read HEARTBEAT.md')) {
-                      debugPrint('⏭️ 跳过系统通知消息');
-                      return null;
-                    }
-                  }
-                  
-                  // 🔍 提取图片 URL（从 attachments 或 parts）
-                  String? imageUrl;
-                  DocumentInfo? documentInfo;
-                  final attachments = map['attachments'] as List? ?? map['parts'] as List?;
-                  if (attachments != null && attachments.isNotEmpty) {
-                    for (final att in attachments) {
-                      if (att is Map) {
-                        final attType = att['type']?.toString() ?? '';
-                        final attMimeType = att['mimeType']?.toString() ?? '';
-                        
-                        // 🖼️ 图片附件
-                        if (attType == 'image' || attType.contains('image') || attMimeType.startsWith('image/')) {
-                          imageUrl = att['url']?.toString() ?? att['content']?.toString();
-                          if (imageUrl != null && imageUrl!.isNotEmpty) {
-                            // ✅ 问题3：转换本地路径为可访问的 URL
-                            if (imageUrl!.startsWith('/root/.openclaw/')) {
-                              // 本地路径 → 转换为文件服务器 URL
-                              final fileName = imageUrl.split('/').last;
-                              if (_userServerIp != null && _userServerPort != null) {
-                                imageUrl = 'http://$_userServerIp:$_userServerPort/files/$fileName?token=$_userServerToken';
-                                debugPrint('📷 转换图片 URL: $imageUrl');
-                              } else {
-                                // 使用主服务器的上传文件访问接口
-                                imageUrl = '${Constants.baseUrl}/api/upload/file/$fileName';
-                                debugPrint('📷 使用主服务器 URL: $imageUrl');
-                              }
-                            }
-                            debugPrint('📷 找到历史图片: $imageUrl');
-                            break;
-                          }
-                        }
-                        
-                        // 📄 文档附件
-                        if (attType == 'document' || (attMimeType.isNotEmpty && !attMimeType.startsWith('image/'))) {
-                          final docUrl = att['url']?.toString() ?? att['content']?.toString();
-                          if (docUrl != null && docUrl.isNotEmpty) {
-                            documentInfo = DocumentInfo(
-                              url: docUrl,
-                              mimeType: attMimeType.isNotEmpty ? attMimeType : 'application/octet-stream',
-                              filename: att['filename']?.toString() ?? 'document',
-                            );
-                            debugPrint('📄 找到历史文档: ${documentInfo.filename}');
-                            break;
-                          }
-                        }
-                      }
-                    }
-                  }
-                  
-                  // 🔧 方案 B：从消息文本中提取附件信息（双重保险）
-                  final textContent = _extractText(map) ?? '';
-                  if (imageUrl == null && documentInfo == null && textContent.isNotEmpty) {
-                    final attachmentRegex = RegExp(r'\[附件:(图片|文档):([^:]+):([^\]]+)\]');
-                    final match = attachmentRegex.firstMatch(textContent);
-                    
-                    if (match != null) {
-                      final type = match.group(1) ?? '';  // '图片' 或 '文档'
-                      final filename = match.group(2) ?? '';
-                      final url = match.group(3) ?? '';
-                      
-                      debugPrint('🔧 从文本中提取附件信息: type=$type, filename=$filename');
-                      
-                      if (type == '图片') {
-                        imageUrl = url;
-                        debugPrint('📷 提取到历史图片: $imageUrl');
-                      } else if (type == '文档') {
-                        // 🎯 根据文件扩展名判断 MIME 类型（支持所有格式）
-                        final ext = filename.split('.').last.toLowerCase();
-                        final mimeMap = {
-                          'pdf': 'application/pdf',
-                          'txt': 'text/plain',
-                          'md': 'text/markdown',
-                          'markdown': 'text/markdown',
-                          'html': 'text/html',
-                          'htm': 'text/html',
-                          'csv': 'text/csv',
-                          'json': 'application/json',
-                          // Office 文档（新格式）
-                          'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                          'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                          'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-                          // Office 文档（旧格式）
-                          'doc': 'application/msword',
-                          'xls': 'application/vnd.ms-excel',
-                          'ppt': 'application/vnd.ms-powerpoint',
-                        };
-                        
-                        documentInfo = DocumentInfo(
-                          url: url,
-                          mimeType: mimeMap[ext] ?? 'application/octet-stream',
-                          filename: filename,
-                        );
-                        debugPrint('📄 提取到历史文档: ${documentInfo.filename}');
-                      }
-                    }
-                  }
-                  
-                  // 🆕 提取模型信息（从 history 的 model/usage 字段）
-                  Map<String, dynamic>? historyModelInfo;
-                  final hModel = map['model']?.toString() ?? map['modelProvider']?.toString();
-                  final hUsage = map['usage'] as Map?;
-                  if (hModel != null || hUsage != null) {
-                    historyModelInfo = {
-                      'model': hModel ?? 'auto',
-                      'inputTokens': hUsage?['input'] ?? hUsage?['inputTokens'],
-                      'outputTokens': hUsage?['output'] ?? hUsage?['outputTokens'],
-                    };
-                  }
-                  
-                  return Message(
-                    id: messageId,
-                    role: role,
-                    content: _extractText(map) ?? _toString(map['content']),
-                    createdAt: createdAt,
-                    agentId: msgAgentId,
-                    imageUrl: imageUrl,  // 添加图片 URL
-                    documentInfo: documentInfo,  // 添加文档信息
-                    modelInfo: historyModelInfo,  // 添加模型信息
-                  );
-                }).whereType<Message>().toList();  // 🚫 过滤掉 null 值（工具调用结果等）
-              
-              // 🆕 增量合并：检查是否为增量模式
-              final isIncremental = _incrementalHistorySessionKey != null;
-              final isLoadingOlder = _loadingOlderSessionKey != null;
-              
-              if (isLoadingOlder) {
-                // 🔥 加载更早消息模式：前置旧消息，保持滚动位置
-                _loadingOlderSessionKey = null;
-                _isLoadingOlderMessages = false;
-                
-                // 记住当前滚动位置
-                final prevScrollExtent = _scrollController.hasClients ? _scrollController.position.maxScrollExtent : 0;
-                
-                // 去重后前置
-                final existingIds = _messages.map((m) => m.id).toSet();
-                final olderMessages = serverMessages.where((m) => !existingIds.contains(m.id)).toList();
-                
-                if (olderMessages.isEmpty) {
-                  _hasMoreOlderMessages = false;
-                  debugPrint('📜 没有更早的消息了');
-                } else {
-                  setState(() {
-                    _messages = [...olderMessages, ..._messages];
-                  });
-                  debugPrint('📜 前置了 ${olderMessages.length} 条更早消息');
-                  
-                  // 恢复滚动位置（不让用户感觉跳动）
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (_scrollController.hasClients) {
-                      final newExtent = _scrollController.position.maxScrollExtent;
-                      _scrollController.jumpTo(newExtent - prevScrollExtent);
-                    }
-                  });
-                }
-              } else if (isIncremental && _messages.isNotEmpty) {
-                // 增量模式：合并本地 + 服务器消息
-                _mergeMessages(serverMessages);
-                _incrementalHistorySessionKey = null;
-              } else {
-                // 全量模式：直接替换
-                setState(() {
-                  _messages = serverMessages;
-                });
-              }
-              
-              _scrollToBottom();
-              // 💾 从服务器加载历史后更新本地缓存
-              _saveMessagesLocal();
-            }
-          } catch (e) {
-            debugPrint('❌ 解析历史消息失败: $e');
-          }
-        }
+      // 处理历史消息响应（通过 _wsListener 推送的，如重连后自动推送）
+      final _isHistoryRes = data['type'] == 'res' && (
+            data['id']?.toString().contains('chat_history') == true ||
+            data['payload']?['messages'] != null ||
+            data['payload']?['transcript'] != null);
+      if (_isHistoryRes && data['id']?.toString().contains('sessions_list') != true) {
+        debugPrint('📚 _wsListener 收到历史消息推送：ok=${data['ok']}');
+        _handleHistoryResponse(data, _currentSessionKey ?? '', incremental: false);
         return;
       }
       
@@ -1829,22 +1628,40 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       debugPrint('❌ WebSocket 消息处理异常: $e\nStack: $stack');
     }
   };
-  ws.addListener(_wsListener!);
-    
+    ws.addListener(_wsListener!);
+  }
+
+  void _initWebSocket() {
+    final ws = WebSocketService();
+    _ensureWsListener();
+
+    if (ws.isConnected) {
+      setState(() {
+        _wsConnected = true;
+        _wsStatus = '已连接';
+      });
+      debugPrint('✅ WebSocket 已连接（复用现有连接）');
+      Future.microtask(() async {
+        try {
+          await Future.delayed(const Duration(milliseconds: 300));
+          _loadSessionsFromServer();
+        } catch (e) {
+          debugPrint('❌ 加载会话列表失败: $e');
+        }
+      });
+    }
+
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (ws.isConnected || ws.isConnecting) {
         debugPrint('🔌 WebSocket 已连接或正在连接');
         return;
       }
-      
       debugPrint('📋 开始连接 WebSocket...');
       try {
         await ws.connect();
       } catch (e) {
         debugPrint('❌ WebSocket 连接失败: $e');
-        if (mounted) {
-          setState(() => _wsStatus = '连接失败');
-        }
+        if (mounted) setState(() => _wsStatus = '连接失败');
       }
     });
   }
@@ -2215,48 +2032,48 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
   /// WS（Gateway 或 Lume）连接就绪后：设备切换检查 + 拉取新设备 sessions/history
   Future<void> _onWsReadyLoadSessions({String source = 'ws'}) async {
+    final dsm = DeviceSwitchManager.instance;
+    if (dsm.switching || _isApplyingDeviceSwitch) {
+      debugPrint('⏭️ [$source] 设备切换进行中，跳过');
+      return;
+    }
     try {
-      await _checkDeviceSwitch();
-      debugPrint('🔄 [$source] 连接就绪，加载 sessions.list (${_lumeReady ? "Lume" : "Gateway"})');
-      await Future.delayed(const Duration(milliseconds: 300));
-      _loadSessionsFromServer();
-
-      if (_currentSessionKey == null) {
-        await _restoreLastSession();
-      }
-
-      if (_currentSessionKey != null) {
-        await Future.delayed(const Duration(milliseconds: 200));
-        setState(() { _messages.clear(); });
-        final loaded = await _loadMessagesLocal(_currentSessionKey);
-        if (!loaded) {
-          _loadMessageHistory(_currentSessionKey!, incremental: false);
-        } else {
-          _loadMessageHistory(_currentSessionKey!, incremental: true);
+      if (source != 'device-switch') {
+        final prefs = await SharedPreferences.getInstance();
+        if (prefs.getBool('need_refresh_after_switch') == true) {
+          await _applyDeviceSwitch();
+          return;
         }
       }
+      _ensureWsListener();
+      final epoch = dsm.deviceEpoch;
+      debugPrint('🔄 [$source] 加载 sessions epoch=$epoch');
+      await Future.delayed(const Duration(milliseconds: 300));
+      await _fetchAndApplySessions(epoch: epoch);
+
+      if (_currentSessionKey == null) await _restoreLastSession();
+      if (_currentSessionKey == null && _sessions.isNotEmpty) {
+        final firstKey = _sessions.first['key']?.toString();
+        if (firstKey != null && firstKey.isNotEmpty && mounted) {
+          setState(() => _currentSessionKey = firstKey);
+        }
+      }
+
+      if (_currentSessionKey != null && dsm.isEpochValid(epoch)) {
+        final key = _currentSessionKey!;
+        final loaded = await _loadMessagesLocal(key);
+        if (_canUseWsRpc) await _loadMessageHistory(key, incremental: loaded);
+      }
+      dsm.markInitialLoadDone();
       debugPrint('✅ [$source] 会话/历史加载完成');
     } catch (e, stack) {
       debugPrint('❌ [$source] 加载会话失败: $e\nStack: $stack');
     }
   }
 
-  void _loadSessionsFromServer() {
-    try {
-      if (!_canUseWsRpc) {
-        debugPrint('⚠️ WebSocket 未连接，无法加载会话列表');
-        return;
-      }
-      final ws = _rpcWs();
-      debugPrint('📋 发送 sessions.list (${_lumeReady ? "Lume" : "Gateway"})');
-      ws.sendRequest('sessions.list', {
-        'includeLastMessage': true,
-        'includeDerivedTitles': true,
-        'limit': 100,
-      });
-    } catch (e, stack) {
-      debugPrint('❌ _loadSessionsFromServer 异常: $e\nStack: $stack');
-    }
+  Future<void> _loadSessionsFromServer() async {
+    if (_isApplyingDeviceSwitch || DeviceSwitchManager.instance.switching) return;
+    await _fetchAndApplySessions();
   }
   
   // 刷新用户数据（更新 token 使用量等）
@@ -2270,25 +2087,209 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     }
   }
 
-  void _loadMessageHistory(String sessionKey, {bool incremental = false, int limit = 50}) {
+  Future<void> _loadMessageHistory(String sessionKey, {bool incremental = false, int limit = 50}) async {
     try {
       if (!_canUseWsRpc) {
         debugPrint('⚠️ WebSocket 未连接，尝试 HTTP fallback 加载历史消息');
-        _loadMessageHistoryHTTP(sessionKey, limit: limit);
+        await _loadMessageHistoryHTTP(sessionKey, limit: limit);
         return;
       }
-      debugPrint('📚 发送 chat.history (${_lumeReady ? "Lume" : "Gateway"}) sessionKey: $sessionKey');
+      _ensureWsListener();
+      debugPrint('📚 请求 chat.history (${_lumeReady ? "Lume" : "Gateway"}) sessionKey: $sessionKey');
       _lastHistoryRequestSessionKey = sessionKey;
       if (incremental) {
         _incrementalHistorySessionKey = sessionKey;
       }
-      _rpcWs().sendRequest('chat.history', {
+
+      final res = await rpcSendAwait('chat.history', {
         'sessionKey': sessionKey,
         'limit': limit,
-      });
-      // 历史消息响应在 _initWebSocket 的主 listener 中处理
+      }, timeout: const Duration(seconds: 20));
+
+      if (!mounted) return;
+      if (_currentSessionKey != sessionKey) {
+        debugPrint('⏭️ session 已切换，丢弃 history');
+        return;
+      }
+      if (_isGenerating) {
+        debugPrint('⏳ 正在生成，跳过 history');
+        return;
+      }
+
+      // 🔧 直接处理 chat.history 响应，不走 _wsListener（避免被 sessions 拦截等竞态问题）
+      if (res != null) {
+        _handleHistoryResponse(res, sessionKey, incremental: incremental);
+      } else {
+        debugPrint('❌ chat.history 无响应或超时');
+      }
     } catch (e, stack) {
       debugPrint('❌ _loadMessageHistory 异常: $e\nStack: $stack');
+    }
+  }
+
+  /// 🔧 直接处理 chat.history 响应（从 _loadMessageHistory 调用，不经过 _wsListener）
+  void _handleHistoryResponse(Map<String, dynamic> data, String sessionKey, {bool incremental = false}) {
+    if (!mounted) return;
+
+    // 🔒 竞态保护
+    if (_currentSessionKey != sessionKey) {
+      debugPrint('📚 ⏭️ 会话已切换，丢弃历史响应');
+      return;
+    }
+    if (_isGenerating) {
+      debugPrint('⏳ 正在生成消息，跳过历史消息更新');
+      return;
+    }
+
+    if (data['ok'] != true || data['payload'] == null) {
+      debugPrint('❌ chat.history 失败: ${data["error"]}');
+      return;
+    }
+
+    try {
+      final messages = data['payload']?['messages'] as List? ?? data['payload']?['transcript'] as List?;
+      if (messages == null || messages.isEmpty) {
+        debugPrint('📚 chat.history 返回 0 条消息');
+        return;
+      }
+      debugPrint('✅ 加载了 ${messages.length} 条历史消息');
+
+      final serverMessages = messages.asMap().entries.map((entry) {
+        final i = entry.key;
+        final m = entry.value;
+        final map = m is Map ? m as Map<String, dynamic> : {};
+        final openclawMeta = map['__openclaw'] as Map?;
+        final messageId = map['id']?.toString()
+            ?? openclawMeta?['id']?.toString()
+            ?? map['runId']?.toString()
+            ?? '${map['role']}-${map['timestamp'] ?? map['createdAt'] ?? i}';
+        final createdAt = _parseDateTime(map['createdAt'] ?? map['created_at']);
+        final msgAgentId = map['agentId']?.toString() ?? map['agent_id']?.toString() ?? _currentAgent;
+
+        final role = map['role']?.toString() ?? 'assistant';
+        if (role == 'toolResult' || role == 'system' || role == 'tool') return null;
+
+        final content = _extractText(map) ?? map['content']?.toString() ?? '';
+        if (content.contains('<<<EXTERNAL_UNTRUSTED_CONTENT') ||
+            content.contains('<<<END_EXTERNAL_UNTRUSTED_CONTENT') ||
+            content.contains('SECURITY NOTICE:') ||
+            content.contains('EXTERNAL, UNTRUSTED source')) return null;
+        if (content.trim() == 'HEARTBEAT_OK' || content.trim() == 'NO_REPLY') return null;
+        if (content.trim().startsWith('Read HEARTBEAT.md') && content.trim().length < 100) return null;
+        if ((content.contains('Exec completed') || content.contains('Exec failed')) &&
+            (content.contains('HEARTBEAT') || content.contains('Read HEARTBEAT.md'))) return null;
+
+        String? imageUrl;
+        DocumentInfo? documentInfo;
+        final attachments = map['attachments'] as List? ?? map['parts'] as List?;
+        if (attachments != null && attachments.isNotEmpty) {
+          for (final att in attachments) {
+            if (att is Map) {
+              final attType = att['type']?.toString() ?? '';
+              final attMimeType = att['mimeType']?.toString() ?? '';
+              if (attType == 'image' || attType.contains('image') || attMimeType.startsWith('image/')) {
+                imageUrl = att['url']?.toString() ?? att['content']?.toString();
+                if (imageUrl != null && imageUrl!.isNotEmpty) {
+                  if (imageUrl!.startsWith('/root/.openclaw/')) {
+                    final fileName = imageUrl.split('/').last;
+                    imageUrl = (_userServerIp != null && _userServerPort != null)
+                        ? 'http://$_userServerIp:$_userServerPort/files/$fileName?token=$_userServerToken'
+                        : '${Constants.baseUrl}/api/upload/file/$fileName';
+                  }
+                  break;
+                }
+              }
+              if (attType == 'document' || (attMimeType.isNotEmpty && !attMimeType.startsWith('image/'))) {
+                final docUrl = att['url']?.toString() ?? att['content']?.toString();
+                if (docUrl != null && docUrl.isNotEmpty) {
+                  documentInfo = DocumentInfo(
+                    url: docUrl,
+                    mimeType: attMimeType.isNotEmpty ? attMimeType : 'application/octet-stream',
+                    filename: att['filename']?.toString() ?? 'document',
+                  );
+                  break;
+                }
+              }
+            }
+          }
+        }
+
+        final textContent = _extractText(map) ?? '';
+        if (imageUrl == null && documentInfo == null && textContent.isNotEmpty) {
+          final attachmentRegex = RegExp(r'\[附件:(图片|文档):([^:]+):([^\]]+)\]');
+          final match = attachmentRegex.firstMatch(textContent);
+          if (match != null) {
+            final type = match.group(1) ?? '';
+            final filename = match.group(2) ?? '';
+            final url = match.group(3) ?? '';
+            if (type == '图片') {
+              imageUrl = url;
+            } else if (type == '文档') {
+              final ext = filename.split('.').last.toLowerCase();
+              final mimeMap = {
+                'pdf': 'application/pdf', 'txt': 'text/plain', 'md': 'text/markdown',
+                'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+              };
+              documentInfo = DocumentInfo(
+                url: url, mimeType: mimeMap[ext] ?? 'application/octet-stream', filename: filename,
+              );
+            }
+          }
+        }
+
+        Map<String, dynamic>? historyModelInfo;
+        final hModel = map['model']?.toString() ?? map['modelProvider']?.toString();
+        final hUsage = map['usage'] as Map?;
+        if (hModel != null || hUsage != null) {
+          historyModelInfo = {
+            'model': hModel ?? 'auto',
+            'inputTokens': hUsage?['input'] ?? hUsage?['inputTokens'],
+            'outputTokens': hUsage?['output'] ?? hUsage?['outputTokens'],
+          };
+        }
+
+        return Message(
+          id: messageId,
+          role: role,
+          content: _extractText(map) ?? _toString(map['content']),
+          createdAt: createdAt,
+          agentId: msgAgentId,
+          imageUrl: imageUrl,
+          documentInfo: documentInfo,
+          modelInfo: historyModelInfo,
+        );
+      }).whereType<Message>().toList();
+
+      final isLoadingOlder = _loadingOlderSessionKey != null;
+      if (isLoadingOlder) {
+        _loadingOlderSessionKey = null;
+        _isLoadingOlderMessages = false;
+        final prevScrollExtent = _scrollController.hasClients ? _scrollController.position.maxScrollExtent : 0;
+        final existingIds = _messages.map((m) => m.id).toSet();
+        final olderMessages = serverMessages.where((m) => !existingIds.contains(m.id)).toList();
+        if (olderMessages.isEmpty) {
+          _hasMoreOlderMessages = false;
+        } else {
+          setState(() { _messages = [...olderMessages, ..._messages]; });
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_scrollController.hasClients) {
+              final newExtent = _scrollController.position.maxScrollExtent;
+              _scrollController.jumpTo(newExtent - prevScrollExtent);
+            }
+          });
+        }
+      } else if (incremental && _messages.isNotEmpty) {
+        _mergeMessages(serverMessages);
+        _incrementalHistorySessionKey = null;
+      } else {
+        setState(() { _messages = serverMessages; });
+      }
+
+      _scrollToBottom();
+      _saveMessagesLocal();
+    } catch (e) {
+      debugPrint('❌ 解析历史消息失败: $e');
     }
   }
 
@@ -3219,37 +3220,49 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         key: _scaffoldKey,
         appBar: _buildAppBar(isWide),
         drawer: isWide ? null : Drawer(child: _buildSidebar(isDarkMode)),
-        body: Row(
+        body: Stack(
           children: [
-            if (isWide) _buildSidebar(isDarkMode),
-            Expanded(child: _buildMainContent()),
+            Row(
+              children: [
+                if (isWide) _buildSidebar(isDarkMode),
+                Expanded(child: _buildMainContent()),
+              ],
+            ),
+            if (_deviceSwitchLoading)
+              Container(
+                color: Colors.black38,
+                child: const Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 12),
+                      Text('正在切换设备...', style: TextStyle(color: Colors.white)),
+                    ],
+                  ),
+                ),
+              ),
           ],
         ),
       ),
     );
   }
   
-  // 错误处理包装器
+  // 错误处理包装器 — 初始化期间自动重试，不闪烁错误页
   Widget _errorWrapper(Widget child) {
     return Builder(
       builder: (context) {
         try {
           return child;
         } catch (e, stack) {
-          debugPrint('🚨 Widget 构建异常: $e\nStack: $stack');
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                const SizedBox(height: 16),
-                Text('加载失败: $e'),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () => setState(() {}),
-                  child: const Text('重试'),
-                ),
-              ],
+          debugPrint('🚨 Widget 构建异常（将自动重试）: $e');
+          // 不显示静态错误页，自动在下一帧重试
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() {});
+          });
+          return Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(color: Constants.primaryColor),
             ),
           );
         }
@@ -3564,7 +3577,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   Widget _buildWelcomeExamples(Map<String, dynamic>? agentInfo, bool isDarkMode) {
     final agentName = agentInfo?['name']?.toString() ?? 'AI';
     final agentIcon = agentInfo?['icon'] as IconData?;
-    final examples = (agentInfo?['examples'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+    final List<Map<String, dynamic>> examples = [];
+    final rawExamples = agentInfo?['examples'];
+    if (rawExamples is List) {
+      for (final ex in rawExamples) {
+        if (ex is Map) examples.add(Map<String, dynamic>.from(ex));
+      }
+    }
     
     return Center(
       child: SingleChildScrollView(
@@ -4096,7 +4115,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             ),
             const SizedBox(width: 4),
             Text(
-              currentModel['name'] ?? 'GLM-5.1',
+              currentModel['name'] ?? 'GLM-5.2',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
@@ -4844,10 +4863,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               ListTile(
                 leading: Icon(Icons.extension_outlined, color: textColor),
                 title: Text('技能库', style: TextStyle(color: textColor)),
-                onTap: () async {
+                onTap: () {
                   Navigator.pop(context);
-                  Navigator.pop(context);
-                  await Navigator.push(context, MaterialPageRoute(builder: (_) => SkillsPage()));
+                  _switchToSkillsTab();
                 },
               ),
               const Divider(height: 1),
@@ -6150,18 +6168,17 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       );
     } catch (e) {
       debugPrint('❌ 主内容区渲染失败: $e');
-      return Center(
+      // 自动触发重建，不显示静态错误页
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() {});
+      });
+      return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline, size: 64, color: Colors.red.shade400),
-            const SizedBox(height: 16),
-            Text('页面加载失败', style: const TextStyle(color: Colors.grey)),
-            const SizedBox(height: 8),
-            TextButton(
-              onPressed: () => setState(() {}),
-              child: const Text('重试'),
-            ),
+            CircularProgressIndicator(color: Color(0xFF667eea)),
+            SizedBox(height: 16),
+            Text('正在加载...', style: TextStyle(color: Colors.grey)),
           ],
         ),
       );
@@ -6311,7 +6328,8 @@ class _MessageBubble extends StatelessWidget {
     final name = model.contains('/') ? model.split('/').last : model;
     const displayMap = {
       'deepseek-v4-pro': 'DeepSeek V4 Pro',
-      'glm-5.1': 'GLM-5.1',
+      'glm-5.1': 'GLM-5.2',
+      'glm-5.2': 'GLM-5.2',
       'glm-5': 'GLM-5',
       'glm-4': 'GLM-4',
       'gpt-4o': 'GPT-4o',

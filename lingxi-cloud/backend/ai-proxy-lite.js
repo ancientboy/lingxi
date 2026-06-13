@@ -66,16 +66,14 @@ function getRouterApiKey() {
 // 当用户请求 model="auto" 时，根据时段/套餐/负载自动选择最佳模型
 const LUME_AUTO_MODELS = {
   free: [
-    'ocg/deepseek-v4-pro',        // DeepSeek V4 Pro（首选，便宜）
-    'ocg/glm-5.1',                 // GLM-5.1
-    'ocg/kimi-k2.6',               // 长上下文备选
+    'glm-cn/glm-5.1',              // 智谱官方 Coding Plan（首选）
     'gh/gpt-4o',                   // GitHub Copilot
     'gh/gpt-5-mini',               // 快速免费
+    'ocg/kimi-k2.6',               // 长上下文备选
     'openrouter/openrouter/free',  // 兜底
   ],
   pro: [
-    'ocg/deepseek-v4-pro',
-    'ocg/glm-5.1',
+    'glm-cn/glm-5.1',
     'gh/gpt-4o',
     'gh/gpt-5-mini',
     'openrouter/openrouter/free',
@@ -127,63 +125,68 @@ function selectLumeAutoModel(clientIp) {
 
 // 模型映射：用户请求的模型名 → 9Router 对应的付费模型名
 // 所有请求都走 9Router，由 9Router 进行 provider 调度和 fallback
-const OPENCODE_GO_PRIMARY = 'ocg/deepseek-v4-pro';
-const OPENCODE_GO_SECONDARY = 'ocg/glm-5.1';
+const GLM_CN_PRIMARY = 'glm-cn/glm-5.1';
+const GH_FALLBACK = 'gh/gpt-4o';
 
 const MODEL_MAP_TO_9ROUTER = {
   // Lume 智能模型（由后端自动选择）
   'auto': null,  // 特殊处理，由 selectLumeAutoModel() 动态决定
   // GPT 系列 → GitHub Copilot
-  'gpt-4o':             OPENCODE_GO_PRIMARY,
-  'gpt-4o-mini':        OPENCODE_GO_PRIMARY,
-  'gpt-4':              OPENCODE_GO_PRIMARY,
-  'gpt-4.1':            OPENCODE_GO_PRIMARY,
-  'gpt-5.2':            OPENCODE_GO_PRIMARY,           // GitHub Copilot（国内可用，替代 Cursor）
-  // Claude 系列 → GitHub Copilot（国内可用，替代 Cursor）
-  'claude-4.5-sonnet':  OPENCODE_GO_PRIMARY,
-  'claude-4.6-sonnet':  OPENCODE_GO_PRIMARY,
-  'claude-4.5-opus':    OPENCODE_GO_PRIMARY,
-  // 智谱 GLM 系列 → glm-cn (Coding Plan 付费)
-  'glm-5.1':            OPENCODE_GO_PRIMARY,
-  'glm-5':              'opencode-go/glm-5',
-  'glm-4.7':            OPENCODE_GO_PRIMARY,
-  'glm-4.6':            OPENCODE_GO_PRIMARY,
-  'glm-4.5-air':        OPENCODE_GO_PRIMARY,
-  'glm-4-flash':        OPENCODE_GO_PRIMARY,
-  'glm-4-plus':         OPENCODE_GO_PRIMARY,
-  'glm-4-long':         OPENCODE_GO_PRIMARY,
-  'glm-4':              OPENCODE_GO_PRIMARY,
-  'glm-4v':             OPENCODE_GO_PRIMARY,
-  'glm-3-turbo':        OPENCODE_GO_PRIMARY,
-  'chatglm-turbo':      OPENCODE_GO_PRIMARY,
-  'kimi-k2.6':          OPENCODE_GO_SECONDARY,
-  'kimi-k2.5':          'opencode-go/kimi-k2.5',
-  // 阿里云 qwen 系列 → 映射到智谱等价模型（百炼已停用）
-  'qwen-max':           OPENCODE_GO_PRIMARY,
-  'qwen-plus':          OPENCODE_GO_PRIMARY,
-  'qwen-turbo':         OPENCODE_GO_PRIMARY,
-  'qwen-flash':         OPENCODE_GO_PRIMARY,
-  'qwen-long':          OPENCODE_GO_PRIMARY,
-  'qwen3-235b-a22b':    OPENCODE_GO_PRIMARY,
-  'qwen3-30b-a3b':      OPENCODE_GO_PRIMARY,
-  'qwen3-coder-plus':   OPENCODE_GO_PRIMARY,
-  // DMXAPI 免费模型 → 映射到 Copilot 免费模型
-  'GLM-4.5-Flash':      OPENCODE_GO_PRIMARY,
-  'Qwen3-8B':           OPENCODE_GO_PRIMARY,
-  'glm-4-flash':        OPENCODE_GO_PRIMARY,
+  'gpt-4o':             'gh/gpt-4o',
+  'gpt-4o-mini':        'gh/gpt-4o-mini',
+  'gpt-4':              'gh/gpt-4',
+  'gpt-4.1':            'gh/gpt-4.1',
+  'gpt-5.2':            'gh/gpt-5.2',
+  // Claude 系列 → GitHub Copilot
+  'claude-4.5-sonnet':  'gh/claude-sonnet-4.5',
+  'claude-4.6-sonnet':  'gh/claude-sonnet-4.6',
+  'claude-4.5-opus':    'gh/claude-opus-4.5',
+  // 智谱 GLM 系列 → glm-cn (官方 Coding Plan)
+  'glm-5.1':            GLM_CN_PRIMARY,
+  'glm-5':              'glm-cn/glm-5',
+  'glm-4.7':            'glm-cn/glm-4.7',
+  'glm-4.6':            'glm-cn/glm-4.6',
+  'glm-4.5-air':        'glm-cn/glm-4.5-air',
+  'glm-4-flash':        'glm-cn/glm-4.5-air',
+  'glm-4-plus':         'glm-cn/glm-4.6',
+  'glm-4-long':         'glm-cn/glm-4.6',
+  'glm-4':              'glm-cn/glm-4.6',
+  'glm-4v':             'glm-cn/glm-4.6',
+  'glm-3-turbo':        'glm-cn/glm-4.5-air',
+  'chatglm-turbo':      'glm-cn/glm-4.5-air',
+  // Kimi
+  'kimi-k2.6':          'ocg/kimi-k2.6',
+  'kimi-k2.5':          'ocg/kimi-k2.5',
+  // 阿里云 qwen 系列 → GitHub / OpenRouter
+  'qwen-max':           GH_FALLBACK,
+  'qwen-plus':          GH_FALLBACK,
+  'qwen-turbo':         GH_FALLBACK,
+  'qwen-flash':         GH_FALLBACK,
+  'qwen-long':          GH_FALLBACK,
+  'qwen3-235b-a22b':    'openrouter/qwen/qwen3-coder:free',
+  'qwen3-30b-a3b':      'openrouter/qwen/qwen3-coder:free',
+  'qwen3-coder-plus':   'openrouter/qwen/qwen3-coder:free',
+  // DMXAPI 免费模型
+  'GLM-4.5-Flash':      'glm-cn/glm-4.5-air',
+  'Qwen3-8B':           'openrouter/qwen/qwen3-coder:free',
 };
 
 // 9Router 限流时的免费 fallback 模型（优先级从高到低）
 const ROUTER_FALLBACK_MODELS = [
-  'ocg/deepseek-v4-pro',          // DeepSeek V4 Pro（首选，便宜）
-  'ocg/glm-5.1',                  // GLM-5.1（备选）
+  'glm-cn/glm-5.1',               // 智谱官方（首选）
   'gh/gpt-4o',                    // GitHub Copilot
   'gh/gpt-5-mini',                // 快速免费
+  'ocg/kimi-k2.6',               // 长上下文备选
   'openrouter/openrouter/free',   // 兜底
 ];
 
 // ============ 模型上下文窗口表 ============
 const MODEL_CONTEXT_WINDOWS = {
+  'glm-cn/glm-5.1':      200000,
+  'glm-cn/glm-5':        128000,
+  'glm-cn/glm-4.7':      128000,
+  'glm-cn/glm-4.6':      128000,
+  'glm-cn/glm-4.5-air':  128000,
   'ocg/deepseek-v4-pro': 128000,
   'ocg/glm-5.1':         200000,
   'ocg/kimi-k2.6':       128000,
@@ -381,7 +384,7 @@ function getUserPreferredModel(clientIp, requestedModel, req = null) {
 
 // 将用户模型名映射为 9Router 模型名
 function mapTo9RouterModel(model, clientIp) {
-  if (!model) return OPENCODE_GO_PRIMARY;
+  if (!model) return GLM_CN_PRIMARY;
 
   // 已经是 9Router 路径格式，直通
   if (model.startsWith('ocg/')) {
@@ -421,17 +424,16 @@ function mapTo9RouterModel(model, clientIp) {
   }
 
   const m = cleanModel.toLowerCase();
-  if (m.includes('kimi')) return OPENCODE_GO_SECONDARY;
-  if (m.startsWith('gpt-')) return OPENCODE_GO_PRIMARY;
-  if (m.startsWith('claude')) return OPENCODE_GO_PRIMARY;
-  if (m.startsWith('glm-5')) return OPENCODE_GO_PRIMARY;
-  if (m.startsWith('glm-4')) return OPENCODE_GO_PRIMARY;
-  if (m.startsWith('glm')) return OPENCODE_GO_PRIMARY;
-  if (m.startsWith('qwen3') || m.includes('235b') || m.includes('coder')) return OPENCODE_GO_PRIMARY;
-  if (m.startsWith('qwen')) return OPENCODE_GO_PRIMARY;
-  if (m.startsWith('chatglm')) return OPENCODE_GO_PRIMARY;
+  // 模糊匹配 fallback
+  if (m.includes('kimi')) return 'ocg/kimi-k2.6';
+  if (m.startsWith('gpt-')) return GH_FALLBACK;
+  if (m.startsWith('claude')) return GH_FALLBACK;
+  if (m.startsWith('glm')) return GLM_CN_PRIMARY;
+  if (m.startsWith('chatglm')) return GLM_CN_PRIMARY;
+  if (m.startsWith('qwen3') || m.includes('235b') || m.includes('coder')) return 'openrouter/qwen/qwen3-coder:free';
+  if (m.startsWith('qwen')) return GH_FALLBACK;
 
-  return OPENCODE_GO_PRIMARY;
+  return GLM_CN_PRIMARY;
 }
 
 // 通过 9Router 发送请求（统一路由，支持自动降级免费模型）
@@ -1688,8 +1690,8 @@ const server = http.createServer(async (req, res) => {
       availableModels: [
         { id: 'auto', name: 'Auto', provider: '系统', desc: '智能选择最优模型', tier: 'free' },
         { id: 'ocg/deepseek-v4-pro', name: 'DeepSeek V4 Pro', provider: 'DeepSeek', desc: '最强性价比', tier: 'free' },
-        { id: 'ocg/glm-5.1', name: 'GLM-5.1', provider: '智谱', desc: '中文最强', tier: 'free' },
-        { id: 'glm-cn/glm-5.1', name: 'GLM-5.1 主力', provider: '智谱直连', desc: '智谱大号直接干', tier: 'pro' },
+        { id: 'ocg/glm-5.1', name: 'GLM-5.2', provider: 'OpenCode Go', desc: '中文最强', tier: 'free' },
+        { id: 'glm-cn/glm-5.1', name: 'GLM-5.2 主力', provider: '智谱 Coding Plan', desc: '智谱大号直接干', tier: 'pro' },
         { id: 'gh/gpt-4o', name: 'GPT-4o', provider: 'OpenAI', desc: 'GPT经典', tier: 'pro' },
         { id: 'gh/gpt-4.1', name: 'GPT-4.1', provider: 'OpenAI', desc: '强推理', tier: 'pro' },
         { id: 'gh/gpt-5-mini', name: 'GPT-5-Mini', provider: 'OpenAI', desc: '快速免费', tier: 'free' },
@@ -1759,14 +1761,14 @@ const server = http.createServer(async (req, res) => {
 function getAvailableModelsList() {
   return [
     { id: 'auto', name: 'Auto', provider: '系统', desc: '智能选择最优模型', tier: 'free' },
-    { id: 'glm-cn/glm-5.1', name: 'GLM-5.1 主力', provider: '智谱直连', desc: '智谱大号直接干', tier: 'pro' },
+    { id: 'glm-cn/glm-5.1', name: 'GLM-5.2 主力', provider: '智谱 Coding Plan', desc: '智谱大号直接干', tier: 'pro' },
     { id: 'cu/default', name: 'Cursor Auto', provider: 'Cursor', desc: 'Cursor 智能选模', tier: 'pro' },
     { id: 'cu/gpt-5.5-high-fast', name: 'GPT-5.5 Fast', provider: 'Cursor', desc: '极速旗舰', tier: 'pro' },
     { id: 'cu/gpt-5.5-high', name: 'GPT-5.5', provider: 'Cursor', desc: '顶级推理', tier: 'pro' },
     { id: 'cu/claude-4.6-opus-max', name: 'Claude 4.6 Opus Max', provider: 'Cursor', desc: '最强 Claude', tier: 'pro' },
     { id: 'cu/claude-4.6-sonnet-medium-thinking', name: 'Claude 4.6 Sonnet Think', provider: 'Cursor', desc: '新一代推理', tier: 'pro' },
     { id: 'cu/claude-4.6-opus-max-thinking', name: 'Claude 4.6 Opus Think', provider: 'Cursor', desc: '最强推理链', tier: 'pro' },
-    { id: 'ocg/glm-5.1', name: 'GLM-5.1', provider: '智谱', desc: '中文最强', tier: 'free' },
+    { id: 'ocg/glm-5.1', name: 'GLM-5.2', provider: 'OpenCode Go', desc: '中文最强', tier: 'free' },
     { id: 'ocg/deepseek-v4-pro', name: 'DeepSeek V4 Pro', provider: 'DeepSeek', desc: '最强性价比', tier: 'free' },
     { id: 'gh/gpt-5-mini', name: 'GPT-5-Mini', provider: 'OpenAI', desc: '快速免费', tier: 'free' },
     { id: 'gh/gpt-4o', name: 'GPT-4o', provider: 'OpenAI', desc: 'GPT经典', tier: 'pro' },

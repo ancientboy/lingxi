@@ -33,6 +33,7 @@ class LumeWebSocketService {
   String _lastError = '';
   bool _lumeAvailable = true;
   String? _fallbackMessage;
+  Completer<bool>? _authCompleter;  // 🔧 等 auth 握手完成
 
   Future<void> connect() async {
     if (_isConnected || _isConnecting) return;
@@ -61,15 +62,17 @@ class LumeWebSocketService {
         debugPrint('🔵 [Lume] 尝试 /api/lume/connect-info...');
         final resp = await ApiService().get('/api/lume/connect-info');
         final data = resp.data;
-        debugPrint('🔵 [Lume] connect-info: ${data?.toString().substring(0, 200)}');
+        debugPrint('🔵 [Lume] connect-info raw: ${data?.toString().substring(0, 300)}');
         if (data is Map && data['success'] == true && data['data'] is Map) {
           final info = data['data'] as Map;
           final mode = info['mode']?.toString() ?? '';
+          debugPrint('🔵 [Lume] connect-info mode=$mode wsUrl=${info['wsUrl']?.toString().substring(0, 80)}');
           _userId = info['userId']?.toString() ?? _userId;
           if (mode == 'lume' && info['wsUrl'] != null) {
             fetchedUrl = info['wsUrl'].toString();
             fetchedSecret = info['secret']?.toString();
-            debugPrint('🔵 [Lume] 从 connect-info 获取: $fetchedUrl');
+            _authHandledByProxy = info['authHandled'] == true;
+            debugPrint('🔵 [Lume] 从 connect-info 获取: $fetchedUrl authHandled=$_authHandledByProxy');
           } else if (mode == 'free') {
             _lumeAvailable = false;
             _isConnecting = false;
@@ -94,7 +97,9 @@ class LumeWebSocketService {
     // Fallback: 硬编码 Lume 地址
     wsUrl = fetchedUrl ?? 'wss://lumeword.cn/api/lume-ws';
     secret = fetchedSecret ?? Constants.lumeWsSecret;
-    _authHandledByProxy = false;
+    if (fetchedUrl == null) {
+      _authHandledByProxy = false;
+    }
 
     debugPrint('🔵 [Lume] 最终连接地址: $wsUrl, authHandled: $_authHandledByProxy');
 
@@ -113,6 +118,15 @@ class LumeWebSocketService {
         }
       } catch (_) {}
       _userId ??= 'unknown-user';
+    }
+
+    // 确保 WSS URL 带 JWT（connect-info 已含 token；fallback 需补全）
+    if (_authHandledByProxy && !wsUrl.contains('token=')) {
+      final jwt = (await SharedPreferences.getInstance()).getString(Constants.storageAccessToken);
+      if (jwt != null && jwt.isNotEmpty) {
+        final sep = wsUrl.contains('?') ? '&' : '?';
+        wsUrl = '$wsUrl${sep}token=${Uri.encodeComponent(jwt)}';
+      }
     }
 
     _wsUrl = wsUrl;
@@ -141,6 +155,7 @@ class LumeWebSocketService {
       onError: (e) {
         _isConnected = false;
         _isConnecting = false;
+        _authCompleter?.complete(false);
         _notify({'type': 'error', 'error': e.toString()});
         _scheduleReconnect();
       },
@@ -148,6 +163,7 @@ class LumeWebSocketService {
         final was = _isConnected;
         _isConnected = false;
         _isConnecting = false;
+        _authCompleter?.complete(false);
         _notify({'type': 'status', 'status': 'disconnected'});
         if (was) _scheduleReconnect();
       },
@@ -156,6 +172,33 @@ class LumeWebSocketService {
     await Future.delayed(const Duration(milliseconds: 600));
     if (!_authHandledByProxy) {
       _sendAuth();
+    }
+
+    // proxy authHandled：等 proxy 转发 auth 成功
+    if (!_isConnected && _authHandledByProxy) {
+      _authCompleter = Completer<bool>();
+      try {
+        await _authCompleter!.future.timeout(
+          const Duration(seconds: 12),
+          onTimeout: () => false,
+        );
+      } catch (_) {}
+      _authCompleter = null;
+    }
+
+    // 🔧 等 auth 握手完成（最多 10 秒），确保 connect() 返回时 isConnected 已就绪
+    if (!_isConnected && !_authHandledByProxy) {
+      _authCompleter = Completer<bool>();
+      try {
+        final authOk = await _authCompleter!.future.timeout(
+          const Duration(seconds: 10),
+          onTimeout: () => false,
+        );
+        debugPrint('🔵 [Lume] auth 等待结果: $authOk, isConnected=$_isConnected');
+      } catch (e) {
+        debugPrint('⚠️ [Lume] auth 等待异常: $e');
+      }
+      _authCompleter = null;
     }
   }
 
@@ -184,6 +227,10 @@ class LumeWebSocketService {
       _isConnecting = false;
       _lastError = data['error']?['message']?.toString() ?? 'auth failed';
       debugPrint('❌ [Lume] auth 失败: $_lastError');
+      // 🔧 通知 connect() 的 auth 等待完成
+      if (_authCompleter != null && !_authCompleter!.isCompleted) {
+        _authCompleter!.complete(false);
+      }
       _scheduleReconnect();
       return;
     }
@@ -196,6 +243,10 @@ class LumeWebSocketService {
         _userId = payload['userId']?.toString() ?? _userId;
         _sessionPrefix = payload['sessionPrefix']?.toString() ?? _sessionPrefix;
         debugPrint('✅ [Lume] auth 成功');
+        // 🔧 通知 connect() 的 auth 等待完成
+        if (_authCompleter != null && !_authCompleter!.isCompleted) {
+          _authCompleter!.complete(true);
+        }
         _notify({'type': 'connected'});
         _startHeartbeat();
         return;
@@ -300,6 +351,8 @@ class LumeWebSocketService {
     disconnect();
     _wsUrl = null;
     _secret = null;
+    _authCompleter?.complete(false);
+    _authCompleter = null;
     _authHandledByProxy = false;
     _sessionPrefix = null;
     _reconnectAttempts = 0;
@@ -336,6 +389,46 @@ class LumeWebSocketService {
   bool get isConnecting => _isConnecting;
   String? get sessionPrefix => _sessionPrefix;
   String get channelMode => 'lume';
+
+  /// 🔥 热切换设备 — 不断开 WS，proxy 内部切换后端
+  /// 返回 true 表示切换成功
+  Future<bool> deviceSwitch(String serverId, {Duration timeout = const Duration(seconds: 15)}) async {
+    if (!_isConnected) {
+      debugPrint('⚠️ [Lume] deviceSwitch: 未连接，无法热切换');
+      return false;
+    }
+    try {
+      final res = await sendRequestAwait('device.switch', {
+        'serverId': serverId,
+      }, timeout: timeout);
+      final ok = res != null && res['ok'] == true;
+      if (ok) {
+        debugPrint('✅ [Lume] device.switch 成功: ${res?['payload']}');
+      } else {
+        debugPrint('❌ [Lume] device.switch 失败: ${res}');
+      }
+      return ok;
+    } catch (e) {
+      debugPrint('❌ [Lume] deviceSwitch 异常: $e');
+      return false;
+    }
+  }
+
+  /// 查询用户设备列表
+  Future<List<Map<String, dynamic>>> deviceList({Duration timeout = const Duration(seconds: 10)}) async {
+    if (!_isConnected) return [];
+    try {
+      final res = await sendRequestAwait('device.list', {}, timeout: timeout);
+      if (res != null && res['ok'] == true && res['payload']?['servers'] is List) {
+        return (res!['payload']['servers'] as List)
+            .map((s) => Map<String, dynamic>.from(s as Map))
+            .toList();
+      }
+    } catch (e) {
+      debugPrint('❌ [Lume] deviceList 异常: $e');
+    }
+    return [];
+  }
 
   Map<String, dynamic> getDebugInfo() => {
     'wsUrl': _wsUrl ?? '未连接',

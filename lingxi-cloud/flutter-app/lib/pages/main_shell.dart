@@ -34,11 +34,21 @@ class _MainShellState extends State<MainShell> {
     final selectedColor = Constants.primaryColor;
     final unselectedColor = isDark ? Colors.white38 : Colors.black38;
 
-    return Scaffold(
+    return PopScope(
+      canPop: _currentIndex == 0,
+      onPopInvoked: (didPop) {
+        if (!didPop && _currentIndex != 0) {
+          setState(() => _currentIndex = 0);
+        }
+      },
+      child: Scaffold(
       body: IndexedStack(
         index: _currentIndex,
         children: [
-          ChatPage(onRegisterUseSkill: (fn) => _chatUseSkill = fn),
+          ChatPage(
+            onRegisterUseSkill: (fn) => _chatUseSkill = fn,
+            onRegisterOpenSkills: (register) => register(() => setState(() => _currentIndex = 1)),
+          ),
           SkillsPage(onUseSkill: switchToChatWithSkill),
           ToolsPage(),
           ProfilePage(),
@@ -75,6 +85,7 @@ class _MainShellState extends State<MainShell> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

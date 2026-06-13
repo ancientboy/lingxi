@@ -1,7 +1,7 @@
 import 'package:lingxicloud/services/lume_websocket_service.dart';
 import 'package:lingxicloud/services/websocket_service.dart';
 
-/// Lume 优先；均不可用返回 null
+/// Lume 主通道；仅 Lume 不可用时走 Gateway 降级
 Future<Map<String, dynamic>?> rpcSendAwait(
   String method,
   Map<String, dynamic> params, {

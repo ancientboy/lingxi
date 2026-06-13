@@ -165,10 +165,7 @@ class _SkillsPageState extends State<SkillsPage> {
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
+        automaticallyImplyLeading: false,
         title: Text('技能库', style: TextStyle(color: textColor)),
         backgroundColor: bgColor,
         iconTheme: IconThemeData(color: textColor),

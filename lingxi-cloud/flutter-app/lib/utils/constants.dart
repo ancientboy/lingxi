@@ -22,7 +22,7 @@ class Constants {
   
   // 应用配置
   static const String appName = 'Lume';
-  static const String appVersion = '1.0.0';
+  static const String appVersion = '1.9.2';
   static const String appDescription = 'AI Agent 智能助手平台';
 
   // ===== 主题色管理 =====

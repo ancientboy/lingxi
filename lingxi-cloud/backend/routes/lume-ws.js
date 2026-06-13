@@ -4,6 +4,7 @@ import net from "node:net";
 import config from "../config/index.js";
 import { getDB } from "../utils/db.js";
 import { getActiveServer } from "../utils/activeServer.js";
+import { callOpenClawRPC } from "../utils/openclaw-rpc.js";
 
 const router = Router();
 const JWT_SECRET = config.security.jwtSecret;
@@ -92,20 +93,57 @@ router.get("/connect-info", async (req, res) => {
   const jwtToken = authHeader.substring(7);
   const wsUrl = `${wsProto}://${hostHeader}/api/lume-ws?token=${encodeURIComponent(jwtToken)}`;
 
-  // authHandled: false — Flutter 客户端需要自己发 auth 握手
   res.json({
     success: true,
     data: {
       mode: "lume",
       lumeAvailable: true,
       wsUrl,
-      authHandled: false,
-      secret: LUME_SECRET,
+      authHandled: true,
+      secret: null,
       userId: user.id,
+      serverId: userServer?.id || user.activeServerId || null,
       serverIp: host,
       serverName: userServer?.name || null,
     },
   });
+});
+
+
+/** HTTP 备份：sessions.list（设备切换时 WS 竞态 fallback） */
+router.get("/sessions", async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer ")) {
+    return res.status(401).json({ success: false, error: "未登录" });
+  }
+  let decoded;
+  try {
+    decoded = jwt.verify(authHeader.substring(7), JWT_SECRET);
+  } catch {
+    return res.status(401).json({ success: false, error: "登录已过期" });
+  }
+  const db = await getDB();
+  const user = db.users?.find((u) => u.id === decoded.userId);
+  if (!user) return res.status(401).json({ success: false, error: "用户不存在" });
+
+  const userServer = getActiveServer(db, user.id);
+  if (!userServer?.ip) {
+    return res.status(400).json({ success: false, error: "无可用设备" });
+  }
+
+  const limit = Math.min(Number(req.query.limit) || 100, 200);
+  try {
+    const result = await callOpenClawRPC(userServer, "sessions.list", {
+      limit,
+      includeLastMessage: true,
+      includeDerivedTitles: true,
+    });
+    const sessions = result?.payload?.sessions ?? result?.sessions ?? [];
+    return res.json({ success: true, sessions, serverId: userServer.id });
+  } catch (err) {
+    console.error("[lume] GET /sessions:", err.message);
+    return res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 export default router;

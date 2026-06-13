@@ -45,6 +45,25 @@ app.use(express.urlencoded({ extended: true }));
 // 托管上传的图片/文件（必须在 frontend static 之前，否则 /uploads 会被 frontend 拦截）
 app.use('/uploads', express.static(join(__dirname, '../uploads')));
 
+// APK 下载（必须在 frontend static 之前，否则会被旧 lingxi.apk 拦截）
+app.get('/lingxi.apk', (req, res) => {
+  const apkPath = join(__dirname, '../frontend/public/lingxi.apk');
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.download(apkPath, 'lingxi.apk');
+});
+
+app.get('/lingxi-test.apk', (req, res) => {
+  const apkPath = join(__dirname, '../frontend/public/lingxi-test.apk');
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.download(apkPath, 'lingxi-test.apk');
+});
+
+app.get('/lingxi-minimal.apk', (req, res) => {
+  const apkPath = join(__dirname, '../frontend/public/lingxi-minimal.apk');
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.download(apkPath, 'lingxi-minimal.apk');
+});
+
 // 托管前端静态文件（禁用 HTML 缓存）
 app.use(express.static(join(__dirname, '../frontend'), {
   setHeaders: (res, path) => {
@@ -82,24 +101,6 @@ app.use('/downloads', express.static(join(__dirname, './downloads'), {
 // 健康检查
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
-
-// APK 下载（简洁路径）
-app.get('/lingxi.apk', (req, res) => {
-  const apkPath = join(__dirname, '../frontend/public/lingxi.apk');
-  res.download(apkPath, 'lingxi.apk');
-});
-
-// 测试版 APK 下载
-app.get('/lingxi-test.apk', (req, res) => {
-  const apkPath = join(__dirname, '../frontend/public/lingxi-test.apk');
-  res.download(apkPath, 'lingxi-test.apk');
-});
-
-// 极简版 APK 下载
-app.get('/lingxi-minimal.apk', (req, res) => {
-  const apkPath = join(__dirname, '../frontend/public/lingxi-minimal.apk');
-  res.download(apkPath, 'lingxi-minimal.apk');
 });
 
 // 实例管理

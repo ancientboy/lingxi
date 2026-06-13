@@ -71,28 +71,11 @@ class _ServersPageState extends State<ServersPage> {
       await prefs.setString('active_server_id', serverId);
       if (server['ip'] != null) await prefs.setString('active_server_ip', server['ip'].toString());
 
-      // 标记需要刷新会话（ChatPage 检测到后会清空旧消息）
+      // 标记需要刷新会话（ChatPage 检测到后会执行热切换 + 刷新）
       await prefs.setBool('need_refresh_after_switch', true);
 
-      // 断开 Lume，避免 sessions.list 仍走旧设备
-      try {
-        LumeWebSocketService().disconnect();
-      } catch (_) {}
-
-      // Reconnect WebSocket（清除缓存，强制重新获取新设备信息）
-      try {
-        final ws = WebSocketService();
-        ws.reset();  // 清除旧的 URL/token 缓存
-        await Future.delayed(const Duration(milliseconds: 1000));  // 等旧连接完全关闭
-        await ws.connect();
-      } catch (_) {}
-
-      // 重连 Lume（connect-info 跟随新活跃设备）
-      try {
-        await LumeWebSocketService().reconnectForDevice();
-      } catch (_) {}
-
       if (mounted) {
+        // 通知 ChatPage 执行设备切换（热切换，不断连）
         Provider.of<AppProvider>(context, listen: false).notifyDeviceSwitched(serverId);
         setState(() => _activeServerId = serverId);
         ScaffoldMessenger.of(context).showSnackBar(

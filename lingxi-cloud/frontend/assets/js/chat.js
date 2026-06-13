@@ -1668,7 +1668,9 @@ async function loadChatHistory(appendOnly = false) {
   _historyLoadSession = currentSessionKey;
   console.log('📚 loadChatHistory 开始, currentSessionKey:', currentSessionKey, '追加模式:', appendOnly);
 
-  if (!ws || ws.readyState !== WebSocket.OPEN) {
+  const useLume = window.USE_LUME && typeof LumeRpc !== 'undefined' && LumeRpc.isConnected();
+
+  if (!useLume && (!ws || ws.readyState !== WebSocket.OPEN)) {
     console.log('WebSocket 未连接，无法加载历史');
     _historyLoading = false;
     if (!appendOnly) renderHistory([]);
@@ -1682,45 +1684,56 @@ async function loadChatHistory(appendOnly = false) {
     return;
   }
 
-  console.log('📚 发送 chat.history 请求, sessionKey:', currentSessionKey);
+  console.log('📚 发送 chat.history 请求, sessionKey:', currentSessionKey, useLume ? '(Lume)' : '(Gateway)');
 
   try {
-    const res = await new Promise((resolve, reject) => {
-      const id = `req_${requestId++}`;
-      const timeout = setTimeout(() => {
-        console.log('⏱️ chat.history 超时');
-        reject(new Error('timeout'));
-      }, 10000);
+    let res;
+    if (useLume) {
+      // 🔧 Lume 模式：用 chat.history RPC
+      const payload = await LumeRpc.pluginCall('chat.history', {
+        sessionKey: currentSessionKey,
+        limit: 100,
+      });
+      res = { ok: true, payload };
+    } else {
+      // Gateway 模式
+      res = await new Promise((resolve, reject) => {
+        const id = `req_${requestId++}`;
+        const timeout = setTimeout(() => {
+          console.log('⏱️ chat.history 超时');
+          reject(new Error('timeout'));
+        }, 10000);
 
-      const handler = async (event) => {
-        try {
-          const text = typeof event.data === "string" ? event.data : await event.data.text();
-        const data = JSON.parse(text);
-          console.log('📚 收到 WebSocket 消息, id:', data.id, '期待:', id);
-          if (data.id === id) {
-            clearTimeout(timeout);
-            ws.removeEventListener('message', handler);
-            resolve(data);
+        const handler = async (event) => {
+          try {
+            const text = typeof event.data === "string" ? event.data : await event.data.text();
+            const data = JSON.parse(text);
+            console.log('📚 收到 WebSocket 消息, id:', data.id, '期待:', id);
+            if (data.id === id) {
+              clearTimeout(timeout);
+              ws.removeEventListener('message', handler);
+              resolve(data);
+            }
+          } catch (e) {
+            console.error('📚 解析消息失败:', e);
           }
-        } catch (e) {
-          console.error('📚 解析消息失败:', e);
-        }
-      };
+        };
 
-      ws.addEventListener('message', handler);
+        ws.addEventListener('message', handler);
 
-      const req = {
-        type: 'req',
-        id,
-        method: 'chat.history',
-        params: {
-          sessionKey: currentSessionKey,
-          limit: 100
-        }
-      };
-      console.log('📚 发送请求:', JSON.stringify(req));
-      ws.send(JSON.stringify(req));
-    });
+        const req = {
+          type: 'req',
+          id,
+          method: 'chat.history',
+          params: {
+            sessionKey: currentSessionKey,
+            limit: 100
+          }
+        };
+        console.log('📚 发送请求:', JSON.stringify(req));
+        ws.send(JSON.stringify(req));
+      });
+    }
 
     console.log('📚 chat.history 完整响应:', JSON.stringify(res, null, 2));
 
@@ -2284,8 +2297,8 @@ function renderSessionList() {
     const isActive = session.key === currentSessionKey;
     
     // 🆕 使用提取的标题、预览和时间
-    const displayName = session.title || session.label || 'Untitled';
-    const preview = session.preview || session.lastMessage || 'No messages';
+    const displayName = session.title || session.label || session.derivedTitle || 'Untitled';
+    const preview = session.preview || session.lastMessage || session.lastMessagePreview || 'No messages';
     const time = session.relativeTime || '';
     
     // 截断预览文本
@@ -2656,7 +2669,7 @@ function formatModelName(model) {
   const name = model.includes('/') ? model.split('/').pop() : model;
   const displayMap = {
     'deepseek-v4-pro': 'DeepSeek V4 Pro',
-    'glm-5.1': 'GLM-5.1',
+    'glm-5.1': 'GLM-5.2',
     'glm-5': 'GLM-5',
     'glm-4': 'GLM-4',
     'gpt-4o': 'GPT-4o',

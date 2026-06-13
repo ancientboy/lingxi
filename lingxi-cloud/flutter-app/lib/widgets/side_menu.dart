@@ -19,6 +19,8 @@ import 'package:lingxicloud/pages/workspace_page.dart';
 import 'package:lingxicloud/pages/file_explorer_page.dart';
 import 'package:lingxicloud/pages/servers_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:lingxicloud/services/device_switch_manager.dart';
+import 'package:lingxicloud/services/session_repository.dart';
 
 class SideMenu extends StatelessWidget {
   final bool asDrawer;
@@ -405,19 +407,10 @@ class _SessionsDialogState extends State<_SessionsDialog> {
         return;
       }
 
-      debugPrint('📋 发送 sessions.list (Lume 优先)');
-      final res = await rpcSendAwait('sessions.list', {
-        'limit': 50,
-        'includeLastMessage': true,
-        'includeDerivedTitles': true,
-      });
-      List<Map<String, dynamic>> result = [];
-      if (res != null && res['ok'] == true && res['payload']?['sessions'] is List) {
-        result = (res['payload']['sessions'] as List)
-            .map((s) => Map<String, dynamic>.from(s as Map))
-            .toList();
-        _filterDeletedSessions(result);
-      }
+      final epoch = DeviceSwitchManager.instance.deviceEpoch;
+      final list = await SessionRepository.fetchSessions(epoch: epoch, limit: 50);
+      List<Map<String, dynamic>> result = list ?? [];
+      if (result.isNotEmpty) _filterDeletedSessions(result);
 
       if (mounted) {
         setState(() {

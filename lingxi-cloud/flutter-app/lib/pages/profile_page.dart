@@ -139,8 +139,8 @@ class _ProfilePageState extends State<ProfilePage> {
                 Provider.of<AppProvider>(context, listen: false).toggleTheme();
               }),
 
-              _menuItem(Icons.info_outline, '关于', 'v1.8.0', Color(0xFF9CA3AF), cardColor, textColor, subColor, () {
-                showAboutDialog(context: context, applicationName: '灵犀云', applicationVersion: 'v1.8.0', applicationIcon: Container(
+              _menuItem(Icons.info_outline, '关于', 'v${Constants.appVersion}', Color(0xFF9CA3AF), cardColor, textColor, subColor, () {
+                showAboutDialog(context: context, applicationName: '灵犀云', applicationVersion: 'v${Constants.appVersion}', applicationIcon: Container(
                   width: 48, height: 48, decoration: BoxDecoration(gradient: LinearGradient(colors: [Constants.primaryColor, Constants.secondaryColor]), borderRadius: BorderRadius.circular(12)),
                   child: Center(child: Text('L', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white))),
                 ));
