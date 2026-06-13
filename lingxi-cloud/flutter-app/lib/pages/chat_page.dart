@@ -1377,6 +1377,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       : status == 'connected' ? (_lumeReady ? 'Lume已连接' : (_lumeStatus.contains('Gateway') ? 'Gateway已连接' : '已连接')) 
                       : status == 'disconnected' ? '已断开' : '连接失败';
           });
+          // WS 断开时立即清生成状态，防止"思考中"卡死
+          if (status == 'disconnected' && _isGenerating) {
+            debugPrint('⚠️ [WS] 断开，重置 _isGenerating');
+            _onStreamEnd();
+            setState(() { _isGenerating = false; });
+          }
           return;
         }
         
