@@ -59,6 +59,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   String? _streamingBlockId;  // 当前流式消息的 blockId
   String _pendingStreamContent = '';  // 待刷新的流式内容
   Timer? _streamThrottleTimer;  // throttle 定时器
+  Timer? _generatingSafetyTimer;  // generating 超时安全网
   bool _streamDirty = false;  // 是否有未刷新的内容
   static const Duration _streamThrottleDuration = Duration(milliseconds: 50);
   
@@ -1277,6 +1278,15 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         _queueTotal = 0;
         _isGenerating = true;
       });
+      // 安全网：60 秒后如果还在 generating，自动复位
+      _generatingSafetyTimer?.cancel();
+      _generatingSafetyTimer = Timer(const Duration(seconds: 60), () {
+        if (mounted && _isGenerating) {
+          debugPrint('⚠️ [Safety] _isGenerating 超时自动复位（60s 无 final）');
+          _onStreamEnd();
+          setState(() { _isGenerating = false; });
+        }
+      });
       return;
     }
 
@@ -1296,6 +1306,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
     if (state == 'error') {
       final errText = payload['message']?.toString() ?? '消息处理失败';
+      _generatingSafetyTimer?.cancel();
       setState(() {
         _isGenerating = false;
         _queuePosition = 0;
@@ -1321,6 +1332,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       }
       final msgId = runId.isNotEmpty ? runId : DateTime.now().millisecondsSinceEpoch.toString();
       _onStreamEnd();
+      _generatingSafetyTimer?.cancel();
       setState(() {
         _isGenerating = false;
         _streamingBlockId = null;
@@ -2335,6 +2347,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
 
     _streamThrottleTimer?.cancel();
+    _generatingSafetyTimer?.cancel();
     _gatewaySessionDeferTimer?.cancel();
     try {
       if (_wsListener != null) {
