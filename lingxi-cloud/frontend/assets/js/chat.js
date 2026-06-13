@@ -265,7 +265,6 @@ async function init() {
     localStorage.removeItem('cached_sessions');     // 清除缓存的 session 列表
     localStorage.removeItem('chat_messages_cache'); // 清除消息缓存
     window.sessions = [];  // 清除内存中的旧会话列表
-    _wsIsReconnect = false; // 确保不走重连逻辑
   }
 
   // 🔒 先从服务器获取最新用户信息并检查团队状态
@@ -403,12 +402,8 @@ async function init() {
 
   renderTeamTags();
 
-  const lumeOk = await tryConnectLume();
-  if (lumeOk) {
-    initLumeChatMode();
-  } else {
-    connectWebSocket();
-  }
+  await tryConnectLume();
+  initLumeChatMode();
 
   let _isComposing = false;
   document.getElementById('inputField').addEventListener('compositionstart', () => { _isComposing = true; });
@@ -438,304 +433,11 @@ async function init() {
 }
 
 let requestId = 1;
-let connectNonce = null;
-let statusDot = null;  // WebSocket 状态指示器（全局变量）
+let statusDot = null;  // 状态指示器（由 Lume 模式设置）
 
-// WebSocket 连接
-
-// ═══════════════════════════════════════════════════════════════
-// 🔌 WebSocket 模块
-// ═══════════════════════════════════════════════════════════════
-let _wsIsReconnect = false; // 全局重连标记
-
-function connectWebSocket() {
-  const statusEl = document.getElementById('connectionStatus');
-  if (!statusEl) {
-    console.warn('connectionStatus 元素未找到，跳过 WebSocket 状态更新');
-    return;
-  }
-  statusDot = statusEl.querySelector('.status-dot');
-  if (!statusDot) {
-    console.warn('status-dot 元素未找到，跳过 WebSocket 状态更新');
-    return;
-  }
-  statusDot.className = 'status-dot';
-
-  try {
-    // 修复：通过后端 WebSocket 代理连接，解决 HTTPS 混合内容问题
-    // 代理地址格式：wss://lumeword.com/api/ws?token=xxx
-    const wsUrl = `${GATEWAY_WS}?token=${encodeURIComponent(GATEWAY_TOKEN)}`;
-    console.log('🔌 连接 WebSocket 代理:', wsUrl.replace(/token=[^&]+/, 'token=***'), '重连:', _wsIsReconnect);
-
-    ws = new WebSocket(wsUrl);
-
-    ws.onopen = () => {
-      console.log('WebSocket 已连接，等待 750ms 后发送 connect...');
-
-      // OpenClaw 要求等待 750ms 后再发送 connect
-      setTimeout(() => {
-        sendConnect();
-        // 会话列表和历史的加载统一在 handleWebSocketMessage 的 hello-ok 回调中处理
-        // 不再在这里重复调用 loadSessions
-      }, 750);
-    };
-
-    ws.onmessage = async (event) => {
-      try {
-        const text = typeof event.data === "string" ? event.data : await event.data.text();
-        const data = JSON.parse(text);
-        handleWebSocketMessage(data);
-      } catch (e) {
-        console.error('解析消息失败:', e);
-      }
-    };
-
-    ws.onerror = (error) => {
-      console.error('WebSocket 错误:', error);
-      statusDot.className = 'status-dot';  // 红色
-    };
-
-    ws.onclose = () => {
-      console.log('WebSocket 已断开，5秒后重连...');
-      statusDot.className = 'status-dot';  // 红色
-      _wsIsReconnect = true; // 标记下次连接为重连
-      setTimeout(connectWebSocket, 5000);
-    };
-  } catch (e) {
-    console.error('WebSocket 连接失败:', e);
-    statusDot.className = 'status-dot';  // 红色
-  }
-}
-
-// 发送 connect 请求
-function sendConnect() {
-  if (!ws || ws.readyState !== WebSocket.OPEN) return;
-
-  const params = {
-    minProtocol: 3,
-    maxProtocol: 99,
-    client: {
-      id: 'openclaw-control-ui',  // 使用 control-ui 获得完整 operator 权限
-      version: '1.0.0',
-      platform: 'web',
-      mode: 'webchat'
-    },
-    role: 'operator',
-    scopes: ['operator.admin', 'operator.read', 'operator.write'],
-    auth: { token: OPENCLAW_TOKEN },  // 使用 OpenClaw token
-    locale: 'zh-CN',
-    userAgent: navigator.userAgent
-  };
-
-  // 禁用设备认证后不需要发送 device
-  console.log('📤 发送 connect 请求:', JSON.stringify({ type: 'req', method: 'connect' }));
-    ws.send(JSON.stringify({
-    type: 'req',
-    id: `req_${requestId++}`,
-    method: 'connect',
-    params
-  }));
-}
-
-// 处理 WebSocket 消息
-async function handleWebSocketMessage(data) {
-  console.log('📥 收到消息:', data.type, data.event || data.payload?.type);
-
-  const statusEl = document.getElementById('connectionStatus');
-
-  // 连接挑战 - 设备认证已禁用时不应该收到
-  if (data.type === 'event' && data.event === 'connect.challenge') {
-    console.log('收到设备认证挑战，但已禁用，继续...');
-    // 设备认证已禁用，忽略挑战，等待 hello-ok
-    return;
-  }
-
-  // 连接响应
-  if (data.type === 'res' && data.ok && data.payload?.type === 'hello-ok') {
-    const statusDot = statusEl?.querySelector('.status-dot');
-    if (statusDot) statusDot.className = 'status-dot connected';  // 绿色
-    
-    // 检测是否是重连：用全局标记（比 window.sessions 更可靠）
-    const isReconnect = _wsIsReconnect;
-    
-    if (isReconnect) {
-      console.log('🔄 重连成功，保留现有消息，只刷新会话列表');
-      _wsIsReconnect = false; // 重置标记
-      // 重连时只刷新侧边栏列表，不重新加载历史消息
-      if (typeof loadSidebarSessions === 'function') {
-        loadSidebarSessions();
-      }
-    } else {
-      console.log('首次连接，加载会话和历史');
-      // 首次连接：正常加载会话列表和历史
-      loadSessions();
-    }
-    return;
-  }
-
-  // chat.send 响应 (开始运行)
-  if (data.type === 'res' && data.payload?.status === 'started') {
-    console.log('消息发送中，runId:', data.payload.runId);
-    currentRunId = data.payload.runId;
-    isGenerating = true;
-    updateSendButton();
-    return;
-  }
-
-  // 错误响应
-  if (data.type === 'res' && !data.ok) {
-    // 检查是否是积分不足错误
-    if (data.error?.code === 'INSUFFICIENT_CREDITS') {
-      console.log('💎 积分不足，弹出订阅窗口');
-      removeTyping();
-      isGenerating = false;
-      currentRunId = null;
-      updateSendButton();
-
-      // 弹出订阅窗口
-      if (typeof showSubscription === 'function') {
-        showSubscription();
-      } else {
-        addMessage('assistant', 'Credits insufficient. Please subscribe to continue.', '灵犀');
-      }
-      return;
-    }
-
-    // 其他错误
-    const errorMsg = data.error?.message || data.error?.error || '请求失败';
-    console.error('请求失败:', errorMsg);
-    removeTyping();
-    isGenerating = false;
-    currentRunId = null;
-    updateSendButton();
-    addMessage('assistant', errorMsg, '灵犀');
-
-    // 如果是认证错误，显示红色状态
-    if (errorMsg.includes('auth') || errorMsg.includes('token') || errorMsg.includes('认证')) {
-      statusDot.className = 'status-dot';  // 红色
-    }
-
-    removeTyping();
-    isGenerating = false;
-    currentRunId = null;
-    updateSendButton();
-    addMessage('assistant', errorMsg, '系统');
-    return;
-  }
-
-  // 工作流事件
-  if (data.type === 'event' && data.event === 'workflow') {
-    const payload = data.payload || {};
-    console.log('收到工作流事件:', payload.type, payload);
-    
-    // 根据工作流事件类型渲染不同的卡片
-    if (payload.type === 'start') {
-      addMessage('assistant', {
-        type: 'workflow_start',
-        workflow: payload
-      }, '灵犀');
-    } else if (payload.type === 'progress') {
-      addMessage('assistant', {
-        type: 'workflow_progress',
-        stepIndex: payload.stepIndex,
-        stepName: payload.stepName,
-        agent: payload.agent,
-        isComplete: payload.isComplete
-      }, '灵犀');
-    } else if (payload.type === 'complete') {
-      addMessage('assistant', {
-        type: 'workflow_complete',
-        workflow: payload
-      }, '灵犀');
-    } else if (payload.type === 'error') {
-      addMessage('assistant', {
-        type: 'workflow_error',
-        error: payload.error
-      }, '灵犀');
-    }
-    return;
-  }
-
-  // 聊天响应事件
-  if (data.type === 'event' && data.event === 'chat') {
-    const payload = data.payload || {};
-
-    // 检查是否是当前会话（宽松匹配，只检查后缀）
-    if (payload.sessionKey && currentSessionKey) {
-      const payloadSuffix = payload.sessionKey.split(':').pop();
-      const currentSuffix = currentSessionKey.split(':').pop();
-      if (payloadSuffix !== currentSuffix && payload.sessionKey !== currentSessionKey) {
-        console.log('跳过非当前会话消息:', payload.sessionKey, '当前:', currentSessionKey);
-        return;
-      }
-    }
-
-    const runId = payload.runId;
-
-    // delta - 流式输出（保持打字机效果）
-    if (payload.state === 'delta') {
-      const text = extractText(payload.message);
-      if (text) {
-        updateStreamingMessage(text, runId);
-      }
-    }
-    // final - 完成：用 chat.history 增量刷新获取核心引擎过滤后的干净消息
-    else if (payload.state === 'final') {
-      removeTyping();
-      isGenerating = false;
-      currentRunId = null;
-      updateSendButton();
-      console.log('消息完成，拉取增量历史...');
-
-      // 清除当前 runId 的流式消息占位，增量历史会带回最终版本
-      if (streamingMessages[runId]) {
-        const el = streamingMessages[runId].element;
-        if (el && el.parentNode) el.parentNode.removeChild(el);
-        delete streamingMessages[runId];
-      }
-
-      // 增量拉取 chat.history（核心引擎已过滤心跳/NO_REPLY/tool痕迹）
-      try {
-        const freshMessages = await fetchChatHistory(currentSessionKey, 20);
-        if (freshMessages && freshMessages.length > 0) {
-          renderHistory(freshMessages, true);  // appendOnly = true
-        }
-      } catch (e) {
-        console.warn('增量历史拉取失败，回退到 final payload:', e);
-        // 降级：直接用 final payload 渲染
-        const text = extractText(payload.message);
-        if (text) addMessage('assistant', text, '灵犀', payload.modelInfo);
-      }
-
-      // 刷新侧边栏积分
-      refreshSidebarCredits();
-    }
-    // error
-    else if (payload.state === 'error') {
-      removeTyping();
-      isGenerating = false;
-      currentRunId = null;
-      updateSendButton();
-      addMessage('assistant', (payload.errorMessage || '未知错误'), '灵犀');
-    }
-    // aborted
-    else if (payload.state === 'aborted') {
-      removeTyping();
-      isGenerating = false;
-      currentRunId = null;
-      updateSendButton();
-      console.log('消息已中止');
-    }
-  }
-
-  // 🎵 音频消息处理
-  if (data.type === 'audio') {
-    const { url, text, name } = data.payload || {};
-    console.log('🎵 收到音频消息:', url);
-    addMessage('assistant', { audio: url, text }, name || '灵犀');
-    return;
-  }
-}
+// ════════════════════════════════════════════════════════════════
+// 🔌 消息处理（Lume 事件由 chat-lume.js 中的 handleLumeEvent 处理）
+// ════════════════════════════════════════════════════════════════
 
 // 从消息对象中提取文本
 function extractText(message) {
@@ -1488,70 +1190,10 @@ async function sendMessage() {
     if (sent) return;
   }
 
-  // 通过 WebSocket 发送
-  console.log('🔌 WebSocket 状态:', ws ? ws.readyState : 'null', '(OPEN=1)');
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    console.log('通过 WebSocket 发送消息');
-    console.log('📦 sessionKey:', currentSessionKey);
-    addTyping();
-
-    const reqId = `req_${requestId++}`;
-    // 使用异步版本处理图片
-    const params = await buildMessageParamsAsync(text, currentImage);
-    const req = {
-      type: 'req',
-      id: reqId,
-      method: 'chat.send',
-      params: params
-    };
-
-    // 打印请求信息
-    console.log('📤 发送请求:');
-    console.log('  - sessionKey:', params.sessionKey);
-    console.log('  - message:', params.message?.substring(0, 50));
-    console.log('  - attachments:', params.attachments ? params.attachments.length + '个' : '无');
-    console.log('  - 请求总大小:', JSON.stringify(req).length, '字节');
-    
-    try {
-      ws.send(JSON.stringify(req));
-      console.log('消息已发送到 WebSocket');
-      
-      // 🆕 自动更新 session label（如果是第一条消息）
-      if (window.sessions) {
-        const currentSession = window.sessions.find(s => s.key === currentSessionKey);
-        if (currentSession && (!currentSession.label || currentSession.label === '灵犀' || currentSession.label.includes('agent:'))) {
-          // 使用消息文本作为新的 label
-          const newLabel = text.substring(0, 50);
-          console.log('📝 更新 session label:', currentSessionKey, '→', newLabel);
-          
-          // 发送更新请求
-          ws.send(JSON.stringify({
-            type: 'req',
-            id: `update-label-${Date.now()}`,
-            method: 'sessions.patch',
-            params: {
-              key: currentSessionKey,
-              label: newLabel
-            }
-          }));
-          
-          // 更新本地缓存
-          currentSession.label = newLabel;
-          currentSession.title = newLabel;
-          
-          // 重新渲染会话列表
-          renderSessionList();
-        }
-      }
-    } catch (sendError) {
-      console.error('WebSocket 发送失败:', sendError);
-    }
-  } else {
-    // WebSocket 未连接，使用 HTTP 代理
-    console.log('📡 WebSocket 未连接，使用 HTTP 代理');
-    const params = await buildMessageParamsAsync(text, currentImage);
-    sendViaHTTP(params.message);
-  }
+  // Lume 不可用时使用 HTTP 代理降级
+  console.log('📡 Lume 不可用，使用 HTTP 代理');
+  const params = await buildMessageParamsAsync(text, currentImage);
+  sendViaHTTP(params.message);
 }
 
 // 处理发送/停止按钮点击
@@ -1584,25 +1226,10 @@ function updateSendButton() {
 
 // 中止对话
 function abortChat() {
-  if (!ws || ws.readyState !== WebSocket.OPEN) {
-    console.log('WebSocket 未连接');
-    return;
+  // 尝试通过 Lume 中止
+  if (window.USE_LUME && typeof LumeRpc !== 'undefined' && LumeRpc.isConnected() && currentSessionKey) {
+    LumeRpc.pluginCall('chat.abort', { sessionKey: currentSessionKey, runId: currentRunId }).catch(() => {});
   }
-
-  if (!currentSessionKey) {
-    console.log('currentSessionKey 未设置');
-    return;
-  }
-
-  ws.send(JSON.stringify({
-    type: 'req',
-    id: `req_${requestId++}`,
-    method: 'chat.abort',
-    params: {
-      sessionKey: currentSessionKey,
-      runId: currentRunId
-    }
-  }));
 
   isGenerating = false;
   currentRunId = null;
@@ -1624,33 +1251,11 @@ let _historyLoadSession = null; // 记录当前正在加载哪个 session
  * @returns {Array|null} messages 数组或 null
  */
 async function fetchChatHistory(sessionKey, limit = 20) {
-  if (!ws || ws.readyState !== WebSocket.OPEN || !sessionKey) return null;
+  if (!window.USE_LUME || typeof LumeRpc === 'undefined' || !LumeRpc.isConnected() || !sessionKey) return null;
 
   try {
-    const res = await new Promise((resolve, reject) => {
-      const id = `req_${requestId++}`;
-      const timeout = setTimeout(() => reject(new Error('timeout')), 8000);
-
-      const handler = async (event) => {
-        try {
-          const text = typeof event.data === 'string' ? event.data : await event.data.text();
-          const data = JSON.parse(text);
-          if (data.id === id) {
-            clearTimeout(timeout);
-            ws.removeEventListener('message', handler);
-            resolve(data);
-          }
-        } catch (e) { /* ignore parse errors */ }
-      };
-
-      ws.addEventListener('message', handler);
-      ws.send(JSON.stringify({
-        type: 'req', id, method: 'chat.history',
-        params: { sessionKey, limit }
-      }));
-    });
-
-    if (res.ok && res.payload?.messages) return res.payload.messages;
+    const payload = await LumeRpc.pluginCall('chat.history', { sessionKey, limit });
+    if (payload?.messages) return payload.messages;
     return null;
   } catch (e) {
     console.warn('fetchChatHistory failed:', e);
@@ -1670,8 +1275,8 @@ async function loadChatHistory(appendOnly = false) {
 
   const useLume = window.USE_LUME && typeof LumeRpc !== 'undefined' && LumeRpc.isConnected();
 
-  if (!useLume && (!ws || ws.readyState !== WebSocket.OPEN)) {
-    console.log('WebSocket 未连接，无法加载历史');
+  if (!useLume) {
+    console.log('Lume 未连接，无法加载历史');
     _historyLoading = false;
     if (!appendOnly) renderHistory([]);
     return;
@@ -1684,56 +1289,14 @@ async function loadChatHistory(appendOnly = false) {
     return;
   }
 
-  console.log('📚 发送 chat.history 请求, sessionKey:', currentSessionKey, useLume ? '(Lume)' : '(Gateway)');
+  console.log('📚 发送 chat.history 请求, sessionKey:', currentSessionKey, '(Lume)');
 
   try {
-    let res;
-    if (useLume) {
-      // 🔧 Lume 模式：用 chat.history RPC
-      const payload = await LumeRpc.pluginCall('chat.history', {
-        sessionKey: currentSessionKey,
-        limit: 100,
-      });
-      res = { ok: true, payload };
-    } else {
-      // Gateway 模式
-      res = await new Promise((resolve, reject) => {
-        const id = `req_${requestId++}`;
-        const timeout = setTimeout(() => {
-          console.log('⏱️ chat.history 超时');
-          reject(new Error('timeout'));
-        }, 10000);
-
-        const handler = async (event) => {
-          try {
-            const text = typeof event.data === "string" ? event.data : await event.data.text();
-            const data = JSON.parse(text);
-            console.log('📚 收到 WebSocket 消息, id:', data.id, '期待:', id);
-            if (data.id === id) {
-              clearTimeout(timeout);
-              ws.removeEventListener('message', handler);
-              resolve(data);
-            }
-          } catch (e) {
-            console.error('📚 解析消息失败:', e);
-          }
-        };
-
-        ws.addEventListener('message', handler);
-
-        const req = {
-          type: 'req',
-          id,
-          method: 'chat.history',
-          params: {
-            sessionKey: currentSessionKey,
-            limit: 100
-          }
-        };
-        console.log('📚 发送请求:', JSON.stringify(req));
-        ws.send(JSON.stringify(req));
-      });
-    }
+    const payload = await LumeRpc.pluginCall('chat.history', {
+      sessionKey: currentSessionKey,
+      limit: 100,
+    });
+    const res = { ok: true, payload };
 
     console.log('📚 chat.history 完整响应:', JSON.stringify(res, null, 2));
 
@@ -1741,7 +1304,6 @@ async function loadChatHistory(appendOnly = false) {
       console.log('加载了', res.payload.messages.length, '条历史消息');
       renderHistory(res.payload.messages);
     } else if (res.ok && res.payload?.transcript) {
-      // 尝试 transcript 字段
       console.log('使用 transcript 字段, 长度:', res.payload.transcript.length);
       renderHistory(res.payload.transcript);
     } else {
@@ -2060,211 +1622,12 @@ function clearAllSessions() {
 }
 
 // 加载会话列表
+// loadSessions: 会话列表由 chat-lume.js 的 loadLumeSessions() 通过 Lume RPC 加载
+// 此函数保留作为 loadLumeSessions 的回调，渲染已加载的 window.sessions
 async function loadSessions() {
-  if (!ws || ws.readyState !== WebSocket.OPEN) {
-    console.log('WebSocket 未连接，无法加载会话列表');
-    return;
-  }
-
-  console.log('开始加载会话列表...');
-
-
-  try {
-    const res = await new Promise((resolve, reject) => {
-      const id = `req_${requestId++}`;
-      const timeout = setTimeout(() => reject(new Error('timeout')), 10000);
-
-      const handler = async (event) => {
-        try {
-          const text = typeof event.data === "string" ? event.data : await event.data.text();
-        const data = JSON.parse(text);
-          if (data.id === id) {
-            clearTimeout(timeout);
-            ws.removeEventListener('message', handler);
-            resolve(data);
-          }
-        } catch (e) {}
-      };
-
-      ws.addEventListener('message', handler);
-
-      ws.send(JSON.stringify({
-        type: 'req',
-        id,
-        method: 'sessions.list',
-        params: {}
-      }));
-    });
-
-      console.log('sessions.list 响应:', res);
-
-    if (res.ok && res.payload?.sessions) {
-      // 过滤掉本地已删除的会话
-      const deletedSessions = getDeletedSessions();
-      let allSessions = res.payload.sessions.filter(s => !deletedSessions.includes(s.key));
-
-      // 过滤掉系统会话（心跳、健康检查等）
-      const systemPatterns = ['heartbeat', 'health', 'ping', 'pong', '_system', '_internal'];
-      allSessions = allSessions.filter(s => {
-        const key = s.key.toLowerCase();
-        return !systemPatterns.some(p => key.includes(p));
-      });
-
-      // 去重：基于 sessionKey 或 key
-      const seenKeys = new Set();
-      allSessions = allSessions.filter(session => {
-        const key = session.sessionKey || session.key || '';
-        if (seenKeys.has(key)) return false;
-        seenKeys.add(key);
-        return true;
-      });
-
-      // 🆕 为每个 session 添加标题和预览
-      // 对于没有 label 的 session，延迟加载第一条消息
-      const loadPromises = allSessions.slice(0, 10).map(async (session) => {
-        // 如果已经有 label 且不是默认值，直接使用
-        if (session.label && session.label !== '灵犀' && !session.label.includes('agent:')) {
-          session.title = session.label;
-          session.preview = session.label;
-        } else {
-          // 否则，加载第一条消息
-          try {
-            const history = await new Promise((resolve, reject) => {
-              const id = `load-history-${session.key}`;
-              const handler = (event) => {
-                try {
-                  const data = JSON.parse(event.data);
-                  if (data.id === id) {
-                    ws.removeEventListener('message', handler);
-                    resolve(data);
-                  }
-                } catch (e) {}
-              };
-              ws.addEventListener('message', handler);
-              
-              ws.send(JSON.stringify({
-                type: 'req',
-                id: id,
-                method: 'chat.history',
-                params: {
-                  sessionKey: session.key,
-                  limit: 1
-                }
-              }));
-              
-              // 超时处理
-              setTimeout(() => {
-                ws.removeEventListener('message', handler);
-                resolve({ ok: false });
-              }, 2000);
-            });
-            
-            if (history.ok && history.payload?.messages?.length > 0) {
-              const firstMessage = history.payload.messages[0];
-              const content = extractText(firstMessage);
-              // 移除附件标记
-              const cleanContent = content.replace(/\[附件:[^\]]+\]\s*/g, '').trim();
-              session.title = cleanContent.substring(0, 50);
-              session.preview = cleanContent.substring(0, 100);
-            } else {
-              // 没有消息，使用 session key 的最后一部分
-              const keyParts = (session.key || '').split(':');
-              session.title = keyParts[keyParts.length - 1] || 'Untitled';
-              session.preview = 'No messages';
-            }
-          } catch (e) {
-            console.warn('加载会话历史失败:', session.key, e);
-            const keyParts = (session.key || '').split(':');
-            session.title = keyParts[keyParts.length - 1] || 'Untitled';
-            session.preview = 'No messages';
-          }
-        }
-        
-        // 格式化时间
-        const timestamp = session.updatedAt ? new Date(session.updatedAt).getTime() : Date.now();
-        session.relativeTime = formatRelativeTime(timestamp);
-        session.timestamp = timestamp;
-        
-        return session;
-      });
-      
-      // 等待所有加载完成
-      allSessions = await Promise.all(loadPromises);
-      
-      // 对于没有加载的 session（超过前 10 个），使用默认标题
-      allSessions.slice(10).forEach(session => {
-        if (!session.title) {
-          const keyParts = (session.key || '').split(':');
-          session.title = session.label || keyParts[keyParts.length - 1] || 'Untitled';
-          session.preview = 'No messages';
-        }
-        const timestamp = session.updatedAt ? new Date(session.updatedAt).getTime() : Date.now();
-        session.relativeTime = formatRelativeTime(timestamp);
-        session.timestamp = timestamp;
-      });
-
-      // 按更新时间排序（最新的在前）
-      allSessions.sort((a, b) => {
-        const timeA = a.timestamp || 0;
-        const timeB = b.timestamp || 0;
-        return timeB - timeA;
-      });
-
-      // 限制最多显示 50 个会话
-      const maxSessions = 50;
-      if (allSessions.length > maxSessions) {
-        console.log('会话数量超过', maxSessions, '，只显示最近的', maxSessions, '个');
-        allSessions = allSessions.slice(0, maxSessions);
-      }
-
-      window.sessions = allSessions;
-      console.log('加载了', allSessions.length, '个会话（原始:', res.payload.sessions.length, '）');
-      
-      // 🆕 默认加载最新会话（按时间排序后的第一个）
-      if (allSessions.length > 0) {
-        const latestSession = allSessions[0];  // 已经按时间排序，第一个是最新的
-        // 重连时保留当前会话，不切换
-        if (ws?.isReconnect) {
-          console.log('🔄 重连模式，保持当前会话:', currentSessionKey);
-        } else {
-          currentSessionKey = latestSession.key;
-          console.log('默认加载最新会话:', currentSessionKey);
-          // 加载该会话的历史消息
-          loadChatHistory();
-        }
-      } else {
-        // 没有会话，使用主会话
-        currentSessionKey = SESSION_KEY;
-        console.log('🔑 无历史会话，使用主会话:', currentSessionKey);
-      }
-      
-      renderSessionList();
-      // 更新侧边栏会话列表
-      console.log('🔍 检查 loadSidebarSessions:', typeof loadSidebarSessions);
-      if (typeof loadSidebarSessions === 'function') {
-        console.log('📞 调用 loadSidebarSessions()');
-        loadSidebarSessions();
-      } else {
-        console.log('loadSidebarSessions 不是函数，尝试 window.loadSidebarSessions');
-        if (typeof window.loadSidebarSessions === 'function') {
-          window.loadSidebarSessions();
-        }
-      }
-    } else {
-      console.log('无会话数据');
-      window.sessions = [];
-      renderSessionList();
-      if (typeof loadSidebarSessions === 'function') {
-        loadSidebarSessions();
-      }
-    }
-  } catch (e) {
-    console.error('加载会话列表失败:', e);
-    window.sessions = [];
-    renderSessionList();
-    if (typeof loadSidebarSessions === 'function') {
-      loadSidebarSessions();
-    }
+  renderSessionList();
+  if (typeof loadSidebarSessions === 'function') {
+    loadSidebarSessions();
   }
 }
 
@@ -2426,73 +1789,22 @@ async function deleteSession(sessionKey) {
   console.log('🗑️ 开始删除会话:', sessionKey);
 
   try {
-    // 调用 WebSocket API 删除会话
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      console.log('📡 WebSocket 已连接，发送删除请求...');
+    // 通过 Lume RPC 删除会话
+    if (window.USE_LUME && typeof LumeRpc !== 'undefined' && LumeRpc.isConnected()) {
+      await LumeRpc.sendRequest('sessions.delete', { key: sessionKey });
+      console.log('删除会话成功:', sessionKey);
+    }
 
-      const res = await new Promise((resolve, reject) => {
-        const id = `req_${requestId++}`;
-        const timeout = setTimeout(() => {
-          console.log('⏱️ 删除请求超时');
-          reject(new Error('timeout'));
-        }, 10000);
+    // 记录到本地已删除列表
+    addDeletedSession(sessionKey);
 
-        const handler = async (event) => {
-          try {
-            const text = typeof event.data === "string" ? event.data : await event.data.text();
-        const data = JSON.parse(text);
-            console.log('📥 收到响应:', data.id, '期待:', id);
-            if (data.id === id) {
-              clearTimeout(timeout);
-              ws.removeEventListener('message', handler);
-              resolve(data);
-            }
-          } catch (e) {}
-        };
+    // 从本地列表中移除
+    window.sessions = window.sessions.filter(s => s.key !== sessionKey);
+    renderSessionList();
 
-        ws.addEventListener('message', handler);
-
-        const deleteReq = {
-          type: 'req',
-          id,
-          method: 'sessions.delete',
-          params: { key: sessionKey }
-        };
-        console.log('📤 发送删除请求:', deleteReq);
-        ws.send(JSON.stringify(deleteReq));
-      });
-
-      console.log('sessions.delete 响应:', res);
-
-      if (res.ok) {
-        // 记录到本地已删除列表（防止刷新后重新出现）
-        addDeletedSession(sessionKey);
-
-        // 从本地列表中移除
-        window.sessions = window.sessions.filter(s => s.key !== sessionKey);
-        renderSessionList();
-        console.log('删除会话成功:', sessionKey);
-
-        // 刷新侧边栏
-        if (typeof loadSidebarSessions === 'function') {
-          loadSidebarSessions();
-        }
-      } else {
-        const errorMsg = res.error?.message || JSON.stringify(res.error) || '未知错误';
-        console.error('删除失败:', errorMsg);
-        alert('删除失败: ' + errorMsg);
-      }
-    } else {
-      console.log('WebSocket 未连接，只删除本地');
-      // WebSocket 未连接，只删除本地
-      addDeletedSession(sessionKey);
-      window.sessions = window.sessions.filter(s => s.key !== sessionKey);
-      renderSessionList();
-
-      // 刷新侧边栏
-      if (typeof loadSidebarSessions === 'function') {
-        loadSidebarSessions();
-      }
+    // 刷新侧边栏
+    if (typeof loadSidebarSessions === 'function') {
+      loadSidebarSessions();
     }
   } catch (e) {
     console.error('删除会话异常:', e);
@@ -4101,60 +3413,27 @@ async function switchAgent(agentId) {
 
 // 创建 agent 专属 session
 async function createAgentSession(sessionKey, agentName) {
-  if (!ws || ws.readyState !== WebSocket.OPEN) {
-    console.warn('WebSocket 未连接，无法创建 session');
-    return false;
-  }
-
   try {
-    const res = await new Promise((resolve, reject) => {
-      const id = `req_${requestId++}`;
-      const timeout = setTimeout(() => {
-        reject(new Error('timeout'));
-      }, 10000);
-
-      const handler = async (event) => {
-        try {
-          const text = typeof event.data === "string" ? event.data : await event.data.text();
-          const data = JSON.parse(text);
-          if (data.id === id) {
-            clearTimeout(timeout);
-            ws.removeEventListener('message', handler);
-            resolve(data);
-          }
-        } catch (e) {}
-      };
-
-      ws.addEventListener('message', handler);
-
-      ws.send(JSON.stringify({
-        type: 'req',
-        id,
-        method: 'sessions.create',
-        params: {
-          key: sessionKey,
-          label: agentName,  // 使用 agent 名称作为会话标题
-          mode: 'session'
-        }
-      }));
-    });
-
-    if (res.ok) {
+    // 通过 Lume RPC 创建 session
+    if (window.USE_LUME && typeof LumeRpc !== 'undefined' && LumeRpc.isConnected()) {
+      await LumeRpc.sendRequest('sessions.create', {
+        key: sessionKey,
+        label: agentName,
+        mode: 'session'
+      });
       console.log('Agent session 创建成功:', sessionKey);
-      // 添加到本地列表
-      if (!window.sessions) window.sessions = [];
-      if (!window.sessions.find(s => s.key === sessionKey)) {
-        window.sessions.push({
-          key: sessionKey,
-          label: agentName,
-          updatedAt: new Date().toISOString()
-        });
-      }
-      return true;
-    } else {
-      console.error('创建 session 失败:', res.error);
-      return false;
     }
+
+    // 添加到本地列表
+    if (!window.sessions) window.sessions = [];
+    if (!window.sessions.find(s => s.key === sessionKey)) {
+      window.sessions.push({
+        key: sessionKey,
+        label: agentName,
+        updatedAt: new Date().toISOString()
+      });
+    }
+    return true;
   } catch (e) {
     console.error('创建 session 异常:', e);
     return false;
