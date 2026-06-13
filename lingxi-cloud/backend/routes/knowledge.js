@@ -201,7 +201,7 @@ router.get('/list', async (req, res) => {
  * POST /upload — 上传知识文档
  */
 router.post('/upload', function(req, res, next) {
-  upload.array('files', 10)(req, res, function(err) {
+  upload.fields([{ name: 'files', maxCount: 10 }, { name: 'file', maxCount: 1 }])(req, res, function(err) {
     if (err) {
       var msg = err.message || '上传失败';
       if (err.code === 'LIMIT_FILE_SIZE') msg = '文件大小超过 20MB 限制';
@@ -212,7 +212,10 @@ router.post('/upload', function(req, res, next) {
   });
 }, async (req, res) => {
   try {
-    if (!req.files || req.files.length === 0) {
+    var files = req.files?.files || req.files?.file || req.files || [];
+    if (!Array.isArray(files)) files = files ? [files] : [];
+    if (files.length === 0 && req.file) files = [req.file];
+    if (files.length === 0) {
       return res.status(400).json({ success: false, error: '请选择文件' });
     }
 
@@ -221,8 +224,8 @@ router.post('/upload', function(req, res, next) {
 
     var uploadedItems = [];
 
-    for (var i = 0; i < req.files.length; i++) {
-      var file = req.files[i];
+    for (var i = 0; i < files.length; i++) {
+      var file = files[i];
       var type = getFileType(file.originalname);
 
       // 提取文本

@@ -74,7 +74,7 @@ class _KnowledgeTabState extends State<KnowledgeTab> {
     } catch (e) {
       if (mounted) setState(() {
         _errorMessage = '搜索失败: $e';
-        const _items = [];
+        _items = [];
         _loading = false;
       });
     }
@@ -161,7 +161,7 @@ class _KnowledgeTabState extends State<KnowledgeTab> {
       showDialog(context: context, barrierDismissible: false, builder: (ctx) => const Center(child: CircularProgressIndicator()));
 
       final formData = FormData.fromMap({
-        'file': await MultipartFile.fromFile(file.path!, filename: file.name),
+        'files': await MultipartFile.fromFile(file.path!, filename: file.name),
       });
 
       final resp = await ApiService().upload('/api/knowledge/upload', formData: formData);
@@ -173,13 +173,21 @@ class _KnowledgeTabState extends State<KnowledgeTab> {
           _load();
         }
       } else {
-        final msg = (resp.data is Map) ? (resp.data['message'] ?? '上传失败') : '上传失败';
+        final msg = (resp.data is Map)
+            ? (resp.data['error'] ?? resp.data['message'] ?? '上传失败')
+            : '上传失败';
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('上传失败: $msg')));
       }
     } catch (e) {
-      // Dismiss loading if still showing
-      try { Navigator.of(context).pop(); } catch (_) {}
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('上传失败: $e')));
+      try { if (Navigator.of(context).canPop()) Navigator.of(context).pop(); } catch (_) {}
+      if (mounted) {
+        String msg = e.toString();
+        if (e is DioException && e.response?.data is Map) {
+          final d = e.response!.data as Map;
+          msg = (d['error'] ?? d['message'] ?? msg).toString();
+        }
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('上传失败: $msg')));
+      }
     }
   }
 

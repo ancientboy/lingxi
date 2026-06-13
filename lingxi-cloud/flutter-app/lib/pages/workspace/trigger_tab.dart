@@ -29,11 +29,15 @@ class _TriggerTabState extends State<TriggerTab> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final resp = await ApiService().get('/api/triggers');
+      final resp = await ApiService().get('/api/triggers/list');
       final data = resp.data;
       if (data is Map && data['success'] == true && data['triggers'] != null) {
         if (mounted) setState(() {
-          _triggers = List<Map<String, dynamic>>.from(data['triggers']);
+          _triggers = List<Map<String, dynamic>>.from(data['triggers']).map((t) {
+            final m = Map<String, dynamic>.from(t);
+            m['id'] = m['triggerId'] ?? m['id'];
+            return m;
+          }).toList();
           _loading = false;
         });
       } else if (data is List) {
@@ -50,10 +54,13 @@ class _TriggerTabState extends State<TriggerTab> {
   }
 
   Future<void> _toggleEnabled(Map<String, dynamic> trg) async {
-    final id = (trg['id'] ?? '').toString();
+    final id = (trg['id'] ?? trg['triggerId'] ?? '').toString();
     final newEnabled = !(trg['enabled'] == true);
     try {
-      final resp = await ApiService().put('/api/triggers/$id', data: {'enabled': newEnabled});
+      final resp = await ApiService().post('/api/triggers/update', data: {
+        'triggerId': id,
+        'patch': {'enabled': newEnabled},
+      });
       if (resp.data is Map && resp.data['success'] == true) {
         if (mounted) { setState(() => trg['enabled'] = newEnabled); }
       } else {
@@ -71,9 +78,9 @@ class _TriggerTabState extends State<TriggerTab> {
       actions: [TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('取消')), TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('删除', style: TextStyle(color: Colors.red)))],
     ));
     if (ok != true) return;
-    final id = (trg['id'] ?? '').toString();
+    final id = (trg['id'] ?? trg['triggerId'] ?? '').toString();
     try {
-      await ApiService().delete('/api/triggers/$id');
+      await ApiService().post('/api/triggers/remove', data: {'triggerId': id});
       if (mounted) { setState(() => _triggers.remove(trg)); }
     } catch (_) {
       if (mounted) { setState(() => _triggers.remove(trg)); }
@@ -81,7 +88,7 @@ class _TriggerTabState extends State<TriggerTab> {
   }
 
   Future<void> _testTrigger(Map<String, dynamic> trg) async {
-    final id = (trg['id'] ?? '').toString();
+    final id = (trg['id'] ?? trg['triggerId'] ?? '').toString();
     try {
       final resp = await ApiService().post('/api/triggers/test/$id');
       if (resp.data is Map && resp.data['success'] == true) {
@@ -143,12 +150,11 @@ class _TriggerTabState extends State<TriggerTab> {
                 if (name.isEmpty) return;
                 Navigator.pop(ctx);
                 try {
-                  await ApiService().post('/api/triggers', data: {
+                  await ApiService().post('/api/triggers/create', data: {
                     'name': name,
                     'type': type,
-                    'schedule': scheduleCtrl.text.trim(),
-                    'action': action,
-                    'enabled': true,
+                    'targetAgent': 'lingxi',
+                    'promptTemplate': scheduleCtrl.text.trim().isNotEmpty ? scheduleCtrl.text.trim() : action,
                   });
                   if (mounted) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('触发器创建成功'))); _load(); }
                 } catch (_) {
@@ -208,6 +214,24 @@ class _TriggerTabState extends State<TriggerTab> {
         ]),
       ),
       const Divider(height: 1),
+      Container(
+        margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: dk ? const Color(0xFF1E1E38) : const Color(0xFFF0F4FF),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFF667eea).withOpacity(0.2)),
+        ),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(Icons.info_outline, size: 18, color: const Color(0xFF667eea).withOpacity(0.9)),
+          const SizedBox(width: 10),
+          Expanded(child: Text(
+            '触发器用于 Webhook / 外部事件驱动 Agent，例如 Git 推送、表单提交时自动执行。\n与「定时任务」不同：定时任务是让 Agent 按计划主动运行；触发器是被动响应外部信号。',
+            style: TextStyle(fontSize: 12, height: 1.45, color: dk ? Colors.white70 : Colors.grey.shade700),
+          )),
+        ]),
+      ),
+      const SizedBox(height: 8),
       Expanded(child: _loading
         ? const Center(child: CircularProgressIndicator())
         : RefreshIndicator(

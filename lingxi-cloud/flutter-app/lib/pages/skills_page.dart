@@ -144,12 +144,16 @@ class _SkillsPageState extends State<SkillsPage> {
     return skills;
   }
 
-  void _copyInstallCommand(String skillId) {
-    final cmd = 'clawhub install $skillId';
-    Clipboard.setData(ClipboardData(text: cmd));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('已复制安装命令'), backgroundColor: Constants.primaryColor),
-    );
+  Color _skillAccent(String? agentId) {
+    final c = _agentConfig[agentId]?['color'];
+    return c is Color ? c : const Color(0xFF667eea);
+  }
+
+  IconData _skillIcon(Map<String, dynamic> skill) {
+    final agentId = skill['agent']?.toString();
+    final icon = _agentConfig[agentId]?['icon'];
+    if (icon is IconData) return icon;
+    return Icons.extension_outlined;
   }
 
   @override
@@ -189,47 +193,39 @@ class _SkillsPageState extends State<SkillsPage> {
   }
 
   Widget _buildCategories(Color textColor) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final categories = [
-      {'id': 'all', 'name': '热门技能', 'icon': Icons.local_fire_department},
-      {'id': 'builtin', 'name': '官方技能', 'icon': Icons.star},
+      {'id': 'all', 'name': '全部', 'icon': Icons.apps},
+      {'id': 'builtin', 'name': '官方', 'icon': Icons.verified},
       ..._agentConfig.entries.map((e) => {'id': e.key, 'name': e.value['name'], 'icon': e.value['icon']}),
     ];
-    
+
     return Container(
-      height: 50,
-      padding: EdgeInsets.symmetric(horizontal: 8),
-      child: ListView.builder(
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: categories.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, i) {
           final cat = categories[i];
           final isActive = _currentCategory == cat['id'];
-          int count = 0;
-          if (cat['id'] == 'all') {
-            count = _allSkills.length;
-          } else if (cat['id'] == 'builtin') {
-            count = _builtinSkills.length;
-          } else {
-            count = _allSkills.where((s) => s['agent'] == cat['id']).length;
-          }
-          
-          return Padding(
-            padding: EdgeInsets.symmetric(horizontal: 4),
-            child: FilterChip(
-              selected: isActive,
-              label: Row(
+          return GestureDetector(
+            onTap: () => setState(() => _currentCategory = cat['id'] as String),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: isActive ? const Color(0xFF667eea) : (isDark ? const Color(0xFF2A2A40) : const Color(0xFFF0EDE8)),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(cat['icon'] as IconData, size: 16, color: isActive ? Colors.white : textColor),
-                  SizedBox(width: 4),
-                  Text(cat['name'] as String, style: TextStyle(color: isActive ? Colors.white : textColor)),
-                  SizedBox(width: 4),
-                  Text('($count)', style: TextStyle(fontSize: 12, color: isActive ? Colors.white70 : Colors.grey)),
+                  Icon(cat['icon'] as IconData, size: 14, color: isActive ? Colors.white : textColor.withOpacity(0.7)),
+                  const SizedBox(width: 6),
+                  Text(cat['name'] as String, style: TextStyle(fontSize: 13, fontWeight: isActive ? FontWeight.w600 : FontWeight.normal, color: isActive ? Colors.white : textColor)),
                 ],
               ),
-              onSelected: (_) => setState(() => _currentCategory = cat['id'] as String),
-              selectedColor: Constants.primaryColor,
-              backgroundColor: Colors.grey.shade100,
             ),
           );
         },
@@ -238,41 +234,50 @@ class _SkillsPageState extends State<SkillsPage> {
   }
 
   Widget _buildToolbar(Color textColor) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
-      padding: EdgeInsets.all(12),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
       child: Row(
         children: [
-          // 搜索框
           Expanded(
             child: TextField(
               onChanged: (v) => setState(() => _searchQuery = v),
+              style: TextStyle(color: textColor, fontSize: 14),
               decoration: InputDecoration(
                 hintText: '搜索技能...',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(24)),
-                contentPadding: EdgeInsets.symmetric(horizontal: 16),
+                hintStyle: TextStyle(color: Colors.grey.shade400),
+                prefixIcon: Icon(Icons.search, size: 20, color: Colors.grey.shade400),
+                filled: true,
+                fillColor: isDark ? const Color(0xFF2A2A40) : const Color(0xFFF5F1EB),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                contentPadding: const EdgeInsets.symmetric(vertical: 10),
                 isDense: true,
               ),
             ),
           ),
-          SizedBox(width: 12),
-          // 筛选按钮
-          _buildFilterChip('全部', 'all'),
-          SizedBox(width: 8),
-          _buildFilterChip('已安装', 'installed'),
+          const SizedBox(width: 10),
+          _buildFilterChip('全部', 'all', textColor),
+          const SizedBox(width: 6),
+          _buildFilterChip('已安装', 'installed', textColor),
         ],
       ),
     );
   }
 
-  Widget _buildFilterChip(String label, String filter) {
+  Widget _buildFilterChip(String label, String filter, Color textColor) {
     final isActive = _currentFilter == filter;
-    return FilterChip(
-      selected: isActive,
-      label: Text(label),
-      onSelected: (_) => setState(() => _currentFilter = filter),
-      selectedColor: Constants.primaryColor,
-      labelStyle: TextStyle(color: isActive ? Colors.white : null),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return GestureDetector(
+      onTap: () => setState(() => _currentFilter = filter),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xFF667eea).withOpacity(0.12) : (isDark ? const Color(0xFF2A2A40) : const Color(0xFFF5F1EB)),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: isActive ? const Color(0xFF667eea) : Colors.transparent),
+        ),
+        child: Text(label, style: TextStyle(fontSize: 12, fontWeight: isActive ? FontWeight.w600 : FontWeight.normal, color: isActive ? const Color(0xFF667eea) : textColor.withOpacity(0.7))),
+      ),
     );
   }
 
@@ -296,10 +301,10 @@ class _SkillsPageState extends State<SkillsPage> {
     }
     
     return GridView.builder(
-      padding: EdgeInsets.all(12),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        childAspectRatio: 0.85,
+        childAspectRatio: 0.78,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
       ),
@@ -309,117 +314,91 @@ class _SkillsPageState extends State<SkillsPage> {
   }
 
   Widget _buildSkillCard(Map<String, dynamic> skill, Color textColor, bool isDarkMode) {
-    final agentId = skill['agent'] ?? '';
+    final agentId = skill['agent']?.toString() ?? '';
     final agentConfig = _agentConfig[agentId];
-    final isInstalled = _installedSkills.contains(skill['id']);
-    final isBuiltin = skill['builtin'] == true || _currentCategory == 'builtin';
-    
-    final cardBg = isDarkMode ? Color(0xFF343541) : Colors.white;
-    final agentColor = agentConfig?['color'] as Color? ?? Constants.primaryColor;
-    
-    return Card(
+    final isInstalled = _installedSkills.contains(skill['id']) || skill['builtin'] == true;
+    final accent = _skillAccent(agentId);
+    final cardBg = isDarkMode ? const Color(0xFF252540) : Colors.white;
+
+    return Material(
       color: cardBg,
-      elevation: isDarkMode ? 0 : 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      borderRadius: BorderRadius.circular(16),
+      elevation: isDarkMode ? 0 : 1,
+      shadowColor: Colors.black.withOpacity(0.06),
       child: InkWell(
         onTap: () => _showSkillDetail(skill, textColor, isDarkMode),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: EdgeInsets.all(12),
+          padding: const EdgeInsets.all(14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 头部：Agent 标签
-              if (agentConfig != null)
+              Row(children: [
                 Container(
-                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
-                    color: agentColor.withOpacity(0.2),
+                    gradient: LinearGradient(colors: [accent, accent.withOpacity(0.65)]),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(agentConfig['icon'] as IconData, size: 12, color: agentColor),
-                      SizedBox(width: 4),
-                      Text(agentConfig['name'] as String, style: TextStyle(fontSize: 11, color: agentColor)),
-                    ],
-                  ),
+                  child: Icon(_skillIcon(skill), color: Colors.white, size: 20),
                 ),
-              SizedBox(height: 8),
-              
-              // 名称
+                const Spacer(),
+                if (isInstalled)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(color: const Color(0xFF22C55E).withOpacity(0.12), borderRadius: BorderRadius.circular(8)),
+                    child: const Text('已安装', style: TextStyle(fontSize: 10, color: Color(0xFF22C55E), fontWeight: FontWeight.w600)),
+                  ),
+              ]),
+              const SizedBox(height: 12),
               Text(
-                skill['name'] ?? 'Unknown',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textColor),
+                skill['name']?.toString() ?? '未知技能',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: textColor),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              SizedBox(height: 4),
-              
-              // 描述
+              if (agentConfig != null) ...[
+                const SizedBox(height: 4),
+                Text(agentConfig['name'] as String, style: TextStyle(fontSize: 11, color: accent)),
+              ],
+              const SizedBox(height: 6),
               Expanded(
                 child: Text(
-                  skill['shortDesc'] ?? skill['description'] ?? '',
-                  style: TextStyle(fontSize: 12, color: isDarkMode ? Color(0xFF6E6E80) : Colors.grey.shade600),
+                  skill['shortDesc']?.toString() ?? skill['description']?.toString() ?? '',
+                  style: TextStyle(fontSize: 12, height: 1.4, color: isDarkMode ? Colors.white54 : Colors.grey.shade600),
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              SizedBox(height: 8),
-              
-              // 安装状态/按钮
-              if (isBuiltin)
-                // 官方技能：显示已安装 + 使用按钮
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Flexible(
-                      child: Container(
-                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Constants.primaryColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                height: 34,
+                child: isInstalled
+                    ? ElevatedButton.icon(
+                        onPressed: () => _useSkill(skill),
+                        icon: const Icon(Icons.play_arrow, size: 16),
+                        label: const Text('使用', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF667eea),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.check, size: 12, color: Constants.primaryColor),
-                            SizedBox(width: 4),
-                            Text('已安装', style: TextStyle(fontSize: 11, color: Constants.primaryColor)),
-                          ],
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: 4),
-                    _buildUseButton(skill),
-                  ],
-                )
-              else if (isInstalled)
-                // 已安装的第三方技能：显示使用按钮
-                _buildUseButton(skill)
-              else
-                // 未安装的技能：复制命令 + 安装并使用
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Flexible(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _copyInstallCommand(skill['id']),
-                        icon: Icon(Icons.copy, size: 14),
-                        label: Text('复制命令', style: TextStyle(fontSize: 11)),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Constants.primaryColor,
-                          side: BorderSide(color: Constants.primaryColor),
-                          minimumSize: Size(0, 28),
-                          padding: EdgeInsets.symmetric(horizontal: 8),
+                      )
+                    : ElevatedButton.icon(
+                        onPressed: () => _installAndUse(skill),
+                        icon: const Icon(Icons.download_rounded, size: 16),
+                        label: const Text('安装并使用', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: accent,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                       ),
-                    ),
-                    SizedBox(width: 4),
-                    _buildInstallAndUseButton(skill),
-                  ],
-                ),
+              ),
             ],
           ),
         ),
@@ -505,119 +484,49 @@ class _SkillsPageState extends State<SkillsPage> {
               
               // 使用示例
               if (skill['example'] != null) ...[
-                _buildSectionTitle('💡 使用示例', textColor),
+                _buildSectionTitle('使用示例', textColor),
                 Container(
-                  padding: EdgeInsets.all(12),
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: isDarkMode ? Color(0xFF202123) : Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(8),
+                    color: isDarkMode ? const Color(0xFF1E1E38) : const Color(0xFFF5F1EB),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Text('"${skill['example']}"', style: TextStyle(color: isDarkMode ? Color(0xFF6E6E80) : Colors.grey.shade600)),
+                  child: Text('"${skill['example']}"', style: TextStyle(fontSize: 13, color: isDarkMode ? Colors.white70 : Colors.grey.shade700)),
                 ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
               ],
-              
-              // 使用用例
-              if (skill['using_case'] != null) ...[
-                _buildSectionTitle('🎓 使用用例', textColor),
-                Container(
-                  padding: EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: isDarkMode ? Color(0xFF202123) : Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(skill['using_case'], style: TextStyle(color: isDarkMode ? Color(0xFF6E6E80) : Colors.grey.shade600)),
-                ),
-                SizedBox(height: 16),
-              ],
-              
-              // 安装命令
-              _buildSectionTitle('🔧 安装命令', textColor),
-              Container(
-                padding: EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: isDarkMode ? Color(0xFF202123) : Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        skill['installCommand'] ?? 'clawhub install ${skill['id']}',
-                        style: TextStyle(fontFamily: 'monospace', color: textColor),
-                      ),
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.copy),
-                      onPressed: () {
-                        final cmd = skill['installCommand'] ?? 'clawhub install ${skill['id']}';
-                        Clipboard.setData(ClipboardData(text: cmd));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('已复制')),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(height: 16),
-              
-              // 🆕 操作按钮区域
-              Row(
-                children: [
-                  if (_installedSkills.contains(skill['id']) || skill['builtin'] == true || _currentCategory == 'builtin')
-                    Expanded(
-                      child: ElevatedButton.icon(
+
+              SizedBox(
+                width: double.infinity,
+                height: 46,
+                child: (_installedSkills.contains(skill['id']) || skill['builtin'] == true)
+                    ? ElevatedButton.icon(
                         onPressed: () {
                           Navigator.pop(context);
                           _useSkill(skill);
                         },
-                        icon: Icon(Icons.play_arrow),
-                        label: Text('使用技能'),
+                        icon: const Icon(Icons.play_arrow),
+                        label: const Text('使用技能', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Constants.primaryColor,
+                          backgroundColor: const Color(0xFF667eea),
                           foregroundColor: Colors.white,
-                          padding: EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
-                      ),
-                    )
-                  else ...[
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          _copyInstallCommand(skill['id']?.toString() ?? '');
-                        },
-                        icon: Icon(Icons.copy),
-                        label: Text('复制命令'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Constants.primaryColor,
-                          side: BorderSide(color: Constants.primaryColor),
-                          padding: EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton.icon(
+                      )
+                    : ElevatedButton.icon(
                         onPressed: () {
                           Navigator.pop(context);
                           _installAndUse(skill);
                         },
-                        icon: Icon(Icons.download),
-                        label: Text('安装并使用'),
+                        icon: const Icon(Icons.download_rounded),
+                        label: const Text('安装并使用', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Constants.primaryColor,
+                          backgroundColor: _skillAccent(skill['agent']?.toString()),
                           foregroundColor: Colors.white,
-                          padding: EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                       ),
-                    ),
-                  ],
-                ],
               ),
             ],
           ),
@@ -633,37 +542,9 @@ class _SkillsPageState extends State<SkillsPage> {
     );
   }
 
-  // 🆕 "使用"按钮
-  Widget _buildUseButton(Map<String, dynamic> skill) {
-    return ElevatedButton.icon(
-      onPressed: () => _useSkill(skill),
-      icon: Icon(Icons.play_arrow, size: 14),
-      label: Text('使用', style: TextStyle(fontSize: 11)),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Constants.primaryColor,
-        foregroundColor: Colors.white,
-        minimumSize: Size(0, 28),
-        padding: EdgeInsets.symmetric(horizontal: 8),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-    );
-  }
-
-  // 🆕 "安装并使用"按钮
-  Widget _buildInstallAndUseButton(Map<String, dynamic> skill) {
-    return ElevatedButton.icon(
-      onPressed: () => _installAndUse(skill),
-      icon: Icon(Icons.download, size: 14),
-      label: Text('安装并使用', style: TextStyle(fontSize: 11)),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Constants.primaryColor.withOpacity(0.8),
-        foregroundColor: Colors.white,
-        minimumSize: Size(0, 28),
-        padding: EdgeInsets.symmetric(horizontal: 8),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-    );
-  }
+  // 保留给旧代码路径，卡片已内联按钮
+  Widget _buildUseButton(Map<String, dynamic> skill) => const SizedBox.shrink();
+  Widget _buildInstallAndUseButton(Map<String, dynamic> skill) => const SizedBox.shrink();
 
   // 🆕 使用技能：切换到聊天页并填充
   void _useSkill(Map<String, dynamic> skill) {
@@ -717,16 +598,21 @@ class _SkillsPageState extends State<SkillsPage> {
         // 安装成功后使用
         _useSkill(skill);
       } else {
-        // 安装失败，回退到复制命令
+        final msg = (res.data is Map)
+            ? (res.data['error'] ?? res.data['message'] ?? '安装失败')
+            : '安装失败';
         if (mounted) {
-          _copyInstallCommand(skillId);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('$skillName 安装失败: $msg'), backgroundColor: Colors.red.shade400),
+          );
         }
       }
     } catch (e) {
       debugPrint('❌ 安装技能失败: $e');
-      // 网络错误，回退到复制命令
       if (mounted) {
-        _copyInstallCommand(skillId);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$skillName 安装失败，请检查网络后重试'), backgroundColor: Colors.red.shade400),
+        );
       }
     }
   }
