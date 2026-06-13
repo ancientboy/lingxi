@@ -18,6 +18,7 @@ import expressWs from 'express-ws';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import fs from 'fs';
+import { readFile as readFileAsync, writeFile as writeFileAsync } from 'fs/promises';
 import jwt from 'jsonwebtoken';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -182,7 +183,8 @@ app.get('/api/user-models/preference', async (req, res) => {
       return res.status(401).json({ success: false, error: 'token 无效' });
     }
     const dbPath = join(__dirname, 'data/db.json');
-    const db = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
+    const raw = await readFileAsync(dbPath, 'utf8');
+    const db = JSON.parse(raw);
     const user = db.users.find(u => u.id === userId);
     const preferredModel = user?.preferredModel || 'auto';
     res.json({ success: true, preferredModel });
@@ -209,14 +211,14 @@ app.post('/api/user-models/preference', async (req, res) => {
     
     // 写入 db.json
     const dbPath = join(__dirname, 'data/db.json');
-    const raw = fs.readFileSync(dbPath, 'utf8');
+    const raw = await readFileAsync(dbPath, 'utf8');
     const db = JSON.parse(raw);
     const user = db.users.find(u => u.id === userId);
     if (!user) {
       return res.status(404).json({ success: false, error: '用户不存在' });
     }
     user.preferredModel = model || null;
-    fs.writeFileSync(dbPath, JSON.stringify(db, null, 2));
+    await writeFileAsync(dbPath, JSON.stringify(db, null, 2));
     
     console.log(`[模型偏好] ✅ 用户 ${user.nickname || userId} → ${model || 'auto'}`);
     // 🔥 同进程直接刷新，不再需要 HTTP 通知

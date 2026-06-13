@@ -6,7 +6,8 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import AlipayService from '../services/alipay.js';
 import { getDB, saveDB } from '../utils/db.js';
-import { readFileSync, writeFileSync } from 'fs';
+import { readFileSync } from 'fs';
+import { readFile as readFileAsync, writeFile as writeFileAsync } from 'fs/promises';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -39,20 +40,20 @@ function authMiddleware(req, res, next) {
   }
 }
 
-function loadPlans() {
-  return JSON.parse(readFileSync(join(__dirname, '..', 'data', 'plans.json'), 'utf-8'));
+async function loadPlans() {
+  return JSON.parse(await readFileAsync(join(__dirname, '..', 'data', 'plans.json'), 'utf-8'));
 }
 
-function loadOrders() {
+async function loadOrders() {
   try {
-    return JSON.parse(readFileSync(join(__dirname, '..', 'data', 'orders.json'), 'utf-8'));
+    return JSON.parse(await readFileAsync(join(__dirname, '..', 'data', 'orders.json'), 'utf-8'));
   } catch {
     return { orders: [] };
   }
 }
 
-function saveOrders(data) {
-  writeFileSync(join(__dirname, '..', 'data', 'orders.json'), JSON.stringify(data, null, 2));
+async function saveOrders(data) {
+  await writeFileAsync(join(__dirname, '..', 'data', 'orders.json'), JSON.stringify(data, null, 2));
 }
 
 function isMobileUA(userAgent) {
@@ -64,20 +65,20 @@ router.post('/subscribe', authMiddleware, async (req, res) => {
   try {
     const { planId } = req.body;
     const userId = req.user.id;
-    const plan = loadPlans().plans[planId];
+    const plan = (await loadPlans()).plans[planId];
     
     if (!plan || planId === 'free') {
       return res.status(400).json({ success: false, error: '套餐不存在' });
     }
     
     const outTradeNo = 'SUB' + Date.now() + userId.substring(0, 6);
-    const ordersData = loadOrders();
+    const ordersData = await loadOrders();
     ordersData.orders.push({
       outTradeNo, userId, type: 'subscription', planId,
       planName: plan.name, amount: plan.price,
       status: 'pending', createdAt: new Date().toISOString()
     });
-    saveOrders(ordersData);
+    await saveOrders(ordersData);
     
     const isMobile = isMobileUA(req.headers['user-agent']);
     const payUrl = isMobile 
@@ -96,7 +97,7 @@ router.post('/credit-pack', authMiddleware, async (req, res) => {
   try {
     const { packId } = req.body;
     const userId = req.user.id;
-    const pack = loadPlans().creditPacks.find(p => p.id === packId);
+    const pack = (await loadPlans()).creditPacks.find(p => p.id === packId);
     
     if (!pack) {
       return res.status(400).json({ success: false, error: '积分包不存在' });
@@ -105,13 +106,13 @@ router.post('/credit-pack', authMiddleware, async (req, res) => {
     const totalCredits = pack.credits + Math.floor(pack.credits * pack.bonus);
     const outTradeNo = 'CRED' + Date.now() + userId.substring(0, 6);
     
-    const ordersData = loadOrders();
+    const ordersData = await loadOrders();
     ordersData.orders.push({
       outTradeNo, userId, type: 'credit-pack', packId,
       packName: pack.name, amount: pack.price, credits: totalCredits,
       status: 'pending', createdAt: new Date().toISOString()
     });
-    saveOrders(ordersData);
+    await saveOrders(ordersData);
     
     const isMobile = isMobileUA(req.headers['user-agent']);
     const payUrl = isMobile
@@ -133,7 +134,7 @@ router.post('/notify', async (req, res) => {
     
     if (notifyData.tradeStatus === 'TRADE_SUCCESS' || notifyData.tradeStatus === 'TRADE_FINISHED') {
       const { outTradeNo, totalAmount, tradeNo } = notifyData;
-      const ordersData = loadOrders();
+      const ordersData = await loadOrders();
       const order = ordersData.orders.find(o => o.outTradeNo === outTradeNo);
       
       if (!order || order.status === 'paid') {
@@ -148,14 +149,14 @@ router.post('/notify', async (req, res) => {
       order.status = 'paid';
       order.tradeNo = tradeNo;
       order.paidAt = new Date().toISOString();
-      saveOrders(ordersData);
+      await saveOrders(ordersData);
       
       const db = await getDB();
       const user = db.users.find(u => u.id === order.userId);
       if (!user) return res.send('fail');
       
       if (order.type === 'subscription') {
-        const plan = loadPlans().plans[order.planId];
+        const plan = (await loadPlans()).plans[order.planId];
         const prev = user.credits?.balance || 0;
         user.subscription = {
           plan: order.planId, planName: plan.name, price: plan.price, credits: plan.credits,
@@ -197,7 +198,7 @@ router.get('/return', async (req, res) => {
     
     // 查询订单状态确认支付成功
     if (outTradeNo) {
-      const ordersData = loadOrders();
+      const ordersData = await loadOrders();
       const order = ordersData.orders.find(o => o.outTradeNo === outTradeNo);
       if (order && order.status === 'paid') {
         res.redirect('/payment/success.html?out_trade_no=' + outTradeNo + '&total_amount=' + totalAmount);
@@ -216,7 +217,7 @@ router.get('/return', async (req, res) => {
 
 // 查询订单
 router.get('/order/:outTradeNo', authMiddleware, async (req, res) => {
-  const order = loadOrders().orders.find(o => o.outTradeNo === req.params.outTradeNo && o.userId === req.user.id);
+  const order = (await loadOrders()).orders.find(o => o.outTradeNo === req.params.outTradeNo && o.userId === req.user.id);
   if (!order) return res.status(404).json({ success: false, error: '订单不存在' });
   res.json({ success: true, data: order });
 });

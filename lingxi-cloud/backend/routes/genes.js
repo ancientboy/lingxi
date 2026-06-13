@@ -96,7 +96,7 @@ const authenticateUser = (req, res, next) => {
 };
 
 // ============ 中间件：验证管理员 Token ============
-const authenticateAdmin = (req, res, next) => {
+const authenticateAdmin = async (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: '未提供认证令牌' });
@@ -112,8 +112,12 @@ const authenticateAdmin = (req, res, next) => {
   
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    // TODO: 添加管理员权限验证
-    // 目前简单验证为有 token 即可
+    // 验证管理员权限
+    const db = await getDB();
+    const user = db.users.find(u => u.id === decoded.userId);
+    if (!user || !user.isAdmin) {
+      return res.status(403).json({ error: '需要管理员权限' });
+    }
     req.userId = decoded.userId;
     next();
   } catch (error) {

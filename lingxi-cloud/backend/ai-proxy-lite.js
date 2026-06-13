@@ -760,7 +760,7 @@ async function unifiedRoute(providerId, req, res) {
 // 原始付费 API 请求（作为最后兜底）
 async function proxyPaidRequest(providerId, req, res, body, clientIp) {
   const provider = PROVIDERS[providerId];
-  const apiKey = getNextKey(providerId);
+  const apiKey = await getNextKey(providerId);
   if (!apiKey) {
     res.writeHead(503, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ error: '没有可用的付费 API Key' }));
@@ -899,9 +899,9 @@ function loadConfig() {
 }
 
 // 保存配置
-function saveConfig() {
+async function saveConfig() {
   try {
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(PROVIDERS, null, 2));
+    await writeFileAsync(CONFIG_FILE, JSON.stringify(PROVIDERS, null, 2));
     return true;
   } catch (e) {
     console.error('保存配置失败:', e.message);
@@ -950,10 +950,10 @@ function loadStats() {
 let statsSaveTimer = null;
 function saveStats() {
   if (statsSaveTimer) return; // 防抖
-  statsSaveTimer = setTimeout(() => {
+  statsSaveTimer = setTimeout(async () => {
     statsSaveTimer = null;
     try {
-      fs.writeFileSync(STATS_FILE, JSON.stringify(stats, null, 2));
+      await writeFileAsync(STATS_FILE, JSON.stringify(stats, null, 2));
     } catch (e) {
       console.error('[统计] 保存失败:', e.message);
     }
@@ -1168,7 +1168,7 @@ setInterval(() => {
 // 429 冷却记录：{ providerId_keyIndex: cooldownUntil }
 const keyCooldowns = new Map();
 
-function getNextKey(providerId, excludeKeys = []) {
+async function getNextKey(providerId, excludeKeys = []) {
   const provider = PROVIDERS[providerId];
   if (!provider) return null;
   
@@ -1191,7 +1191,7 @@ function getNextKey(providerId, excludeKeys = []) {
   key.usage = (key.usage || 0) + 1;
   
   // 异步保存
-  saveConfig();
+  await saveConfig();
   
   return key.key;
 }
@@ -1250,7 +1250,7 @@ async function proxyRequest(providerId, req, res, _retryState = null) {
   // ============ 付费 API 请求（兜底模式，9Router 优先路由已在上层处理） ============
   // 此函数现在只在 9Router 完全不可用时作为 fallback
   
-  const apiKey = getNextKey(providerId, usedKeys);
+  const apiKey = await getNextKey(providerId, usedKeys);
   if (!apiKey) {
     // 没有可用 Key（全部冷却或不存在）
     if (usedKeys.length > 0) {
@@ -1492,7 +1492,7 @@ async function handleAdminApi(req, res, path) {
       addedAt: new Date().toISOString()
     };
     provider.keys.push(newKey);
-    saveConfig();
+    await saveConfig();
     
     res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ success: true, message: 'Key 添加成功', index: newKey.index }));
@@ -1518,7 +1518,7 @@ async function handleAdminApi(req, res, path) {
     provider.keys.splice(index, 1);
     // 重新编号
     provider.keys.forEach((k, i) => k.index = i);
-    saveConfig();
+    await saveConfig();
     
     res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ success: true, message: 'Key 删除成功' }));
@@ -1543,7 +1543,7 @@ async function handleAdminApi(req, res, path) {
     
     const body = await parseBody(req);
     provider.keys[index].enabled = body.enabled !== undefined ? body.enabled : !provider.keys[index].enabled;
-    saveConfig();
+    await saveConfig();
     
     res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ 
@@ -1566,7 +1566,7 @@ async function handleAdminApi(req, res, path) {
     }
     
     provider.keys[index].usage = 0;
-    saveConfig();
+    await saveConfig();
     
     res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ success: true, message: '使用量已重置' }));
