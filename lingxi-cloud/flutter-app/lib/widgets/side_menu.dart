@@ -1,26 +1,84 @@
+import 'dart:async';
 import 'package:lingxicloud/utils/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:lingxicloud/providers/app_provider.dart';
-import 'package:lingxicloud/pages/home_page.dart';
-import 'package:lingxicloud/pages/subscription_page.dart';
-import 'package:lingxicloud/pages/skills_page.dart';
-import 'package:lingxicloud/pages/settings_page.dart';
-import 'package:lingxicloud/pages/lumeclaw_page.dart';
 import 'package:lingxicloud/services/api_service.dart';
 import 'package:lingxicloud/services/websocket_service.dart';
 import 'package:lingxicloud/services/lume_websocket_service.dart';
 import 'package:lingxicloud/services/rpc_ws.dart';
 import 'package:lingxicloud/pages/main_shell.dart';
-import 'package:intl/intl.dart';
 import 'dart:convert';
 import 'package:lingxicloud/pages/workspace_page.dart';
-import 'package:lingxicloud/pages/file_explorer_page.dart';
-import 'package:lingxicloud/pages/servers_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lingxicloud/services/device_switch_manager.dart';
 import 'package:lingxicloud/services/session_repository.dart';
+
+// 会话分组类型（顶层声明，Dart 不允许 enum 在 class 内）
+enum SessionGroup {
+  today,
+  last7Days,
+  previous,
+}
+
+// 将会话按时间分组（顶层函数，SideMenu 和 SessionsDialog 共用）
+Map<SessionGroup, List<Map<String, dynamic>>> groupSessionsByDate(List<Map<String, dynamic>> sessions) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final sevenDaysAgo = today.subtract(const Duration(days: 7));
+
+  final Map<SessionGroup, List<Map<String, dynamic>>> grouped = {
+    SessionGroup.today: [],
+    SessionGroup.last7Days: [],
+    SessionGroup.previous: [],
+  };
+
+  for (final session in sessions) {
+    final updatedAt = session['updatedAt'] != null
+        ? DateTime.tryParse(session['updatedAt'] as String)
+        : null;
+    if (updatedAt == null) continue;
+
+    if (updatedAt.isAfter(today)) {
+      grouped[SessionGroup.today]?.add(session);
+    } else if (updatedAt.isAfter(sevenDaysAgo)) {
+      grouped[SessionGroup.last7Days]?.add(session);
+    } else {
+      grouped[SessionGroup.previous]?.add(session);
+    }
+  }
+
+  for (final group in grouped.values) {
+    group.sort((a, b) {
+      final timeA = a['updatedAt'] != null ? DateTime.tryParse(a['updatedAt'] as String) : null;
+      final timeB = b['updatedAt'] != null ? DateTime.tryParse(b['updatedAt'] as String) : null;
+      if (timeA == null || timeB == null) return 0;
+      return timeB.compareTo(timeA);
+    });
+  }
+
+  return grouped;
+}
+
+// 格式化会话时间（顶层函数）
+String formatSessionTime(DateTime? date) {
+  if (date == null) return '未知时间';
+
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+
+  if (date.isAfter(today)) {
+    return '今天 ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+  } else if (date.isAfter(today.subtract(const Duration(days: 7)))) {
+    final daysAgo = today.difference(date).inDays;
+    if (daysAgo == 1) return '昨天';
+    if (daysAgo == 2) return '前天';
+    return '${daysAgo + 1}天前';
+  } else {
+    return '${date.month}/${date.day}';
+  }
+}
 
 class SideMenu extends StatelessWidget {
   final bool asDrawer;
@@ -159,72 +217,6 @@ class SideMenu extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  // 会话分组类型
-  enum SessionGroup {
-    today,
-    last7Days,
-    previous,
-  }
-
-  // 将会话按时间分组
-  Map<SessionGroup, List<Map<String, dynamic>>> _groupSessionsByDate(List<Map<String, dynamic>> sessions) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final sevenDaysAgo = today.subtract(Duration(days: 7));
-
-    final Map<SessionGroup, List<Map<String, dynamic>>> grouped = {
-      SessionGroup.today: [],
-      SessionGroup.last7Days: [],
-      SessionGroup.previous: [],
-    };
-
-    for (final session in sessions) {
-      final updatedAt = session['updatedAt'] != null
-          ? DateTime.tryParse(session['updatedAt'] as String)
-          : null;
-      if (updatedAt == null) continue;
-
-      if (updatedAt.isAfter(today)) {
-        grouped[SessionGroup.today]?.add(session);
-      } else if (updatedAt.isAfter(sevenDaysAgo)) {
-        grouped[SessionGroup.last7Days]?.add(session);
-      } else {
-        grouped[SessionGroup.previous]?.add(session);
-      }
-    }
-
-    // 排序每组内的会话（最新的在前）
-    for (final group in grouped.values) {
-      group.sort((a, b) {
-        final timeA = a['updatedAt'] != null ? DateTime.tryParse(a['updatedAt'] as String) : null;
-        final timeB = b['updatedAt'] != null ? DateTime.tryParse(b['updatedAt'] as String) : null;
-        if (timeA == null || timeB == null) return 0;
-        return timeB.compareTo(timeA);
-      });
-    }
-
-    return grouped;
-  }
-
-  // 格式化时间
-  String _formatSessionTime(DateTime? date) {
-    if (date == null) return '未知时间';
-    
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    
-    if (date.isAfter(today)) {
-      return '今天 ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
-    } else if (date.isAfter(today.subtract(Duration(days: 7)))) {
-      final daysAgo = today.difference(date).inDays;
-      if (daysAgo == 1) return '昨天';
-      if (daysAgo == 2) return '前天';
-      return '${daysAgo + 1}天前';
-    } else {
-      return '${date.month}/${date.day}';
-    }
   }
 
   void _showSessionsDialog(BuildContext context) async {
@@ -555,7 +547,7 @@ class _SessionsDialogState extends State<_SessionsDialog> {
       );
     }
 
-    final grouped = _groupSessionsByDate(_sessions);
+    final grouped = groupSessionsByDate(_sessions);
 
     final List<Widget> children = [];
 
@@ -679,7 +671,7 @@ class _SessionsDialogState extends State<_SessionsDialog> {
       final updatedAt = session['updatedAt'] != null
           ? DateTime.tryParse(session['updatedAt'] as String)
           : null;
-      final timeStr = _formatSessionTime(updatedAt);
+      final timeStr = formatSessionTime(updatedAt);
 
       // 🆕 和 Web 端保持一致：优先使用 title/label，否则显示"新对话"
       final title = session['title'] ?? session['label'] ?? '新对话';

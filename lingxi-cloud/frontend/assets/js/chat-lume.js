@@ -49,14 +49,58 @@ async function loadLumeSessions() {
   }
 }
 
+/**
+ * 增量更新单个 session（来自 sessions.updated 事件）
+ * 避免全量拉取会话列表，只更新对应 session 并置顶
+ */
+function incrementalUpdateSession(payload) {
+  if (!payload) return;
+  const sessionKey = payload.sessionKey;
+  if (!sessionKey) return;
+
+  const timestamp = payload.timestamp || Date.now();
+  const preview = payload.lastMessagePreview;
+
+  if (!window.sessions || !Array.isArray(window.sessions)) {
+    loadLumeSessions();
+    return;
+  }
+
+  const index = window.sessions.findIndex((s) => s.key === sessionKey);
+  if (index >= 0) {
+    // 找到 → 局部更新 + 置顶
+    window.sessions[index].timestamp = timestamp;
+    window.sessions[index].updatedAt = timestamp;
+    if (typeof formatRelativeTime === 'function') {
+      window.sessions[index].relativeTime = formatRelativeTime(timestamp);
+    }
+    if (preview) {
+      window.sessions[index].lastMessagePreview = preview;
+      window.sessions[index].preview = preview;
+      window.sessions[index].lastMessage = preview;
+    }
+    // 移到数组顶部（最近活跃）
+    const [updated] = window.sessions.splice(index, 1);
+    window.sessions.unshift(updated);
+
+    // 重新渲染
+    if (typeof renderSessionList === 'function') renderSessionList();
+    if (typeof loadSidebarSessions === 'function') loadSidebarSessions();
+  } else {
+    // 不在本地列表中 → fallback 全量拉取
+    console.log('[Lume] session 不在本地列表，fallback 全量刷新');
+    loadLumeSessions();
+  }
+}
+
 function handleLumeEvent(msg) {
   if (msg.event === 'health.status') {
     console.log('[Lume] health.status', msg.payload);
     return;
   }
   if (msg.event === 'sessions.updated') {
-    console.log('[Lume] sessions.updated → 刷新会话列表');
-    loadLumeSessions();
+    console.log('[Lume] sessions.updated → 增量更新会话');
+    incrementalUpdateSession(msg.payload);
     return;
   }
   if (msg.event !== 'chat') return;
