@@ -1685,56 +1685,8 @@ const server = http.createServer(async (req, res) => {
     if (handled !== false) return;
   }
 
-  // 用户模型偏好接口
-  if (path === '/api/user-models' && req.method === 'GET') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      availableModels: getAvailableModelsList(),
-    }));
-    return;
-  }
-
-  // ============ 用户模型偏好接口 ============
-  if (path === '/api/user-models/preference' && req.method === 'POST') {
-    // 鉴权：验证 JWT token
-    const authHeader = req.headers.authorization || '';
-    const token = authHeader.replace('Bearer ', '');
-    if (!token) {
-      res.writeHead(401, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: false, error: '未登录' }));
-      return;
-    }
-    let decodedUserId;
-    try {
-      const jwtSecret = process.env.JWT_SECRET;
-      const decoded = jwt.verify(token, jwtSecret);
-      decodedUserId = decoded.userId;
-      if (!decodedUserId) {
-        res.writeHead(401, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: 'token 无效' }));
-        return;
-      }
-    } catch(e) {
-      res.writeHead(401, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: false, error: 'token 验证失败' }));
-      return;
-    }
-    let body = '';
-    req.on('data', chunk => body += chunk);
-    req.on('end', async () => {
-      try {
-        const { model } = JSON.parse(body);
-        // 使用 JWT 中的 userId，不信任 body 中的 userId
-        const ok = await updateUserModelPreference(decodedUserId, model || 'auto');
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: ok, model: model || 'auto' }));
-      } catch(e) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: e.message }));
-      }
-    });
-    return;
-  }
+  // NOTE: /api/user-models 和 /api/user-models/preference 路由由 Express (index.js) 处理
+  // ai-proxy-lite (port 13000) 不再处理这些路由，避免与 index.js (port 3000) 重复
 
 // ============ 统一 AI 路由：所有请求都走 9Router ============
   if (path.startsWith('/api/ai/aliyun')) {

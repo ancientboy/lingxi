@@ -1,4 +1,8 @@
 /**
+ * ⚠️ DEPRECATED: Gateway WS 代理路由，已冻结不再新增功能。
+ * Lume WS (lume-ws-proxy.js) 是主力通道。本文件仅在 Lume 不可用时降级使用。
+ * P2 计划：后续逐步移除，统一为 Lume WS + HTTP 降级。
+ *
  * WebSocket 代理路由
  * 
  * 解决 HTTPS 页面无法连接 ws:// 的问题

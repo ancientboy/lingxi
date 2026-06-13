@@ -1,3 +1,6 @@
+// ⚠️ DEPRECATED: 此文件为 Gateway WS fallback 路径，已冻结不再新增功能。
+// Lume WS (lume_websocket_service.dart) 是主力通道。本文件仅在 Lume 不可用时降级使用。
+// P2 计划：后续逐步移除，统一为 Lume WS + HTTP 降级。
 import 'dart:async';
 import 'dart:convert';
 import 'package:web_socket_channel/web_socket_channel.dart';
