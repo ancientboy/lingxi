@@ -161,6 +161,13 @@ export function setupLumeWebSocketProxy(app) {
         }
 
         // 正常转发给客户端（包括 auth 成功响应）
+        // 过滤掉不需要转发的高频/无用事件
+        try {
+          const parsed = JSON.parse(raw);
+          if (parsed.type === "event" && parsed.event === "health.status") {
+            return; // health 由客户端按需 subscribe
+          }
+        } catch (_) {}
         sendToClient(raw);
       });
 

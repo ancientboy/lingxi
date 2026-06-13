@@ -200,9 +200,9 @@ const MODEL_CONTEXT_WINDOWS = {
 // 按 token 大小自动选择合适的模型
 // 如果请求估算 token 超过当前模型上下文，自动升级到大上下文模型
 const LARGE_CONTEXT_MODELS = [
-  { model: 'ocg/glm-5.1',         context: 200000 },
-  { model: 'ocg/deepseek-v4-pro', context: 128000 },
-  { model: 'ocg/kimi-k2.6',       context: 128000 },
+  { model: 'glm-cn/glm-5.1',         context: 200000 },
+  { model: 'gh/gpt-4.1',             context: 128000 },
+  { model: 'ocg/kimi-k2.6',          context: 128000 },
 ];
 
 /** 估算请求的 token 数（粗估：中文 1 字 ≈ 1.5 token，英文 1 词 ≈ 1 token） */

@@ -1195,6 +1195,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         }
         return;
       }
+      if (data['type'] == 'event' && data['event'] == 'sessions.updated') {
+        debugPrint('📋 [Lume] sessions.updated → 刷新会话列表');
+        _fetchAndApplySessions(epoch: DeviceSwitchManager.instance.deviceEpoch).catchError((e) {
+          debugPrint('❌ sessions.updated 刷新失败: $e');
+        });
+        return;
+      }
       if (data['type'] == 'event' && data['event'] == 'chat') {
         _handleLumeChatEvent(data['payload'] as Map<String, dynamic>?);
         return;

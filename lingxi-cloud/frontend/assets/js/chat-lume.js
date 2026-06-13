@@ -29,7 +29,7 @@ function initLumeChatMode() {
 
   void loadLumeSessions();
 
-  LumeRpc.sendRequest('health.subscribe', {}).catch(() => {});
+  // health.subscribe 已改为按需，不再自动订阅（减少无用网络请求）
 }
 
 async function loadLumeSessions() {
@@ -52,6 +52,11 @@ async function loadLumeSessions() {
 function handleLumeEvent(msg) {
   if (msg.event === 'health.status') {
     console.log('[Lume] health.status', msg.payload);
+    return;
+  }
+  if (msg.event === 'sessions.updated') {
+    console.log('[Lume] sessions.updated → 刷新会话列表');
+    loadLumeSessions();
     return;
   }
   if (msg.event !== 'chat') return;
