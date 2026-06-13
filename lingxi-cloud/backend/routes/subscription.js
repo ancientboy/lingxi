@@ -14,7 +14,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'lingxi-cloud-secret-key-2026';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // Token 验证中间件
 function authMiddleware(req, res, next) {

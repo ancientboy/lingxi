@@ -1,5 +1,6 @@
 import 'package:lingxicloud/utils/constants.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:lingxicloud/providers/app_provider.dart';
 import 'package:lingxicloud/models/message.dart';
@@ -32,6 +33,8 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:markdown/markdown.dart' as md;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -189,34 +192,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   // 模型列表（从 API 动态加载，fallback 用硬编码）
   List<Map<String, String>> _models = [];
 
-  // 硬编码 fallback（与后端 /api/user-models 对齐）
+  // 最小 fallback（仅 auto，模型列表应由 API 加载）
   static const List<Map<String, String>> _fallbackModels = [
     {'id': 'auto', 'name': 'Auto', 'desc': '智能选择最优模型', 'tier': 'free'},
-    {'id': 'glm-cn/glm-5.1', 'name': 'GLM-5.2 主力', 'desc': '智谱 Coding Plan', 'tier': 'pro'},
-    {'id': 'cu/default', 'name': 'Cursor Auto', 'desc': 'Cursor 智能选模', 'tier': 'pro'},
-    {'id': 'cu/gpt-5.5-high-fast', 'name': 'GPT-5.5 Fast', 'desc': '极速旗舰', 'tier': 'pro'},
-    {'id': 'cu/gpt-5.5-high', 'name': 'GPT-5.5', 'desc': '顶级推理', 'tier': 'pro'},
-    {'id': 'cu/claude-4.6-opus-max', 'name': 'Claude 4.6 Opus Max', 'desc': '最强 Claude', 'tier': 'pro'},
-    {'id': 'cu/claude-4.6-sonnet-medium-thinking', 'name': 'Claude 4.6 Sonnet Think', 'desc': '新一代推理', 'tier': 'pro'},
-    {'id': 'cu/claude-4.6-opus-max-thinking', 'name': 'Claude 4.6 Opus Think', 'desc': '最强推理链', 'tier': 'pro'},
-    {'id': 'ocg/glm-5.1', 'name': 'GLM-5.2', 'desc': 'OpenCode Go', 'tier': 'free'},
-    {'id': 'ocg/deepseek-v4-pro', 'name': 'DeepSeek V4 Pro', 'desc': '最强性价比', 'tier': 'free'},
-    {'id': 'gh/gpt-5-mini', 'name': 'GPT-5-Mini', 'desc': '快速免费', 'tier': 'free'},
-    {'id': 'gh/gpt-4o', 'name': 'GPT-4o', 'desc': 'GPT经典', 'tier': 'pro'},
-    {'id': 'gh/gpt-4.1', 'name': 'GPT-4.1', 'desc': '强推理', 'tier': 'pro'},
-    {'id': 'ocg/kimi-k2.6', 'name': 'Kimi-K2.6', 'desc': '长上下文', 'tier': 'free'},
-    {'id': 'openrouter/openrouter/free', 'name': 'Free', 'desc': '免费兜底', 'tier': 'free'},
-    {'id': 'cu/gpt-5.2', 'name': 'GPT-5.2', 'desc': 'OpenAI 旗舰', 'tier': 'pro'},
-    {'id': 'cu/gpt-5.2-codex', 'name': 'GPT-5.2 Codex', 'desc': '代码专精', 'tier': 'pro'},
-    {'id': 'cu/gpt-5.3-codex', 'name': 'GPT-5.3 Codex', 'desc': '最新代码', 'tier': 'pro'},
-    {'id': 'cu/claude-4.5-sonnet', 'name': 'Claude 4.5 Sonnet', 'desc': 'Anthropic 平衡', 'tier': 'pro'},
-    {'id': 'cu/claude-4.5-haiku', 'name': 'Claude 4.5 Haiku', 'desc': 'Anthropic 快速', 'tier': 'pro'},
-    {'id': 'cu/claude-4.5-opus', 'name': 'Claude 4.5 Opus', 'desc': 'Anthropic 高级', 'tier': 'pro'},
-    {'id': 'cu/claude-4.5-opus-high', 'name': 'Claude 4.5 Opus High', 'desc': 'Anthropic 旗舰', 'tier': 'pro'},
-    {'id': 'cu/claude-4.5-sonnet-thinking', 'name': 'Claude 4.5 Sonnet Think', 'desc': '带推理链', 'tier': 'pro'},
-    {'id': 'cu/claude-4.5-opus-high-thinking', 'name': 'Claude 4.5 Opus Think', 'desc': '旗舰推理链', 'tier': 'pro'},
-    {'id': 'cu/gemini-3-flash-preview', 'name': 'Gemini 3 Flash', 'desc': 'Google 预览', 'tier': 'pro'},
-    {'id': 'cu/kimi-k2.5', 'name': 'Kimi K2.5', 'desc': '月之暗面', 'tier': 'pro'},
   ];
   
   // 会话分组展开/收缩状态
@@ -6722,10 +6700,150 @@ class _MessageBubble extends StatelessWidget {
                 isDarkMode: isDarkMode,
               ),
             if (displayContent.trim().isNotEmpty)
-              // 使用 SelectionArea 支持文本选择和复制
-              SelectionArea(
-                child: Text(displayContent.trim(), style: TextStyle(color: textColor)),
-              ),
+              isUser
+                ? SelectionArea(
+                    child: Text(displayContent.trim(), style: TextStyle(color: textColor, fontSize: 14, height: 1.55)),
+                  )
+                : Stack(
+                    children: [
+                      SelectionArea(
+                        child: MarkdownBody(
+                          data: displayContent.trim(),
+                          onTapLink: (text, href, title) {
+                            if (href != null) {
+                              final uri = Uri.tryParse(href);
+                              if (uri != null) {
+                                launchUrl(uri, mode: LaunchMode.externalApplication);
+                              }
+                            }
+                          },
+                    builders: {
+                      'code': _ChatCodeBlockBuilder(isDarkMode: isDarkMode),
+                    },
+                    extensionSet: md.ExtensionSet(
+                      md.ExtensionSet.gitHubFlavored.blockSyntaxes,
+                      [
+                        md.EmojiSyntax(),
+                        ...md.ExtensionSet.gitHubFlavored.inlineSyntaxes,
+                      ],
+                    ),
+                    styleSheet: MarkdownStyleSheet(
+                      p: TextStyle(
+                        color: textColor,
+                        fontSize: 14,
+                        height: 1.65,
+                      ),
+                      h1: TextStyle(
+                        color: textColor,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        height: 1.4,
+                      ),
+                      h2: TextStyle(
+                        color: textColor,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        height: 1.4,
+                      ),
+                      h3: TextStyle(
+                        color: textColor,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        height: 1.4,
+                      ),
+                      h4: TextStyle(
+                        color: textColor,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        height: 1.4,
+                      ),
+                      strong: TextStyle(
+                        color: textColor,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      em: TextStyle(fontStyle: FontStyle.italic),
+                      a: TextStyle(
+                        color: Constants.primaryColor,
+                        decoration: TextDecoration.underline,
+                        decorationColor: Constants.primaryColor,
+                      ),
+                      code: TextStyle(
+                        color: isDarkMode ? const Color(0xFF90CAF9) : Constants.primaryColor,
+                        backgroundColor: isDarkMode ? const Color(0xFF3D3D40) : const Color(0xFFEBEDF0),
+                        fontSize: 13,
+                        fontFamily: 'SF Mono',
+                      ),
+                      codeblockDecoration: BoxDecoration(
+                        color: const Color(0xFF1E1E2E),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isDarkMode ? const Color(0xFF3D3D40) : const Color(0xFF2D2D30),
+                          width: 0.5,
+                        ),
+                      ),
+                      codeblockPadding: const EdgeInsets.all(12),
+                      blockquote: TextStyle(
+                        color: isDarkMode ? const Color(0xFF9CA3AF) : Constants.textSecondaryColor,
+                        fontSize: 14,
+                        height: 1.55,
+                      ),
+                      blockquoteDecoration: BoxDecoration(
+                        color: isDarkMode ? const Color(0xFF2D2D30) : const Color(0xFFF5F5F5),
+                        borderRadius: const BorderRadius.only(
+                          topRight: Radius.circular(8),
+                          bottomRight: Radius.circular(8),
+                        ),
+                        border: Border(
+                          left: BorderSide(
+                            color: Constants.primaryColor,
+                            width: 3,
+                          ),
+                        ),
+                      ),
+                      blockquotePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      listBullet: TextStyle(
+                        color: isDarkMode ? const Color(0xFF9CA3AF) : Constants.textSecondaryColor,
+                        fontSize: 14,
+                      ),
+                      listIndent: 20,
+                      listBulletPadding: const EdgeInsets.only(top: 4, bottom: 4),
+                      tableBody: TextStyle(
+                        color: textColor,
+                        fontSize: 13,
+                        height: 1.45,
+                      ),
+                      tableHead: TextStyle(
+                        color: textColor,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      tableBorder: TableBorder.all(
+                        color: isDarkMode ? const Color(0xFF3D3D40) : const Color(0xFFE5E5E5),
+                        width: 0.5,
+                      ),
+                      tableCellsPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                      horizontalRuleDecoration: BoxDecoration(
+                        border: Border(
+                          top: BorderSide(
+                            color: isDarkMode ? const Color(0xFF3D3D40) : const Color(0xFFE5E5E5),
+                            width: 0.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                        ),
+                      ),
+                      // 复制按钮
+                      Positioned(
+                        top: 0,
+                        right: 0,
+                        child: _BubbleCopyButton(
+                          text: displayContent.trim(),
+                          isDarkMode: isDarkMode,
+                        ),
+                      ),
+                    ],
+                  ),
             // 🆕 模型信息标签（仅 AI 消息显示）
             if (!isUser && modelInfo != null)
               Padding(
@@ -7150,6 +7268,90 @@ class _SpinningRingState extends State<_SpinningRing> with SingleTickerProviderS
           progress: _ctrl.value,
           color: widget.color,
           strokeWidth: widget.strokeWidth,
+        ),
+      ),
+    );
+  }
+}
+
+/// 自定义代码块渲染器（chat_page 内用）
+class _ChatCodeBlockBuilder extends MarkdownElementBuilder {
+  final bool isDarkMode;
+  _ChatCodeBlockBuilder({required this.isDarkMode});
+
+  @override
+  Widget? visitElementAfterWithContext(
+    BuildContext context,
+    md.Element element,
+    TextStyle? _,
+    TextStyle? __,
+  ) {
+    final code = element.textContent;
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E2E),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isDarkMode ? const Color(0xFF3D3D40) : const Color(0xFF2D2D30),
+          width: 0.5,
+        ),
+      ),
+      child: SelectableText(
+        code,
+        style: const TextStyle(
+          color: Color(0xFFCDD6F4),
+          fontFamily: 'SF Mono',
+          fontSize: 12.5,
+          height: 1.6,
+        ),
+      ),
+    );
+  }
+}
+
+/// 气泡复制按钮
+class _BubbleCopyButton extends StatefulWidget {
+  final String text;
+  final bool isDarkMode;
+
+  const _BubbleCopyButton({required this.text, required this.isDarkMode});
+
+  @override
+  State<_BubbleCopyButton> createState() => _BubbleCopyButtonState();
+}
+
+class _BubbleCopyButtonState extends State<_BubbleCopyButton> {
+  bool _copied = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = widget.isDarkMode
+        ? Colors.white.withOpacity(0.4)
+        : Colors.black54;
+    return GestureDetector(
+      onTap: () async {
+        await Clipboard.setData(ClipboardData(text: widget.text));
+        setState(() => _copied = true);
+        if (mounted) {
+          Future.delayed(const Duration(seconds: 2), () {
+            if (mounted) setState(() => _copied = false);
+          });
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: widget.isDarkMode
+              ? Colors.white.withOpacity(0.05)
+              : Colors.black.withOpacity(0.03),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Icon(
+          _copied ? Icons.check : Icons.copy,
+          size: 14,
+          color: color,
         ),
       ),
     );

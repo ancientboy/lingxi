@@ -16,7 +16,7 @@ const __dirname = dirname(__filename);
 const router = express.Router();
 
 // JWT 密钥（从环境变量获取）
-const JWT_SECRET = process.env.JWT_SECRET || 'lingxi-cloud-secret-2026';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // 认证中间件
 function authMiddleware(req, res, next) {

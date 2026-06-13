@@ -8,9 +8,9 @@ class Constants {
   // WebSocket 配置
   static const String websocketUrl = 'wss://lumeword.cn/api/ws';
 
-  // Lume OpenClaw 插件 WebSocket（订阅用户直连）
-  static const String lumeWsUrl = 'ws://120.55.192.144:18790';
-  static const String lumeWsSecret = 'lume-secret-2026';
+  // Lume OpenClaw 插件 WebSocket（fallback，正常走 connect-info API）
+  static const String lumeWsUrl = 'wss://lumeword.cn/api/lume-ws';
+  static const String lumeWsSecret = '';  // 废弃，API 返回 token 鉴权
   
   // 本地存储键
   static const String storageAccessToken = 'lingxi_token';

@@ -13,7 +13,7 @@ const router = Router();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const JWT_SECRET = process.env.JWT_SECRET || 'lingxi-cloud-secret-key-2026';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // 配置文件路径
 const CONFIG_PATH = path.join(__dirname, '../../data/admin-config.json');

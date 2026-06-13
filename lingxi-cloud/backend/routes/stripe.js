@@ -15,7 +15,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'lingxi-cloud-secret-key-2026';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // 初始化 Stripe（使用环境变量）
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_xxx');

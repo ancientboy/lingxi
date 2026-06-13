@@ -175,7 +175,7 @@ app.get('/api/user-models/preference', async (req, res) => {
     if (!token) {
       return res.status(401).json({ success: false, error: '未登录' });
     }
-    const jwtSecret = process.env.JWT_SECRET || 'lingxi-cloud-secret-2026';
+    const jwtSecret = process.env.JWT_SECRET;
     const decoded = jwt.verify(token, jwtSecret);
     const userId = decoded.userId;
     if (!userId) {
@@ -199,7 +199,7 @@ app.post('/api/user-models/preference', async (req, res) => {
       return res.status(401).json({ success: false, error: '未登录' });
     }
     // 验证 token 获取 userId
-    const jwtSecret = process.env.JWT_SECRET || 'lingxi-cloud-secret-2026';
+    const jwtSecret = process.env.JWT_SECRET;
     const decoded = jwt.verify(token, jwtSecret);
     const userId = decoded.userId;
     if (!userId) {

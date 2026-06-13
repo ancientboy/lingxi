@@ -7,7 +7,7 @@ import jwt from 'jsonwebtoken';
 import { getDB, saveDB } from '../utils/db.js';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'lingxi-cloud-secret-key-2026';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // 用户配额配置（按会员等级）
 const USER_QUOTA = {

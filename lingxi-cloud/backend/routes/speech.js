@@ -9,7 +9,7 @@ import fs from 'fs';
 import path from 'path';
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'lingxi-cloud-secret-key-2026';
+const JWT_SECRET = process.env.JWT_SECRET;
 const DASHSCOPE_API_KEY = process.env.DASHSCOPE_API_KEY;
 
 function authMiddleware(req, res, next) {

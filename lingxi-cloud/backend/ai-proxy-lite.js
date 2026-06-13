@@ -20,6 +20,8 @@ import { URL } from 'url';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import jwt from 'jsonwebtoken';
+import { readFile as readFileAsync, writeFile as writeFileAsync } from 'fs/promises';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -279,9 +281,9 @@ function resolveUserInfo(req) {
 }
 
 
-function loadUserPreferences() {
+async function loadUserPreferences() {
   try {
-    const raw = fs.readFileSync(DB_FILE, 'utf8');
+    const raw = await readFileAsync(DB_FILE, 'utf8');
     const db = JSON.parse(raw);
     const users = db.users || [];
     const servers = db.userServers || [];
@@ -309,9 +311,9 @@ function loadUserPreferences() {
 }
 
 /** 更新用户模型偏好（前端调用） */
-function updateUserModelPreference(userId, model) {
+async function updateUserModelPreference(userId, model) {
   try {
-    const raw = fs.readFileSync(DB_FILE, 'utf8');
+    const raw = await readFileAsync(DB_FILE, 'utf8');
     const db = JSON.parse(raw);
     if (!db.users) db.users = [];
     const user = db.users.find(u => u.id === userId);
@@ -320,7 +322,7 @@ function updateUserModelPreference(userId, model) {
       return false;
     }
     user.preferredModel = model || null;  // null 表示 auto
-    fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+    await writeFileAsync(DB_FILE, JSON.stringify(db, null, 2));
     
     // 立即刷新内存映射
     loadUserPreferences();
@@ -339,7 +341,7 @@ setInterval(loadUserPreferences, 30000);
 /** 将 usage 写入灵犀云 db.json（订阅用户统计） */
 async function updateDbWithCredits(userId, model, tokens) {
   try {
-    const raw = fs.readFileSync(DB_FILE, 'utf8');
+    const raw = await readFileAsync(DB_FILE, 'utf8');
     const db = JSON.parse(raw);
     const user = db.users.find(u => u.id === userId);
     if (!user) return;
@@ -361,7 +363,7 @@ async function updateDbWithCredits(userId, model, tokens) {
       user.usage.byModel[model].requests += 1;
     }
     user.usage.lastUpdated = new Date().toISOString();
-    fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+    await writeFileAsync(DB_FILE, JSON.stringify(db, null, 2));
     console.log(`📊 [${userId.substring(0, 8)}] +${tokens.total} tokens → 总计 ${user.usage.totalTokens}`);
   } catch (e) {
     console.error('[updateDbWithCredits] 失败:', e.message);
@@ -1687,46 +1689,43 @@ const server = http.createServer(async (req, res) => {
   if (path === '/api/user-models' && req.method === 'GET') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
-      availableModels: [
-        { id: 'auto', name: 'Auto', provider: '系统', desc: '智能选择最优模型', tier: 'free' },
-        { id: 'ocg/deepseek-v4-pro', name: 'DeepSeek V4 Pro', provider: 'DeepSeek', desc: '最强性价比', tier: 'free' },
-        { id: 'ocg/glm-5.1', name: 'GLM-5.2', provider: 'OpenCode Go', desc: '中文最强', tier: 'free' },
-        { id: 'glm-cn/glm-5.1', name: 'GLM-5.2 主力', provider: '智谱 Coding Plan', desc: '智谱大号直接干', tier: 'pro' },
-        { id: 'gh/gpt-4o', name: 'GPT-4o', provider: 'OpenAI', desc: 'GPT经典', tier: 'pro' },
-        { id: 'gh/gpt-4.1', name: 'GPT-4.1', provider: 'OpenAI', desc: '强推理', tier: 'pro' },
-        { id: 'gh/gpt-5-mini', name: 'GPT-5-Mini', provider: 'OpenAI', desc: '快速免费', tier: 'free' },
-        { id: 'ocg/kimi-k2.6', name: 'Kimi-K2.6', provider: '月之暗面', desc: '长上下文', tier: 'free' },
-        { id: 'openrouter/openrouter/free', name: 'Free', provider: 'OpenRouter', desc: '免费兜底', tier: 'free' },
-        { id: 'cu/default', name: 'Cursor Auto', provider: 'Cursor', desc: 'Cursor 智能选模', tier: 'pro' },
-        { id: 'cu/gpt-5.2', name: 'Cursor GPT-5.2', provider: 'Cursor', desc: 'OpenAI 旗舰', tier: 'pro' },
-        { id: 'cu/gpt-5.5-high-fast', name: 'Cursor GPT-5.5 Fast', provider: 'Cursor', desc: '极速旗舰', tier: 'pro' },
-        { id: 'cu/gpt-5.5-high', name: 'Cursor GPT-5.5', provider: 'Cursor', desc: '顶级推理', tier: 'pro' },
-        { id: 'cu/claude-4.5-sonnet', name: 'Cursor Claude 4.5 Sonnet', provider: 'Cursor', desc: 'Anthropic 平衡', tier: 'pro' },
-        { id: 'cu/claude-4.5-haiku', name: 'Cursor Claude 4.5 Haiku', provider: 'Cursor', desc: 'Anthropic 快速', tier: 'pro' },
-        { id: 'cu/claude-4.5-opus-high', name: 'Cursor Claude 4.5 Opus', provider: 'Cursor', desc: 'Anthropic 旗舰', tier: 'pro' },
-        { id: 'cu/claude-4.6-opus-max', name: 'Cursor Claude 4.6 Opus Max', provider: 'Cursor', desc: '最强 Claude', tier: 'pro' },
-        { id: 'cu/claude-4.5-sonnet-thinking', name: 'Claude 4.5 Sonnet Thinking', provider: 'Cursor', desc: '带推理链', tier: 'pro' },
-        { id: 'cu/claude-4.5-opus-high-thinking', name: 'Claude 4.5 Opus Thinking', provider: 'Cursor', desc: '旗舰推理链', tier: 'pro' },
-        { id: 'cu/claude-4.6-opus-max-thinking', name: 'Claude 4.6 Opus Thinking', provider: 'Cursor', desc: '最强推理链', tier: 'pro' },
-        { id: 'cu/claude-4.6-sonnet-medium-thinking', name: 'Claude 4.6 Sonnet Thinking', provider: 'Cursor', desc: '新一代推理', tier: 'pro' },
-      ]
+      availableModels: getAvailableModelsList(),
     }));
     return;
   }
 
   // ============ 用户模型偏好接口 ============
   if (path === '/api/user-models/preference' && req.method === 'POST') {
+    // 鉴权：验证 JWT token
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.replace('Bearer ', '');
+    if (!token) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: '未登录' }));
+      return;
+    }
+    let decodedUserId;
+    try {
+      const jwtSecret = process.env.JWT_SECRET;
+      const decoded = jwt.verify(token, jwtSecret);
+      decodedUserId = decoded.userId;
+      if (!decodedUserId) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'token 无效' }));
+        return;
+      }
+    } catch(e) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'token 验证失败' }));
+      return;
+    }
     let body = '';
     req.on('data', chunk => body += chunk);
-    req.on('end', () => {
+    req.on('end', async () => {
       try {
-        const { userId, model } = JSON.parse(body);
-        if (!userId) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: false, error: 'userId required' }));
-          return;
-        }
-        const ok = updateUserModelPreference(userId, model || 'auto');
+        const { model } = JSON.parse(body);
+        // 使用 JWT 中的 userId，不信任 body 中的 userId
+        const ok = await updateUserModelPreference(decodedUserId, model || 'auto');
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: ok, model: model || 'auto' }));
       } catch(e) {

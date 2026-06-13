@@ -17,7 +17,7 @@ import { replaceImageUrls, replaceHistoryImageUrls } from '../utils/image-downlo
 import { getActiveServer } from '../utils/activeServer.js';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'lingxi-cloud-secret-key-2026';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // ⏱️ 超时配置（防止连接泄漏）
 const WS_CONNECT_TIMEOUT = 15000;    // WebSocket 连接超时：15秒

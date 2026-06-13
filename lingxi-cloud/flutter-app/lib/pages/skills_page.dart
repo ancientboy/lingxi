@@ -371,27 +371,29 @@ class _SkillsPageState extends State<SkillsPage> {
               const SizedBox(height: 10),
               SizedBox(
                 width: double.infinity,
-                height: 34,
+                height: 44,
                 child: isInstalled
                     ? ElevatedButton.icon(
                         onPressed: () => _useSkill(skill),
-                        icon: const Icon(Icons.play_arrow, size: 16),
+                        icon: const Icon(Icons.play_arrow, size: 18),
                         label: const Text('使用', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF667eea),
                           foregroundColor: Colors.white,
                           elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                       )
                     : ElevatedButton.icon(
                         onPressed: () => _installAndUse(skill),
-                        icon: const Icon(Icons.download_rounded, size: 16),
-                        label: const Text('安装并使用', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                        icon: const Icon(Icons.download_rounded, size: 18),
+                        label: const Text('安装并使用', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: accent,
                           foregroundColor: Colors.white,
                           elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                       ),
