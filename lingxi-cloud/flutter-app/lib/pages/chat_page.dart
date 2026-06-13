@@ -147,6 +147,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   String? _incrementalHistorySessionKey;  // 增量模式标记：收到历史消息时做合并而非替换
   String? _lastHistoryRequestSessionKey;
   bool _replaceSessionsOnNextParse = false;  // 设备切换后 sessions.list 全量替换
+  String? _trackedServerId;  // 当前 ChatPage 绑定的设备 ID
+  int _lastDeviceSwitchGeneration = 0;
+  bool _isApplyingDeviceSwitch = false;
   Timer? _gatewaySessionDeferTimer;  // 等待 Lume 连接后再降级 Gateway 拉会话
   // 🔒 竞态保护：记录最后一次发出的历史请求 sessionKey
   bool _isLoadingOlderMessages = false;   // 正在加载更早消息
@@ -315,9 +318,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     // 🆕 注册 useSkill 回调给 MainShell
     widget.onRegisterUseSkill?.call(useSkill);
     
-    // 🖥️ 检查设备切换标记（从 servers_page 切换设备后返回）
-    _checkDeviceSwitch();
-    
+    _lastDeviceSwitchGeneration =
+        Provider.of<AppProvider>(context, listen: false).deviceSwitchGeneration;
+    _getCurrentServerId().then((id) => _trackedServerId = id);
+
     // 🆕 初始化滚动监听
     _initScrollListener();
 
@@ -460,7 +464,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
   void _onAppProviderUpdate() {
     if (!mounted) return;
-    final user = Provider.of<AppProvider>(context, listen: false).user;
+    final app = Provider.of<AppProvider>(context, listen: false);
+    if (app.deviceSwitchGeneration != _lastDeviceSwitchGeneration) {
+      _lastDeviceSwitchGeneration = app.deviceSwitchGeneration;
+      _applyDeviceSwitch();
+      return;
+    }
+    final user = app.user;
     final isFreeUser = user?.subscription?['plan'] == 'free' || user?.subscription?['plan'] == null;
     if (isFreeUser) return;
     if (!_isPaidUser(user)) return;
@@ -490,6 +500,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     
     await _checkDeviceSwitch();
     if (!mounted) return;
+    _trackedServerId ??= await _getCurrentServerId();
     await _restoreLastSession();
     if (!mounted) return;
     _loadSessionsLocal();
@@ -782,34 +793,58 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
 
   // 💾 恢复最后活跃会话（按服务器隔离，启动时即时显示缓存）
-  /// 🖥️ 检查设备切换：如果从 servers_page 切换了设备，清空旧数据重新初始化
+  /// 🖥️ 检查设备切换标记或 serverId 变化（冷启动 / 从后台恢复）
   Future<void> _checkDeviceSwitch() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final needRefresh = prefs.getBool('need_refresh_after_switch') ?? false;
-      if (!needRefresh) return;
-      
-      debugPrint('🖥️ 检测到设备切换标记，清空旧数据...');
-      await prefs.remove('need_refresh_after_switch');
-      
-      _replaceSessionsOnNextParse = true;
+      final serverId = await _getCurrentServerId();
+      final serverChanged =
+          _trackedServerId != null && _trackedServerId!.isNotEmpty && _trackedServerId != serverId;
+      if (!needRefresh && !serverChanged) return;
 
-      // 清空旧消息和会话
-      setState(() {
-        _messages.clear();
-        _currentSessionKey = null;
-        _sessions.clear();
-      });
-      
-      // ⚠️ 不要调 ws.reset()！
-      // servers_page 已经 reconnected 到新设备，WS 连接是好的
-      // reset 会掐断刚建好的新连接，导致后续加载全部失败
-      
-      // 不主动加载 session，等 WS connected 事件里 _loadSessionsFromServer() 来处理
-      // （connected handler 在调完 _checkDeviceSwitch 后会自动调 _loadSessionsFromServer）
-      debugPrint('🖥️ 设备切换：已清空旧数据，等待 WS 加载新设备的会话...');
+      if (needRefresh) await prefs.remove('need_refresh_after_switch');
+      await _applyDeviceSwitch();
     } catch (e) {
-      debugPrint('🖥️ 设备切换检查失败: \$e');
+      debugPrint('🖥️ 设备切换检查失败: $e');
+    }
+  }
+
+  /// 切换设备后：清空旧 UI，按新设备重载会话与消息
+  Future<void> _applyDeviceSwitch() async {
+    if (_isApplyingDeviceSwitch) return;
+    _isApplyingDeviceSwitch = true;
+    try {
+      final serverId = await _getCurrentServerId();
+      debugPrint('🖥️ 设备切换 → $serverId，清空旧会话/消息...');
+      _trackedServerId = serverId;
+      _replaceSessionsOnNextParse = true;
+      _isGenerating = false;
+      _currentSessionKey = null;
+      _incrementalHistorySessionKey = null;
+      _lastHistoryRequestSessionKey = null;
+
+      if (mounted) {
+        setState(() {
+          _messages.clear();
+          _sessions.clear();
+          _queuePosition = 0;
+          _queueTotal = 0;
+        });
+      }
+
+      // servers_page 已重连 WS；最多等待约 6 秒
+      for (var i = 0; i < 20; i++) {
+        if (_canUseWsRpc) break;
+        await Future.delayed(const Duration(milliseconds: 300));
+        if (!mounted) return;
+      }
+
+      await _onWsReadyLoadSessions(source: 'device-switch');
+    } catch (e) {
+      debugPrint('🖥️ 应用设备切换失败: $e');
+    } finally {
+      _isApplyingDeviceSwitch = false;
     }
   }
 

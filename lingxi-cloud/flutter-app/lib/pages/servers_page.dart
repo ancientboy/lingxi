@@ -93,6 +93,7 @@ class _ServersPageState extends State<ServersPage> {
       } catch (_) {}
 
       if (mounted) {
+        Provider.of<AppProvider>(context, listen: false).notifyDeviceSwitched(serverId);
         setState(() => _activeServerId = serverId);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('已切换到 ${server['name'] ?? '设备'}'), backgroundColor: Constants.primaryColor),

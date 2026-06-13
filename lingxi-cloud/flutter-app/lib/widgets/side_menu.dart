@@ -383,7 +383,9 @@ class _SessionsDialogState extends State<_SessionsDialog> {
 
       if (!rpcConnected) {
         final prefs = await SharedPreferences.getInstance();
-        final sessionsJson = prefs.getString('chat_sessions');
+        final serverId = prefs.getString('active_server_id') ?? 'default';
+        final sessionsJson = prefs.getString('sessions_cache_$serverId') ??
+            prefs.getString('chat_sessions_$serverId');
         if (sessionsJson != null) {
           final List<dynamic> decoded = json.decode(sessionsJson);
           if (mounted) {

@@ -20,6 +20,18 @@ class AppProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isLoggedIn => _user != null;
   String? get error => _error;
+
+  // 活跃设备（切换时递增 generation，供 ChatPage 等立即刷新）
+  String? _activeServerId;
+  int _deviceSwitchGeneration = 0;
+  String? get activeServerId => _activeServerId;
+  int get deviceSwitchGeneration => _deviceSwitchGeneration;
+
+  void notifyDeviceSwitched(String serverId) {
+    _activeServerId = serverId;
+    _deviceSwitchGeneration++;
+    notifyListeners();
+  }
   
   // 设置用户
   void setUser(User user) {
