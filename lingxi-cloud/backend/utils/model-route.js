@@ -26,6 +26,7 @@ export function sanitizePreferredModel(model) {
   if (!model || model === 'auto') return null;
   if (isOpenCodeGoModel(model)) return null;
   if (model === 'cu/kimi-k2.5') return 'kimi/kimi-k2.7';
+  if (model.startsWith('alibaba-cloud/')) return null;
   return model;
 }
 
@@ -47,6 +48,11 @@ export function migrateOpenCodeGoPreferences(db) {
   let changed = false;
   for (const user of db.users) {
     if (user.preferredModel && isOpenCodeGoModel(user.preferredModel)) {
+      console.warn(`[模型迁移] 用户 ${user.nickname || user.id}: ${user.preferredModel} → auto`);
+      user.preferredModel = null;
+      changed = true;
+    }
+    if (user.preferredModel?.startsWith('alibaba-cloud/')) {
       console.warn(`[模型迁移] 用户 ${user.nickname || user.id}: ${user.preferredModel} → auto`);
       user.preferredModel = null;
       changed = true;

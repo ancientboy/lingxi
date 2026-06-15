@@ -247,20 +247,18 @@ async function quickGeneratePackage(userId, token, sessionId, releasesDir) {
     "auth": {
       "profiles": {
         "zhipu:default": { "provider": "zhipu", "mode": "api_key" },
-        "alibaba-cloud:default": { "provider": "alibaba-cloud", "mode": "api_key" }
+        "lume:default": { "provider": "lume", "mode": "api_key" }
       }
     },
     "models": {
       "mode": "merge",
       "providers": {
-        "alibaba-cloud": {
-          "baseUrl": "http://120.55.192.144:13000/api/ai/aliyun/v1",
-          "apiKey": config.env.DASHSCOPE_API_KEY,
+        "lume": {
+          "baseUrl": "http://120.55.192.144:13000/v1",
+          "apiKey": config.env.ZHIPU_API_KEY,
           "api": "openai-completions",
           "models": [
-            { "id": "qwen3.5-plus", "name": "通义千问3.5-Plus", "contextWindow": 262144, "maxTokens": 65536 },
-            { "id": "qwen3-max-2026-01-23", "name": "通义千问3-Max", "contextWindow": 262144, "maxTokens": 65536 },
-            { "id": "glm-5", "name": "GLM-5 (智谱)", "contextWindow": 200000, "maxTokens": 8192 }
+            { "id": "auto", "name": "Lume Auto", "contextWindow": 200000, "maxTokens": 8192 }
           ]
         },
         "zhipu": {
@@ -275,7 +273,7 @@ async function quickGeneratePackage(userId, token, sessionId, releasesDir) {
       }
     },
     "agents": {
-      "defaults": { "model": { "primary": "alibaba-cloud/qwen3.5-plus" }, "workspace": "~/.openclaw/workspace" },
+      "defaults": { "model": { "primary": "lume/auto" }, "workspace": "~/.openclaw/workspace" },
       "list": [
         { "id": "main", "default": true, "name": "灵犀", "agentDir": "~/.openclaw/agents/main", "subagents": { "allowAgents": ["coder", "ops", "inventor", "pm", "noter", "media", "smart"] } },
         { "id": "coder", "name": "云溪", "agentDir": "~/.openclaw/agents/coder" },
@@ -396,15 +394,9 @@ cat > ~/.openclaw/agents/main/auth-profiles.json << 'AUTHEOF'
       "provider": "zhipu",
       "key": config.env.ZHIPU_API_KEY
     },
-    "alibaba-cloud:default": {
-      "type": "api_key",
-      "provider": "alibaba-cloud",
-      "key": config.env.DASHSCOPE_API_KEY
-    }
   },
   "lastGood": {
     "zhipu": "zhipu:default",
-    "alibaba-cloud": "alibaba-cloud:default"
   }
 }
 AUTHEOF
@@ -986,15 +978,9 @@ cat > ~/.openclaw/agents/main/auth-profiles.json << 'AUTHEOF'
       "provider": "zhipu",
       "key": config.env.ZHIPU_API_KEY
     },
-    "alibaba-cloud:default": {
-      "type": "api_key",
-      "provider": "alibaba-cloud",
-      "key": config.env.DASHSCOPE_API_KEY
-    }
   },
   "lastGood": {
     "zhipu": "zhipu:default",
-    "alibaba-cloud": "alibaba-cloud:default"
   }
 }
 AUTHEOF

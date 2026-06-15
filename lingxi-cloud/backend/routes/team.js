@@ -383,7 +383,7 @@ const configPath = process.env.HOME + "/.openclaw/openclaw.json";
 const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
 
 const oldAgents = config.agents || {};
-const oldDefaults = oldAgents.defaults || { model: { primary: "alibaba-cloud/qwen3.5-plus" }, workspace: "~/.openclaw/workspace" };
+const oldDefaults = oldAgents.defaults || { model: { primary: "lume/auto" }, workspace: "~/.openclaw/workspace" };
 const oldList = oldAgents.list || [];
 
 // 新团队成员配置（来自数据库）
