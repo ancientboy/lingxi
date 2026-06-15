@@ -18,8 +18,8 @@ import expressWs from 'express-ws';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import fs from 'fs';
-import { readFile as readFileAsync, writeFile as writeFileAsync } from 'fs/promises';
 import jwt from 'jsonwebtoken';
+import { sanitizePreferredModel, isOpenCodeGoModel } from './utils/model-route.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -45,25 +45,6 @@ app.use(express.urlencoded({ extended: true }));
 
 // 托管上传的图片/文件（必须在 frontend static 之前，否则 /uploads 会被 frontend 拦截）
 app.use('/uploads', express.static(join(__dirname, '../uploads')));
-
-// APK 下载（必须在 frontend static 之前，否则会被旧 lingxi.apk 拦截）
-app.get('/lingxi.apk', (req, res) => {
-  const apkPath = join(__dirname, '../frontend/public/lingxi.apk');
-  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-  res.download(apkPath, 'lingxi.apk');
-});
-
-app.get('/lingxi-test.apk', (req, res) => {
-  const apkPath = join(__dirname, '../frontend/public/lingxi-test.apk');
-  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-  res.download(apkPath, 'lingxi-test.apk');
-});
-
-app.get('/lingxi-minimal.apk', (req, res) => {
-  const apkPath = join(__dirname, '../frontend/public/lingxi-minimal.apk');
-  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-  res.download(apkPath, 'lingxi-minimal.apk');
-});
 
 // 托管前端静态文件（禁用 HTML 缓存）
 app.use(express.static(join(__dirname, '../frontend'), {
@@ -102,6 +83,24 @@ app.use('/downloads', express.static(join(__dirname, './downloads'), {
 // 健康检查
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// APK 下载（简洁路径）
+app.get('/lingxi.apk', (req, res) => {
+  const apkPath = join(__dirname, '../frontend/public/lingxi.apk');
+  res.download(apkPath, 'lingxi.apk');
+});
+
+// 测试版 APK 下载
+app.get('/lingxi-test.apk', (req, res) => {
+  const apkPath = join(__dirname, '../frontend/public/lingxi-test.apk');
+  res.download(apkPath, 'lingxi-test.apk');
+});
+
+// 极简版 APK 下载
+app.get('/lingxi-minimal.apk', (req, res) => {
+  const apkPath = join(__dirname, '../frontend/public/lingxi-minimal.apk');
+  res.download(apkPath, 'lingxi-minimal.apk');
 });
 
 // 实例管理
@@ -176,17 +175,21 @@ app.get('/api/user-models/preference', async (req, res) => {
     if (!token) {
       return res.status(401).json({ success: false, error: '未登录' });
     }
-    const jwtSecret = process.env.JWT_SECRET;
+    const jwtSecret = process.env.JWT_SECRET || 'lingxi-cloud-secret-2026';
     const decoded = jwt.verify(token, jwtSecret);
     const userId = decoded.userId;
     if (!userId) {
       return res.status(401).json({ success: false, error: 'token 无效' });
     }
     const dbPath = join(__dirname, 'data/db.json');
-    const raw = await readFileAsync(dbPath, 'utf8');
-    const db = JSON.parse(raw);
+    const db = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
     const user = db.users.find(u => u.id === userId);
-    const preferredModel = user?.preferredModel || 'auto';
+    let preferredModel = sanitizePreferredModel(user?.preferredModel) ?? 'auto';
+    if (user?.preferredModel && isOpenCodeGoModel(user.preferredModel)) {
+      user.preferredModel = null;
+      fs.writeFileSync(dbPath, JSON.stringify(db, null, 2));
+      preferredModel = 'auto';
+    }
     res.json({ success: true, preferredModel });
   } catch(e) {
     res.status(500).json({ success: false, error: e.message });
@@ -201,29 +204,33 @@ app.post('/api/user-models/preference', async (req, res) => {
       return res.status(401).json({ success: false, error: '未登录' });
     }
     // 验证 token 获取 userId
-    const jwtSecret = process.env.JWT_SECRET;
+    const jwtSecret = process.env.JWT_SECRET || 'lingxi-cloud-secret-2026';
     const decoded = jwt.verify(token, jwtSecret);
     const userId = decoded.userId;
     if (!userId) {
       return res.status(401).json({ success: false, error: 'token 无效' });
     }
     const { model } = req.body;
+    const cleanModel = sanitizePreferredModel(model);
+    if (model && isOpenCodeGoModel(model)) {
+      console.warn(`[模型偏好] 拒绝 OpenCode Go 模型: ${model} → auto`);
+    }
     
     // 写入 db.json
     const dbPath = join(__dirname, 'data/db.json');
-    const raw = await readFileAsync(dbPath, 'utf8');
+    const raw = fs.readFileSync(dbPath, 'utf8');
     const db = JSON.parse(raw);
     const user = db.users.find(u => u.id === userId);
     if (!user) {
       return res.status(404).json({ success: false, error: '用户不存在' });
     }
-    user.preferredModel = model || null;
-    await writeFileAsync(dbPath, JSON.stringify(db, null, 2));
+    user.preferredModel = cleanModel;
+    fs.writeFileSync(dbPath, JSON.stringify(db, null, 2));
     
-    console.log(`[模型偏好] ✅ 用户 ${user.nickname || userId} → ${model || 'auto'}`);
+    console.log(`[模型偏好] ✅ 用户 ${user.nickname || userId} → ${cleanModel || 'auto'}`);
     // 🔥 同进程直接刷新，不再需要 HTTP 通知
     loadUserPreferences();
-    res.json({ success: true, model: model || 'auto' });
+    res.json({ success: true, model: cleanModel || 'auto' });
   } catch(e) {
     console.error('[模型偏好] 更新失败:', e.message);
     res.status(500).json({ success: false, error: e.message });

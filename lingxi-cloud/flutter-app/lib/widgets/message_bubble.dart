@@ -154,6 +154,8 @@ class MessageBubble extends StatelessWidget {
       'gpt-4o-mini': 'GPT-4o Mini',
       'gpt-4.1': 'GPT-4.1',
       'gpt-5-mini': 'GPT-5 Mini',
+      'kimi/kimi-k2.7': 'Kimi K2.7',
+      'kimi-k2.7': 'Kimi K2.7',
       'kimi-k2.6': 'Kimi K2.6',
       'qwen3-max-2026-01-23': 'Qwen3 Max',
       'qwen3.5-plus': 'Qwen3.5 Plus',
@@ -190,7 +192,7 @@ class MessageBubble extends StatelessWidget {
       'cu/claude-4.6-opus-max-thinking': 'Claude 4.6 Opus Think',
       'cu/claude-4.6-sonnet-medium-thinking': 'Claude 4.6 Sonnet Think',
       'cu/gemini-3-flash-preview': 'Gemini 3 Flash',
-      'cu/kimi-k2.5': 'Kimi K2.5',
+      'cu/kimi-k2.5': 'Kimi K2.7',
     };
     return displayMap[name] ?? displayMap[model] ?? name;
   }

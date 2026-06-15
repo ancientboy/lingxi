@@ -5,9 +5,10 @@
 import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import { getDB, saveDB } from '../utils/db.js';
+import { sanitizePreferredModel, isOpenCodeGoModel } from '../utils/model-route.js';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET || 'lingxi-cloud-secret-key-2026';
 
 // 用户配额配置（按会员等级）
 const USER_QUOTA = {
@@ -335,7 +336,7 @@ router.get('/model-preference', authMiddleware, async (req, res) => {
     
     res.json({ 
       success: true, 
-      preferredModel: user.preferredModel || null 
+      preferredModel: sanitizePreferredModel(user.preferredModel),
     });
   } catch (e) {
     res.status(500).json({ error: '获取失败' });
@@ -349,11 +350,14 @@ router.post('/model-preference', authMiddleware, async (req, res) => {
     const db = await getDB();
     const user = db.users.find(u => u.id === req.user.id);
     if (!user) return res.status(404).json({ error: '用户不存在' });
-    
-    user.preferredModel = model || null;
+
+    if (model && isOpenCodeGoModel(model)) {
+      console.warn(`[模型偏好] 拒绝 OpenCode Go 模型: ${model} → auto`);
+    }
+    user.preferredModel = sanitizePreferredModel(model);
     await saveDB(db);
     
-    console.log(`🎯 用户 ${user.nickname} 设置模型偏好: ${model}`);
+    console.log(`🎯 用户 ${user.nickname} 设置模型偏好: ${user.preferredModel || 'auto'}`);
     res.json({ success: true, preferredModel: user.preferredModel });
   } catch (e) {
     res.status(500).json({ error: '设置失败' });

@@ -22,6 +22,12 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import jwt from 'jsonwebtoken';
 import { readFile as readFileAsync, writeFile as writeFileAsync } from 'fs/promises';
+import {
+  GLM_CN_PRIMARY,
+  sanitizeRouterModel,
+  sanitizePreferredModel,
+  migrateOpenCodeGoPreferences,
+} from './utils/model-route.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -71,7 +77,6 @@ const LUME_AUTO_MODELS = {
     'glm-cn/glm-5.1',              // 智谱官方 Coding Plan（首选）
     'gh/gpt-4o',                   // GitHub Copilot
     'gh/gpt-5-mini',               // 快速免费
-    'ocg/kimi-k2.6',               // 长上下文备选
     'openrouter/openrouter/free',  // 兜底
   ],
   pro: [
@@ -115,19 +120,19 @@ function selectLumeAutoModel(clientIp) {
   // 2. 避让最近失败的模型
   for (const model of candidates) {
     if (!isModelCoolingDown(model)) {
-      console.log(`[Lume Auto] ${clientIp} (${tier}) → ${model}`);
-      return model;
+      const picked = sanitizeRouterModel(model);
+      console.log(`[Lume Auto] ${clientIp} (${tier}) → ${picked}`);
+      return picked;
     }
   }
 
   // 3. 全部冷却中，用第一个（最小冷却时间）
   console.warn(`[Lume Auto] ${clientIp} 所有模型冷却中，强制使用 ${candidates[0]}`);
-  return candidates[0];
+  return sanitizeRouterModel(candidates[0]);
 }
 
 // 模型映射：用户请求的模型名 → 9Router 对应的付费模型名
 // 所有请求都走 9Router，由 9Router 进行 provider 调度和 fallback
-const GLM_CN_PRIMARY = 'glm-cn/glm-5.1';
 const GH_FALLBACK = 'gh/gpt-4o';
 
 const MODEL_MAP_TO_9ROUTER = {
@@ -156,9 +161,10 @@ const MODEL_MAP_TO_9ROUTER = {
   'glm-4v':             'glm-cn/glm-4.6',
   'glm-3-turbo':        'glm-cn/glm-4.5-air',
   'chatglm-turbo':      'glm-cn/glm-4.5-air',
-  // Kimi
-  'kimi-k2.6':          'ocg/kimi-k2.6',
-  'kimi-k2.5':          'ocg/kimi-k2.5',
+  // Kimi → 9Router 直连（月之暗面官方通道）
+  'kimi-k2.7':          'kimi/kimi-k2.7',
+  'kimi-k2.6':          'kimi/kimi-k2.7',
+  'kimi-k2.5':          'kimi/kimi-k2.7',
   // 阿里云 qwen 系列 → GitHub / OpenRouter
   'qwen-max':           GH_FALLBACK,
   'qwen-plus':          GH_FALLBACK,
@@ -178,73 +184,8 @@ const ROUTER_FALLBACK_MODELS = [
   'glm-cn/glm-5.1',               // 智谱官方（首选）
   'gh/gpt-4o',                    // GitHub Copilot
   'gh/gpt-5-mini',                // 快速免费
-  'ocg/kimi-k2.6',               // 长上下文备选
   'openrouter/openrouter/free',   // 兜底
 ];
-
-// ============ 模型上下文窗口表 ============
-const MODEL_CONTEXT_WINDOWS = {
-  'glm-cn/glm-5.1':      200000,
-  'glm-cn/glm-5':        128000,
-  'glm-cn/glm-4.7':      128000,
-  'glm-cn/glm-4.6':      128000,
-  'glm-cn/glm-4.5-air':  128000,
-  'ocg/deepseek-v4-pro': 128000,
-  'ocg/glm-5.1':         200000,
-  'ocg/kimi-k2.6':       128000,
-  'gh/gpt-4o':           64000,
-  'gh/gpt-4.1':          128000,
-  'gh/gpt-5-mini':       64000,
-  'gh/gpt-4o-mini':      128000,
-  'openrouter/openrouter/free': 32000,
-};
-
-// 按 token 大小自动选择合适的模型
-// 如果请求估算 token 超过当前模型上下文，自动升级到大上下文模型
-const LARGE_CONTEXT_MODELS = [
-  { model: 'glm-cn/glm-5.1',         context: 200000 },
-  { model: 'gh/gpt-4.1',             context: 128000 },
-  { model: 'ocg/kimi-k2.6',          context: 128000 },
-];
-
-/** 估算请求的 token 数（粗估：中文 1 字 ≈ 1.5 token，英文 1 词 ≈ 1 token） */
-function estimateTokens(reqBody) {
-  if (!reqBody.messages || !Array.isArray(reqBody.messages)) return 0;
-  let totalChars = 0;
-  for (const msg of reqBody.messages) {
-    if (!msg.content) continue;
-    if (typeof msg.content === 'string') {
-      totalChars += msg.content.length;
-    } else if (Array.isArray(msg.content)) {
-      for (const part of msg.content) {
-        if (typeof part.text === 'string') totalChars += part.text.length;
-        else if (typeof part.content === 'string') totalChars += part.content.length;
-      }
-    }
-  }
-  // 粗估：约 1.5 token/字符（中文为主），加 20% buffer 给 system prompt/工具等
-  return Math.ceil(totalChars * 1.5 * 1.2);
-}
-
-/** 根据 token 数选择上下文够用的模型 */
-function selectModelByTokenCount(estimatedTokens, preferredModel) {
-  // 先看偏好模型的上下文够不够
-  const preferredCtx = MODEL_CONTEXT_WINDOWS[preferredModel];
-  if (preferredCtx && estimatedTokens < preferredCtx * 0.9) {
-    return null; // 偏好模型够用，不需要换
-  }
-  // 按上下文从小到大找第一个够用的
-  for (const item of LARGE_CONTEXT_MODELS) {
-    if (estimatedTokens < item.context * 0.9) {
-      if (item.model !== preferredModel) {
-        return item.model;
-      }
-      return null; // 已经是最合适的了
-    }
-  }
-  // 所有模型都不够，返回最大的
-  return LARGE_CONTEXT_MODELS[0].model;
-}
 
 // ============ 用户模型偏好 ============
 // 从灵犀云数据库加载：IP → userId → preferredModel
@@ -285,6 +226,10 @@ async function loadUserPreferences() {
   try {
     const raw = await readFileAsync(DB_FILE, 'utf8');
     const db = JSON.parse(raw);
+    if (migrateOpenCodeGoPreferences(db)) {
+      await writeFileAsync(DB_FILE, JSON.stringify(db, null, 2));
+      console.log('[用户偏好] 已迁移残留的 OpenCode Go 模型偏好 → auto');
+    }
     const users = db.users || [];
     const servers = db.userServers || [];
     
@@ -295,16 +240,16 @@ async function loadUserPreferences() {
       map[s.ip] = {
         userId: s.userId,
         nickname: user?.nickname || '?',
-        preferredModel: user?.preferredModel || null,  // 用户选择的模型
+        preferredModel: sanitizePreferredModel(user?.preferredModel),
       };
     }
     ipUserMap = map;
     const umap = {};
     for (const user of users) {
-      if (user?.id) umap[user.id] = user.preferredModel ?? null;
+      if (user?.id) umap[user.id] = sanitizePreferredModel(user.preferredModel);
     }
     userModelMap = umap;
-    console.log(`[用户偏好] 已加载 ${Object.keys(map)} 个 IP-用户映射, ${Object.keys(umap).length} 个 userId 偏好`);
+    console.log(`[用户偏好] 已加载 ${Object.keys(map).length} 个 IP-用户映射, ${Object.keys(umap).length} 个 userId 偏好`);
   } catch (e) {
     console.log('[用户偏好] 加载失败，使用默认路由:', e.message);
   }
@@ -321,7 +266,7 @@ async function updateUserModelPreference(userId, model) {
       console.warn(`[模型偏好] 用户 ${userId} 不存在`);
       return false;
     }
-    user.preferredModel = model || null;  // null 表示 auto
+    user.preferredModel = sanitizePreferredModel(model);  // null 表示 auto
     await writeFileAsync(DB_FILE, JSON.stringify(db, null, 2));
     
     // 立即刷新内存映射
@@ -388,9 +333,11 @@ function getUserPreferredModel(clientIp, requestedModel, req = null) {
 function mapTo9RouterModel(model, clientIp) {
   if (!model) return GLM_CN_PRIMARY;
 
-  // 已经是 9Router 路径格式，直通
-  if (model.startsWith('ocg/')) {
-    return model;  // OpenCode Go 路径
+  if (model.startsWith('ocg/') || model.startsWith('opencode-go/')) {
+    return sanitizeRouterModel(model);
+  }
+  if (model.startsWith('lume/')) {
+    return selectLumeAutoModel(clientIp || 'unknown');
   }
   if (model.startsWith('gh/')) {
     return model;  // GitHub Copilot 路径
@@ -400,6 +347,9 @@ function mapTo9RouterModel(model, clientIp) {
   }
   if (model.startsWith('glm-cn/')) {
     return model;  // GLM 中国直连路径
+  }
+  if (model.startsWith('kimi/')) {
+    return model;  // Kimi 官方通道（9Router kimi provider）
   }
   if (model === 'cu/default') {
     return 'cu/default';  // Cursor Auto
@@ -427,7 +377,7 @@ function mapTo9RouterModel(model, clientIp) {
 
   const m = cleanModel.toLowerCase();
   // 模糊匹配 fallback
-  if (m.includes('kimi')) return 'ocg/kimi-k2.6';
+  if (m.includes('kimi')) return 'kimi/kimi-k2.7';
   if (m.startsWith('gpt-')) return GH_FALLBACK;
   if (m.startsWith('claude')) return GH_FALLBACK;
   if (m.startsWith('glm')) return GLM_CN_PRIMARY;
@@ -445,11 +395,11 @@ async function proxyVia9Router(reqBody, reqUrl, clientIp, res, fallbackIndex = -
   // 选择模型：fallbackIndex >= 0 表示已经在降级，用免费模型
   let routerModel;
   if (fallbackIndex >= 0) {
-    routerModel = ROUTER_FALLBACK_MODELS[fallbackIndex] || ROUTER_FALLBACK_MODELS[0];
+    routerModel = sanitizeRouterModel(ROUTER_FALLBACK_MODELS[fallbackIndex] || ROUTER_FALLBACK_MODELS[0]);
     console.log(`[9Router] 🔄 降级 fallback #${fallbackIndex}: ${originalModel} → ${routerModel} [来源: ${clientIp}]`);
   } else {
     // 查用户模型偏好，如果有偏好则覆盖请求模型
-    routerModel = getUserPreferredModel(clientIp, originalModel);
+    routerModel = sanitizeRouterModel(getUserPreferredModel(clientIp, originalModel));
     console.log(`[9Router] 🎯 统一路由: ${originalModel} → ${routerModel} [来源: ${clientIp}]`);
   }
   
@@ -513,9 +463,19 @@ async function proxyVia9Router(reqBody, reqUrl, clientIp, res, fallbackIndex = -
         return;
       }
       
-      // 429/5xx + 流式 → 无法降级（已经开始写了），只记日志
+      // 流式 429/5xx：未向客户端写头时可兜底
+      if ((statusCode === 429 || statusCode >= 500) && isStream && res && !res.headersSent) {
+        let errBody = '';
+        proxyRes.on('data', chunk => errBody += chunk);
+        proxyRes.on('end', () => {
+          markModelFailed(routerModel);
+          console.error(`[9Router] ❌ 流式 ${routerModel} 返回 ${statusCode}，触发兜底`);
+          resolve({ success: false, status: statusCode, body: errBody, shouldFallback: true, streamRetry: true, routerModel });
+        });
+        return;
+      }
       if ((statusCode === 429 || statusCode >= 500) && isStream) {
-        console.error(`[9Router] ❌ 流式请求 ${routerModel} 返回 ${statusCode}，无法降级`);
+        console.error(`[9Router] ❌ 流式请求 ${routerModel} 返回 ${statusCode}`);
         markModelFailed(routerModel);
       }
       
@@ -581,7 +541,7 @@ async function proxyVia9Router(reqBody, reqUrl, clientIp, res, fallbackIndex = -
 // 支持图片输入的模型列表
 const VISION_MODELS = new Set([
   'gh/gpt-4o', 'gh/gpt-4.1', 'gh/gpt-5-mini', 'gh/gpt-4o-mini',
-  'ocg/glm-5.1', 'ocg/kimi-k2.6', 'ocg/deepseek-v4-pro',
+  'glm-cn/glm-5.1',
 ]);
 
 function isVisionModel(model) {
@@ -595,9 +555,7 @@ function selectVisionModel(clientIp) {
   if (userInfo?.preferredModel && isVisionModel(userInfo.preferredModel)) {
     return userInfo.preferredModel;
   }
-  // 默认首选 deepseek-v4-pro（支持图片 + 大上下文 128K+）
-  // 不再首选 gh/gpt-4o，上下文只有 64K，大请求容易 400
-  return 'ocg/deepseek-v4-pro';
+  return 'gh/gpt-4o';
 }
 
 function detectImageInRequest(reqBody) {
@@ -662,29 +620,23 @@ async function unifiedRoute(providerId, req, res) {
     selectedModel = visionModel;
   }
   
-  // === 📏 Token 大小检测：避免选小上下文模型导致 400 ===
-  const estimatedTokens = estimateTokens(reqBody);
-  if (estimatedTokens > 50000) {
-    const betterModel = selectModelByTokenCount(estimatedTokens, selectedModel);
-    if (betterModel) {
-      console.log(`[📏 Token检测] ${clientIp} 估算 ~${estimatedTokens} tokens，${selectedModel} 上下文不够，升级到 ${betterModel}`);
-      selectedModel = betterModel;
-    }
-  }
-  
   reqBody.model = selectedModel;
   
   // === 第一步：尝试通过 9Router 转发 ===
   try {
     if (isStream) {
-      // 流式：直接 pipe（无法中途降级）
-      await proxyVia9Router(reqBody, req.url, clientIp, res);
-      recordRequest(clientIp, 'router', originalModel, 200);
-      // 📊 流式无法提取精确 usage，按请求次数估算（每次 ~500 tokens）
-      const userInfo = ipUserMap[clientIp];
-      if (userInfo?.userId) {
-        const tokens = { total: 500, input: 200, output: 300 };
-        updateDbWithCredits(userInfo.userId, originalModel, tokens).catch(() => {});
+      let streamResult = await proxyVia9Router(reqBody, req.url, clientIp, res);
+      if (streamResult && streamResult.success === false && streamResult.streamRetry && !res.headersSent) {
+        const zhipuModel = (reqBody.model || '').startsWith('glm-cn/') ? reqBody.model.replace('glm-cn/', '') : 'glm-4-flash';
+        console.log(`[流式兜底] ${clientIp} 9Router 失败，智谱直连 model=${zhipuModel}`);
+        reqBody.model = zhipuModel;
+        recordRequest(clientIp, 'zhipu', originalModel, 200);
+        return proxyPaidRequest('zhipu', req, res, JSON.stringify(reqBody), clientIp);
+      }
+      if (!res.headersSent) {
+        recordRequest(clientIp, 'router', originalModel, 200);
+        const u = ipUserMap[clientIp];
+        if (u?.userId) updateDbWithCredits(u.userId, originalModel, { total: 500, input: 200, output: 300 }).catch(() => {});
       }
       return;
     }
@@ -1719,12 +1671,9 @@ function getAvailableModelsList() {
     { id: 'cu/claude-4.6-opus-max', name: 'Claude 4.6 Opus Max', provider: 'Cursor', desc: '最强 Claude', tier: 'pro' },
     { id: 'cu/claude-4.6-sonnet-medium-thinking', name: 'Claude 4.6 Sonnet Think', provider: 'Cursor', desc: '新一代推理', tier: 'pro' },
     { id: 'cu/claude-4.6-opus-max-thinking', name: 'Claude 4.6 Opus Think', provider: 'Cursor', desc: '最强推理链', tier: 'pro' },
-    { id: 'ocg/glm-5.1', name: 'GLM-5.2', provider: 'OpenCode Go', desc: '中文最强', tier: 'free' },
-    { id: 'ocg/deepseek-v4-pro', name: 'DeepSeek V4 Pro', provider: 'DeepSeek', desc: '最强性价比', tier: 'free' },
     { id: 'gh/gpt-5-mini', name: 'GPT-5-Mini', provider: 'OpenAI', desc: '快速免费', tier: 'free' },
     { id: 'gh/gpt-4o', name: 'GPT-4o', provider: 'OpenAI', desc: 'GPT经典', tier: 'pro' },
     { id: 'gh/gpt-4.1', name: 'GPT-4.1', provider: 'OpenAI', desc: '强推理', tier: 'pro' },
-    { id: 'ocg/kimi-k2.6', name: 'Kimi-K2.6', provider: '月之暗面', desc: '长上下文', tier: 'free' },
     { id: 'openrouter/openrouter/free', name: 'Free', provider: 'OpenRouter', desc: '免费兜底', tier: 'free' },
     { id: 'cu/gpt-5.2', name: 'GPT-5.2', provider: 'Cursor', desc: 'OpenAI 旗舰', tier: 'pro' },
     { id: 'cu/gpt-5.2-codex', name: 'GPT-5.2 Codex', provider: 'Cursor', desc: '代码专精', tier: 'pro' },
@@ -1736,7 +1685,7 @@ function getAvailableModelsList() {
     { id: 'cu/claude-4.5-sonnet-thinking', name: 'Claude 4.5 Sonnet Think', provider: 'Cursor', desc: '带推理链', tier: 'pro' },
     { id: 'cu/claude-4.5-opus-high-thinking', name: 'Claude 4.5 Opus Think', provider: 'Cursor', desc: '旗舰推理链', tier: 'pro' },
     { id: 'cu/gemini-3-flash-preview', name: 'Gemini 3 Flash', provider: 'Cursor', desc: 'Google 预览', tier: 'pro' },
-    { id: 'cu/kimi-k2.5', name: 'Kimi K2.5', provider: 'Cursor', desc: '月之暗面', tier: 'pro' },
+    { id: 'kimi/kimi-k2.7', name: 'Kimi K2.7', provider: '月之暗面', desc: '9Router 直连', tier: 'pro' },
   ];
 }
 

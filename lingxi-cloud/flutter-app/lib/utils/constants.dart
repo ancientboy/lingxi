@@ -19,6 +19,7 @@ class Constants {
   static const String storageUserEmail = 'user_email';
   static const String storageAccentTheme = 'lingxi_accent_theme';
   static const String storageLumeTestMode = 'lingxi_lume_test_mode';
+  static const String storageStreamMode = 'lingxi_stream_mode'; // 流式回复开关
   
   // 应用配置
   static const String appName = 'Lume';
