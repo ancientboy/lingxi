@@ -71,20 +71,18 @@ function getRouterApiKey() {
 
 
 // ============ Lume 智能模型选择 ============
-// 当用户请求 model="auto" 时，根据时段/套餐/负载自动选择最佳模型
+// auto 模式仅在智谱 / Kimi / Cursor 之间降级（不用 GitHub 免费模型）
+const CURSOR_AUTO_MODEL = 'cu/gpt-5.2';
+
+const AUTO_FALLBACK_MODELS = [
+  'glm-cn/glm-5.1',   // 智谱（默认首选）
+  'kimi/kimi-k2.7',   // Kimi
+  CURSOR_AUTO_MODEL,  // Cursor（cu/default 映射到此）
+];
+
 const LUME_AUTO_MODELS = {
-  free: [
-    'gh/gpt-4o',                   // GitHub Copilot（智谱限流时优先）
-    'gh/gpt-5-mini',
-    'glm-cn/glm-5.1',              // 智谱官方 Coding Plan
-    'openrouter/openrouter/free',  // 兜底
-  ],
-  pro: [
-    'gh/gpt-4o',
-    'gh/gpt-5-mini',
-    'glm-cn/glm-5.1',
-    'openrouter/openrouter/free',
-  ],
+  free: AUTO_FALLBACK_MODELS,
+  pro: AUTO_FALLBACK_MODELS,
 };
 
 // 记录每个模型的最近失败时间，用于智能避让
@@ -179,16 +177,17 @@ const MODEL_MAP_TO_9ROUTER = {
   'Qwen3-8B':           'openrouter/qwen/qwen3-coder:free',
 };
 
-// 9Router 限流时的 fallback 模型（优先级从高到低，智谱放最后）
-const ROUTER_FALLBACK_MODELS = [
-  'gh/gpt-4o',
-  'gh/gpt-5-mini',
-  'openrouter/openrouter/free',
-  'glm-cn/glm-5.1',
-];
+// 9Router 限流时的 fallback（智谱 → Kimi → Cursor）
+const ROUTER_FALLBACK_MODELS = AUTO_FALLBACK_MODELS;
 
-// cu/default 在 cursor-proxy 侧常返回空 content，映射到实测可用的模型
-const CURSOR_AUTO_MODEL = 'cu/gpt-5.2';
+function isCursorRouterModel(model) {
+  return String(model || '').startsWith('cu/');
+}
+
+function findAutoFallbackIndex(model) {
+  const idx = AUTO_FALLBACK_MODELS.indexOf(model);
+  return idx >= 0 ? idx : -1;
+}
 
 // ============ 用户模型偏好 ============
 // 从灵犀云数据库加载：IP → userId → preferredModel
@@ -391,17 +390,18 @@ function mapTo9RouterModel(model, clientIp) {
   return GLM_CN_PRIMARY;
 }
 
-// 通过 9Router 发送请求（统一路由，支持自动降级免费模型）
-async function proxyVia9Router(reqBody, reqUrl, clientIp, res, fallbackIndex = -1) {
+// 通过 9Router 发送请求（统一路由，支持自动降级）
+async function proxyVia9Router(reqBody, reqUrl, clientIp, res, fallbackIndex = -1, forcedModel = null) {
   const originalModel = reqBody.model || 'unknown';
   
-  // 选择模型：fallbackIndex >= 0 表示已经在降级，用免费模型
   let routerModel;
-  if (fallbackIndex >= 0) {
+  if (forcedModel) {
+    routerModel = sanitizeRouterModel(forcedModel);
+    console.log(`[9Router] 🎯 指定路由: ${originalModel} → ${routerModel} [来源: ${clientIp}]`);
+  } else if (fallbackIndex >= 0) {
     routerModel = sanitizeRouterModel(ROUTER_FALLBACK_MODELS[fallbackIndex] || ROUTER_FALLBACK_MODELS[0]);
     console.log(`[9Router] 🔄 降级 fallback #${fallbackIndex}: ${originalModel} → ${routerModel} [来源: ${clientIp}]`);
   } else {
-    // 查用户模型偏好，如果有偏好则覆盖请求模型
     routerModel = sanitizeRouterModel(getUserPreferredModel(clientIp, originalModel));
     console.log(`[9Router] 🎯 统一路由: ${originalModel} → ${routerModel} [来源: ${clientIp}]`);
   }
@@ -449,7 +449,7 @@ async function proxyVia9Router(reqBody, reqUrl, clientIp, res, fallbackIndex = -
           
           const nextFallback = fallbackIndex + 1;
           if (nextFallback < ROUTER_FALLBACK_MODELS.length) {
-            console.warn(`[9Router] ⚠️ ${routerModel} 返回 ${statusCode}，降级到免费模型 ${ROUTER_FALLBACK_MODELS[nextFallback]}`);
+            console.warn(`[9Router] ⚠️ ${routerModel} 返回 ${statusCode}，降级到 ${ROUTER_FALLBACK_MODELS[nextFallback]}`);
             resolve({ 
               success: false, 
               status: statusCode, 
@@ -537,6 +537,136 @@ async function proxyVia9Router(reqBody, reqUrl, clientIp, res, fallbackIndex = -
     proxyReq.write(JSON.stringify(newBody));
     proxyReq.end();
   });
+}
+
+/** Cursor 代理（Promise 版，供 auto 降级链使用） */
+function proxyCursorRequestAsync(reqBody, isStream, clientIp, res) {
+  let modelId = reqBody.model || 'cu/default';
+  if (modelId === 'cu/default' || modelId === 'default') {
+    modelId = CURSOR_AUTO_MODEL;
+    console.log(`[Cursor路由] cu/default → ${modelId}（代理侧 auto 映射）`);
+  }
+  const outboundBody = { ...reqBody, model: modelId };
+  console.log(`[Cursor路由] ${clientIp} → cursor-proxy: ${modelId} (stream=${isStream})`);
+
+  return new Promise((resolve) => {
+    const targetUrl = new URL('chat/completions', CURSOR_PROXY_URL + '/');
+    const httpModule = targetUrl.protocol === 'https:' ? https : http;
+
+    const proxyReq = httpModule.request({
+      hostname: targetUrl.hostname,
+      port: targetUrl.port || 80,
+      path: targetUrl.pathname,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + CURSOR_API_KEY,
+        'Accept': isStream ? 'text/event-stream' : 'application/json',
+      },
+      timeout: 120000,
+    }, (proxyRes) => {
+      const statusCode = proxyRes.statusCode;
+      const shouldRetry = statusCode === 429 || statusCode >= 500;
+
+      if (statusCode !== 200) {
+        let errBody = '';
+        proxyRes.on('data', chunk => errBody += chunk);
+        proxyRes.on('end', () => {
+          console.error(`[Cursor] ❌ ${modelId} 返回 ${statusCode}: ${errBody.substring(0, 200)}`);
+          markModelFailed(modelId);
+          if (res && !res.headersSent) {
+            res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+            res.end(errBody);
+          }
+          resolve({
+            success: false,
+            status: statusCode,
+            body: errBody,
+            shouldFallback: shouldRetry,
+            streamRetry: shouldRetry && res && !res.headersSent,
+            routerModel: modelId,
+          });
+        });
+        return;
+      }
+
+      if (res) {
+        if (isStream) {
+          res.writeHead(200, {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+          });
+        } else {
+          res.writeHead(200, {
+            'Content-Type': proxyRes.headers['content-type'] || 'application/json',
+            'Cache-Control': 'no-cache',
+          });
+        }
+        proxyRes.pipe(res).on('error', () => { if (!res.writableEnded) res.end(); });
+        proxyRes.on('end', () => {
+          if (!res.writableEnded) res.end();
+          resolve({ success: true, status: statusCode, routerModel: modelId });
+        });
+        return;
+      }
+
+      let responseBody = '';
+      proxyRes.on('data', chunk => { responseBody += chunk.toString(); });
+      proxyRes.on('end', () => {
+        resolve({ success: true, status: statusCode, body: responseBody, routerModel: modelId });
+      });
+    });
+
+    proxyReq.on('error', (e) => {
+      console.error(`[Cursor] ❌ 请求失败: ${e.message}`);
+      markModelFailed(modelId);
+      const errBody = JSON.stringify({ error: 'Cursor proxy error: ' + e.message });
+      if (res && !res.headersSent) {
+        res.writeHead(502, { 'Content-Type': 'application/json' });
+        res.end(errBody);
+      }
+      resolve({ success: false, status: 502, body: errBody, shouldFallback: true, streamRetry: true, routerModel: modelId });
+    });
+    proxyReq.on('timeout', () => {
+      proxyReq.destroy();
+      markModelFailed(modelId);
+      const errBody = JSON.stringify({ error: 'Cursor proxy timeout' });
+      if (res && !res.headersSent) {
+        res.writeHead(504, { 'Content-Type': 'application/json' });
+        res.end(errBody);
+      }
+      resolve({ success: false, status: 504, body: errBody, shouldFallback: true, streamRetry: true, routerModel: modelId });
+    });
+
+    proxyReq.write(JSON.stringify(outboundBody));
+    proxyReq.end();
+  });
+}
+
+/** 智谱 → Kimi → Cursor 自动降级链 */
+async function proxyAutoFallbackChain(reqBody, reqUrl, clientIp, res, startIndex = 0) {
+  for (let i = startIndex; i < AUTO_FALLBACK_MODELS.length; i++) {
+    const model = AUTO_FALLBACK_MODELS[i];
+    if (isModelCoolingDown(model)) {
+      console.log(`[Auto降级] ${clientIp} 跳过冷却中: ${model}`);
+      continue;
+    }
+    const body = { ...reqBody, model };
+    console.log(`[Auto降级] ${clientIp} 尝试 #${i + 1}/${AUTO_FALLBACK_MODELS.length}: ${model}`);
+
+    const result = isCursorRouterModel(model)
+      ? await proxyCursorRequestAsync(body, reqBody.stream === true, clientIp, res)
+      : await proxyVia9Router(body, reqUrl, clientIp, res, -1, model);
+
+    if (result?.success !== false) {
+      return result;
+    }
+    if (res?.headersSent) {
+      return result;
+    }
+  }
+  return { success: false, shouldFallback: false, streamRetry: true, status: 503 };
 }
 
 // 统一路由入口：所有请求都走 9Router，自动降级，最后兜底付费 API
@@ -629,16 +759,10 @@ async function unifiedRoute(providerId, req, res) {
   try {
     if (isStream) {
       let streamResult = await proxyVia9Router(reqBody, req.url, clientIp, res);
-      let fallbackAttempts = 0;
-      while (
-        streamResult?.success === false
-        && streamResult.streamRetry
-        && !res.headersSent
-        && fallbackAttempts < ROUTER_FALLBACK_MODELS.length
-      ) {
-        fallbackAttempts++;
-        console.log(`[流式降级] ${clientIp} 尝试 #${fallbackAttempts}/${ROUTER_FALLBACK_MODELS.length}: ${ROUTER_FALLBACK_MODELS[fallbackAttempts - 1]}`);
-        streamResult = await proxyVia9Router(reqBody, req.url, clientIp, res, fallbackAttempts - 1);
+      if (streamResult?.success === false && streamResult.streamRetry && !res.headersSent) {
+        const failedIdx = findAutoFallbackIndex(streamResult.routerModel);
+        const startIdx = failedIdx >= 0 ? failedIdx + 1 : 0;
+        streamResult = await proxyAutoFallbackChain(reqBody, req.url, clientIp, res, startIdx);
       }
       if (streamResult?.success === false && !res.headersSent) {
         res.writeHead(streamResult.status || 503, { 'Content-Type': 'application/json' });
@@ -655,15 +779,13 @@ async function unifiedRoute(providerId, req, res) {
       return;
     }
     
-    // 非流式：尝试 9Router，支持自动降级免费模型
+    // 非流式：尝试 9Router，失败后在智谱/Kimi/Cursor 间降级
     let result = await proxyVia9Router(reqBody, req.url, clientIp, null);
-    
-    // 自动降级循环
-    let fallbackAttempts = 0;
-    while (!result.success && result.shouldFallback && fallbackAttempts < ROUTER_FALLBACK_MODELS.length) {
-      fallbackAttempts++;
-      console.log(`[9Router] 🔄 自动降级尝试 #${fallbackAttempts}/${ROUTER_FALLBACK_MODELS.length}`);
-      result = await proxyVia9Router(reqBody, req.url, clientIp, null, result.nextFallback);
+
+    if (!result.success && result.shouldFallback) {
+      const failedIdx = findAutoFallbackIndex(result.routerModel);
+      const startIdx = failedIdx >= 0 ? failedIdx + 1 : 0;
+      result = await proxyAutoFallbackChain(reqBody, req.url, clientIp, null, startIdx);
     }
     
     if (result.success) {
@@ -1705,78 +1827,7 @@ function getAvailableModelsList() {
 
 // ============ Cursor 代理请求处理 ============
 function proxyCursorRequest(reqBody, isStream, clientIp, res) {
-  let modelId = reqBody.model || 'cu/default';
-  if (modelId === 'cu/default' || modelId === 'default') {
-    modelId = CURSOR_AUTO_MODEL;
-    console.log(`[Cursor路由] cu/default → ${modelId}（代理侧 auto 映射）`);
-  }
-  const outboundBody = { ...reqBody, model: modelId };
-  console.log(`[Cursor路由] ${clientIp} → cursor-proxy: ${modelId} (stream=${isStream})`);
-
-  const targetUrl = new URL('chat/completions', CURSOR_PROXY_URL + '/');
-  const httpModule = targetUrl.protocol === 'https:' ? https : http;
-
-  const proxyReq = httpModule.request({
-    hostname: targetUrl.hostname,
-    port: targetUrl.port || 80,
-    path: targetUrl.pathname,
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer ' + CURSOR_API_KEY,
-      'Accept': isStream ? 'text/event-stream' : 'application/json',
-    },
-    timeout: 120000,
-  }, (proxyRes) => {
-    const statusCode = proxyRes.statusCode;
-    if (statusCode !== 200) {
-      let errBody = '';
-      proxyRes.on('data', chunk => errBody += chunk);
-      proxyRes.on('end', () => {
-        console.error(`[Cursor] ❌ ${modelId} 返回 ${statusCode}: ${errBody.substring(0, 200)}`);
-        if (!res.headersSent) {
-          res.writeHead(statusCode, { 'Content-Type': 'application/json' });
-          res.end(errBody);
-        }
-      });
-      return;
-    }
-
-    if (isStream) {
-      res.writeHead(200, {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-      });
-      proxyRes.pipe(res).on('error', () => { if (!res.writableEnded) res.end(); });
-      proxyRes.on('end', () => { if (!res.writableEnded) res.end(); });
-    } else {
-      res.writeHead(200, {
-        'Content-Type': proxyRes.headers['content-type'] || 'application/json',
-        'Cache-Control': 'no-cache',
-      });
-      proxyRes.pipe(res).on('error', () => { if (!res.writableEnded) res.end(); });
-      proxyRes.on('end', () => { if (!res.writableEnded) res.end(); });
-    }
-  });
-
-  proxyReq.on('error', (e) => {
-    console.error(`[Cursor] ❌ 请求失败: ${e.message}`);
-    if (!res.headersSent) {
-      res.writeHead(502, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Cursor proxy error: ' + e.message }));
-    }
-  });
-  proxyReq.on('timeout', () => {
-    proxyReq.destroy();
-    if (!res.headersSent) {
-      res.writeHead(504, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Cursor proxy timeout' }));
-    }
-  });
-
-  proxyReq.write(JSON.stringify(outboundBody));
-  proxyReq.end();
+  void proxyCursorRequestAsync(reqBody, isStream, clientIp, res);
 }
 
 // ============ 独立运行入口 ============
