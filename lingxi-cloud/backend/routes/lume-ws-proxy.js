@@ -179,10 +179,13 @@ export function setupLumeWebSocketProxy(app) {
             return;
           }
           if (msg.method === "chat.send" && msg.params) {
-            const resolved = resolveLumeModel(userPreferredModel || msg.params.model || "auto");
-            msg.params.model = resolved;
-            raw = JSON.stringify(msg);
-            console.log(`🎯 [Lume-WS] ${userId.substring(0, 8)} chat.send 模型 → ${resolved}`);
+            const rawModel = userPreferredModel || msg.params.model || "auto";
+            const resolved = resolveLumeModel(rawModel);
+            if (resolved !== rawModel) {
+              msg.params.model = resolved;
+              raw = JSON.stringify(msg);
+              console.log(`🎯 [Lume-WS] ${userId.substring(0, 8)} chat.send 模型 ${rawModel} → ${resolved}`);
+            }
           }
         } catch (_) {}
 

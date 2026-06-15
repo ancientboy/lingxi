@@ -26,15 +26,17 @@ export function sanitizePreferredModel(model) {
   if (!model || model === 'auto') return null;
   if (isOpenCodeGoModel(model)) return null;
   if (model === 'cu/kimi-k2.5') return 'kimi/kimi-k2.7';
-  if (model.startsWith('alibaba-cloud/')) return null;
   return model;
 }
 
 /** Lume/设备侧 chat.send 使用的模型（避免设备 9Router 落到 ocg） */
 export function resolveLumeModel(preferredModel) {
   const m = preferredModel || 'auto';
-  if (m === 'auto' || isOpenCodeGoModel(m)) {
-    return GLM_CN_PRIMARY;
+  if (isOpenCodeGoModel(m)) {
+    return 'auto';
+  }
+  if (m === 'auto' || m === 'lume/auto') {
+    return 'auto';
   }
   if (m.startsWith('cu/') || m.startsWith('gh/') || m.startsWith('glm-cn/') || m.startsWith('openrouter/') || m.startsWith('kimi/')) {
     return m;
@@ -48,11 +50,6 @@ export function migrateOpenCodeGoPreferences(db) {
   let changed = false;
   for (const user of db.users) {
     if (user.preferredModel && isOpenCodeGoModel(user.preferredModel)) {
-      console.warn(`[模型迁移] 用户 ${user.nickname || user.id}: ${user.preferredModel} → auto`);
-      user.preferredModel = null;
-      changed = true;
-    }
-    if (user.preferredModel?.startsWith('alibaba-cloud/')) {
       console.warn(`[模型迁移] 用户 ${user.nickname || user.id}: ${user.preferredModel} → auto`);
       user.preferredModel = null;
       changed = true;

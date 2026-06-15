@@ -74,15 +74,15 @@ function getRouterApiKey() {
 // 当用户请求 model="auto" 时，根据时段/套餐/负载自动选择最佳模型
 const LUME_AUTO_MODELS = {
   free: [
-    'glm-cn/glm-5.1',              // 智谱官方 Coding Plan（首选）
-    'gh/gpt-4o',                   // GitHub Copilot
-    'gh/gpt-5-mini',               // 快速免费
+    'gh/gpt-4o',                   // GitHub Copilot（智谱限流时优先）
+    'gh/gpt-5-mini',
+    'glm-cn/glm-5.1',              // 智谱官方 Coding Plan
     'openrouter/openrouter/free',  // 兜底
   ],
   pro: [
-    'glm-cn/glm-5.1',
     'gh/gpt-4o',
     'gh/gpt-5-mini',
+    'glm-cn/glm-5.1',
     'openrouter/openrouter/free',
   ],
 };
@@ -179,13 +179,16 @@ const MODEL_MAP_TO_9ROUTER = {
   'Qwen3-8B':           'openrouter/qwen/qwen3-coder:free',
 };
 
-// 9Router 限流时的免费 fallback 模型（优先级从高到低）
+// 9Router 限流时的 fallback 模型（优先级从高到低，智谱放最后）
 const ROUTER_FALLBACK_MODELS = [
-  'glm-cn/glm-5.1',               // 智谱官方（首选）
-  'gh/gpt-4o',                    // GitHub Copilot
-  'gh/gpt-5-mini',                // 快速免费
-  'openrouter/openrouter/free',   // 兜底
+  'gh/gpt-4o',
+  'gh/gpt-5-mini',
+  'openrouter/openrouter/free',
+  'glm-cn/glm-5.1',
 ];
+
+// cu/default 在 cursor-proxy 侧常返回空 content，映射到实测可用的模型
+const CURSOR_AUTO_MODEL = 'cu/gpt-5.2';
 
 // ============ 用户模型偏好 ============
 // 从灵犀云数据库加载：IP → userId → preferredModel
@@ -626,12 +629,23 @@ async function unifiedRoute(providerId, req, res) {
   try {
     if (isStream) {
       let streamResult = await proxyVia9Router(reqBody, req.url, clientIp, res);
-      if (streamResult && streamResult.success === false && streamResult.streamRetry && !res.headersSent) {
-        const zhipuModel = (reqBody.model || '').startsWith('glm-cn/') ? reqBody.model.replace('glm-cn/', '') : 'glm-4-flash';
-        console.log(`[流式兜底] ${clientIp} 9Router 失败，智谱直连 model=${zhipuModel}`);
-        reqBody.model = zhipuModel;
-        recordRequest(clientIp, 'zhipu', originalModel, 200);
-        return proxyPaidRequest('zhipu', req, res, JSON.stringify(reqBody), clientIp);
+      let fallbackAttempts = 0;
+      while (
+        streamResult?.success === false
+        && streamResult.streamRetry
+        && !res.headersSent
+        && fallbackAttempts < ROUTER_FALLBACK_MODELS.length
+      ) {
+        fallbackAttempts++;
+        console.log(`[流式降级] ${clientIp} 尝试 #${fallbackAttempts}/${ROUTER_FALLBACK_MODELS.length}: ${ROUTER_FALLBACK_MODELS[fallbackAttempts - 1]}`);
+        streamResult = await proxyVia9Router(reqBody, req.url, clientIp, res, fallbackAttempts - 1);
+      }
+      if (streamResult?.success === false && !res.headersSent) {
+        res.writeHead(streamResult.status || 503, { 'Content-Type': 'application/json' });
+        res.end(streamResult.body || JSON.stringify({
+          error: { message: 'All models are temporarily rate-limited. Please try again in a few minutes.' },
+        }));
+        return;
       }
       if (!res.headersSent) {
         recordRequest(clientIp, 'router', originalModel, 200);
@@ -1691,7 +1705,12 @@ function getAvailableModelsList() {
 
 // ============ Cursor 代理请求处理 ============
 function proxyCursorRequest(reqBody, isStream, clientIp, res) {
-  const modelId = reqBody.model || 'cu/default';
+  let modelId = reqBody.model || 'cu/default';
+  if (modelId === 'cu/default' || modelId === 'default') {
+    modelId = CURSOR_AUTO_MODEL;
+    console.log(`[Cursor路由] cu/default → ${modelId}（代理侧 auto 映射）`);
+  }
+  const outboundBody = { ...reqBody, model: modelId };
   console.log(`[Cursor路由] ${clientIp} → cursor-proxy: ${modelId} (stream=${isStream})`);
 
   const targetUrl = new URL('chat/completions', CURSOR_PROXY_URL + '/');
@@ -1756,7 +1775,7 @@ function proxyCursorRequest(reqBody, isStream, clientIp, res) {
     }
   });
 
-  proxyReq.write(JSON.stringify(reqBody));
+  proxyReq.write(JSON.stringify(outboundBody));
   proxyReq.end();
 }
 
