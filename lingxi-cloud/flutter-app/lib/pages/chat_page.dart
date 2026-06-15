@@ -378,18 +378,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
   bool get _lumeReady => LumeWebSocketService().isConnected;
 
-  /// 历史/会话优先走 Lume 插件，否则降级 Gateway
-  dynamic _rpcWs() {
-    final lume = LumeWebSocketService();
-    if (lume.isConnected) return lume;
-    return WebSocketService();
-  }
+  /// 历史/会话仅走 Lume 插件
+  LumeWebSocketService _rpcWs() => LumeWebSocketService();
 
-  bool get _canUseWsRpc {
-    final lume = LumeWebSocketService();
-    final gw = WebSocketService();
-    return lume.isConnected || gw.isConnected;
-  }
+  bool get _canUseWsRpc => LumeWebSocketService().isConnected;
 
   bool _isValidSessionKey(String? key) {
     return key != null && key.isNotEmpty && key.startsWith('agent:main:');
@@ -398,9 +390,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   /// 解析发送用的 sessionKey，拒绝 agent:lingxi 这类残缺 key
 
   String? _resolveSessionPrefix() {
-    final ws = WebSocketService();
     final lume = LumeWebSocketService();
-    return lume.isConnected ? (lume.sessionPrefix ?? ws.sessionPrefix) : ws.sessionPrefix;
+    return lume.isConnected ? lume.sessionPrefix : null;
   }
 
   String? _resolveTargetSessionKey() {
@@ -475,10 +466,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       return;
     }
     if (!_lumeReady) {
-      final ws = WebSocketService();
-      if (!ws.isConnected && !ws.isConnecting) {
-        _ensureGatewayFallback(reason: '重连');
-      }
+      _retryLumeConnection(reason: '重连');
     }
   }
 
@@ -835,7 +823,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       var transportOk = await dsm.rebindTransport(serverId);
       if (!dsm.isEpochValid(epoch)) return;
       if (!transportOk) {
-        _ensureGatewayFallback(reason: '设备切换');
+        await LumeWebSocketService().reconnectForDevice();
         await dsm.waitForRpc(timeoutMs: 10000);
         transportOk = _canUseWsRpc;
       }
@@ -1171,8 +1159,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     _lumeListener = (Map<String, dynamic> data) {
       if (!mounted) return;
       if (data['type'] == 'status') {
-        if (data['status'] == 'gateway_fallback') {
-          _ensureGatewayFallback(reason: data['message']?.toString() ?? '');
+        if (data['status'] == 'disconnected' && (data['message']?.toString().isNotEmpty ?? false)) {
+          setState(() {
+            _lumeConnected = false;
+            _lumeStatus = data['message']?.toString() ?? '已断开';
+            _wsStatus = _lumeStatus;
+          });
           return;
         }
         setState(() {
@@ -1184,7 +1176,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       if (data['type'] == 'error') {
         debugPrint('❌ Lume 错误: ${data['error']}');
         if (!LumeWebSocketService().isConnected && !LumeWebSocketService().isConnecting) {
-          _ensureGatewayFallback(reason: data['error']?.toString() ?? '连接失败');
+          _retryLumeConnection(reason: data['error']?.toString() ?? '连接失败');
         }
         return;
       }
@@ -1234,18 +1226,18 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     }
   }
 
-  /// Lume 不可用或连接失败时，降级到 Gateway（仅维持一条活跃连接）
-  void _ensureGatewayFallback({String reason = ''}) {
+  /// Lume 连接失败时重试，不再降级 Gateway
+  void _retryLumeConnection({String reason = ''}) {
     if (_lumeReady) return;
-    if (reason.isNotEmpty) debugPrint('⬇️ Lume 不可用，降级 Gateway: $reason');
-    final ws = WebSocketService();
-    if (!ws.isConnected && !ws.isConnecting) {
+    if (reason.isNotEmpty) debugPrint('🔄 Lume 重连: $reason');
+    final lume = LumeWebSocketService();
+    if (!lume.isConnected && !lume.isConnecting) {
       setState(() {
         _lumeConnected = false;
-        _lumeStatus = 'Gateway模式';
+        _lumeStatus = '连接中...';
         _wsStatus = '连接中...';
       });
-      _initWebSocket();
+      lume.connect().catchError((e) => debugPrint('❌ Lume 重连失败: $e'));
     }
   }
 
@@ -1374,7 +1366,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           setState(() {
             _wsConnected = status == 'connected';
             _wsStatus = status == 'connecting' ? '连接中...' 
-                      : status == 'connected' ? (_lumeReady ? 'Lume已连接' : (_lumeStatus.contains('Gateway') ? 'Gateway已连接' : '已连接')) 
+                      : status == 'connected' ? (_lumeReady ? 'Lume已连接' : '已连接') 
                       : status == 'disconnected' ? '已断开' : '连接失败';
           });
           // WS 断开时立即清生成状态，防止"思考中"卡死
@@ -1390,7 +1382,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           debugPrint('🔔 收到 connected 事件，开始处理');
           setState(() {
             _wsConnected = true;
-            _wsStatus = _lumeReady ? 'Lume已连接' : 'Gateway已连接';
+            _wsStatus = _lumeReady ? 'Lume已连接' : '已连接';
           });
           debugPrint('✅ WebSocket 已连接（状态已更新）');
           
@@ -1404,9 +1396,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             });
           }
           
-          // 仅 Gateway 降级模式才加载会话（Lume 模式不会走到这里）
-          if (!_lumeReady) {
-            Future.microtask(() => _onWsReadyLoadSessions(source: 'Gateway'));
+          if (_lumeReady) {
+            Future.microtask(() => _onWsReadyLoadSessions(source: 'Lume'));
           }
           return;
         }
@@ -2403,7 +2394,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             WebSocketService().disconnect();
             _onWsReadyLoadSessions(source: 'resume-Lume');
           } else {
-            _ensureGatewayFallback(reason: '前台恢复');
+            _retryLumeConnection(reason: '前台恢复');
           }
         });
         
@@ -3339,7 +3330,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         : (lumeReady ? const Color(0xFF00BFA5) : Colors.green);
     final label = lumeReady
         ? 'Lume'
-        : (_wsConnected ? 'Gateway' : '连接中');
+        : (_wsConnected ? 'Lume' : '连接中');
     return GestureDetector(
       onTap: _showConnectionDebug,
       child: Row(
@@ -3410,7 +3401,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               _buildDebugItem('Lume 状态', _lumeStatus, _lumeConnected ? Colors.green : Colors.grey),
               SwitchListTile(
                 title: const Text('启用 Lume 测试模式'),
-                subtitle: const Text('Lume 优先单连接；仅插件不可用时降级 Gateway'),
+                subtitle: const Text('仅 Lume WebSocket 单连接（经 WSS 代理）'),
                 value: _lumeTestEnabled,
                 activeColor: Constants.primaryColor,
                 onChanged: (v) async { await _setLumeTestEnabled(v); },

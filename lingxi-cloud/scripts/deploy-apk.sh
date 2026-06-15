@@ -15,11 +15,14 @@ VERSION="v1.9.0-$(date +%Y%m%d%H%M)"
 echo "📦 发布版本: $VERSION"
 echo "📄 源文件: $SRC ($(du -h "$SRC" | cut -f1))"
 
-# 唯一分发目录
+# 唯一分发目录 + static 中间件实际读取路径
 DEST="/home/admin/.openclaw/workspace/lingxi-cloud/frontend/public/lingxi.apk"
+DEST_STATIC="/home/admin/.openclaw/workspace/lingxi-cloud/frontend/lingxi.apk"
 
 cp -f "$SRC" "$DEST"
+cp -f "$SRC" "$DEST_STATIC"
 echo "✅ 已部署到: $DEST"
+echo "✅ 已部署到: $DEST_STATIC (express.static 路径)"
 
 # 验证
 ORIG_MD5=$(md5sum "$SRC" | cut -c1-8)

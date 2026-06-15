@@ -8,7 +8,7 @@ import 'package:lingxicloud/services/api_service.dart';
 
 typedef LumeMessageCallback = void Function(Map<String, dynamic> data);
 
-/// Lume OpenClaw 插件 WebSocket（18790），与 Gateway 并存，仅用于测试/可选发消息。
+/// Lume OpenClaw 插件 WebSocket（经 WSS 代理），App 唯一实时通道。
 class LumeWebSocketService {
   static final LumeWebSocketService _instance = LumeWebSocketService._internal();
   factory LumeWebSocketService() => _instance;
@@ -84,14 +84,7 @@ class LumeWebSocketService {
             _notify({'type': 'status', 'status': 'unavailable', 'message': '免费用户'});
             return;
           } else if (mode == 'gateway' || info['lumeAvailable'] == false) {
-            _lumeAvailable = false;
-            _isConnecting = false;
-            _notify({
-              'type': 'status',
-              'status': 'gateway_fallback',
-              'message': info['message']?.toString() ?? 'Lume 插件不可用',
-            });
-            return;
+            debugPrint('⚠️ [Lume] connect-info 非 lume 模式，仍走 WSS 代理: $mode');
           }
         }
       }
@@ -286,8 +279,8 @@ class LumeWebSocketService {
       _isConnecting = false;
       _notify({
         'type': 'status',
-        'status': 'gateway_fallback',
-        'message': 'Lume 重连失败，降级 Gateway',
+        'status': 'disconnected',
+        'message': 'Lume 重连失败，请检查网络或稍后重试',
       });
       return;
     }

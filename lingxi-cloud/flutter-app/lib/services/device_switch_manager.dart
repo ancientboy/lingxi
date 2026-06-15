@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lingxicloud/services/lume_websocket_service.dart';
-import 'package:lingxicloud/services/websocket_service.dart';
 
 /// 设备切换编排：热切换 device.switch → 失败则 WSS 重连（Lume 主通道）
 class DeviceSwitchManager extends ChangeNotifier {
@@ -40,46 +39,52 @@ class DeviceSwitchManager extends ChangeNotifier {
   Future<void> waitForRpc({int timeoutMs = 12000}) async {
     final deadline = DateTime.now().add(Duration(milliseconds: timeoutMs));
     while (DateTime.now().isBefore(deadline)) {
-      if (LumeWebSocketService().isConnected || WebSocketService().isConnected) {
+      if (LumeWebSocketService().isConnected) {
         return;
       }
       await Future.delayed(const Duration(milliseconds: 200));
     }
-    debugPrint('DeviceSwitchManager: 等待 RPC 超时');
+    debugPrint('DeviceSwitchManager: 等待 Lume RPC 超时');
   }
 
-  /// 绑定传输层到新设备（对齐 Web：断开旧连接 + 按 DB activeServer 重建）
+  /// 绑定传输层到新设备
+  /// 优先热切换（不断 WS），失败才全量重连
   Future<bool> rebindTransport(String serverId) async {
     final lume = LumeWebSocketService();
-    final gw = WebSocketService();
 
-    debugPrint('🖥️ [DSM] 设备硬重连 → $serverId（Web 等效于整页 reload）');
+    // 路径 1: 热切换（WS 不断，proxy 换后端）
+    if (lume.isConnected) {
+      debugPrint('🖥️ [DSM] 热切换 → $serverId');
+      try {
+        final ok = await lume.deviceSwitch(serverId, timeout: const Duration(seconds: 20));
+        if (ok) {
+          lastSwitchedServerId = serverId;
+          debugPrint('✅ [DSM] 热切换成功');
+          return true;
+        }
+        debugPrint('⚠️ [DSM] 热切换失败，降级全量重连');
+      } catch (e) {
+        debugPrint('⚠️ [DSM] 热切换异常: $e，降级全量重连');
+      }
+    }
 
-    // 必须清 Gateway 缓存，否则 connect() 仍连旧设备 IP
-    gw.reset();
+    // 路径 2: 全量重连（disconnect → wait → connect）
+    debugPrint('🖥️ [DSM] 全量重连 → $serverId');
     lume.disconnect();
-    await Future.delayed(const Duration(milliseconds: 400));
-
+    await Future.delayed(const Duration(milliseconds: 800));
     try {
       await lume.reconnectForDevice();
     } catch (e) {
-      debugPrint('⚠️ [DSM] Lume reconnectForDevice: $e');
+      debugPrint('⚠️ [DSM] reconnectForDevice: $e');
     }
     await waitForRpc(timeoutMs: 15000);
-    if (lume.isConnected) {
+    final ok = lume.isConnected;
+    if (ok) {
       lastSwitchedServerId = serverId;
-      return true;
+      debugPrint('✅ [DSM] 全量重连成功');
+    } else {
+      debugPrint('❌ [DSM] 全量重连失败');
     }
-
-    debugPrint('⚠️ [DSM] Lume 不可用，降级 Gateway（已 reset 缓存）');
-    try {
-      await gw.connect();
-    } catch (e) {
-      debugPrint('⚠️ [DSM] Gateway connect: $e');
-    }
-    await waitForRpc(timeoutMs: 12000);
-    final ok = lume.isConnected || gw.isConnected;
-    if (ok) lastSwitchedServerId = serverId;
     return ok;
   }
 
