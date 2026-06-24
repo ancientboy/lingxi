@@ -242,6 +242,69 @@ function setSidebarCreditsDisplay(total) {
   if (window.lucide) lucide.createIcons();
 }
 
+function setHomeMode(isHome) {
+  const container = document.getElementById('chatContainer');
+  const suggestions = document.getElementById('homeSuggestions');
+  if (container) container.classList.toggle('is-home', isHome);
+  if (suggestions && !isHome) {
+    suggestions.innerHTML = '';
+    suggestions.classList.add('hidden');
+  }
+}
+
+function getWelcomeGreeting(agent) {
+  const nick = user?.nickname || JSON.parse(localStorage.getItem('lingxi_user') || '{}').nickname;
+  if (nick) return `你好，${nick}`;
+  const name = agent?.name || '灵犀';
+  if (name === '灵犀' || name === 'Lume' || agent?.id === 'lingxi') {
+    return '我们先从哪里开始呢？';
+  }
+  return `与 ${name} 开始对话`;
+}
+
+function buildWelcomeExamplesHtml(examples) {
+  return (examples || []).map((ex) => `
+    <button type="button" class="home-chip" onclick="sendWelcomeExample('${ex.text.replace(/'/g, "\\'").replace(/\n/g, '\\n')}')">
+      <span class="home-chip-text">${ex.text}</span>
+      ${ex.desc ? `<span class="home-chip-tag">${ex.desc}</span>` : ''}
+    </button>
+  `).join('');
+}
+
+function renderWelcomeHome(agentInfo) {
+  const agent = agentInfo || AGENT_INFO[currentAgentId] || AGENT_INFO.lingxi;
+  const container = document.getElementById('messages');
+  const suggestionsEl = document.getElementById('homeSuggestions');
+  if (!container) return;
+
+  container.innerHTML = `
+    <div class="welcome" id="welcome">
+      <h1 class="welcome-title">${getWelcomeGreeting(agent)}</h1>
+      <p class="welcome-desc">${agent.desc || '向灵犀或你的团队提问'}</p>
+    </div>
+  `;
+
+  const examplesHtml = buildWelcomeExamplesHtml(agent.examples);
+  if (suggestionsEl) {
+    if (examplesHtml) {
+      suggestionsEl.innerHTML = examplesHtml;
+      suggestionsEl.classList.remove('hidden');
+    } else {
+      suggestionsEl.innerHTML = '';
+      suggestionsEl.classList.add('hidden');
+    }
+  }
+
+  setHomeMode(true);
+  if (window.lucide) lucide.createIcons();
+}
+
+function hideWelcomeHome() {
+  setHomeMode(false);
+  const welcome = document.getElementById('welcome');
+  if (welcome) welcome.classList.add('hidden');
+}
+
 let user = null;
 let ws = null;
 let pendingMessage = null;
@@ -1190,10 +1253,7 @@ async function sendMessage() {
   }
 
   // 隐藏欢迎界面（如果存在）
-  const welcome = document.getElementById('welcome');
-  if (welcome) {
-    welcome.classList.add('hidden');
-  }
+  hideWelcomeHome();
 
   // 显示用户消息（包含图片预览）
   addMessage('user', selectedImage ? { text, image: selectedImage.url } : text, user?.nickname || '我');
@@ -1355,26 +1415,7 @@ function renderHistory(messages, appendOnly = false) {
     }
     
     const agentInfo = AGENT_INFO[currentAgentId] || AGENT_INFO['lingxi'];
-    const examplesHtml = (agentInfo?.examples || []).map(ex => `
-      <div class="welcome-example" onclick="sendWelcomeExample('${ex.text.replace(/'/g, "\\'").replace(/\n/g, '\\n')}')">
-        <span class="example-text">${ex.text}</span>
-        <span class="example-tag">${ex.desc}</span>
-      </div>
-    `).join('');
-
-    container.innerHTML = `
-      <div class="welcome" id="welcome">
-        <div class="welcome-icon">${agentIcon(agentInfo, 'lg')}</div>
-        <div class="welcome-title">${agentInfo.name}</div>
-        <div class="welcome-desc">${agentInfo.desc}</div>
-        ${examplesHtml ? `
-          <div class="welcome-examples">
-            <div class="welcome-examples-title">试试这些</div>
-            <div class="welcome-examples-list">${examplesHtml}</div>
-          </div>
-        ` : ''}
-      </div>
-    `;
+    renderWelcomeHome(agentInfo);
     return;
   }
 
@@ -1398,6 +1439,7 @@ function renderHistory(messages, appendOnly = false) {
   }
 
   // 默认模式：清空容器后重新渲染
+  hideWelcomeHome();
   container.innerHTML = '';
 
   // 渲染历史消息（chat.history 已经过核心引擎过滤，这里只做基础校验）
@@ -1727,14 +1769,7 @@ async function createNewSession() {
   console.log('🆕 创建新会话:', currentSessionKey);
 
   // 清空聊天，显示欢迎界面
-  const container = document.getElementById('messages');
-  container.innerHTML = `
-    <div class="welcome" id="welcome">
-      <div class="welcome-emoji">⚡</div>
-      <div class="welcome-title">新对话</div>
-      <div class="welcome-desc">发送消息开始对话</div>
-    </div>
-  `;
+  renderWelcomeHome(AGENT_INFO[currentAgentId] || AGENT_INFO.lingxi);
 
   // 会话会在第一次发送消息时自动创建
   console.log('新会话已准备就绪，等待发送第一条消息');
@@ -1768,14 +1803,12 @@ async function switchSession(sessionKey) {
   }
 
   // 清空当前消息，显示加载状态
+  hideWelcomeHome();
   const container = document.getElementById('messages');
   container.innerHTML = `
-    <div class="welcome" id="welcome">
-      <div class="welcome-icon">
-        <i data-lucide="loader-2" class="icon-lg" style="animation: spin 1s linear infinite;"></i>
-      </div>
-      <div class="welcome-title">加载中...</div>
-      <div class="welcome-desc">正在获取聊天历史</div>
+    <div class="welcome welcome-loading" id="welcome">
+      <p class="welcome-title">加载中...</p>
+      <p class="welcome-desc">正在获取聊天历史</p>
     </div>
   `;
 
@@ -2196,7 +2229,7 @@ function renderWorkflowErrorCard(data) {
 function clearChat() {
   const messages = document.getElementById('messages');
   messages.innerHTML = '';
-  document.getElementById('welcome').classList.remove('hidden');
+  renderWelcomeHome(AGENT_INFO[currentAgentId] || AGENT_INFO.lingxi);
 }
 
 // 切换下拉菜单
@@ -3467,42 +3500,12 @@ async function createAgentSession(sessionKey, agentName) {
 function updateWelcomeForAgent(agentId) {
   const agentInfo = AGENT_INFO[agentId];
   if (!agentInfo) return;
-
-  const container = document.getElementById('messages');
-  container.innerHTML = '';
-
-  const examplesHtml = (agentInfo.examples || []).map(ex => `
-    <div class="welcome-example" onclick="sendWelcomeExample('${ex.text.replace(/'/g, "\\'").replace(/\n/g, '\\n')}')">
-      <span class="example-text">${ex.text}</span>
-      <span class="example-tag">${ex.desc}</span>
-    </div>
-  `).join('');
-
-  container.innerHTML = `
-    <div class="welcome" id="welcome">
-      <div class="welcome-icon">${agentIcon(agentInfo, 'lg')}</div>
-      <div class="welcome-title">${agentInfo.name}</div>
-      <div class="welcome-desc">${agentInfo.desc}</div>
-      ${examplesHtml ? `
-        <div class="welcome-examples">
-          <div class="welcome-examples-title">试试这些</div>
-          <div class="welcome-examples-list">${examplesHtml}</div>
-        </div>
-      ` : ''}
-    </div>
-  `;
-
-  // 重新渲染 Lucide 图标
-  if (window.lucide) lucide.createIcons();
+  renderWelcomeHome(agentInfo);
 }
 
 // 从欢迎界面发送示例
 function sendWelcomeExample(text) {
-  // 隐藏欢迎界面
-  const welcome = document.getElementById('welcome');
-  if (welcome) {
-    welcome.classList.add('hidden');
-  }
+  hideWelcomeHome();
 
   // 填入并发送
   const input = document.getElementById('inputField');
@@ -4223,6 +4226,8 @@ function initAgentDropdown() {
 // 显示使用量统计弹窗
 
 window.setSidebarCreditsDisplay = setSidebarCreditsDisplay;
+window.renderWelcomeHome = renderWelcomeHome;
+window.hideWelcomeHome = hideWelcomeHome;
 
 // 刷新侧边栏积分显示
 async function refreshSidebarCredits() {

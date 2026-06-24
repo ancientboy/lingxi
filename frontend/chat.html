@@ -9,7 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://js.stripe.com/v3/"></script>
   <link rel="stylesheet" href="assets/css/chat.css?v=20260612fix">
-  <link rel="stylesheet" href="assets/css/chat-polish.css?v=20260624b">
+  <link rel="stylesheet" href="assets/css/chat-polish.css?v=20260624d">
   <link rel="stylesheet" href="assets/css/dark.css" id="darkTheme" disabled>
   <link rel="stylesheet" href="assets/css/subscription.css">
   <link rel="stylesheet" href="assets/css/stripe-payment.css">
@@ -1693,16 +1693,14 @@
       </div>
     </div>
 
-    <div class="chat-container">
+    <div class="chat-container is-home" id="chatContainer">
+      <div class="chat-scroll" id="chatScroll">
       <div class="messages" id="messages">
         <div class="welcome" id="welcome">
-          <div class="welcome-icon">
-            <i data-lucide="sparkles" class="icon-lg"></i>
-          </div>
-          <div class="welcome-title">你好，我是 Lume</div>
-          <div class="welcome-desc">你的 AI 团队队长，来自星际的智能助手</div>
-          <div class="team-tags" id="teamTags"></div>
+          <h1 class="welcome-title">我们先从哪里开始呢？</h1>
+          <p class="welcome-desc">向灵犀或你的团队提问</p>
         </div>
+      </div>
       </div>
 
       <!-- Scroll to bottom button -->
@@ -1710,6 +1708,7 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
       </button>
 
+      <div class="compose-dock" id="composeDock">
       <!-- 悬浮输入栏 -->
       <div class="input-bar" id="inputBar">
         <!-- 图片预览 -->
@@ -1768,9 +1767,10 @@
 
         <input type="file" id="imageInput" class="image-input" accept="image/*,.pdf,.txt,.md,.html,.csv,.json" onchange="handleImageSelect(event)">
       </div>
-    </div>
 
-    <!-- 技能库视图 -->
+      <div class="home-suggestions" id="homeSuggestions" aria-label="快捷建议"></div>
+      </div><!-- /.compose-dock -->
+    </div><!-- /.chat-container -->
     <div class="skills-view" id="skillsView">
       <div class="skills-categories" id="skillsCategories">
         <div style="padding: 8px; color: var(--text-secondary);">加载中...</div>
@@ -2411,29 +2411,6 @@
 
       if (typeof createNewSession === 'function') {
         createNewSession();
-      }
-
-      // 清空消息区域，显示欢迎界面
-      const messages = document.getElementById('messages');
-      messages.innerHTML = `
-        <div class="welcome" id="welcome">
-          <div class="welcome-icon">
-            <i data-lucide="sparkles" class="icon-lg"></i>
-          </div>
-          <div class="welcome-title">你好，我是 Lume</div>
-          <div class="welcome-desc">你的 AI 团队队长，来自星际的智能助手</div>
-          <div class="team-tags" id="teamTags"></div>
-        </div>
-      `;
-
-      // 重新渲染团队标签
-      if (typeof renderTeamTags === 'function') {
-        renderTeamTags();
-      }
-
-      // 重新初始化 Lucide 图标
-      if (window.lucide) {
-        lucide.createIcons();
       }
 
       // 更新侧边栏会话列表（取消激活状态）

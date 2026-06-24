@@ -27,13 +27,159 @@
 
 .chat-container {
   max-width: var(--content-max);
+  margin: 0 auto;
   padding: 0 20px 20px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   position: relative;
 }
 
-.messages {
-  padding-top: 56px;
-  scroll-behavior: smooth;
+.chat-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.chat-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.compose-dock {
+  flex-shrink: 0;
+  width: 100%;
+  position: relative;
+}
+
+.chat-container:not(.is-home) .messages {
+  padding-top: 48px;
+  padding-bottom: 16px;
+  overflow: visible;
+}
+
+/* ===== 新对话首页（Claude / ChatGPT 风格） ===== */
+.chat-container.is-home {
+  justify-content: center;
+  align-items: stretch;
+  padding-top: 5vh;
+  padding-bottom: 28px;
+}
+
+.chat-container.is-home .chat-scroll {
+  flex: 0 1 auto;
+  overflow: visible;
+}
+
+.chat-container.is-home .messages {
+  padding: 0;
+  overflow: visible;
+}
+
+.chat-container.is-home .compose-dock {
+  margin-top: 24px;
+}
+
+.chat-container.is-home .welcome {
+  padding: 0 12px;
+  text-align: center;
+  animation: lume-fade-up 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.chat-container.is-home .welcome-title {
+  font-family: var(--font-display);
+  font-size: clamp(26px, 4.2vw, 34px);
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 1.2;
+  margin: 0 0 8px;
+  color: var(--text-1);
+}
+
+.chat-container.is-home .welcome-desc {
+  font-size: 15px;
+  color: var(--text-3);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.chat-container.is-home .welcome-icon,
+.welcome-icon {
+  display: none !important;
+}
+
+.chat-container.is-home .input-bar {
+  border-radius: 28px;
+  box-shadow: var(--composer-shadow);
+  margin: 0;
+}
+
+.chat-container.is-home .input-top {
+  padding: 14px 16px 6px;
+}
+
+.chat-container.is-home .input-field {
+  font-size: 16px;
+  min-height: 28px;
+}
+
+.home-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 0 4px;
+}
+
+.home-suggestions.hidden {
+  display: none !important;
+}
+
+.home-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 1px solid var(--border-sub);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-1);
+  cursor: pointer;
+  transition: border-color 0.18s, box-shadow 0.18s, transform 0.18s, background 0.18s;
+  max-width: 100%;
+}
+
+.home-chip:hover {
+  border-color: rgba(13, 148, 136, 0.35);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+  background: #fff;
+}
+
+.home-chip-text {
+  line-height: 1.35;
+  text-align: left;
+}
+
+.home-chip-tag {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 3px 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.welcome-loading .welcome-title {
+  font-size: 18px;
+  color: var(--text-2);
 }
 
 /* ===== 侧栏 ===== */
@@ -227,12 +373,7 @@
   display: none !important;
 }
 
-/* ===== 欢迎区 ===== */
-.welcome {
-  padding: 40px 16px 28px;
-  animation: lume-fade-up 0.45s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
+/* ===== 欢迎区（有对话时） ===== */
 @keyframes lume-fade-up {
   from {
     opacity: 0;
@@ -242,23 +383,6 @@
     opacity: 1;
     transform: translateY(0);
   }
-}
-
-.welcome-icon {
-  width: 72px;
-  height: 72px;
-  margin-bottom: 20px;
-  border-radius: 20px;
-  background: linear-gradient(145deg, var(--accent) 0%, var(--accent-h) 100%);
-  box-shadow: 0 10px 36px var(--accent-ring);
-  color: #fff;
-}
-
-.welcome-icon .icon,
-.welcome-icon svg,
-.welcome-icon .icon-primary {
-  color: #fff !important;
-  stroke: #fff;
 }
 
 /* ===== 用户底栏 ===== */
@@ -359,71 +483,6 @@
 .sidebar-menu-item:hover .icon-sm {
   color: var(--accent);
   opacity: 1;
-}
-
-.welcome-title {
-  font-size: 28px;
-  font-weight: 700;
-  letter-spacing: -0.035em;
-  line-height: 1.2;
-}
-
-.welcome-desc {
-  font-size: 15px;
-  color: var(--text-2);
-  max-width: 400px;
-  margin-left: auto;
-  margin-right: auto;
-  margin-bottom: 28px;
-  line-height: 1.55;
-}
-
-.welcome-examples {
-  max-width: 100%;
-  width: 100%;
-}
-
-.welcome-examples-title {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-3);
-  margin-bottom: 12px;
-}
-
-.welcome-examples-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.welcome-example {
-  border-radius: 14px;
-  padding: 14px 16px;
-  background: rgba(255, 255, 255, 0.75);
-  border-color: var(--border-sub);
-  transition: border-color 0.18s, box-shadow 0.18s, transform 0.18s, background 0.18s;
-}
-
-.welcome-example:hover {
-  background: #fff;
-  border-color: rgba(13, 148, 136, 0.35);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
-  transform: translateY(-2px);
-}
-
-.welcome-example .example-text {
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 1.45;
-}
-
-.welcome-example .example-tag {
-  font-size: 10px;
-  font-weight: 600;
-  padding: 4px 10px;
-  border-radius: 999px;
 }
 
 .team-tag {
@@ -584,6 +643,17 @@ html[data-theme="dark"] body {
 body[data-theme="dark"] .main-content,
 html[data-theme="dark"] .main-content {
   background: linear-gradient(165deg, #111111 0%, #1a1a1a 50%, #141414 100%);
+}
+
+body[data-theme="dark"] .home-chip,
+html[data-theme="dark"] .home-chip {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--border);
+}
+
+body[data-theme="dark"] .home-chip:hover,
+html[data-theme="dark"] .home-chip:hover {
+  background: rgba(255, 255, 255, 0.08);
 }
 
 body[data-theme="dark"] .welcome-example,
