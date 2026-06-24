@@ -225,7 +225,21 @@ window.agentSkillsData = {};
 // ═══════════════════════════════════════════════════════════════
 function agentIcon(agent, size = 'sm') {
   const icon = agent.icon || 'bot';
-  return `<i data-lucide="${icon}" class="icon icon-${size} icon-primary"></i>`;
+  const primaryClass = size === 'lg' ? '' : ' icon-primary';
+  return `<i data-lucide="${icon}" class="icon icon-${size}${primaryClass}"></i>`;
+}
+
+function setSidebarCreditsDisplay(total) {
+  const valueEl = document.getElementById('sidebarUserCreditsValue');
+  const wrapEl = document.getElementById('sidebarUserCredits');
+  const n = Number(total) || 0;
+  const text = n.toLocaleString();
+  if (valueEl) {
+    valueEl.textContent = text;
+  } else if (wrapEl) {
+    wrapEl.textContent = text;
+  }
+  if (window.lucide) lucide.createIcons();
 }
 
 let user = null;
@@ -4208,6 +4222,8 @@ function initAgentDropdown() {
 
 // 显示使用量统计弹窗
 
+window.setSidebarCreditsDisplay = setSidebarCreditsDisplay;
+
 // 刷新侧边栏积分显示
 async function refreshSidebarCredits() {
   try {
@@ -4221,11 +4237,8 @@ async function refreshSidebarCredits() {
     console.log('📊 积分API返回:', result);
 
     if (result.success && result.data) {
-      const creditsEl = document.getElementById('sidebarUserCredits');
-      if (creditsEl) {
-        creditsEl.textContent = `💎 ${result.data.total}`;
-        console.log('侧边栏积分已更新:', result.data.total);
-      }
+      setSidebarCreditsDisplay(result.data.total);
+      console.log('侧边栏积分已更新:', result.data.total);
     }
   } catch (e) {
     console.error('刷新积分失败:', e);
@@ -4877,6 +4890,9 @@ function updateUserBadge() {
 
   badgeEl.textContent = planNames[plan] || 'FREE';
   badgeEl.className = `sidebar-user-badge ${plan}`;
+  if (plan === 'free') {
+    badgeEl.textContent = '';
+  }
 
   // 更新头像文字
   const avatarEl = document.getElementById('sidebarUserAvatar');

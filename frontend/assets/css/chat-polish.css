@@ -49,6 +49,36 @@
   border-bottom: none;
 }
 
+/* ===== 品牌行（去除链接紫/绿下划线） ===== */
+.sidebar-top-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 10px 8px;
+}
+
+.sidebar-brand-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
+  border-radius: var(--radius-sm);
+  padding: 4px 6px;
+  transition: background 0.15s;
+}
+
+.sidebar-brand-link:hover {
+  background: var(--bg-hover);
+  color: inherit;
+}
+
+.sidebar-brand-link .sidebar-brand-name {
+  color: var(--text-1);
+}
+
 .sidebar-brand-icon {
   border-radius: 11px;
   box-shadow: 0 2px 10px var(--accent-ring);
@@ -64,24 +94,46 @@
   border-radius: 8px;
   font-weight: 500;
   margin: 0 2px;
+  gap: 10px;
+  padding: 6px 8px;
+}
+
+.sidebar-shortcut-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--text-2);
+  background: rgba(0, 0, 0, 0.03);
+  transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+
+.sidebar-shortcut-icon svg {
+  width: 15px;
+  height: 15px;
+  opacity: 1;
+  stroke-width: 2;
+}
+
+.sidebar-shortcut-btn:hover .sidebar-shortcut-icon {
+  background: var(--accent-soft);
+  color: var(--accent);
+  transform: translateY(-1px);
 }
 
 .sidebar-shortcut-btn svg {
-  opacity: 0.55;
-  transition: opacity 0.15s;
+  opacity: 1;
 }
 
 .sidebar-shortcut-btn:hover svg {
-  opacity: 0.85;
-}
-
-.sidebar-shortcut-btn.active {
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
-.sidebar-shortcut-btn.active svg {
   opacity: 1;
+}
+
+.sidebar-shortcut-btn.active .sidebar-shortcut-icon {
+  background: var(--accent-soft);
   color: var(--accent);
 }
 
@@ -150,6 +202,110 @@
   border-radius: 20px;
   background: linear-gradient(145deg, var(--accent) 0%, var(--accent-h) 100%);
   box-shadow: 0 10px 36px var(--accent-ring);
+  color: #fff;
+}
+
+.welcome-icon .icon,
+.welcome-icon svg,
+.welcome-icon .icon-primary {
+  color: #fff !important;
+  stroke: #fff;
+}
+
+/* ===== 用户底栏 ===== */
+.sidebar-user-trigger {
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.sidebar-user-trigger:hover {
+  background: var(--bg-card);
+  border-color: var(--border-sub);
+}
+
+.sidebar-user-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.sidebar-user-name {
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 1.2;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-credits-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px 2px 6px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(13, 148, 136, 0.1), rgba(13, 148, 136, 0.04));
+  border: 1px solid rgba(13, 148, 136, 0.18);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-h);
+  line-height: 1.4;
+}
+
+.sidebar-credits-pill svg {
+  width: 12px;
+  height: 12px;
+  opacity: 0.85;
+  flex-shrink: 0;
+}
+
+.sidebar-user-chevron {
+  color: var(--text-3);
+  flex-shrink: 0;
+  transition: transform 0.2s ease, color 0.15s;
+}
+
+.sidebar-user-trigger.active .sidebar-user-chevron {
+  transform: rotate(180deg);
+  color: var(--text-2);
+}
+
+.sidebar-user-badge:empty {
+  display: none;
+}
+
+.sidebar-user-badge.free {
+  display: none;
+}
+
+.sidebar-user-avatar {
+  background: linear-gradient(145deg, var(--accent) 0%, var(--accent-h) 100%);
+  box-shadow: 0 2px 8px var(--accent-ring);
+}
+
+.icon-xs {
+  width: 12px;
+  height: 12px;
+}
+
+/* 侧栏菜单图标统一中性色 */
+.sidebar-menu-item .icon-sm {
+  color: var(--text-2);
+  opacity: 0.85;
+}
+
+.sidebar-menu-item:hover .icon-sm {
+  color: var(--accent);
+  opacity: 1;
 }
 
 .welcome-title {
@@ -402,4 +558,16 @@ html[data-theme="dark"] .notification-bell {
 body[data-theme="dark"] .sidebar-open-btn,
 html[data-theme="dark"] .sidebar-open-btn {
   background: rgba(30, 30, 30, 0.9);
+}
+
+body[data-theme="dark"] .sidebar-shortcut-icon,
+html[data-theme="dark"] .sidebar-shortcut-icon {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-2);
+}
+
+body[data-theme="dark"] .sidebar-credits-pill,
+html[data-theme="dark"] .sidebar-credits-pill {
+  background: rgba(13, 148, 136, 0.15);
+  border-color: rgba(13, 148, 136, 0.25);
 }

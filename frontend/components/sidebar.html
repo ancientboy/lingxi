@@ -1,13 +1,15 @@
 <!-- 统一侧边栏组件 -->
 <aside class="sidebar" id="sidebar">
   <!-- Brand -->
-  <a href="index.html" class="sidebar-brand">
-    <div class="sidebar-brand-icon">L</div>
-    <span class="sidebar-brand-name">Lume</span>
-    <button class="sidebar-collapse-btn" onclick="event.preventDefault();event.stopPropagation();toggleSidebar()" data-i18n-title="common.close" title="Collapse sidebar">
-      <i data-lucide="panel-left-close" class="icon-sm"></i>
+  <div class="sidebar-top-row">
+    <a href="index.html" class="sidebar-brand-link">
+      <div class="sidebar-brand-icon">L</div>
+      <span class="sidebar-brand-name">Lume</span>
+    </a>
+    <button class="sidebar-collapse-btn" type="button" onclick="toggleSidebar()" data-i18n-title="common.close" title="Collapse sidebar">
+      <i data-lucide="chevrons-left" class="icon-sm"></i>
     </button>
-  </a>
+  </div>
   
   <div class="sidebar-header">
     <button class="sidebar-new-chat" onclick="newChat()">
@@ -21,32 +23,32 @@
   
   <!-- Shortcuts -->
   <div class="sidebar-shortcuts">
-    <button class="sidebar-shortcut-btn" onclick="switchView('workspace')">
-      <i data-lucide="building" class="icon-sm"></i>
+    <button class="sidebar-shortcut-btn" type="button" onclick="switchView('workspace')">
+      <span class="sidebar-shortcut-icon"><i data-lucide="building" class="icon-sm"></i></span>
       <span data-i18n="sidebar.workspace">Workspace</span>
     </button>
-    <button class="sidebar-shortcut-btn" onclick="switchView('servers')">
-      <i data-lucide="monitor-smartphone" class="icon-sm"></i>
+    <button class="sidebar-shortcut-btn" type="button" onclick="switchView('servers')">
+      <span class="sidebar-shortcut-icon"><i data-lucide="monitor-smartphone" class="icon-sm"></i></span>
       <span data-i18n="sidebar.devices">Devices</span>
     </button>
-    <button class="sidebar-shortcut-btn" onclick="switchView('skills')">
-      <i data-lucide="layout-grid" class="icon-sm"></i>
+    <button class="sidebar-shortcut-btn" type="button" onclick="switchView('skills')">
+      <span class="sidebar-shortcut-icon"><i data-lucide="layout-grid" class="icon-sm"></i></span>
       <span data-i18n="sidebar.skills">Skills</span>
     </button>
-    <button class="sidebar-shortcut-btn" onclick="toggleFileExplorer()">
-      <i data-lucide="folder-open" class="icon-sm"></i>
+    <button class="sidebar-shortcut-btn" type="button" onclick="toggleFileExplorer()">
+      <span class="sidebar-shortcut-icon"><i data-lucide="folder-open" class="icon-sm"></i></span>
       <span data-i18n="sidebar.files">Files</span>
     </button>
-    <button class="sidebar-shortcut-btn" onclick="switchView('cron')">
-      <i data-lucide="clock" class="icon-sm"></i>
+    <button class="sidebar-shortcut-btn" type="button" onclick="switchView('cron')">
+      <span class="sidebar-shortcut-icon"><i data-lucide="clock" class="icon-sm"></i></span>
       <span data-i18n="sidebar.timer">Timer</span>
     </button>
-    <button class="sidebar-shortcut-btn" onclick="location.href='/loops.html'">
-      <i data-lucide="repeat" class="icon-sm"></i>
+    <button class="sidebar-shortcut-btn" type="button" onclick="location.href='/loops.html'">
+      <span class="sidebar-shortcut-icon"><i data-lucide="repeat" class="icon-sm"></i></span>
       <span>Loop</span>
     </button>
-    <button class="sidebar-shortcut-btn" onclick="toggleAgentDropdown()" style="position:relative;">
-      <i data-lucide="zap" class="icon-sm" id="currentAgentIcon"></i>
+    <button class="sidebar-shortcut-btn" type="button" onclick="toggleAgentDropdown()" style="position:relative;">
+      <span class="sidebar-shortcut-icon"><i data-lucide="zap" class="icon-sm" id="currentAgentIcon"></i></span>
       <span data-i18n="sidebar.agent">Agent</span>
       <div class="agent-dropdown" id="agentDropdown"></div>
     </button>
@@ -67,9 +69,17 @@
         <div class="sidebar-user-avatar" id="sidebarUserAvatar">U</div>
         <div class="sidebar-user-badge" id="sidebarUserBadge"></div>
       </div>
-      <span class="sidebar-user-name" id="sidebarUserName">User</span>
-      <span class="sidebar-user-credits" id="sidebarUserCredits">0 credits</span>
-      <span class="sidebar-user-arrow">▼</span>
+      <div class="sidebar-user-meta">
+        <span class="sidebar-user-name" id="sidebarUserName">User</span>
+        <span class="sidebar-credits-pill" id="sidebarUserCredits">
+          <svg class="credits-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2"/>
+            <path d="M12 8v8M9.5 10.5h3a1.5 1.5 0 0 1 0 3h-3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <span id="sidebarUserCreditsValue">0</span>
+        </span>
+      </div>
+      <i data-lucide="chevron-up" class="sidebar-user-chevron icon-sm"></i>
     </div>
     <div class="sidebar-user-menu" id="sidebarUserMenu">
       <div class="sidebar-menu-item" onclick="openLumeClaw()" id="lumeclawMenuEntry" class="hidden">

@@ -9,7 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://js.stripe.com/v3/"></script>
   <link rel="stylesheet" href="assets/css/chat.css?v=20260612fix">
-  <link rel="stylesheet" href="assets/css/chat-polish.css?v=20260624a">
+  <link rel="stylesheet" href="assets/css/chat-polish.css?v=20260624b">
   <link rel="stylesheet" href="assets/css/dark.css" id="darkTheme" disabled>
   <link rel="stylesheet" href="assets/css/subscription.css">
   <link rel="stylesheet" href="assets/css/stripe-payment.css">
@@ -2381,7 +2381,7 @@
           if (result.success) {
             const credits = result.data;
             const totalCredits = credits.balance + credits.freeRemaining;
-            document.getElementById('sidebarUserCredits').textContent = `💎 ${totalCredits}`;
+            setSidebarCreditsDisplay(totalCredits);
           }
         } catch (e) {
           console.log('加载积分失败:', e);
