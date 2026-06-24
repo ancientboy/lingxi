@@ -920,8 +920,13 @@
   backdrop-filter: blur(4px);
 }
 
+body[data-page="chat"] {
+  overflow: hidden;
+  height: 100dvh;
+}
+
 /* ===== 响应式 ===== */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .welcome-examples-list {
     grid-template-columns: 1fr;
   }

@@ -503,7 +503,7 @@ function initRightSidebar() {
   if (!sidebar) return;
 
   let collapsed = false;
-  if (window.innerWidth <= 768) {
+  if (isMobileChatUi()) {
     collapsed = true;
   } else {
     collapsed = localStorage.getItem(RIGHT_SIDEBAR_COLLAPSED_KEY) === '1';
@@ -515,7 +515,7 @@ function initRightSidebar() {
   if (!window._rightSidebarResizeBound) {
     window._rightSidebarResizeBound = true;
     window.addEventListener('resize', () => {
-      if (window.innerWidth <= 768) {
+      if (isMobileChatUi()) {
         setRightSidebarCollapsed(true);
       } else {
         updateRightSidebarToggleUi();
@@ -561,10 +561,16 @@ function renderWelcomeHome(agentInfo) {
   const suggestionsEl = document.getElementById('homeSuggestions');
   if (!container) return;
 
+  const sessionCount = (window.sessions || []).length;
+  const mobileTip = isMobileChatUi() && sessionCount > 0
+    ? `<p class="welcome-mobile-tip">点击左上角「历史」查看 ${sessionCount} 个对话，或直接在下方输入开始聊天</p>`
+    : '';
+
   container.innerHTML = `
     <div class="welcome" id="welcome">
       <h1 class="welcome-title">${getWelcomeGreeting(agent)}</h1>
       <p class="welcome-desc">${agent.desc || '向灵犀或你的团队提问'}</p>
+      ${mobileTip}
     </div>
   `;
 
@@ -593,9 +599,58 @@ function hideWelcomeHome() {
   });
 }
 
+const MOBILE_CHAT_BREAKPOINT = 1024;
+
+function isMobileChatUi() {
+  if (document.body?.classList.contains('force-mobile-chat-ui')) return true;
+  if (window.matchMedia(`(max-width: ${MOBILE_CHAT_BREAKPOINT}px)`).matches) return true;
+  const coarse = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+  return coarse && window.innerWidth <= 1280;
+}
+
+function initMobileChatUi() {
+  const apply = () => {
+    const mobile = isMobileChatUi();
+    document.body.classList.toggle('mobile-chat-ui', mobile);
+    if (typeof updateSidebarToggleUi === 'function') updateSidebarToggleUi();
+    if (typeof updateMobileSessionsState === 'function') updateMobileSessionsState();
+  };
+  apply();
+  if (!window._mobileChatUiResizeBound) {
+    window._mobileChatUiResizeBound = true;
+    window.addEventListener('resize', apply);
+  }
+}
+
+function updateMobileSessionsState() {
+  const container = document.getElementById('chatContainer');
+  const count = (window.sessions || []).length;
+  if (container) container.classList.toggle('mobile-has-sessions', count > 0);
+}
+
+function getSessionCandidateKeys() {
+  const sessions = window.sessions || [];
+  const keys = [];
+  const add = (k) => {
+    if (k && !keys.includes(k)) keys.push(k);
+  };
+  add(localStorage.getItem('currentSessionKey'));
+  add(window.currentSessionKey);
+  add(currentSessionKey);
+  sessions.forEach((s) => add(s.key));
+  return keys;
+}
+
 function syncCurrentSessionKey(key) {
   currentSessionKey = key;
   window.currentSessionKey = key;
+  try {
+    if (key && typeof SESSION_PREFIX === 'string' && key.startsWith(SESSION_PREFIX)) {
+      localStorage.setItem('currentSessionKey', key);
+    }
+  } catch (e) {
+    console.warn('无法保存 currentSessionKey:', e);
+  }
   if (typeof updateMobileChatHeader === 'function') updateMobileChatHeader();
 }
 
@@ -613,6 +668,7 @@ let userServerInfo = null; // 用户服务器信息（IP、端口）
 // ═══════════════════════════════════════════════════════════════
 async function init() {
   console.log('初始化聊天页面...');
+  initMobileChatUi();
 
   // 清空消息区，确保每次初始化都是干净状态（防止设备切换后残留旧消息）
   const _msgContainer = document.getElementById('messages');
@@ -819,6 +875,12 @@ async function init() {
   await checkOnboarding();
 
   renderTeamDrawer();
+
+  window.addEventListener('pageshow', (e) => {
+    if (e.persisted && window.USE_LUME && typeof resolveInitialSession === 'function') {
+      void resolveInitialSession();
+    }
+  });
 }
 
 let requestId = 1;
@@ -1724,6 +1786,35 @@ async function loadChatHistory(appendOnly = false) {
   }
 }
 
+/**
+ * 初始化时智能选择有历史的会话（修复 Web 切 Session 后移动端仍显示首页）
+ */
+async function resolveInitialSession() {
+  updateMobileSessionsState();
+
+  const useLume = window.USE_LUME && typeof LumeRpc !== 'undefined' && LumeRpc.isConnected();
+  if (!useLume) {
+    await loadChatHistory();
+    return;
+  }
+
+  const candidates = getSessionCandidateKeys();
+  for (const key of candidates) {
+    if (!key) continue;
+    syncCurrentSessionKey(key);
+    const messages = await fetchChatHistory(key, 100);
+    if (messages && messages.length > 0) {
+      renderHistory(messages);
+      if (typeof loadSidebarSessions === 'function') loadSidebarSessions();
+      return;
+    }
+  }
+
+  const fallback = candidates[0] || currentSessionKey || SESSION_KEY;
+  if (fallback) syncCurrentSessionKey(fallback);
+  await loadChatHistory();
+}
+
 // 渲染历史消息
 // 新增 appendOnly 参数：true=只追加（重连时使用），false=清空后重新渲染（默认）
 function renderHistory(messages, appendOnly = false) {
@@ -2085,8 +2176,8 @@ async function createNewSession() {
 }
 
 // 切换会话
-async function switchSession(sessionKey) {
-  if (sessionKey === currentSessionKey) {
+async function switchSession(sessionKey, forceReload = false) {
+  if (sessionKey === currentSessionKey && !forceReload) {
     return;
   }
 
@@ -4559,6 +4650,9 @@ function initAgentDropdown() {
 window.setSidebarCreditsDisplay = setSidebarCreditsDisplay;
 window.renderWelcomeHome = renderWelcomeHome;
 window.hideWelcomeHome = hideWelcomeHome;
+window.isMobileChatUi = isMobileChatUi;
+window.resolveInitialSession = resolveInitialSession;
+window.updateMobileSessionsState = updateMobileSessionsState;
 
 // 刷新侧边栏积分显示
 async function refreshSidebarCredits() {
@@ -5030,14 +5124,18 @@ async function loadNotificationUnreadCount() {
 
 /** 更新铃铛上的 badge */
 function updateNotificationBadge() {
-  const badge = document.getElementById('notificationBadge');
-  if (!badge) return;
-  if (_notificationUnreadCount > 0) {
-    badge.textContent = _notificationUnreadCount > 9 ? '9+' : _notificationUnreadCount;
-    badge.style.display = '';
-  } else {
-    badge.style.display = 'none';
-  }
+  const text = _notificationUnreadCount > 9 ? '9+' : String(_notificationUnreadCount);
+  const show = _notificationUnreadCount > 0;
+  ['notificationBadge', 'mobileNotificationBadge'].forEach((id) => {
+    const badge = document.getElementById(id);
+    if (!badge) return;
+    if (show) {
+      badge.textContent = text;
+      badge.style.display = '';
+    } else {
+      badge.style.display = 'none';
+    }
+  });
 }
 
 /** 切换通知面板显示/隐藏 */

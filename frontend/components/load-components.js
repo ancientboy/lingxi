@@ -2,7 +2,7 @@
  * 统一组件加载器
  */
 
-const COMPONENT_VERSION = '20260625b';
+const COMPONENT_VERSION = '20260625c';
 
 async function refreshChatSidebarAfterComponentsLoad() {
   if (typeof loadSidebarSessions === 'function') {
@@ -15,9 +15,13 @@ async function refreshChatSidebarAfterComponentsLoad() {
     messagesEl.querySelector('#welcome') || document.getElementById('chatContainer')?.classList.contains('is-home')
   );
 
-  if (onlyWelcome && window.USE_LUME && typeof LumeRpc !== 'undefined' && LumeRpc.isConnected() && typeof loadChatHistory === 'function') {
+  if (onlyWelcome && window.USE_LUME && typeof LumeRpc !== 'undefined' && LumeRpc.isConnected()) {
     try {
-      await loadChatHistory();
+      if (typeof resolveInitialSession === 'function') {
+        await resolveInitialSession();
+      } else if (typeof loadChatHistory === 'function') {
+        await loadChatHistory();
+      }
     } catch (e) {
       console.warn('侧栏加载后刷新历史失败:', e);
     }

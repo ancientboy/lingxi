@@ -69,7 +69,9 @@ async function loadLumeSessions() {
       } catch (e) {
         console.warn('[Lume] loadSessions 失败（侧栏可能尚未加载）:', e);
       }
-      if (typeof loadChatHistory === 'function') {
+      if (typeof resolveInitialSession === 'function') {
+        await resolveInitialSession();
+      } else if (typeof loadChatHistory === 'function') {
         await loadChatHistory();
       }
     }

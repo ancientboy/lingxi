@@ -289,16 +289,27 @@
     </button>
     <div id="navbar-container"></div>
 
-    <!-- 移动端顶栏：打开侧栏 / 当前会话 / 新对话 -->
+    <!-- 移动端顶栏：历史侧栏 / 当前会话 / 通知 / 新对话 -->
     <header class="mobile-chat-header" id="mobileChatHeader" aria-label="移动端导航">
-      <button type="button" class="mobile-chat-header-btn" id="mobileMenuBtn" onclick="toggleSidebar()" aria-label="打开菜单">
+      <button type="button" class="mobile-chat-header-btn mobile-menu-btn" id="mobileMenuBtn" onclick="toggleSidebar()" aria-label="打开历史对话">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
           <line x1="4" y1="7" x2="20" y2="7"/>
           <line x1="4" y1="12" x2="20" y2="12"/>
           <line x1="4" y1="17" x2="20" y2="17"/>
         </svg>
+        <span class="mobile-menu-label">历史</span>
       </button>
-      <div class="mobile-chat-header-title" id="mobileChatTitle">Lume</div>
+      <div class="mobile-chat-header-title-wrap">
+        <div class="mobile-chat-header-title" id="mobileChatTitle">Lume</div>
+        <div class="mobile-chat-header-sub" id="mobileChatSub">对话</div>
+      </div>
+      <button type="button" class="mobile-chat-header-btn mobile-notif-btn" onclick="toggleNotificationPanel(event)" aria-label="通知">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+          <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+        </svg>
+        <span class="notification-badge mobile-header-badge" id="mobileNotificationBadge" style="display:none;">0</span>
+      </button>
       <button type="button" class="mobile-chat-header-btn" onclick="newChat()" aria-label="新对话">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <line x1="12" y1="5" x2="12" y2="19"/>
@@ -307,7 +318,7 @@
       </button>
     </header>
 
-    <!-- 通知铃铛 -->
+    <!-- 通知铃铛（桌面端） -->
     <div class="notification-bell" id="notificationBell" onclick="toggleNotificationPanel(event)">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
@@ -2241,10 +2252,14 @@
       });
     }
 
+    function isMobileLayout() {
+      return typeof isMobileChatUi === 'function' ? isMobileChatUi() : window.innerWidth <= 1024;
+    }
+
     function updateSidebarToggleUi() {
       const sidebar = document.getElementById('sidebar');
       const expandBtn = document.getElementById('sidebarExpandBtn');
-      const isMobile = window.innerWidth <= 768;
+      const isMobile = isMobileLayout();
       const collapsed = sidebar?.classList.contains('collapsed');
 
       if (expandBtn) {
@@ -2257,12 +2272,19 @@
 
     function updateMobileChatHeader() {
       const titleEl = document.getElementById('mobileChatTitle');
-      if (!titleEl || window.innerWidth > 768) return;
+      const subEl = document.getElementById('mobileChatSub');
+      if (!titleEl || !isMobileLayout()) return;
 
       const key = window.currentSessionKey;
       const session = (window.sessions || []).find((s) => s.key === key);
+      const agent = typeof AGENT_INFO !== 'undefined' && typeof currentAgentId !== 'undefined'
+        ? AGENT_INFO[currentAgentId]
+        : null;
       const name = session?.title || session?.derivedTitle || session?.label || session?.displayName;
       titleEl.textContent = name || '新对话';
+      if (subEl) {
+        subEl.textContent = agent?.name ? `${agent.name} · ${agent.desc || 'AI 助手'}` : 'Lume 对话';
+      }
     }
 
     window.updateMobileChatHeader = updateMobileChatHeader;
@@ -2272,7 +2294,7 @@
       const mainContent = document.getElementById('mainContent');
       const overlay = document.getElementById('sidebarOverlay');
 
-      const isMobile = window.innerWidth <= 768;
+      const isMobile = isMobileLayout();
 
       if (isMobile) {
         // 移动端：显示/隐藏侧边栏
@@ -2424,7 +2446,7 @@
       switchView('chat');
 
       // 移动端关闭侧边栏
-      if (window.innerWidth <= 768) {
+      if (isMobileLayout()) {
         toggleSidebar();
       }
 
@@ -3591,11 +3613,11 @@
 
   <script src="assets/js/lume-dialog.js?v=20260624n"></script>
   <script src="assets/js/lume-rpc.js?v=20260615p1"></script>
-  <script src="assets/js/chat-lume.js?v=20260624v"></script>
-  <script src="assets/js/chat.js?v=20260624v"></script>
+  <script src="assets/js/chat-lume.js?v=20260624w"></script>
+  <script src="assets/js/chat.js?v=20260624w"></script>
 
     <!-- 统一组件加载器 -->
-    <script src="components/load-components.js?v=20260625b"></script>
+    <script src="components/load-components.js?v=20260625c"></script>
   <script src="assets/js/skills-tab.js?v=20260624w"></script>
     <script src="assets/js/subscription.js?v=1772525512"></script>
   <script src="assets/js/stripe-payment.js?v=1772524675"></script>
