@@ -3,8 +3,8 @@
  *
  * 总计: 2718 行，90 个函数
 // 全局主题色（跟随 CSS 变量）
-function _accent() { return getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#10a37f"; }
-function _accentSoft() { return getComputedStyle(document.documentElement).getPropertyValue("--accent-soft").trim() || "rgba(16,163,127,0.08)"; }
+function _accent() { return getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#3d6b62"; }
+function _accentSoft() { return getComputedStyle(document.documentElement).getPropertyValue("--accent-soft").trim() || "rgba(61,107,98,0.08)"; }
  *
  * 模块索引:
  * ─────────────────────────────────────────

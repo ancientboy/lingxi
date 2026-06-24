@@ -21,11 +21,11 @@
   --text-3:      #a3a3a3;
   --text-inv:    #ffffff;
 
-  /* 默认主题：绿色 */
-  --accent:      #10a37f;
-  --accent-h:    #0d8a6a;
-  --accent-soft: rgba(16,163,127,0.08);
-  --accent-ring: rgba(16,163,127,0.25);
+  /* 默认主题：克制墨绿 */
+  --accent:      #3d6b62;
+  --accent-h:    #2f554d;
+  --accent-soft: rgba(61, 107, 98, 0.08);
+  --accent-ring: rgba(61, 107, 98, 0.14);
 
   --radius:      12px;
   --radius-sm:   8px;
@@ -41,14 +41,6 @@
   --font-body:    'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 
   --sidebar-w:   260px;
-}
-
-/* 爱马仕橙主题（通过 JS 切换 data-theme 激活） */
-:root[data-theme="hermes"], body[data-theme="hermes"] {
-  --accent:      #E87040;
-  --accent-h:    #D45A2A;
-  --accent-soft: rgba(232,112,64,0.08);
-  --accent-ring: rgba(232,112,64,0.25);
 }
 
 /* ===== RESET ===== */
@@ -934,7 +926,7 @@ body::-webkit-scrollbar { display: none; }
 }
 .bubble-meta .meta-model {
   background: var(--accent-soft, rgba(16,163,127,0.08));
-  color: var(--accent, #10a37f);
+  color: var(--accent, #3d6b62);
   padding: 2px 6px;
   border-radius: 4px;
   font-weight: 500;

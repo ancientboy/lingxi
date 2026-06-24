@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://js.stripe.com/v3/"></script>
-  <link rel="stylesheet" href="assets/css/chat.css?v=20260624aa">
+  <link rel="stylesheet" href="assets/css/chat.css?v=20260624ab">
   <link rel="stylesheet" href="assets/css/chat-polish.css?v=20260624aa">
   <link rel="stylesheet" href="assets/css/right-rail.css?v=20260624k">
   <link rel="stylesheet" href="assets/css/scroll-context.css?v=20260624g">
@@ -2147,6 +2147,12 @@
         if (toggleIcon) toggleIcon.textContent = '🌙';
       }
 
+      document.documentElement.removeAttribute('data-theme');
+
+      document.querySelectorAll('.accent-dot').forEach((dot) => {
+        dot.classList.toggle('active', dot.dataset.themeMode === theme);
+      });
+
       localStorage.setItem(THEME_KEY, theme);
     }
 
@@ -2157,21 +2163,13 @@
       applyTheme(newTheme);
     }
 
-    // ===== 主题色切换 =====
-    const ACCENT_KEY = 'lingxi_accent_theme';
-
-    function setAccentTheme(accent) {
-      document.documentElement.setAttribute('data-theme', accent === 'default' ? '' : accent);
-      localStorage.setItem(ACCENT_KEY, accent);
-      // 更新按钮状态
-      document.querySelectorAll('.accent-dot').forEach(d => {
-        d.classList.toggle('active', d.dataset.accent === accent);
-      });
+    function setThemeMode(theme) {
+      applyTheme(theme === 'dark' ? 'dark' : 'light');
     }
 
-    function initAccentTheme() {
-      const saved = localStorage.getItem(ACCENT_KEY) || 'default';
-      setAccentTheme(saved);
+    function initThemePicker() {
+      localStorage.removeItem('lingxi_accent_theme');
+      document.documentElement.removeAttribute('data-theme');
     }
 
     // ===== 侧边栏功能 =====
@@ -3143,8 +3141,8 @@
     });
 
     // 页面加载时初始化
+    initThemePicker();
     initTheme();
-    initAccentTheme();
     initSidebar();
 
     // 自动切换视图（从 skills.html 跳转）
