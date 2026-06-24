@@ -769,6 +769,29 @@ function cleanMessageText(text) {
 // 流式消息管理
 let streamingMessages = {};  // runId -> {element, text}
 
+function renderBubbleActionsHtml() {
+  return `
+    <div class="bubble-actions" aria-label="消息操作">
+      <button type="button" class="bubble-action-btn" onclick="copyBubble(this)" title="复制" aria-label="复制">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+      </button>
+    </div>
+  `;
+}
+
+function updateLatestAssistantMessageActions() {
+  const container = document.getElementById('messages');
+  if (!container) return;
+  container.querySelectorAll('.message.assistant.is-latest-assistant').forEach((el) => {
+    el.classList.remove('is-latest-assistant');
+  });
+  const assistants = Array.from(container.querySelectorAll('.message.assistant')).filter(
+    (el) => el.id !== 'typing-indicator'
+  );
+  const latest = assistants[assistants.length - 1];
+  if (latest) latest.classList.add('is-latest-assistant');
+}
+
 // 更新或创建流式消息
 function updateStreamingMessage(text, runId) {
   removeTyping();
@@ -782,13 +805,11 @@ function updateStreamingMessage(text, runId) {
     streamingMessages[runId].text = text;
     const bubble = streamingMessages[runId].element.querySelector('.bubble');
     if (bubble) {
-      // 使用 processMessageFull 解析 Markdown 图片
       const { text: cleanText, filesHtml, imagesHtml } = processMessageFull(text, {});
       const renderedText = cleanText ? renderMarkdown(cleanText) : '';
-      // 保留复制按钮
-      const existingCopyBtn = bubble.querySelector('.bubble-copy-btn');
-      const copyHtml = existingCopyBtn ? existingCopyBtn.outerHTML : '<button class="bubble-copy-btn" onclick="copyBubble(this)" title="复制"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>';
-      bubble.innerHTML = `${renderedText}${imagesHtml}${filesHtml}${copyHtml}`;
+      const metaEl = bubble.querySelector('.bubble-meta');
+      const metaHtml = metaEl ? metaEl.outerHTML : '';
+      bubble.innerHTML = `${renderedText}${imagesHtml}${filesHtml}${metaHtml}`;
     }
   }
 
@@ -816,10 +837,10 @@ function finalizeStreamingMessage(text, runId, modelInfo) {
       const { text: cleanText, filesHtml, imagesHtml, audioHtml } = processMessageFull(text, fileOptions);
       const renderedText = cleanText ? renderMarkdown(cleanText) : '';
       const metaHtml = modelInfo ? renderBubbleMeta(modelInfo) : '';
-      const copyHtml = '<button class="bubble-copy-btn" onclick="copyBubble(this)" title="复制"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>';
-      bubble.innerHTML = `${renderedText}${audioHtml}${imagesHtml}${filesHtml}${copyHtml}${metaHtml}`;
+      bubble.innerHTML = `${renderedText}${audioHtml}${imagesHtml}${filesHtml}${metaHtml}`;
     }
   }
+  updateLatestAssistantMessageActions();
   // 清理
   delete streamingMessages[runId];
 }
@@ -1836,6 +1857,7 @@ function renderHistory(messages, appendOnly = false) {
   setTimeout(scrollToBottom, 50);
   setTimeout(scrollToBottom, 200);
   setTimeout(scrollToBottom, 500);
+  updateLatestAssistantMessageActions();
 }
 
 // ===== 会话管理 =====
@@ -2190,21 +2212,20 @@ function addMessage(role, content, name, modelInfo) {
     `;
   }
 
-  // 为助手消息添加复制按钮
-  const copyBtn = role === 'assistant'
-    ? `<button class="bubble-copy-btn" onclick="copyBubble(this)" title="复制"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>`
-    : '';
+  // 助手消息：操作栏在气泡下方（GPT / Claude 风格）
+  const actionsHtml = role === 'assistant' ? renderBubbleActionsHtml() : '';
 
   div.innerHTML = `
     ${avatarHtml}
     <div class="bubble">
       ${bubbleContent}
-      ${copyBtn}
       ${role === 'assistant' && modelInfo ? renderBubbleMeta(modelInfo) : ''}
     </div>
+    ${actionsHtml}
   `;
 
   messages.appendChild(div);
+  if (role === 'assistant') updateLatestAssistantMessageActions();
   scrollChatToBottom(true);
   if (role === 'user') updateScrollContextBar();
 
@@ -3277,12 +3298,11 @@ function escapeHtmlBasic(text) {
 
 // 复制气泡内容
 function copyBubble(btn) {
-  const bubble = btn.closest('.bubble');
+  const message = btn.closest('.message');
+  const bubble = message?.querySelector('.bubble') || btn.closest('.bubble');
   if (!bubble) return;
-  // 提取纯文本（去掉 HTML 标签）
   const clone = bubble.cloneNode(true);
-  // 移除不需要复制的元素
-  clone.querySelectorAll('.bubble-copy-btn, .bubble-meta').forEach(el => el.remove());
+  clone.querySelectorAll('.bubble-actions, .bubble-copy-btn, .bubble-action-btn, .bubble-meta').forEach((el) => el.remove());
   const text = clone.textContent || clone.innerText || '';
   navigator.clipboard.writeText(text.trim()).then(() => {
     btn.classList.add('copied');
@@ -3539,6 +3559,7 @@ function startChat() {
 
 function toggleAgentDropdown() {
   const dropdown = document.getElementById('agentDropdown');
+  if (!dropdown) return;
   dropdown.classList.toggle('show');
 
   // 点击其他地方关闭
