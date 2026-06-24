@@ -7,7 +7,7 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23667eea'/><text x='16' y='22' text-anchor='middle' fill='white' font-size='16' font-weight='700'>L</text></svg>">
   <link rel="stylesheet" href="assets/css/lume.css">
   <link rel="stylesheet" href="assets/css/lume-dialog.css">
-  <link rel="stylesheet" href="assets/css/workspace-shell.css?v=20260624z">
+  <link rel="stylesheet" href="assets/css/workspace-shell.css?v=20260625a">
   <style>
     body {
       font-family: var(--font-body);
@@ -1669,6 +1669,7 @@ function switchTab(tabId) {
 // ═══════════════════════════════════════════════════════════
 
 const AGENT_MAP = {
+  main:    { id:'main', name:'灵犀', abbr:'LX', color:'#10a37f', role:'队长', desc:'智能调度队长，负责理解需求、分配任务、协调团队' },
   lingxi:  { id:'lingxi', name:'灵犀', abbr:'LX', color:'#10a37f', role:'队长', desc:'智能调度队长，负责理解需求、分配任务、协调团队' },
   coder:   { id:'coder', name:'云溪', abbr:'YX', color:'#4facfe', role:'代码', desc:'全栈开发专家，精通 JS/Python/Go' },
   ops:     { id:'ops', name:'若曦', abbr:'RX', color:'#43e97b', role:'运营', desc:'数据分析与运营专家，擅长报表、增长分析' },
@@ -1812,6 +1813,25 @@ function getAgentInfo(agentId) {
   return localInfo;
 }
 
+/** 将 model 字段格式化为短标签（支持字符串或 OpenClaw 对象形态） */
+function formatAgentModelLabel(model, fallback = 'default') {
+  if (!model) return fallback;
+  if (typeof model === 'string') {
+    const s = model.trim();
+    if (!s) return fallback;
+    return s.includes('/') ? s.split('/').pop() : s;
+  }
+  if (typeof model === 'object') {
+    const raw = model.primary || model.default || model.id || model.name || '';
+    if (!raw) return fallback;
+    if (typeof raw === 'string') {
+      const s = raw.trim();
+      return s.includes('/') ? s.split('/').pop() : s;
+    }
+  }
+  return fallback;
+}
+
 function renderManageTab() {
   const myIds = getMyAgentIds();
   const container = document.getElementById('manageMembers');
@@ -1831,7 +1851,7 @@ function renderManageTab() {
     const a = getAgentInfo(id);
     const isRequired = id === 'main' || id === 'lingxi';
     const workspace = a.workspace ? a.workspace.replace(/^.*workspace-?/, '') || 'main' : '';
-    const model = a.model ? a.model.split('/').pop() : 'default';
+    const model = formatAgentModelLabel(a.model);
     const abbr = a.abbr || a.name?.substring(0,2) || id.substring(0,2).toUpperCase();
     return `
       <div class="member-card">
