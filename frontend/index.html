@@ -84,7 +84,7 @@
       width: 32px;
       height: 32px;
       border-radius: 9px;
-      background: var(--accent);
+      background: var(--text-1);
       color: #fff;
       font-family: var(--font-display);
       font-weight: 700;
@@ -92,6 +92,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
     }
 
     .login-brand-name {
@@ -101,6 +102,7 @@
       color: var(--text-1);
       letter-spacing: -0.02em;
     }
+    .login-brand-name .brand-suffix { display: none; }
 
     .login-center {
       flex: 1;
@@ -169,6 +171,7 @@
     }
 
     .showcase-toggle {
+      position: relative;
       display: flex;
       align-items: center;
       gap: 0;
@@ -176,23 +179,133 @@
       border: 1px solid rgba(0,0,0,0.06);
       border-radius: 999px;
       padding: 6px;
-      margin-bottom: 48px;
+      margin-bottom: 32px;
       box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+      min-width: 280px;
+    }
+
+    .showcase-toggle-pill {
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      width: calc(50% - 6px);
+      height: calc(100% - 12px);
+      background: #fff;
+      border-radius: 999px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+      z-index: 0;
+    }
+
+    .showcase-toggle.is-workspace .showcase-toggle-pill {
+      transform: translateX(100%);
     }
 
     .showcase-toggle-item {
-      padding: 12px 28px;
+      flex: 1;
+      padding: 12px 20px;
       font-size: 15px;
       font-weight: 500;
       color: var(--text-3);
       border-radius: 999px;
-      transition: all 0.25s ease;
+      transition: color 0.3s ease;
+      text-align: center;
+      z-index: 1;
+      border: none;
+      background: transparent;
+      cursor: default;
+      font-family: var(--font-display);
     }
 
     .showcase-toggle-item.active {
-      background: #fff;
       color: var(--text-1);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .showcase-stage {
+      width: 100%;
+      max-width: 420px;
+      position: relative;
+      min-height: 320px;
+    }
+
+    .showcase-view {
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+      pointer-events: none;
+      position: absolute;
+      inset: 0;
+    }
+
+    .showcase-view.active {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+      position: relative;
+    }
+
+    /* 对话预览 — 模拟消息流 */
+    .showcase-chat {
+      background: rgba(255,255,255,0.72);
+      border: 1px solid rgba(0,0,0,0.05);
+      border-radius: 20px;
+      padding: 20px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .showcase-bubble {
+      max-width: 85%;
+      padding: 12px 14px;
+      border-radius: 16px;
+      font-size: 13px;
+      line-height: 1.5;
+      animation: showcaseBubbleIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    }
+
+    .showcase-bubble.user {
+      align-self: flex-end;
+      background: var(--text-1);
+      color: #fff;
+      border-radius: 16px 16px 4px 16px;
+      animation-delay: 0.15s;
+    }
+
+    .showcase-bubble.assistant {
+      align-self: flex-start;
+      background: #fff;
+      color: var(--text-2);
+      border: 1px solid rgba(0,0,0,0.06);
+      border-radius: 16px 16px 16px 4px;
+      animation-delay: 0.45s;
+    }
+
+    .showcase-bubble.assistant:nth-child(3) { animation-delay: 0.75s; }
+
+    @keyframes showcaseBubbleIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .showcase-cursor {
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      right: 28%;
+      top: 18%;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      animation: showcaseCursorFloat 3s ease-in-out infinite;
+    }
+
+    .showcase-panel.mode-chat .showcase-cursor { opacity: 0.85; }
+    .showcase-panel.mode-workspace .showcase-cursor { opacity: 0; }
+
+    @keyframes showcaseCursorFloat {
+      0%, 100% { transform: translate(0, 0); }
+      50% { transform: translate(6px, 4px); }
     }
 
     .showcase-team {
@@ -223,6 +336,25 @@
       padding: 16px 8px 14px;
       text-align: center;
       transition: transform 0.2s, box-shadow 0.2s;
+      animation: showcaseCardIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    }
+
+    .showcase-member:nth-child(1) { animation-delay: 0.05s; }
+    .showcase-member:nth-child(2) { animation-delay: 0.1s; }
+    .showcase-member:nth-child(3) { animation-delay: 0.15s; }
+    .showcase-member:nth-child(4) { animation-delay: 0.2s; }
+    .showcase-member:nth-child(5) { animation-delay: 0.25s; }
+    .showcase-member:nth-child(6) { animation-delay: 0.3s; }
+    .showcase-member:nth-child(7) { animation-delay: 0.35s; }
+    .showcase-member:nth-child(8) { animation-delay: 0.4s; }
+
+    @keyframes showcaseCardIn {
+      from { opacity: 0; transform: translateY(10px) scale(0.96); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .showcase-panel.mode-workspace .showcase-member {
+      animation: showcaseCardIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards;
     }
 
     .showcase-member:hover {
@@ -255,8 +387,9 @@
       max-width: 360px;
     }
 
-    /* Brand story — compact in left column */
+    /* Brand story — 登录页默认隐藏 */
     .brand-story {
+      display: none;
       margin-bottom: 20px;
       padding: 14px 16px;
       background: var(--bg-card);
@@ -523,7 +656,7 @@
     <div class="login-left">
       <header class="login-brand">
         <div class="login-brand-mark">L</div>
-        <span class="login-brand-name">Lume</span>
+        <span class="login-brand-name" data-i18n-ignore>Lume</span>
       </header>
 
       <div class="login-center">
@@ -532,7 +665,7 @@
           <p>在对话里 brainstorm，在办公区里和 AI 团队一起协作</p>
         </div>
 
-        <div class="brand-story" id="brandStoryWrap">
+        <div class="brand-story hidden" id="brandStoryWrap">
           <div class="brand-story-text" id="brandStoryText"></div>
           <span class="brand-story-cursor" id="brandStoryCursor"></span>
         </div>
@@ -626,9 +759,6 @@
               <button type="submit" class="btn-auth" id="registerBtn">创建账号</button>
             </form>
 
-            <div class="divider"><span>或</span></div>
-            <button class="btn-ghost" onclick="handleDemo()">体验演示</button>
-
             <p class="auth-legal">登录即表示你同意我们的服务条款与隐私政策</p>
           </div>
         </div>
@@ -643,25 +773,40 @@
     </div>
 
     <aside class="login-right" aria-hidden="true">
-      <div class="showcase-panel">
-        <div class="showcase-toggle">
-          <span class="showcase-toggle-item">对话</span>
-          <span class="showcase-toggle-item active">办公区</span>
+      <div class="showcase-panel mode-chat" id="showcasePanel">
+        <svg class="showcase-cursor" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M5 3l14 6.5-6.5 2.5-2.5 6.5L5 3z" fill="#1a1a1a" stroke="#fff" stroke-width="1.2"/>
+        </svg>
+        <div class="showcase-toggle" id="showcaseToggle">
+          <div class="showcase-toggle-pill"></div>
+          <span class="showcase-toggle-item active" data-mode="chat">对话</span>
+          <span class="showcase-toggle-item" data-mode="workspace">办公区</span>
         </div>
-        <div class="showcase-team">
-          <div class="showcase-team-label">8 位 AI 队友随时待命</div>
-          <div class="showcase-grid">
-            <div class="showcase-member"><div class="avatar"><i data-lucide="sparkles"></i></div><div class="name">灵犀</div><div class="role">队长</div></div>
-            <div class="showcase-member"><div class="avatar"><i data-lucide="code"></i></div><div class="name">云溪</div><div class="role">代码</div></div>
-            <div class="showcase-member"><div class="avatar"><i data-lucide="activity"></i></div><div class="name">若曦</div><div class="role">运营</div></div>
-            <div class="showcase-member"><div class="avatar"><i data-lucide="lightbulb"></i></div><div class="name">紫萱</div><div class="role">创意</div></div>
-            <div class="showcase-member"><div class="avatar"><i data-lucide="target"></i></div><div class="name">梓萱</div><div class="role">产品</div></div>
-            <div class="showcase-member"><div class="avatar"><i data-lucide="file-text"></i></div><div class="name">晓琳</div><div class="role">笔记</div></div>
-            <div class="showcase-member"><div class="avatar"><i data-lucide="palette"></i></div><div class="name">音韵</div><div class="role">多媒体</div></div>
-            <div class="showcase-member"><div class="avatar"><i data-lucide="home"></i></div><div class="name">智家</div><div class="role">自动化</div></div>
+        <div class="showcase-stage">
+          <div class="showcase-view active" id="showcaseChat">
+            <div class="showcase-chat">
+              <div class="showcase-bubble user">帮我整理这周的产品会议纪要</div>
+              <div class="showcase-bubble assistant">好的，我来协调晓琳整理笔记、梓萱提炼需求要点。</div>
+              <div class="showcase-bubble assistant">已生成摘要，并同步到团队记忆。</div>
+            </div>
+          </div>
+          <div class="showcase-view" id="showcaseWorkspace">
+            <div class="showcase-team">
+              <div class="showcase-team-label">8 位 AI 队友随时待命</div>
+              <div class="showcase-grid">
+                <div class="showcase-member"><div class="avatar"><i data-lucide="sparkles"></i></div><div class="name">灵犀</div><div class="role">队长</div></div>
+                <div class="showcase-member"><div class="avatar"><i data-lucide="code"></i></div><div class="name">云溪</div><div class="role">代码</div></div>
+                <div class="showcase-member"><div class="avatar"><i data-lucide="activity"></i></div><div class="name">若曦</div><div class="role">运营</div></div>
+                <div class="showcase-member"><div class="avatar"><i data-lucide="lightbulb"></i></div><div class="name">紫萱</div><div class="role">创意</div></div>
+                <div class="showcase-member"><div class="avatar"><i data-lucide="target"></i></div><div class="name">梓萱</div><div class="role">产品</div></div>
+                <div class="showcase-member"><div class="avatar"><i data-lucide="file-text"></i></div><div class="name">晓琳</div><div class="role">笔记</div></div>
+                <div class="showcase-member"><div class="avatar"><i data-lucide="palette"></i></div><div class="name">音韵</div><div class="role">多媒体</div></div>
+                <div class="showcase-member"><div class="avatar"><i data-lucide="home"></i></div><div class="name">智家</div><div class="role">自动化</div></div>
+              </div>
+            </div>
+            <p class="showcase-quote">让优秀伙伴，不再是奢望</p>
           </div>
         </div>
-        <p class="showcase-quote">让优秀伙伴，不再是奢望</p>
       </div>
     </aside>
 
@@ -889,6 +1034,45 @@
 
     function handleDemo() { alert('Demo is coming soon. Contact us for an invite code!'); }
 
+    // 右侧展示区：自动切换对话 / 办公区（CSS 动效，非视频）
+    function initShowcaseAnimation() {
+      const panel = document.getElementById('showcasePanel');
+      const toggle = document.getElementById('showcaseToggle');
+      const chatView = document.getElementById('showcaseChat');
+      const workspaceView = document.getElementById('showcaseWorkspace');
+      const items = toggle?.querySelectorAll('.showcase-toggle-item');
+      if (!panel || !toggle || !chatView || !workspaceView) return;
+
+      let mode = 'chat';
+
+      function setMode(next) {
+        mode = next;
+        const isWorkspace = mode === 'workspace';
+        panel.classList.toggle('mode-chat', !isWorkspace);
+        panel.classList.toggle('mode-workspace', isWorkspace);
+        toggle.classList.toggle('is-workspace', isWorkspace);
+        chatView.classList.toggle('active', !isWorkspace);
+        workspaceView.classList.toggle('active', isWorkspace);
+        items?.forEach(el => {
+          el.classList.toggle('active', el.dataset.mode === mode);
+        });
+        // 重播卡片入场动画
+        if (isWorkspace) {
+          workspaceView.querySelectorAll('.showcase-member').forEach((el, i) => {
+            el.style.animation = 'none';
+            el.offsetHeight;
+            el.style.animation = '';
+            el.style.animationDelay = `${0.05 + i * 0.05}s`;
+          });
+        }
+      }
+
+      setMode('chat');
+      setInterval(() => {
+        setMode(mode === 'chat' ? 'workspace' : 'chat');
+      }, 4500);
+    }
+
     // Claim team & polling functions (preserved from original)
     async function claimTeam() {
       const token = localStorage.getItem('lingxi_token');
@@ -916,6 +1100,7 @@
 
     // Boot
     init();
+    initShowcaseAnimation();
     typeBrandStory();
     if(window.lucide) lucide.createIcons();
   </script>
