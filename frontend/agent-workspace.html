@@ -28,6 +28,8 @@
       display: flex; align-items: center; gap: 3px; padding: 4px 10px;
       border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-2);
       font-size: 12px; text-decoration: none; transition: all var(--transition);
+      background: transparent; cursor: pointer;
+      font-family: inherit;
     }
     .back-link:hover { background: var(--bg-hover); color: var(--text-1); }
     .refresh-btn {
@@ -1033,6 +1035,13 @@
     .ml-auto { margin-left:auto; }
     .mt-92 { margin-top:92px; }
     .hidden { display:none; }
+
+    /* 嵌入 chat 页 iframe 时：隐藏内部顶栏，避免与外层「返回对话」重复 */
+    html.is-embedded .top-bar { display: none !important; }
+    html.is-embedded .tab-bar { top: 0 !important; }
+    html.is-embedded .manage-panel { margin-top: 44px !important; }
+    html.is-embedded .iframe-container { height: calc(100vh - 44px) !important; }
+    html.is-embedded .mt-92 { margin-top: 44px !important; }
     .empty-state { text-align:center; padding:60px 20px; color:var(--text-3); }
     .empty-state-sm { text-align:center; padding:20px; color:var(--text-3); }
     .empty-state-md { text-align:center; padding:40px; color:#ccc; }
@@ -1090,14 +1099,13 @@
   <script src="assets/js/office-engine.js?v=20260608b"></script>
 </head>
 <body>
+<script>
+  if (new URLSearchParams(location.search).get('embedded') === '1') {
+    document.documentElement.classList.add('is-embedded');
+  }
+</script>
 
 <div class="top-bar">
-  <div class="top-bar-left">
-    <button type="button" class="back-link" onclick="workspaceGoBack()" title="返回对话">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-      返回对话
-    </button>
-  </div>
   <h1 class="flex-center-gap">
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect width="18" height="18" rx="4" fill="#10a37f"/><path d="M9 4v10M5 8h8" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>
     Agent Workspace
@@ -1385,6 +1393,10 @@ let _soulSaveTimer = null;      // clearTimeout handle for soul save button rese
 
 // XSS-safe text helper
 function esc(s) { const d = document.createElement('div'); d.textContent = String(s); return d.innerHTML; }
+
+function workspaceGoBack() {
+  window.location.href = 'chat.html';
+}
 
 // Agent 外观配置（固定，决定 3D 形象）
 const AGENT_STYLES = {
