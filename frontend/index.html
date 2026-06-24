@@ -83,16 +83,16 @@
     .login-brand-mark {
       width: 32px;
       height: 32px;
-      border-radius: 9px;
-      background: var(--text-1);
-      color: #fff;
-      font-family: var(--font-display);
-      font-weight: 700;
-      font-size: 15px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+      flex-shrink: 0;
+      display: block;
+      line-height: 0;
+    }
+
+    .login-brand-mark img,
+    .login-brand-mark svg {
+      width: 32px;
+      height: 32px;
+      display: block;
     }
 
     .login-brand-name {
@@ -991,7 +991,9 @@
 
     <div class="login-left">
       <header class="login-brand notranslate" translate="no">
-        <div class="login-brand-mark">L</div>
+        <div class="login-brand-mark">
+          <img src="assets/brand/lume-mark-square.svg" width="32" height="32" alt="" aria-hidden="true">
+        </div>
         <span class="login-brand-name" lang="en">Lume</span>
       </header>
 
