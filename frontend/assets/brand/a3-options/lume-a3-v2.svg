@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" aria-label="Lume A3 v2 finer ring">
+  <path d="M 31.5 12.5 A 17.5 17.5 0 1 1 31.5 35.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
+  <path d="M 16.5 35.5 A 17.5 17.5 0 1 1 16.5 12.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
+  <circle cx="30.5" cy="15" r="1.85" fill="currentColor" opacity="0.92"/>
+  <path fill="currentColor" d="M24 6.2Q26.8 19.5 33.2 23.4Q26.6 26.6 24 41.8Q21.4 26.6 14.8 23.4Q21.2 19.5 24 6.2Z"/>
+</svg>

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" aria-label="Lume A3 v1 reference balance">
+  <path d="M 31.2 12.2 A 17.2 17.2 0 1 1 31.2 35.8" stroke="currentColor" stroke-width="1.55" stroke-linecap="round"/>
+  <path d="M 16.8 35.8 A 17.2 17.2 0 1 1 16.8 12.2" stroke="currentColor" stroke-width="1.55" stroke-linecap="round"/>
+  <circle cx="30.8" cy="14.6" r="2.15" fill="currentColor"/>
+  <path fill="currentColor" d="M24 4.8Q27.2 19.2 34.2 23.6Q27.4 27.2 24 43.2Q20.6 27.2 13.8 23.6Q20.8 19.2 24 4.8Z"/>
+</svg>

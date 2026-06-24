@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" aria-label="Lume A3 v4 bold star">
+  <path d="M 31 11.8 A 17.8 17.8 0 1 1 31 36.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+  <path d="M 17 36.2 A 17.8 17.8 0 1 1 17 11.8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+  <circle cx="31.5" cy="13.8" r="2.05" fill="currentColor"/>
+  <path fill="currentColor" d="M24 4.2Q27.5 20 35.5 24Q27.8 28 24 43.8Q20.2 28 12.5 24Q20.5 20 24 4.2Z"/>
+</svg>

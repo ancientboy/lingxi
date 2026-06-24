@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lume Logo — A3 方案对比</title>
+  <style>
+    :root {
+      --accent: #3d6b62;
+      --bg: #f7f4ef;
+      --card: #fffdf9;
+      --text: #2c3e35;
+      --muted: #6b7c74;
+      --border: rgba(61, 107, 98, 0.14);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .wrap {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 32px 20px 48px;
+    }
+    h1 {
+      font-size: 1.35rem;
+      font-weight: 600;
+      margin: 0 0 8px;
+      color: var(--accent);
+    }
+    .lead {
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin: 0 0 28px;
+      max-width: 52rem;
+    }
+    .ref {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      margin-bottom: 28px;
+      text-align: center;
+    }
+    .ref img {
+      max-width: 200px;
+      height: auto;
+      display: block;
+      margin: 0 auto 12px;
+    }
+    .ref p {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin: 0;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 16px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px 16px 16px;
+      text-align: center;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .card:hover {
+      border-color: rgba(61, 107, 98, 0.35);
+      box-shadow: 0 4px 20px rgba(61, 107, 98, 0.08);
+    }
+    .card.selected {
+      border-color: var(--accent);
+      box-shadow: 0 4px 24px rgba(61, 107, 98, 0.12);
+    }
+    .mark {
+      width: 96px;
+      height: 96px;
+      margin: 0 auto 12px;
+      color: var(--accent);
+    }
+    .mark svg { width: 100%; height: 100%; display: block; }
+    .label {
+      font-weight: 600;
+      font-size: 0.95rem;
+      margin-bottom: 4px;
+    }
+    .desc {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+    .card a {
+      font-size: 0.75rem;
+      color: var(--accent);
+      text-decoration: none;
+    }
+    .card a:hover { text-decoration: underline; }
+    .sizes {
+      margin-top: 36px;
+      padding-top: 28px;
+      border-top: 1px solid var(--border);
+    }
+    .sizes h2 {
+      font-size: 1rem;
+      margin: 0 0 16px;
+      color: var(--accent);
+    }
+    .size-row {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    .size-row span {
+      font-size: 0.8rem;
+      color: var(--muted);
+      min-width: 72px;
+    }
+    .size-row .mark-inline {
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+    footer {
+      margin-top: 32px;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Lume Logo — A3 方向方案</h1>
+    <p class="lead">
+      结构：四角星芒 + 上下开口断环 + 右上小圆点。品牌色 <code>#3d6b62</code>。
+      点击卡片可选中偏好（仅本地高亮，方便截图反馈）。
+    </p>
+
+    <div class="grid" id="options"></div>
+
+    <section class="sizes">
+      <h2>尺寸预览（推荐 v1）</h2>
+      <div class="size-row">
+        <span>16px</span>
+        <div class="mark-inline" style="width:16px;height:16px" data-v="v1"></div>
+        <span>侧栏 / favicon</span>
+      </div>
+      <div class="size-row">
+        <span>24px</span>
+        <div class="mark-inline" style="width:24px;height:24px" data-v="v1"></div>
+        <span>导航栏</span>
+      </div>
+      <div class="size-row">
+        <span>32px</span>
+        <div class="mark-inline" style="width:32px;height:32px" data-v="v1"></div>
+        <span>登录页</span>
+      </div>
+      <div class="size-row">
+        <span>48px</span>
+        <div class="mark-inline" style="width:48px;height:48px" data-v="v1"></div>
+        <span>应用图标基础</span>
+      </div>
+    </section>
+
+    <footer>
+      定稿前不会替换线上 favicon / 侧栏。选定版本后可微调断环粗细、星芒锐度、卫星点大小。
+    </footer>
+  </div>
+
+  <script>
+    const OPTIONS = [
+      { id: 'v1', file: 'lume-a3-v1.svg', title: 'A3 v1', desc: '最接近参考稿比例' },
+      { id: 'v2', file: 'lume-a3-v2.svg', title: 'A3 v2', desc: '断环更细、更精致' },
+      { id: 'v3', file: 'lume-a3-v3.svg', title: 'A3 v3', desc: '星芒更圆润、环开口略大' },
+      { id: 'v4', file: 'lume-a3-v4.svg', title: 'A3 v4', desc: '竖向星芒更锐更长' },
+      { id: 'v5', file: 'lume-a3-v5.svg', title: 'A3 v5', desc: '卫星点更小更弱' },
+    ];
+
+    async function loadSvg(file) {
+      const res = await fetch(file);
+      return await res.text();
+    }
+
+    async function init() {
+      const grid = document.getElementById('options');
+      for (const opt of OPTIONS) {
+        const svg = await loadSvg(opt.file);
+        const card = document.createElement('article');
+        card.className = 'card';
+        card.dataset.id = opt.id;
+        card.innerHTML = `
+          <div class="mark">${svg}</div>
+          <div class="label">${opt.title}</div>
+          <div class="desc">${opt.desc}</div>
+          <a href="${opt.file}" target="_blank" rel="noopener">打开 SVG</a>
+        `;
+        card.addEventListener('click', (e) => {
+          if (e.target.tagName === 'A') return;
+          document.querySelectorAll('.card').forEach((c) => c.classList.remove('selected'));
+          card.classList.add('selected');
+        });
+        grid.appendChild(card);
+      }
+
+      const v1Svg = await loadSvg('lume-a3-v1.svg');
+      document.querySelectorAll('[data-v="v1"]').forEach((el) => {
+        el.innerHTML = v1Svg;
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>
