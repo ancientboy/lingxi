@@ -365,34 +365,92 @@ function renderTeamDrawer() {
 }
 
 function toggleTeamDrawer(forceOpen) {
-  const willOpen = typeof forceOpen === 'boolean'
-    ? forceOpen
-    : !document.body.classList.contains('team-drawer-open');
+  if (typeof forceOpen === 'boolean') {
+    setRightSidebarCollapsed(!forceOpen);
+    if (forceOpen) renderTeamDrawer();
+    return;
+  }
+  toggleRightSidebar();
+}
 
-  if (willOpen) {
-    const fePanel = document.getElementById('fileExplorerPanel');
-    if (fePanel?.classList.contains('open') && typeof toggleFileExplorer === 'function') {
-      toggleFileExplorer();
-    }
-    renderTeamDrawer();
+const RIGHT_SIDEBAR_COLLAPSED_KEY = 'lingxi_right_sidebar_collapsed';
+
+function setRightSidebarCollapsed(collapsed) {
+  const sidebar = document.getElementById('rightSidebar');
+  const main = document.getElementById('mainContent');
+  if (!sidebar) return;
+
+  sidebar.classList.toggle('collapsed', collapsed);
+  main?.classList.toggle('right-sidebar-collapsed', collapsed);
+  document.body.classList.toggle('right-sidebar-expanded', !collapsed);
+
+  if (window.innerWidth > 768) {
+    localStorage.setItem(RIGHT_SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0');
   }
 
-  document.body.classList.toggle('team-drawer-open', willOpen);
-  const railBtn = document.getElementById('railTeamBtn');
-  if (railBtn) railBtn.classList.toggle('active', willOpen);
+  updateRightSidebarToggleUi();
+}
+
+function toggleRightSidebar() {
+  const sidebar = document.getElementById('rightSidebar');
+  if (!sidebar) return;
+  const willCollapse = !sidebar.classList.contains('collapsed');
+  setRightSidebarCollapsed(willCollapse);
+  if (!willCollapse) renderTeamDrawer();
+}
+
+function updateRightSidebarToggleUi() {
+  const sidebar = document.getElementById('rightSidebar');
+  const expandBtn = document.getElementById('rightSidebarExpandBtn');
+  const isMobile = window.innerWidth <= 768;
+  const collapsed = sidebar?.classList.contains('collapsed');
+  const feOpen = document.getElementById('fileExplorerPanel')?.classList.contains('open');
+
+  if (expandBtn) {
+    expandBtn.hidden = isMobile || !collapsed;
+  }
+
+  const teamTab = document.getElementById('rightTabTeam');
+  const filesTab = document.getElementById('rightTabFiles');
+  if (teamTab) teamTab.classList.toggle('active', !feOpen);
+  if (filesTab) filesTab.classList.toggle('active', feOpen);
+}
+
+function initRightSidebar() {
+  const sidebar = document.getElementById('rightSidebar');
+  if (!sidebar) return;
+
+  let collapsed = false;
+  if (window.innerWidth <= 768) {
+    collapsed = true;
+  } else {
+    collapsed = localStorage.getItem(RIGHT_SIDEBAR_COLLAPSED_KEY) === '1';
+  }
+
+  setRightSidebarCollapsed(collapsed);
+  if (!collapsed) renderTeamDrawer();
+
+  if (!window._rightSidebarResizeBound) {
+    window._rightSidebarResizeBound = true;
+    window.addEventListener('resize', () => {
+      if (window.innerWidth <= 768) {
+        setRightSidebarCollapsed(true);
+      } else {
+        updateRightSidebarToggleUi();
+      }
+    });
+  }
 }
 
 function initTeamDrawer() {
-  renderTeamDrawer();
+  initRightSidebar();
 }
 
 function switchAgentFromDrawer(agentId) {
-  toggleTeamDrawer(false);
   if (agentId && typeof switchAgent === 'function') switchAgent(agentId);
 }
 
 function sendFromTeamDrawer(text) {
-  toggleTeamDrawer(false);
   if (typeof sendWelcomeExample === 'function') sendWelcomeExample(text);
 }
 
@@ -5016,7 +5074,10 @@ document.addEventListener('click', (e) => {
 
 // 导出函数
 window.toggleTeamDrawer = toggleTeamDrawer;
+window.toggleRightSidebar = toggleRightSidebar;
 window.initTeamDrawer = initTeamDrawer;
+window.initRightSidebar = initRightSidebar;
+window.updateRightSidebarToggleUi = updateRightSidebarToggleUi;
 window.updateScrollContextBar = updateScrollContextBar;
 window.switchAgentFromDrawer = switchAgentFromDrawer;
 window.sendFromTeamDrawer = sendFromTeamDrawer;

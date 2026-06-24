@@ -1,43 +1,49 @@
-<!-- 右侧图标轨 + 团队抽屉 -->
-<div class="right-rail-backdrop" id="teamDrawerBackdrop" onclick="toggleTeamDrawer(false)"></div>
-
-<aside class="right-rail" id="rightRail" aria-label="右侧工具栏">
-  <button type="button" class="rail-btn" id="railTeamBtn" onclick="toggleTeamDrawer()" title="团队工作台" aria-label="团队工作台">
-    <i data-lucide="users" class="icon-sm"></i>
-  </button>
-  <button type="button" class="rail-btn" id="railFilesBtn" onclick="toggleFileExplorer()" title="文件" aria-label="文件">
-    <i data-lucide="folder-open" class="icon-sm"></i>
-  </button>
-  <button type="button" class="rail-btn" id="railNotifBtn" onclick="toggleNotificationPanel(event)" title="通知" aria-label="通知">
-    <i data-lucide="bell" class="icon-sm"></i>
-  </button>
-</aside>
-
-<aside class="team-drawer" id="teamDrawer" aria-label="团队工作台">
-  <div class="team-drawer-header">
-    <span class="team-drawer-title">团队工作台</span>
-    <button type="button" class="icon-btn-ghost" onclick="toggleTeamDrawer(false)" title="收起">
-      <i data-lucide="x" class="icon-sm"></i>
+<!-- 右侧常驻侧栏（与左侧 sidebar 同逻辑：固定宽度 + 收起/展开） -->
+<aside class="right-sidebar" id="rightSidebar" aria-label="右侧工作台">
+  <div class="right-sidebar-top-row">
+    <span class="right-sidebar-title">团队工作台</span>
+    <button type="button" class="right-sidebar-collapse-btn" onclick="toggleRightSidebar()" title="收起右侧栏" aria-label="收起右侧栏">
+      <svg class="right-sidebar-toggle-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M14.5 7.5 10 12l4.5 4.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M10 5.5v13" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+      </svg>
     </button>
   </div>
 
-  <div class="team-drawer-active" id="teamDrawerActive">
-    <div class="team-drawer-active-avatar" id="teamDrawerActiveAvatar"></div>
-    <div>
-      <div class="team-drawer-active-name" id="teamDrawerActiveName">灵犀</div>
-      <div class="team-drawer-active-role" id="teamDrawerActiveRole">在线</div>
+  <div class="right-sidebar-shortcuts">
+    <button type="button" class="right-sidebar-shortcut active" id="rightTabTeam" title="团队">
+      <span class="right-sidebar-shortcut-icon"><i data-lucide="users" class="icon-sm"></i></span>
+      <span>团队</span>
+    </button>
+    <button type="button" class="right-sidebar-shortcut" id="rightTabFiles" onclick="toggleFileExplorer()" title="文件">
+      <span class="right-sidebar-shortcut-icon"><i data-lucide="folder-open" class="icon-sm"></i></span>
+      <span>文件</span>
+    </button>
+    <button type="button" class="right-sidebar-shortcut" id="rightTabNotif" onclick="toggleNotificationPanel(event)" title="通知">
+      <span class="right-sidebar-shortcut-icon"><i data-lucide="bell" class="icon-sm"></i></span>
+      <span>通知</span>
+    </button>
+  </div>
+
+  <div class="right-sidebar-body">
+    <div class="team-drawer-active" id="teamDrawerActive">
+      <div class="team-drawer-active-avatar" id="teamDrawerActiveAvatar"></div>
+      <div class="right-sidebar-active-meta">
+        <div class="team-drawer-active-name" id="teamDrawerActiveName">灵犀</div>
+        <div class="team-drawer-active-role" id="teamDrawerActiveRole">在线</div>
+      </div>
     </div>
-  </div>
 
-  <div class="team-drawer-section">
-    <div class="team-drawer-section-title">团队成员</div>
-    <div class="team-drawer-members" id="teamDrawerMembers"></div>
-  </div>
+    <div class="right-sidebar-section">
+      <div class="team-drawer-section-title">团队成员</div>
+      <div class="team-drawer-members" id="teamDrawerMembers"></div>
+    </div>
 
-  <div class="team-drawer-section">
-    <div class="team-drawer-section-title">快捷技能</div>
-    <div class="team-drawer-chips" id="teamDrawerSkills"></div>
-  </div>
+    <div class="right-sidebar-section">
+      <div class="team-drawer-section-title">快捷技能</div>
+      <div class="team-drawer-chips" id="teamDrawerSkills"></div>
+    </div>
 
-  <button type="button" class="team-drawer-link" onclick="switchView('workspace')">打开办公区 →</button>
+    <button type="button" class="team-drawer-link" onclick="switchView('workspace')">打开办公区 →</button>
+  </div>
 </aside>

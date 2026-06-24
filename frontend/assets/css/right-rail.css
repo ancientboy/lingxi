@@ -1,112 +1,50 @@
 /**
- * 右侧图标轨 + 团队抽屉
- * 桌面端：固定 48px 轨，抽屉 overlay 不挤压主区
+ * 右侧常驻侧栏 — 与左侧 sidebar 对称，可展开/收起
  */
 
-@media (min-width: 769px) {
-  .main-content.has-right-rail {
-    margin-right: 48px;
-    transition: margin-right 0.25s ease;
-  }
-
-  .main-content.has-right-rail.fe-open {
-    margin-right: 428px;
-  }
+:root {
+  --right-sidebar-w: 300px;
 }
 
-.right-rail {
+/* ===== 右侧固定侧栏 ===== */
+.right-sidebar {
   position: fixed;
   top: 0;
   right: 0;
-  width: 48px;
+  width: var(--right-sidebar-w);
   height: 100vh;
-  z-index: 1003;
+  z-index: 1002;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 12px 6px;
   background: var(--bg-sidebar, #f3f4f6);
   border-left: 1px solid var(--border-sub, #f0f1f3);
-}
-
-.rail-btn {
-  width: 36px;
-  height: 36px;
-  border: none;
-  border-radius: 10px;
-  background: transparent;
-  color: var(--text-3, #a3a3a3);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.15s, color 0.15s;
-}
-
-.rail-btn:hover {
-  background: var(--bg-hover, #ececec);
-  color: var(--text-1, #0c0c0c);
-}
-
-.rail-btn.active {
-  background: var(--accent-soft, rgba(13, 148, 136, 0.09));
-  color: var(--accent, #0d9488);
-}
-
-.right-rail-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 1004;
-  background: rgba(0, 0, 0, 0.12);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s ease;
-}
-
-body.team-drawer-open .right-rail-backdrop {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.team-drawer {
-  position: fixed;
-  top: 0;
-  right: 48px;
-  width: 320px;
-  max-width: calc(100vw - 48px - 280px);
-  height: 100vh;
-  z-index: 1005;
-  background: var(--bg-card, #fff);
-  border-left: 1px solid var(--border, #e5e7eb);
-  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.08);
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  transform: translateX(100%);
+  box-shadow: -1px 0 0 rgba(0, 0, 0, 0.02);
   transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow-y: auto;
 }
 
-body.team-drawer-open .team-drawer {
-  transform: translateX(0);
+.right-sidebar.collapsed {
+  transform: translateX(100%);
+  pointer-events: none;
 }
 
-.team-drawer-header {
+.right-sidebar-top-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
+  padding: 12px 14px 8px;
+  flex-shrink: 0;
 }
 
-.team-drawer-title {
+.right-sidebar-title {
   font-family: var(--font-display);
   font-size: 14px;
   font-weight: 600;
   color: var(--text-1);
+  letter-spacing: -0.02em;
 }
 
-.icon-btn-ghost {
+.right-sidebar-collapse-btn {
   width: 32px;
   height: 32px;
   border: none;
@@ -117,19 +55,136 @@ body.team-drawer-open .team-drawer {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
 }
 
-.icon-btn-ghost:hover {
+.right-sidebar-collapse-btn:hover {
   background: var(--bg-hover);
   color: var(--text-1);
 }
 
+.right-sidebar-toggle-icon {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+/* 快捷入口（团队 / 文件 / 通知） */
+.right-sidebar-shortcuts {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 10px 10px;
+  flex-shrink: 0;
+}
+
+.right-sidebar-shortcut {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s, color 0.12s;
+}
+
+.right-sidebar-shortcut:hover {
+  background: var(--bg-hover);
+  color: var(--text-1);
+}
+
+.right-sidebar-shortcut.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.right-sidebar-shortcut-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border-sub);
+  flex-shrink: 0;
+  color: inherit;
+}
+
+.right-sidebar-shortcut.active .right-sidebar-shortcut-icon {
+  border-color: transparent;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+/* 主体滚动区 */
+.right-sidebar-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  scrollbar-width: thin;
+}
+
+.right-sidebar-section {
+  flex-shrink: 0;
+}
+
+.right-sidebar-active-meta {
+  min-width: 0;
+  flex: 1;
+}
+
+/* 收起后：右侧边缘展开钮 */
+.right-sidebar-edge-expand {
+  position: fixed;
+  right: 12px;
+  top: 14px;
+  z-index: 1002;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-sub);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: var(--text-2);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.right-sidebar-edge-expand:hover {
+  background: var(--bg-card);
+  color: var(--text-1);
+  border-color: var(--border);
+}
+
+.right-sidebar-edge-expand[hidden] {
+  display: none !important;
+}
+
+/* ===== 团队内容（沿用 team-drawer 子元素类名） ===== */
 .team-drawer-active {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 12px;
-  background: var(--bg-hover, #f5f5f4);
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border-sub);
   border-radius: 12px;
 }
 
@@ -149,12 +204,18 @@ body.team-drawer-open .team-drawer {
   font-size: 14px;
   font-weight: 600;
   color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .team-drawer-active-role {
   font-size: 12px;
   color: var(--text-3);
   margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .team-drawer-section-title {
@@ -178,6 +239,12 @@ body.team-drawer-open .team-drawer {
   background: transparent;
   text-align: left;
   cursor: pointer;
+  min-width: 0;
+}
+
+.team-drawer-member > div:last-child {
+  min-width: 0;
+  flex: 1;
 }
 
 .team-drawer-member.active {
@@ -202,7 +269,8 @@ body.team-drawer-open .team-drawer {
   width: 28px;
   height: 28px;
   border-radius: 8px;
-  background: var(--bg-hover);
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border-sub);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -212,11 +280,17 @@ body.team-drawer-open .team-drawer {
 .team-drawer-member-name {
   font-size: 13px;
   color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .team-drawer-member-role {
   font-size: 11px;
   color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .team-drawer-chips {
@@ -234,6 +308,10 @@ body.team-drawer-open .team-drawer {
   color: var(--text-1);
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .team-drawer-chip:hover {
@@ -256,26 +334,63 @@ body.team-drawer-open .team-drawer {
   color: var(--accent);
 }
 
-/* 文件面板让出右侧轨 */
+/* ===== 主内容区让出右侧栏 ===== */
 @media (min-width: 769px) {
+  .main-content.has-right-rail:not(.right-sidebar-collapsed) {
+    margin-right: var(--right-sidebar-w);
+    transition: margin-right 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .main-content.has-right-rail.right-sidebar-collapsed {
+    margin-right: 0;
+  }
+
+  /* 文件面板：在右侧栏左侧滑出 */
+  .main-content.has-right-rail:not(.right-sidebar-collapsed).fe-open {
+    margin-right: calc(var(--right-sidebar-w) + 380px);
+  }
+
+  .main-content.has-right-rail.right-sidebar-collapsed.fe-open {
+    margin-right: 380px;
+  }
+
   .file-explorer-panel {
-    right: 48px !important;
+    right: 0 !important;
     width: 380px !important;
+  }
+
+  body.right-sidebar-expanded .file-explorer-panel.open {
+    right: var(--right-sidebar-w) !important;
   }
 
   #notificationBell {
     display: none !important;
   }
+
+  body.right-sidebar-expanded .notification-panel {
+    right: calc(var(--right-sidebar-w) + 16px);
+  }
 }
 
 @media (max-width: 768px) {
-  .right-rail,
-  .team-drawer,
-  .right-rail-backdrop {
+  .right-sidebar,
+  .right-sidebar-edge-expand {
     display: none !important;
   }
 
   .main-content.has-right-rail {
     margin-right: 0 !important;
   }
+}
+
+body[data-theme="dark"] .right-sidebar-edge-expand,
+html[data-theme="dark"] .right-sidebar-edge-expand {
+  background: rgba(24, 24, 24, 0.92);
+  border-color: var(--border);
+}
+
+body[data-theme="dark"] .right-sidebar-shortcut-icon,
+html[data-theme="dark"] .right-sidebar-shortcut-icon {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--border);
 }

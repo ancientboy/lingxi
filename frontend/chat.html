@@ -10,7 +10,7 @@
   <script src="https://js.stripe.com/v3/"></script>
   <link rel="stylesheet" href="assets/css/chat.css?v=20260612fix">
   <link rel="stylesheet" href="assets/css/chat-polish.css?v=20260624d">
-  <link rel="stylesheet" href="assets/css/right-rail.css?v=20260624f">
+  <link rel="stylesheet" href="assets/css/right-rail.css?v=20260624h">
   <link rel="stylesheet" href="assets/css/scroll-context.css?v=20260624g">
   <link rel="stylesheet" href="assets/css/dark.css" id="darkTheme" disabled>
   <link rel="stylesheet" href="assets/css/subscription.css">
@@ -277,6 +277,12 @@
       <svg class="sidebar-toggle-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <rect x="3.5" y="4.5" width="17" height="15" rx="3" stroke="currentColor" stroke-width="1.75"/>
         <path d="M9.5 4.5v15" stroke="currentColor" stroke-width="1.75"/>
+      </svg>
+    </button>
+    <button type="button" class="right-sidebar-edge-expand" id="rightSidebarExpandBtn" onclick="toggleRightSidebar()" title="展开右侧栏" aria-label="展开右侧栏" hidden>
+      <svg class="right-sidebar-toggle-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M9.5 7.5 14 12l-4.5 4.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M14 5.5v13" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
       </svg>
     </button>
     <div id="navbar-container"></div>
@@ -1338,10 +1344,7 @@
         transform: translateX(0);
         box-shadow: -4px 0 24px rgba(0,0,0,0.06);
       }
-      .main-content.fe-open {
-        margin-right: 380px;
-        transition: margin-right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      }
+      /* margin-right 由 right-rail.css 统一处理 */
 
       .fe-header {
         display: flex;
@@ -1885,9 +1888,7 @@
       feOpen = !feOpen;
       document.getElementById('fileExplorerPanel').classList.toggle('open', feOpen);
       document.getElementById('mainContent').classList.toggle('fe-open', feOpen);
-      const railFiles = document.getElementById('railFilesBtn');
-      if (railFiles) railFiles.classList.toggle('active', feOpen);
-      if (feOpen && typeof toggleTeamDrawer === 'function') toggleTeamDrawer(false);
+      if (typeof updateRightSidebarToggleUi === 'function') updateRightSidebarToggleUi();
       if (feOpen) feLoadDir('/root');
     }
 
@@ -3368,7 +3369,7 @@
 
   <script src="assets/js/lume-rpc.js?v=20260615p1"></script>
   <script src="assets/js/chat-lume.js?v=20260615p2"></script>
-  <script src="assets/js/chat.js?v=20260624f"></script>
+  <script src="assets/js/chat.js?v=20260624h"></script>
 
     <!-- 统一组件加载器 -->
     <script src="components/load-components.js"></script>
