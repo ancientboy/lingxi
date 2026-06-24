@@ -1,0 +1,73 @@
+/**
+ * Lume standalone mark — animation layers (use with inline SVG or lume-brand.js)
+ */
+
+.lume-mark {
+  color: #3d6b62;
+  display: block;
+  flex-shrink: 0;
+}
+
+.lume-mark--animate .lume-glow-core {
+  transform-origin: 28px 15px;
+  transform-box: fill-box;
+}
+
+.lume-mark--animate .lume-glow-halo {
+  transform-origin: 28px 15px;
+  transform-box: fill-box;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .lume-mark--animate .lume-glow-core {
+    animation: lume-breathe 2.6s ease-in-out infinite;
+  }
+
+  .lume-mark--animate .lume-glow-halo {
+    animation: lume-halo 2.6s ease-in-out infinite;
+  }
+
+  .lume-mark--animate .lume-ray-1 {
+    animation: lume-ray-a 3.4s ease-in-out infinite;
+  }
+
+  .lume-mark--animate .lume-ray-2 {
+    animation: lume-ray-b 3.8s ease-in-out infinite;
+  }
+
+  .lume-mark--animate .lume-ray-3 {
+    animation: lume-ray-c 3.1s ease-in-out infinite;
+  }
+}
+
+@keyframes lume-breathe {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.06); opacity: 0.92; }
+}
+
+@keyframes lume-halo {
+  0%, 100% { transform: scale(1); opacity: 0.12; }
+  50% { transform: scale(1.18); opacity: 0.2; }
+}
+
+@keyframes lume-ray-a {
+  0%, 100% { opacity: 0.18; }
+  50% { opacity: 0.32; }
+}
+
+@keyframes lume-ray-b {
+  0%, 100% { opacity: 0.1; }
+  50% { opacity: 0.22; }
+}
+
+@keyframes lume-ray-c {
+  0%, 100% { opacity: 0.14; }
+  50% { opacity: 0.26; }
+}
+
+.login-brand-mark,
+.sidebar-brand-mark {
+  line-height: 0;
+  display: flex;
+  align-items: center;
+}

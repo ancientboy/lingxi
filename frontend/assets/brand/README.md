@@ -1,13 +1,29 @@
 # Lume Brand Assets
 
-New logo (2026): **Lumen mark** — rounded L + glow orb + soft rays.  
-Colors: `#3d6b62` / `#2f554d` / `#4a7d72` (see `lume-tokens.css`).
+**Standalone lumen mark** — no background square. Designed for motion (layered SVG + CSS).
 
 | File | Use |
 |------|-----|
-| `lume-mark-square.svg` | Favicon, app icon, sidebar (on light UI) |
-| `lume-mark.svg` | Symbol only on transparent background |
-| `lume-logo.svg` | Mark + wordmark lockup |
-| `/favicon.svg` | Browser tab (same as square mark) |
+| `lume-mark.svg` | Reference / Flutter / export |
+| `lume-logo.svg` | Mark + wordmark |
+| `/favicon.svg` | Browser tab (static) |
 
-Do not use plain letter **L** in a box — use these assets.
+## Web usage
+
+```html
+<link rel="stylesheet" href="assets/css/lume-brand.css">
+<script src="assets/js/lume-brand.js"></script>
+<span data-lume-mark="32"></span>
+```
+
+Idle animation: glow pulse + ray shimmer (respects `prefers-reduced-motion`).
+
+Disable animation: `data-lume-mark-animate="false"`
+
+## Layers (for future Lottie / GSAP)
+
+- `#lume-mark-body` — L stem + foot
+- `#lume-mark-light` — core + halo
+- `#lume-mark-rays` — three ray paths
+
+Do **not** use a boxed letter **L** or `lume-mark-square.svg` (removed).
