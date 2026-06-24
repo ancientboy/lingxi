@@ -25,6 +25,8 @@ body.in-iframe .main-content {
   padding-top: 16px !important;
   padding-bottom: 24px !important;
   max-width: 1120px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 body.embedded .main-content.no-device-bar,
@@ -37,14 +39,16 @@ body.in-iframe .loops-container {
   padding: 0 0 24px !important;
 }
 
-/* ===== 中性主按钮（覆盖各页 inline accent） ===== */
-body.lume-page .btn-primary {
+/* ===== 中性主按钮 ===== */
+body.lume-page .btn-primary,
+body.lume-page .btn-upload-first {
   background: var(--text-1, #171717) !important;
   color: #fff !important;
   border-color: transparent !important;
 }
 
-body.lume-page .btn-primary:hover {
+body.lume-page .btn-primary:hover,
+body.lume-page .btn-upload-first:hover {
   background: #2a2a2a !important;
 }
 
@@ -59,6 +63,13 @@ body.lume-page .btn-outline:hover {
   color: var(--text-1, #171717) !important;
 }
 
+/* ===== 设备 Tab（圆角胶囊） ===== */
+body.lume-page .device-tab {
+  border-radius: 8px !important;
+  border: 1px solid var(--border-sub, #f0f1f3) !important;
+  background: var(--bg-card, #fff) !important;
+}
+
 body.lume-page .device-tab.active {
   background: var(--text-1, #171717) !important;
   border-color: var(--text-1, #171717) !important;
@@ -71,7 +82,296 @@ body.lume-page .device-tab:hover {
   background: var(--bg-hover, #f5f5f4) !important;
 }
 
-/* ===== 页面工具栏 ===== */
+body.lume-page .device-tab .tab-status.online {
+  background: #22c55e !important;
+}
+
+/* ===== 分类 / 排序 Tab（市场、记忆等） ===== */
+body.lume-page .category-bar {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 6px !important;
+  border-bottom: none !important;
+  margin-bottom: 16px !important;
+  padding-bottom: 0 !important;
+}
+
+body.lume-page .category-tab,
+body.lume-page .btn-ghost,
+body.lume-page .tab-btn,
+body.lume-page .topbar-tab {
+  padding: 8px 14px !important;
+  border: 1px solid var(--border-sub, #f0f1f3) !important;
+  border-radius: 8px !important;
+  background: var(--bg-card, #fff) !important;
+  color: var(--text-2, #525252) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  font-family: var(--font-display, 'DM Sans', sans-serif) !important;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+body.lume-page .category-tab:hover,
+body.lume-page .btn-ghost:hover:not(.active),
+body.lume-page .tab-btn:hover:not(.active),
+body.lume-page .topbar-tab:hover:not(.active) {
+  background: var(--bg-hover, #f5f5f4) !important;
+  color: var(--text-1, #171717) !important;
+  border-color: var(--border-sub, #f0f1f3) !important;
+}
+
+body.lume-page .category-tab.active,
+body.lume-page .btn-ghost.active,
+body.lume-page .tab-btn.active,
+body.lume-page .topbar-tab.active {
+  background: var(--text-1, #171717) !important;
+  border-color: var(--text-1, #171717) !important;
+  color: #fff !important;
+  box-shadow: none !important;
+}
+
+body.lume-page .topbar-tabs {
+  background: transparent !important;
+  padding: 0 !important;
+  gap: 6px !important;
+  border-radius: 0 !important;
+}
+
+body.lume-page .tab-nav {
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  gap: 6px !important;
+  margin-bottom: 16px !important;
+}
+
+body.lume-page .sort-bar {
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: var(--text-3, #737373);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ===== 区块容器 ===== */
+.embed-section,
+body.lume-page .section {
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border-sub, #f0f1f3);
+  border-radius: 14px;
+  padding: 16px 18px;
+  margin-bottom: 14px;
+}
+
+body.lume-page .section-header {
+  margin-bottom: 12px;
+}
+
+body.lume-page .section-title {
+  font-family: var(--font-display, 'DM Sans', sans-serif);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-1, #171717);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+body.lume-page .section-badge.active {
+  background: var(--bg-hover, #f5f5f4) !important;
+  color: var(--text-2, #525252) !important;
+  border: 1px solid var(--border-sub, #f0f1f3);
+  border-radius: 999px;
+}
+
+body.lume-page .section-badge.available {
+  background: var(--bg-main, #f7f7f8) !important;
+  color: var(--text-2, #525252) !important;
+}
+
+.embed-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.embed-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-1, #171717);
+  font-family: var(--font-display, 'DM Sans', sans-serif);
+}
+
+.embed-card-grid,
+body.lume-page .card-grid,
+body.lume-page .agent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+/* ===== 列表 / 网格卡片 ===== */
+body.lume-page .doc-card,
+body.lume-page .trigger-card,
+body.lume-page .workflow-card,
+body.lume-page .market-card,
+body.lume-page .memory-card-item,
+body.lume-page .agent-card,
+body.lume-page .active-card,
+body.lume-page .available-card,
+body.lume-page .job-card {
+  background: var(--bg-main, #f7f7f8) !important;
+  border: 1px solid var(--border-sub, #f0f1f3) !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+}
+
+body.lume-page .doc-card:hover,
+body.lume-page .trigger-card:hover,
+body.lume-page .workflow-card:hover,
+body.lume-page .market-card:hover,
+body.lume-page .agent-card:hover,
+body.lume-page .active-card:hover,
+body.lume-page .available-card:hover,
+body.lume-page .job-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06) !important;
+  transform: none !important;
+  border-color: var(--border, #e5e7eb) !important;
+}
+
+body.lume-page .stats-bar {
+  background: var(--bg-card, #fff) !important;
+  border: 1px solid var(--border-sub, #f0f1f3) !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+}
+
+body.lume-page .search-result,
+body.lume-page .tm-category-header {
+  border: 1px solid var(--border-sub, #f0f1f3) !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+}
+
+body.lume-page .search-result:hover,
+body.lume-page .tm-category-header:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06) !important;
+  transform: none !important;
+}
+
+/* ===== 记忆页：嵌入时双栏改单栏堆叠 ===== */
+body.embedded .file-layout,
+body.in-iframe .file-layout {
+  flex-direction: column !important;
+  min-height: 0 !important;
+}
+
+body.embedded .file-sidebar,
+body.in-iframe .file-sidebar {
+  width: 100% !important;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+body.embedded .file-content-area,
+body.in-iframe .file-content-area {
+  min-height: 280px;
+}
+
+body.lume-page .file-item.active {
+  background: var(--bg-hover, #f5f5f4) !important;
+  color: var(--text-1, #171717) !important;
+  border-left-color: var(--text-1, #171717) !important;
+}
+
+body.lume-page .file-content-header .file-path,
+body.lume-page .search-result-path,
+body.lume-page .tm-item-dot {
+  color: var(--text-2, #525252) !important;
+}
+
+body.lume-page .tm-item-dot {
+  background: var(--text-3, #737373) !important;
+}
+
+body.lume-page .add-team-btn:hover {
+  border-color: var(--text-1, #171717) !important;
+  color: var(--text-1, #171717) !important;
+  background: var(--bg-hover, #f5f5f4) !important;
+}
+
+/* ===== 工作流步骤点 ===== */
+body.lume-page .wf-step-dot {
+  background: var(--bg-hover, #f5f5f4) !important;
+  color: var(--text-1, #171717) !important;
+}
+
+/* ===== 表单焦点 ===== */
+body.lume-page .form-input:focus,
+body.lume-page .form-textarea:focus,
+body.lume-page .form-select:focus,
+body.lume-page .search-input-inline:focus {
+  border-color: var(--text-1, #171717) !important;
+  box-shadow: 0 0 0 3px rgba(23, 23, 23, 0.08) !important;
+}
+
+/* ===== Toast ===== */
+body.lume-page .toast.success {
+  background: var(--text-1, #171717) !important;
+}
+
+/* ===== 空状态 ===== */
+.embed-empty,
+body.lume-page .empty-state,
+body.lume-page .content-empty,
+body.lume-page .search-empty,
+body.lume-page .team-empty,
+body.lume-page .tpl-empty-state {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--text-3, #737373);
+}
+
+.embed-empty-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-1, #171717);
+  margin-bottom: 6px;
+}
+
+.embed-empty-desc {
+  font-size: 13px;
+  color: var(--text-3, #737373);
+}
+
+body.lume-page .empty-kb-icon {
+  background: var(--bg-hover, #f5f5f4) !important;
+  color: var(--text-3, #737373) !important;
+}
+
+/* ===== 模态框 ===== */
+body.lume-page .modal-overlay.active {
+  background: rgba(15, 15, 15, 0.32) !important;
+  backdrop-filter: blur(6px);
+}
+
+body.lume-page .modal {
+  border: 1px solid var(--border-sub, #f0f1f3) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.14) !important;
+}
+
+/* ===== 加载 spinner ===== */
+body.lume-page .spinner {
+  border-top-color: var(--text-1, #171717) !important;
+}
+
+/* ===== 工具栏（通用） ===== */
 .embed-page-toolbar {
   display: flex;
   align-items: center;
@@ -109,92 +409,4 @@ body.lume-page .device-tab:hover {
   background: var(--text-1, #171717);
   border-color: var(--text-1, #171717);
   color: #fff;
-}
-
-/* ===== 区块容器 ===== */
-.embed-section {
-  background: var(--bg-card, #fff);
-  border: 1px solid var(--border-sub, #f0f1f3);
-  border-radius: 14px;
-  padding: 16px 18px;
-  margin-bottom: 14px;
-}
-
-.embed-section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
-}
-
-.embed-section-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-1, #171717);
-  font-family: var(--font-display, 'DM Sans', sans-serif);
-}
-
-.embed-card-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 12px;
-}
-
-/* ===== 统一列表卡片 ===== */
-body.lume-page .doc-card,
-body.lume-page .trigger-card,
-body.lume-page .workflow-card,
-body.lume-page .market-card,
-body.lume-page .memory-card-item {
-  background: var(--bg-main, #f7f7f8) !important;
-  border: 1px solid var(--border-sub, #f0f1f3) !important;
-  border-radius: 12px !important;
-  box-shadow: none !important;
-}
-
-body.lume-page .doc-card:hover,
-body.lume-page .trigger-card:hover,
-body.lume-page .workflow-card:hover,
-body.lume-page .market-card:hover {
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06) !important;
-  transform: none !important;
-  border-color: var(--border, #e5e7eb) !important;
-}
-
-body.lume-page .stats-bar {
-  background: var(--bg-card, #fff) !important;
-  border: 1px solid var(--border-sub, #f0f1f3) !important;
-  border-radius: 12px !important;
-  box-shadow: none !important;
-}
-
-/* ===== 空状态 ===== */
-.embed-empty {
-  text-align: center;
-  padding: 48px 24px;
-  color: var(--text-3, #737373);
-}
-
-.embed-empty-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-1, #171717);
-  margin-bottom: 6px;
-}
-
-.embed-empty-desc {
-  font-size: 13px;
-  color: var(--text-3, #737373);
-}
-
-/* ===== 模态框统一 ===== */
-body.lume-page .modal-overlay.active {
-  background: rgba(15, 15, 15, 0.32) !important;
-  backdrop-filter: blur(6px);
-}
-
-body.lume-page .modal {
-  border: 1px solid var(--border-sub, #f0f1f3) !important;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.14) !important;
 }

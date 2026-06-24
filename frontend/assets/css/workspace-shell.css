@@ -256,3 +256,56 @@ html.is-embedded .iframe-container {
   margin-top: 44px !important;
   height: calc(100vh - 44px) !important;
 }
+
+/* 办公区内联样式中的 accent 统一为中性色 */
+.section-title small {
+  color: var(--text-2, #525252) !important;
+}
+
+.section-title small:hover {
+  color: var(--text-1, #171717) !important;
+}
+
+.tpl-detail-back {
+  color: var(--text-2, #525252) !important;
+}
+
+.tpl-detail-back:hover {
+  color: var(--text-1, #171717) !important;
+}
+
+.tpl-save-btn {
+  background: var(--text-1, #171717) !important;
+  color: #fff !important;
+  border-radius: 8px !important;
+}
+
+.tpl-cap-pill {
+  background: var(--bg-hover, #f5f5f4) !important;
+  color: var(--text-2, #525252) !important;
+  border-color: var(--border-sub, #f0f1f3) !important;
+}
+
+.drawer-tab.active {
+  color: var(--text-1, #171717) !important;
+  border-bottom-color: var(--text-1, #171717) !important;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background: var(--text-1, #171717) !important;
+}
+
+.drawer-save-btn.saved {
+  background: var(--text-1, #171717) !important;
+}
+
+.config-textarea:focus,
+.config-select:focus,
+.config-number:focus,
+.soul-editor:focus {
+  border-color: var(--text-1, #171717) !important;
+}
+
+.info-row .badge-live {
+  color: var(--text-2, #525252) !important;
+}
