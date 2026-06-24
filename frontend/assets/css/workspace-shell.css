@@ -2,6 +2,11 @@
  * 办公区 agent-workspace 壳层 — Tab 栏 + 原生 Tab 内容区
  */
 
+/* 与 iframe 子页一致：整页浅灰底，避免白边 + 灰块「双层」 */
+body {
+  background: var(--bg-main, #f7f7f8) !important;
+}
+
 /* Tab 栏：可滚动 + 中性激活态 */
 .tab-bar {
   justify-content: flex-start !important;
@@ -59,7 +64,21 @@ html.is-embedded .office-container {
   margin-top: 44px;
 }
 
-/* 原生 Tab 内容区 */
+/* 原生 Tab：灰底铺满整宽（与 iframe-container 一致） */
+#tabManage,
+#tabTemplates,
+#tabLogs {
+  background: var(--bg-main, #f7f7f8);
+  min-height: calc(100vh - 88px);
+}
+
+html.is-embedded #tabManage,
+html.is-embedded #tabTemplates,
+html.is-embedded #tabLogs {
+  min-height: calc(100vh - 44px);
+}
+
+/* 原生 Tab 内容区 — 仅限制内容宽度，不再单独铺一层背景 */
 .manage-panel,
 .templates-panel,
 .logs-panel {
@@ -68,8 +87,8 @@ html.is-embedded .office-container {
   max-width: 960px !important;
   margin-left: auto !important;
   margin-right: auto !important;
-  background: var(--bg-main, #f7f7f8);
-  min-height: calc(100vh - 88px);
+  background: transparent !important;
+  min-height: 0 !important;
   box-sizing: border-box;
 }
 
@@ -77,7 +96,6 @@ html.is-embedded .manage-panel,
 html.is-embedded .templates-panel,
 html.is-embedded .logs-panel {
   margin-top: 44px !important;
-  min-height: calc(100vh - 44px);
 }
 
 .manage-panel .section-title,
