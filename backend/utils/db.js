@@ -275,9 +275,27 @@ export async function getPointsInfo(userId) {
 
 // ============ 用户操作 ============
 
-export async function createUser(inviteCode, nickname = null, password = null, invitedBy = null) {
+export async function getUserByEmail(email) {
+  const db = await getDB();
+  const key = String(email || '').trim().toLowerCase();
+  return db.users.find(u => u.email && u.email.toLowerCase() === key);
+}
+
+export async function getUserByNickname(nickname) {
+  const db = await getDB();
+  return db.users.find(u => u.nickname === nickname);
+}
+
+export async function createUser(inviteCode, nickname = null, password = null, invitedBy = null, email = null) {
   const db = await getDB();
   const id = randomUUID();
+
+  if (email) {
+    const key = email.trim().toLowerCase();
+    if (db.users.some(u => u.email && u.email.toLowerCase() === key)) {
+      throw new Error('该邮箱已注册');
+    }
+  }
   
   // 密码哈希
   const passwordHash = password ? hashPassword(password) : null;
@@ -287,8 +305,10 @@ export async function createUser(inviteCode, nickname = null, password = null, i
   
   const user = {
     id,
-    inviteCode,
+    inviteCode: inviteCode || `OPEN-${id.substring(0, 8).toUpperCase()}`,
     nickname,
+    email: email ? email.trim().toLowerCase() : null,
+    emailVerified: email ? true : false,
     passwordHash,
     userInviteCode,        // 用户专属邀请码
     invitedBy,             // 被谁邀请的（用户ID）
@@ -329,8 +349,13 @@ export async function createUser(inviteCode, nickname = null, password = null, i
   
   await saveDB(db);
   
-  // 标记系统邀请码已使用
-  await useInviteCode(inviteCode, id);
+  // 标记系统邀请码已使用（仅有效系统码）
+  if (inviteCode) {
+    const sys = await getInviteCode(inviteCode);
+    if (sys && !sys.used) {
+      await useInviteCode(inviteCode, id);
+    }
+  }
   
   return user;
 }

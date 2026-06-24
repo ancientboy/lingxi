@@ -74,6 +74,20 @@ export const config = {
   
   // 运行模式
   mvpMode: process.env.MVP_MODE === 'true',
+
+  // 邮件（验证码登录）
+  email: {
+    from: process.env.EMAIL_FROM || '',
+    fromName: process.env.EMAIL_FROM_NAME || 'Lume',
+    siteUrl: process.env.SITE_URL || 'https://lumeword.cn',
+    smtp: {
+      host: process.env.SMTP_HOST || '',
+      port: parseInt(process.env.SMTP_PORT || '465', 10),
+      secure: process.env.SMTP_SECURE !== 'false',
+      user: process.env.SMTP_USER || '',
+      pass: process.env.SMTP_PASS || '',
+    },
+  },
 };
 
 export default config;

@@ -594,7 +594,59 @@
       transition: background 0.2s;
       font-family: var(--font-display);
     }
-    .btn-send-code:hover { background: var(--border); }
+    .code-input {
+      width: 100%;
+      padding: 16px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 28px;
+      font-weight: 600;
+      font-family: var(--font-display);
+      letter-spacing: 0.45em;
+      text-align: center;
+      color: var(--text-1);
+      background: var(--bg-input);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .code-input:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px var(--accent-ring); }
+
+    .auth-email-hint {
+      font-size: 13px;
+      color: var(--text-3);
+      margin-bottom: 16px;
+      text-align: center;
+    }
+    .auth-email-hint strong { color: var(--text-1); font-weight: 500; }
+    .auth-back-link {
+      display: inline-block;
+      margin-top: 14px;
+      font-size: 13px;
+      color: var(--accent);
+      cursor: pointer;
+      background: none;
+      border: none;
+      font-family: var(--font-body);
+    }
+    .auth-back-link:hover { text-decoration: underline; }
+
+    .auth-toggle-pwd {
+      margin-top: 16px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-3);
+    }
+    .auth-toggle-pwd button {
+      background: none;
+      border: none;
+      color: var(--accent);
+      cursor: pointer;
+      font-size: 13px;
+      font-family: var(--font-body);
+    }
+    .auth-toggle-pwd button:hover { text-decoration: underline; }
+
+    .field-optional label span { color: var(--text-3); font-weight: 400; }
 
     .btn-auth {
       width: 100%;
@@ -775,53 +827,53 @@
         <!-- Logged Out -->
         <div id="loggedOutView">
           <div class="auth-card">
-            <div class="auth-tabs">
-              <div class="auth-tab active" data-tab="login" onclick="showHomeTab('login')">登录</div>
-              <div class="auth-tab" data-tab="register" onclick="showHomeTab('register')">注册</div>
+            <!-- 步骤 1：邮箱 -->
+            <div id="authStepEmail">
+              <div class="auth-error" id="authError"></div>
+              <div class="field">
+                <label>邮箱</label>
+                <input type="email" id="authEmail" placeholder="you@email.com" autocomplete="email" required>
+              </div>
+              <button type="button" class="btn-auth" id="sendCodeBtn" onclick="submitEmailStep()">继续</button>
+              <p class="auth-legal" style="margin-top:16px;">登录即表示你同意我们的服务条款与隐私政策</p>
+              <div class="auth-toggle-pwd">
+                <button type="button" onclick="showPasswordLogin()">使用密码登录</button>
+              </div>
             </div>
 
-            <form id="loginForm" onsubmit="handleLogin(event)">
+            <!-- 步骤 2：验证码 -->
+            <div id="authStepCode" class="hidden">
+              <div class="auth-error" id="codeError"></div>
+              <p class="auth-email-hint">验证码已发送至 <strong id="authEmailDisplay"></strong></p>
+              <div class="field">
+                <label>验证码</label>
+                <input type="text" class="code-input" id="authCode" placeholder="000000" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
+              </div>
+              <div class="field field-optional">
+                <label>邀请码 <span>（可选，填写可获得邀请奖励）</span></label>
+                <input type="text" id="authInviteCode" placeholder="有邀请码可填写">
+              </div>
+              <button type="button" class="btn-auth" id="verifyCodeBtn" onclick="submitCodeStep()">登录</button>
+              <div style="text-align:center;margin-top:12px;">
+                <button type="button" class="btn-send-code" id="resendCodeBtn" onclick="resendCode()">重新发送</button>
+              </div>
+              <button type="button" class="auth-back-link" onclick="backToEmailStep()">更换邮箱</button>
+            </div>
+
+            <!-- 密码登录（旧账号） -->
+            <div id="authStepPassword" class="hidden">
               <div class="auth-error" id="loginError"></div>
               <div class="field">
                 <label>邮箱或昵称</label>
-                <input type="text" id="loginName" placeholder="you@email.com" required>
+                <input type="text" id="loginName" placeholder="you@email.com" autocomplete="username">
               </div>
               <div class="field">
                 <label>密码</label>
-                <input type="password" id="loginPassword" placeholder="输入密码" required>
+                <input type="password" id="loginPassword" placeholder="输入密码" autocomplete="current-password">
               </div>
-              <button type="submit" class="btn-auth" id="loginBtn">继续登录</button>
-            </form>
-
-            <form id="registerForm" class="hidden" onsubmit="handleRegister(event)">
-              <div class="auth-error" id="registerError"></div>
-              <div class="field">
-                <label>邀请码（可选）</label>
-                <input type="text" id="registerCode" placeholder="有邀请码可填写">
-              </div>
-              <div class="field">
-                <label>昵称</label>
-                <input type="text" id="registerName" placeholder="你的昵称" required>
-              </div>
-              <div class="field">
-                <label>密码</label>
-                <input type="password" id="registerPassword" placeholder="至少 6 位" required minlength="6">
-              </div>
-              <div class="field">
-                <label>邮箱 <span style="color:#dc2626">*</span></label>
-                <div class="field-row">
-                  <input type="email" id="registerEmail" placeholder="you@email.com" required onblur="validateEmailFormat()" oninput="clearEmailError()">
-                  <button type="button" class="btn-send-code" id="sendCodeBtn" onclick="sendVerificationCode()">发送验证码</button>
-                </div>
-              </div>
-              <div class="field" id="verifyCodeGroup">
-                <label>验证码</label>
-                <input type="text" id="verifyCode" placeholder="6 位验证码" maxlength="6">
-              </div>
-              <button type="submit" class="btn-auth" id="registerBtn">创建账号</button>
-            </form>
-
-            <p class="auth-legal">登录即表示你同意我们的服务条款与隐私政策</p>
+              <button type="button" class="btn-auth" id="loginBtn" onclick="handlePasswordLogin()">继续登录</button>
+              <button type="button" class="auth-back-link" onclick="backToEmailStep()">改用邮箱验证码</button>
+            </div>
           </div>
 
           <div class="download-chips notranslate" translate="no" aria-label="客户端下载">
@@ -847,7 +899,7 @@
         <p style="margin-bottom: 6px;">
           <a href="https://beian.miit.gov.cn/" target="_blank">浙ICP备2026013667号</a>
         </p>
-        <p>没有邀请码？<a href="mailto:hi@lume.ai">联系我们</a></p>
+        <p>有问题？<a href="mailto:hi@lume.ai">联系我们</a></p>
       </footer>
     </div>
 
@@ -1027,89 +1079,205 @@
 
     function initTheme() { const t = localStorage.getItem(THEME_KEY) || 'light'; /* light only for now */ }
 
-    function showHomeTab(tab) {
-      document.querySelectorAll('.auth-tab').forEach(el => {
-        el.classList.toggle('active', el.dataset.tab === tab);
+    function showAuthStep(step) {
+      document.getElementById('authStepEmail').classList.toggle('hidden', step !== 'email');
+      document.getElementById('authStepCode').classList.toggle('hidden', step !== 'code');
+      document.getElementById('authStepPassword').classList.toggle('hidden', step !== 'password');
+    }
+
+    function backToEmailStep() {
+      showAuthStep('email');
+      ['authError', 'codeError', 'loginError'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('show');
       });
-      if (tab === 'login') {
-        document.getElementById('loginForm').classList.remove('hidden');
-        document.getElementById('registerForm').classList.add('hidden');
+    }
+
+    function showPasswordLogin() {
+      showAuthStep('password');
+      const email = document.getElementById('authEmail').value.trim();
+      if (email) document.getElementById('loginName').value = email;
+    }
+
+    function isValidEmailFormat(email) {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
+
+    async function afterAuthSuccess(data) {
+      localStorage.setItem('lingxi_token', data.token);
+      localStorage.setItem('lingxi_user', JSON.stringify(data.user));
+      if (data.user.agents && data.user.agents.length > 0) {
+        checkServerAndRedirect();
+      } else if (data.isNewUser || !data.user.onboardingCompleted) {
+        window.location.href = 'chat.html';
       } else {
-        document.getElementById('loginForm').classList.add('hidden');
-        document.getElementById('registerForm').classList.remove('hidden');
+        location.reload();
       }
     }
 
-    async function handleLogin(e) {
-      e.preventDefault();
+    let countdown = 0;
+    let countdownTimer = null;
+
+    function startResendCountdown(seconds) {
+      countdown = seconds;
+      const btn = document.getElementById('resendCodeBtn');
+      if (!btn) return;
+      btn.disabled = true;
+      btn.textContent = `${countdown} 秒后可重发`;
+      clearInterval(countdownTimer);
+      countdownTimer = setInterval(() => {
+        countdown--;
+        if (countdown <= 0) {
+          clearInterval(countdownTimer);
+          btn.disabled = false;
+          btn.textContent = '重新发送';
+        } else {
+          btn.textContent = `${countdown} 秒后可重发`;
+        }
+      }, 1000);
+    }
+
+    async function sendCodeToEmail(email, errEl) {
+      const btn = document.getElementById('sendCodeBtn');
+      if (btn) { btn.disabled = true; btn.textContent = '发送中...'; }
+      if (errEl) errEl.classList.remove('show');
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/send-code`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          startResendCountdown(data.retryAfter || 60);
+          return { ok: true, data };
+        }
+        if (errEl) {
+          errEl.textContent = data.error || '发送失败';
+          errEl.classList.add('show');
+        }
+        if (data.retryAfter) startResendCountdown(data.retryAfter);
+        return { ok: false };
+      } catch (e) {
+        if (errEl) {
+          errEl.textContent = '网络错误';
+          errEl.classList.add('show');
+        }
+        return { ok: false };
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '继续'; }
+      }
+    }
+
+    async function submitEmailStep() {
+      const email = document.getElementById('authEmail').value.trim();
+      const err = document.getElementById('authError');
+      if (!isValidEmailFormat(email)) {
+        err.textContent = '请输入有效的邮箱地址';
+        err.classList.add('show');
+        return;
+      }
+      const result = await sendCodeToEmail(email, err);
+      if (result.ok) {
+        document.getElementById('authEmailDisplay').textContent = email;
+        document.getElementById('authCode').value = '';
+        showAuthStep('code');
+        setTimeout(() => document.getElementById('authCode').focus(), 100);
+      }
+    }
+
+    async function resendCode() {
+      if (countdown > 0) return;
+      const email = document.getElementById('authEmail').value.trim();
+      await sendCodeToEmail(email, document.getElementById('codeError'));
+    }
+
+    async function submitCodeStep() {
+      const email = document.getElementById('authEmail').value.trim();
+      const code = document.getElementById('authCode').value.trim();
+      const inviteCode = document.getElementById('authInviteCode').value.trim();
+      const btn = document.getElementById('verifyCodeBtn');
+      const err = document.getElementById('codeError');
+
+      if (!/^\d{6}$/.test(code)) {
+        err.textContent = '请输入 6 位验证码';
+        err.classList.add('show');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = '验证中...';
+      err.classList.remove('show');
+
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/verify-code`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, code, inviteCode: inviteCode || undefined })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          await afterAuthSuccess(data);
+        } else {
+          err.textContent = data.error || '验证失败';
+          err.classList.add('show');
+        }
+      } catch (e) {
+        err.textContent = '网络错误';
+        err.classList.add('show');
+      }
+      btn.disabled = false;
+      btn.textContent = '登录';
+    }
+
+    async function handlePasswordLogin() {
       const inp = document.getElementById('loginName').value.trim();
       const pw = document.getElementById('loginPassword').value;
       const btn = document.getElementById('loginBtn');
       const err = document.getElementById('loginError');
-      btn.disabled = true; btn.textContent = 'Signing in...'; err.classList.remove('show');
-      const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inp);
-      const body = { password: pw }; isEmail ? body.email = inp : body.nickname = inp;
+      btn.disabled = true;
+      btn.textContent = '登录中...';
+      err.classList.remove('show');
+      const isEmail = isValidEmailFormat(inp);
+      const body = { password: pw };
+      if (isEmail) body.email = inp;
+      else body.nickname = inp;
       try {
-        const res = await fetch(`${API_BASE}/api/auth/login`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+        const res = await fetch(`${API_BASE}/api/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
         const data = await res.json();
         if (res.ok && data.success) {
-          localStorage.setItem('lingxi_token', data.token);
-          localStorage.setItem('lingxi_user', JSON.stringify(data.user));
-          if (data.user.agents && data.user.agents.length > 0) checkServerAndRedirect();
-          else location.reload();
-        } else { err.textContent = data.friendlyMessage || data.error || 'Login failed'; err.classList.add('show'); }
-      } catch(e2) { err.textContent = 'Network error'; err.classList.add('show'); }
-      btn.disabled = false; btn.textContent = 'Sign In';
+          await afterAuthSuccess({ ...data, isNewUser: false });
+        } else {
+          err.textContent = data.error || '登录失败';
+          err.classList.add('show');
+        }
+      } catch (e) {
+        err.textContent = '网络错误';
+        err.classList.add('show');
+      }
+      btn.disabled = false;
+      btn.textContent = '继续登录';
     }
 
-    function validateEmailFormat() {
-      const em = document.getElementById('registerEmail').value.trim();
-      const err = document.getElementById('registerError');
-      if (em && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) { err.textContent = 'Invalid email format'; err.classList.add('show'); return false; }
-      return true;
-    }
-    function clearEmailError() { const e = document.getElementById('registerError'); if(e.textContent.includes('email')||e.textContent.includes('邮箱')) e.classList.remove('show'); }
-
-    let countdown = 0;
-    async function sendVerificationCode() {
-      if (!validateEmailFormat()) return;
-      const email = document.getElementById('registerEmail').value.trim();
-      const btn = document.getElementById('sendCodeBtn');
-      const err = document.getElementById('registerError');
-      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent = 'Please enter a valid email'; err.classList.add('show'); return; }
-      if (countdown > 0) return;
-      btn.disabled = true; btn.textContent = 'Sending...'; err.classList.remove('show');
-      try {
-        const res = await fetch(`${API_BASE}/api/auth/send-code`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email,type:'register'}) });
-        const data = await res.json();
-        if (res.ok && data.success) {
-          countdown = 60; btn.textContent = `${countdown}s`;
-          const timer = setInterval(() => { countdown--; if(countdown<=0){clearInterval(timer);btn.disabled=false;btn.textContent='Resend';}else btn.textContent=`${countdown}s`; },1000);
-          alert('Verification code sent!');
-        } else { err.textContent = data.error || 'Send failed'; err.classList.add('show'); btn.disabled=false; btn.textContent='Send Code'; }
-      } catch(e2) { err.textContent='Network error'; err.classList.add('show'); btn.disabled=false; btn.textContent='Send Code'; }
-    }
-
-    async function handleRegister(e) {
-      e.preventDefault();
-      const inviteCode = document.getElementById('registerCode').value.trim();
-      const nickname = document.getElementById('registerName').value.trim();
-      const password = document.getElementById('registerPassword').value;
-      const email = document.getElementById('registerEmail').value.trim();
-      const code = document.getElementById('verifyCode').value.trim();
-      const btn = document.getElementById('registerBtn');
-      const err = document.getElementById('registerError');
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent='Invalid email'; err.classList.add('show'); return; }
-      if (email && !code) { err.textContent='Please enter verification code'; err.classList.add('show'); return; }
-      btn.disabled=true; btn.textContent='Creating...'; err.classList.remove('show');
-      try {
-        const res = await fetch(`${API_BASE}/api/auth/register`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({inviteCode,nickname,password,email:email||undefined,code:code||undefined})});
-        const data = await res.json();
-        if(res.ok&&data.success){localStorage.setItem('lingxi_token',data.token);localStorage.setItem('lingxi_user',JSON.stringify(data.user));if(data.user.agents&&data.user.agents.length>0)checkServerAndRedirect();else location.reload();}
-        else{err.textContent=data.error||'Registration failed';err.classList.add('show');}
-      }catch(e2){err.textContent='Network error';err.classList.add('show');}
-      btn.disabled=false; btn.textContent='Create Account';
-    }
+    document.addEventListener('DOMContentLoaded', () => {
+      const codeInput = document.getElementById('authCode');
+      if (codeInput) {
+        codeInput.addEventListener('input', () => {
+          codeInput.value = codeInput.value.replace(/\D/g, '').slice(0, 6);
+          if (codeInput.value.length === 6) submitCodeStep();
+        });
+      }
+      const emailInput = document.getElementById('authEmail');
+      if (emailInput) {
+        emailInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') { e.preventDefault(); submitEmailStep(); }
+        });
+      }
+    });
 
     function handleDemo() { alert('Demo is coming soon. Contact us for an invite code!'); }
 
