@@ -2361,8 +2361,11 @@ function formatModelName(model) {
   return displayMap[name] || displayMap[model] || name;
 }
 
-// 添加打字动画
+// 添加打字动画（同一时刻只保留一个）
 function addTyping() {
+  const existing = document.getElementById('typing-indicator');
+  if (existing) return existing.id;
+
   const messages = document.getElementById('messages');
   const div = document.createElement('div');
   div.className = 'message assistant';
