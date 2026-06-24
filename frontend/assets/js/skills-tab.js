@@ -24,13 +24,18 @@ let skillsState = {
 function switchView(view) {
   const chatContainer = document.querySelector('.chat-container');
   const skillsView = document.getElementById('skillsView');
+  const composerWrap = document.querySelector('.composer-wrap');
   
   if (view === 'chat') {
     if (chatContainer) chatContainer.classList.remove('hidden');
     if (skillsView) skillsView.classList.remove('active');
+    if (composerWrap) composerWrap.style.display = '';
+    updateSessionTitle();
   } else if (view === 'skills') {
     if (chatContainer) chatContainer.classList.add('hidden');
     if (skillsView) skillsView.classList.add('active');
+    if (composerWrap) composerWrap.style.display = 'none';
+    updateSessionTitle('技能库');
     
     if (!skillsState.loaded) {
       loadSkillsLibrary();

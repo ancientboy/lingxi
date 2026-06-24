@@ -419,7 +419,7 @@ body {
 }
 
 .session-item.active {
-  background: #2a4a3e;
+  background: #2a2a2a;
 }
 
 .session-avatar {
@@ -441,4 +441,37 @@ body {
 
 .messages::-webkit-scrollbar-thumb:hover {
   background: #5d5d5f;
+}
+
+/* M5-M8 消息与团队面板 */
+.message-user-block {
+  background: #2a2a2a;
+}
+
+.message-row.assistant .message-content,
+.message-row.user .message-content {
+  color: #ececec;
+}
+
+.msg-action:hover {
+  background: #2a2a2a;
+}
+
+.team-active-card {
+  background: #1a1a1a;
+  border-color: #2d2d2d;
+}
+
+.skill-quick-chip {
+  background: #1a1a1a;
+  border-color: #2d2d2d;
+  color: #ececec;
+}
+
+.team-panel-member:hover {
+  background: #2a2a2a;
+}
+
+.message-scroll::-webkit-scrollbar-thumb {
+  background: #4d4d4f;
 }

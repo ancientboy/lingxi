@@ -1,6 +1,38 @@
-<!-- 右轨占位（M6 扩展为完整团队面板） -->
-<aside class="team-panel" id="teamPanel" aria-label="工具轨">
-  <div class="team-panel-rail">
+<!-- 团队工作台右栏 -->
+<aside class="team-panel" id="teamPanel" aria-label="团队工作台">
+  <div class="team-panel-expanded" id="teamPanelExpanded">
+    <div class="team-panel-header">
+      <span class="team-panel-title">团队工作台</span>
+      <button type="button" class="icon-btn panel-collapse-btn" onclick="toggleTeamPanel()" title="收起面板">
+        <i data-lucide="chevrons-right" class="icon-sm"></i>
+      </button>
+    </div>
+
+    <div class="team-active-card" id="teamPanelActive">
+      <div class="team-active-avatar" id="teamPanelActiveAvatar"></div>
+      <div class="team-active-info">
+        <div class="team-active-name" id="teamPanelActiveName">灵犀</div>
+        <div class="team-active-role" id="teamPanelActiveRole">队长 · 在线</div>
+      </div>
+    </div>
+
+    <div class="team-panel-section">
+      <div class="team-panel-section-title">团队成员</div>
+      <div class="team-panel-members" id="teamPanelMembers"></div>
+    </div>
+
+    <div class="team-panel-section">
+      <div class="team-panel-section-title">快捷技能</div>
+      <div class="skill-quick-chips" id="teamPanelSkills"></div>
+    </div>
+
+    <button type="button" class="team-panel-link" onclick="showMyTeam()">管理团队成员 →</button>
+  </div>
+
+  <div class="team-panel-rail" id="teamPanelRail">
+    <button type="button" class="rail-btn" onclick="toggleTeamPanel()" title="展开团队面板">
+      <i data-lucide="chevrons-left" class="icon-sm"></i>
+    </button>
     <button type="button" class="rail-btn" onclick="showMyTeam()" title="我的团队">
       <i data-lucide="users" class="icon-sm"></i>
     </button>

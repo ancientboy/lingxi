@@ -23,6 +23,8 @@ async function loadChatComponents() {
   await loadComponent('sidebar-container', 'components/sidebar.html');
   await loadComponent('team-panel-container', 'components/team-panel.html');
   
+  if (typeof initTeamPanel === 'function') initTeamPanel();
+  
   // 组件加载完成后再加载用户信息
   if (typeof loadUserInfo === 'function') {
     loadUserInfo();

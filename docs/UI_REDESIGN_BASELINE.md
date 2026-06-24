@@ -16,6 +16,10 @@
 - [x] M2 换肤去花哨
 - [x] M3 stage-toolbar
 - [x] M4 Composer
+- [x] M5 消息去气泡 + ActionBar
+- [x] M6 团队右栏工作台
+- [x] M7 技能库 Shell 整合
+- [x] M8 响应式 + 深色模式
 
 ## 品牌色使用范围
 
