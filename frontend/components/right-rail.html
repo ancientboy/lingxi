@@ -1,7 +1,7 @@
-<!-- 右侧常驻侧栏（与左侧 sidebar 同逻辑：固定宽度 + 收起/展开） -->
+<!-- 右侧工作台：工具入口 + 团队 -->
 <aside class="right-sidebar" id="rightSidebar" aria-label="右侧工作台">
   <div class="right-sidebar-top-row">
-    <span class="right-sidebar-title">团队工作台</span>
+    <span class="right-sidebar-title">工作台</span>
     <button type="button" class="right-sidebar-collapse-btn" onclick="toggleRightSidebar()" title="收起右侧栏" aria-label="收起右侧栏">
       <svg class="right-sidebar-toggle-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <path d="M14.5 7.5 10 12l4.5 4.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
@@ -10,32 +10,43 @@
     </button>
   </div>
 
-  <div class="right-sidebar-shortcuts">
-    <button type="button" class="right-sidebar-shortcut active" id="rightTabTeam" title="团队">
-      <span class="right-sidebar-shortcut-icon"><i data-lucide="users" class="icon-sm"></i></span>
-      <span>团队</span>
-    </button>
-    <button type="button" class="right-sidebar-shortcut" id="rightTabFiles" onclick="toggleFileExplorer()" title="文件">
-      <span class="right-sidebar-shortcut-icon"><i data-lucide="folder-open" class="icon-sm"></i></span>
-      <span>文件</span>
-    </button>
-    <button type="button" class="right-sidebar-shortcut" id="rightTabNotif" onclick="toggleNotificationPanel(event)" title="通知">
-      <span class="right-sidebar-shortcut-icon"><i data-lucide="bell" class="icon-sm"></i></span>
-      <span>通知</span>
-    </button>
+  <div class="right-sidebar-tools">
+    <div class="team-drawer-section-title">工具</div>
+    <div class="right-sidebar-shortcuts">
+      <button type="button" class="right-sidebar-shortcut" data-nav="workspace" onclick="switchView('workspace')" title="办公区">
+        <span class="right-sidebar-shortcut-icon"><i data-lucide="building" class="icon-sm"></i></span>
+        <span data-i18n="sidebar.workspace">办公区</span>
+      </button>
+      <button type="button" class="right-sidebar-shortcut" data-nav="servers" onclick="switchView('servers')" title="设备管理">
+        <span class="right-sidebar-shortcut-icon"><i data-lucide="monitor-smartphone" class="icon-sm"></i></span>
+        <span data-i18n="sidebar.devices">设备</span>
+      </button>
+      <button type="button" class="right-sidebar-shortcut" data-nav="skills" onclick="switchView('skills')" title="技能库">
+        <span class="right-sidebar-shortcut-icon"><i data-lucide="layout-grid" class="icon-sm"></i></span>
+        <span data-i18n="sidebar.skills">技能库</span>
+      </button>
+      <button type="button" class="right-sidebar-shortcut" data-nav="files" id="rightTabFiles" onclick="openFileExplorerFromNav()" title="文件">
+        <span class="right-sidebar-shortcut-icon"><i data-lucide="folder-open" class="icon-sm"></i></span>
+        <span data-i18n="sidebar.files">文件</span>
+      </button>
+      <button type="button" class="right-sidebar-shortcut" data-nav="cron" onclick="switchView('cron')" title="定时任务">
+        <span class="right-sidebar-shortcut-icon"><i data-lucide="clock" class="icon-sm"></i></span>
+        <span data-i18n="sidebar.timer">定时</span>
+      </button>
+      <button type="button" class="right-sidebar-shortcut" data-nav="loops" onclick="location.href='/loops.html'" title="Loop">
+        <span class="right-sidebar-shortcut-icon"><i data-lucide="repeat" class="icon-sm"></i></span>
+        <span>Loop</span>
+      </button>
+      <button type="button" class="right-sidebar-shortcut" data-nav="notif" id="rightTabNotif" onclick="toggleNotificationPanel(event)" title="通知">
+        <span class="right-sidebar-shortcut-icon"><i data-lucide="bell" class="icon-sm"></i></span>
+        <span>通知</span>
+      </button>
+    </div>
   </div>
 
   <div class="right-sidebar-body">
-    <div class="team-drawer-active" id="teamDrawerActive">
-      <div class="team-drawer-active-avatar" id="teamDrawerActiveAvatar"></div>
-      <div class="right-sidebar-active-meta">
-        <div class="team-drawer-active-name" id="teamDrawerActiveName">灵犀</div>
-        <div class="team-drawer-active-role" id="teamDrawerActiveRole">在线</div>
-      </div>
-    </div>
-
     <div class="right-sidebar-section">
-      <div class="team-drawer-section-title">团队成员</div>
+      <div class="team-drawer-section-title">对话智能体</div>
       <div class="team-drawer-members" id="teamDrawerMembers"></div>
     </div>
 
@@ -43,7 +54,5 @@
       <div class="team-drawer-section-title">快捷技能</div>
       <div class="team-drawer-chips" id="teamDrawerSkills"></div>
     </div>
-
-    <button type="button" class="team-drawer-link" onclick="switchView('workspace')">打开办公区 →</button>
   </div>
 </aside>

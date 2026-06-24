@@ -1923,6 +1923,7 @@
       feOpen = !feOpen;
       document.getElementById('fileExplorerPanel').classList.toggle('open', feOpen);
       document.getElementById('mainContent').classList.toggle('fe-open', feOpen);
+      if (typeof updateViewShortcuts === 'function') updateViewShortcuts(window._currentAppView || null);
       if (typeof updateRightSidebarToggleUi === 'function') updateRightSidebarToggleUi();
       if (feOpen) feLoadDir('/root');
     }

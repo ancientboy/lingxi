@@ -35,10 +35,18 @@ function hideAllAppViews() {
 }
 
 function updateViewShortcuts(activeView) {
-  document.querySelectorAll('.sidebar-shortcut-btn').forEach((btn) => {
-    const onclick = btn.getAttribute('onclick') || '';
-    const match = onclick.match(/switchView\('([^']+)'\)/);
-    btn.classList.toggle('active', match && match[1] === activeView);
+  window._currentAppView = activeView || null;
+  const feOpen = document.getElementById('fileExplorerPanel')?.classList.contains('open');
+
+  document.querySelectorAll('.right-sidebar-shortcut[data-nav]').forEach((btn) => {
+    const nav = btn.dataset.nav;
+    if (nav === 'files') {
+      btn.classList.toggle('active', feOpen && !activeView);
+    } else if (nav === 'notif' || nav === 'loops') {
+      btn.classList.remove('active');
+    } else {
+      btn.classList.toggle('active', nav === activeView);
+    }
   });
 }
 
@@ -58,7 +66,13 @@ function switchView(view) {
 
   if (view === 'chat') {
     updateViewShortcuts(null);
+    if (typeof updateRightSidebarToggleUi === 'function') updateRightSidebarToggleUi();
     return;
+  }
+
+  const fePanel = document.getElementById('fileExplorerPanel');
+  if (fePanel?.classList.contains('open') && typeof toggleFileExplorer === 'function') {
+    toggleFileExplorer();
   }
 
   if (chatContainer) chatContainer.classList.add('hidden');
@@ -76,6 +90,7 @@ function switchView(view) {
   }
 
   updateViewShortcuts(view);
+  if (typeof updateRightSidebarToggleUi === 'function') updateRightSidebarToggleUi();
 }
 
 // ===== Load Skills =====

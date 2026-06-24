@@ -324,17 +324,7 @@ function getTeamDrawerAgents() {
 function renderTeamDrawer() {
   const membersEl = document.getElementById('teamDrawerMembers');
   const skillsEl = document.getElementById('teamDrawerSkills');
-  const activeAvatar = document.getElementById('teamDrawerActiveAvatar');
-  const activeName = document.getElementById('teamDrawerActiveName');
-  const activeRole = document.getElementById('teamDrawerActiveRole');
   if (!membersEl) return;
-
-  const teamMember = user?.team?.members?.find((m) => m.id === currentAgentId);
-  const agentInfo = teamMember || AGENT_INFO[currentAgentId] || AGENT_INFO.lingxi;
-
-  if (activeAvatar) activeAvatar.innerHTML = agentIcon(agentInfo, 'sm');
-  if (activeName) activeName.textContent = agentInfo.name || currentAgentId;
-  if (activeRole) activeRole.textContent = agentInfo.desc || agentInfo.role || '在线';
 
   const agents = getTeamDrawerAgents();
   membersEl.innerHTML = agents.map((a) => `
@@ -404,16 +394,24 @@ function updateRightSidebarToggleUi() {
   const expandBtn = document.getElementById('rightSidebarExpandBtn');
   const isMobile = window.innerWidth <= 768;
   const collapsed = sidebar?.classList.contains('collapsed');
-  const feOpen = document.getElementById('fileExplorerPanel')?.classList.contains('open');
 
   if (expandBtn) {
     expandBtn.hidden = isMobile || !collapsed;
   }
 
-  const teamTab = document.getElementById('rightTabTeam');
-  const filesTab = document.getElementById('rightTabFiles');
-  if (teamTab) teamTab.classList.toggle('active', !feOpen);
-  if (filesTab) filesTab.classList.toggle('active', feOpen);
+  if (typeof updateViewShortcuts === 'function') {
+    updateViewShortcuts(window._currentAppView || null);
+  }
+}
+
+function openFileExplorerFromNav() {
+  if (window._currentAppView && typeof switchView === 'function') {
+    switchView('chat');
+  }
+  const panel = document.getElementById('fileExplorerPanel');
+  if (!panel?.classList.contains('open') && typeof toggleFileExplorer === 'function') {
+    toggleFileExplorer();
+  }
 }
 
 function initRightSidebar() {
@@ -5073,6 +5071,7 @@ document.addEventListener('click', (e) => {
 });
 
 // 导出函数
+window.openFileExplorerFromNav = openFileExplorerFromNav;
 window.toggleTeamDrawer = toggleTeamDrawer;
 window.toggleRightSidebar = toggleRightSidebar;
 window.initTeamDrawer = initTeamDrawer;
