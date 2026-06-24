@@ -259,11 +259,11 @@
 }
 
 .team-drawer-member.active {
-  background: var(--accent-soft);
+  background: rgba(0, 0, 0, 0.04);
 }
 
 .team-drawer-member.active .team-drawer-member-name {
-  color: var(--accent);
+  color: var(--text-1);
   font-weight: 600;
 }
 
