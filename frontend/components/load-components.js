@@ -29,6 +29,9 @@ async function loadChatComponents() {
   if (typeof loadUserInfo === 'function') {
     loadUserInfo();
   }
+  if (typeof updateSidebarOpenButton === 'function') {
+    updateSidebarOpenButton();
+  }
   
   console.log('✅ 聊天组件加载完成');
 }

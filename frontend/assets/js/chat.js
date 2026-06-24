@@ -1496,18 +1496,22 @@ function updateSessionTitle(text) {
 
 function initTeamPanel() {
   const shell = document.getElementById('appShell');
-  const expanded = localStorage.getItem(TEAM_PANEL_KEY) === 'true';
-  if (shell && expanded && window.innerWidth >= 1200) {
-    shell.classList.add('team-panel-expanded');
+  // 默认仅显示 48px 图标轨，不自动展开大面板
+  if (shell) {
+    shell.classList.remove('team-panel-expanded');
   }
+  localStorage.setItem(TEAM_PANEL_KEY, 'false');
   renderTeamPanel();
 }
 
-function toggleTeamPanel() {
+function toggleTeamPanel(forceExpand) {
   const shell = document.getElementById('appShell');
   if (!shell) return;
-  shell.classList.toggle('team-panel-expanded');
-  localStorage.setItem(TEAM_PANEL_KEY, shell.classList.contains('team-panel-expanded'));
+  const shouldExpand = typeof forceExpand === 'boolean'
+    ? forceExpand
+    : !shell.classList.contains('team-panel-expanded');
+  shell.classList.toggle('team-panel-expanded', shouldExpand);
+  localStorage.setItem(TEAM_PANEL_KEY, shouldExpand ? 'true' : 'false');
   if (window.lucide) lucide.createIcons();
 }
 

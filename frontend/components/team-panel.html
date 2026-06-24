@@ -1,9 +1,10 @@
-<!-- 团队工作台右栏 -->
+<!-- 团队工作台右栏：默认 48px 图标轨，展开为 overlay 抽屉 -->
 <aside class="team-panel" id="teamPanel" aria-label="团队工作台">
-  <div class="team-panel-expanded" id="teamPanelExpanded">
+  <div class="team-panel-backdrop" id="teamPanelBackdrop" onclick="toggleTeamPanel(false)"></div>
+  <div class="team-panel-drawer" id="teamPanelDrawer">
     <div class="team-panel-header">
       <span class="team-panel-title">团队工作台</span>
-      <button type="button" class="icon-btn panel-collapse-btn" onclick="toggleTeamPanel()" title="收起面板">
+      <button type="button" class="icon-btn panel-collapse-btn" onclick="toggleTeamPanel(false)" title="收起面板">
         <i data-lucide="chevrons-right" class="icon-sm"></i>
       </button>
     </div>

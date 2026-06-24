@@ -1,14 +1,19 @@
 <!-- 统一侧边栏组件 -->
 <aside class="sidebar" id="sidebar">
-  <a href="index.html" class="sidebar-brand">
-    <div class="sidebar-brand-icon">
-      <i data-lucide="sparkles" class="icon-sm"></i>
-    </div>
-    <div class="sidebar-brand-text">
-      <span class="sidebar-brand-name">灵犀云</span>
-      <span class="sidebar-brand-tagline">你的 AI 团队</span>
-    </div>
-  </a>
+  <div class="sidebar-top">
+    <a href="index.html" class="sidebar-brand">
+      <div class="sidebar-brand-icon">
+        <i data-lucide="sparkles" class="icon-sm"></i>
+      </div>
+      <div class="sidebar-brand-text">
+        <span class="sidebar-brand-name">灵犀云</span>
+        <span class="sidebar-brand-tagline">你的 AI 团队</span>
+      </div>
+    </a>
+    <button class="sidebar-collapse-btn" type="button" onclick="toggleSidebar()" title="收起侧边栏">
+      <i data-lucide="chevrons-left" class="icon-sm"></i>
+    </button>
+  </div>
   
   <div class="sidebar-header">
     <button class="sidebar-new-chat" type="button" onclick="newChat()">

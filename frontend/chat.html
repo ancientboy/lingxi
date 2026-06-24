@@ -883,8 +883,21 @@
       }
       initSidebarResizer();
       loadUserInfo();
+      setTimeout(updateSidebarOpenButton, 0);
     }
     
+    function updateSidebarOpenButton() {
+      const openBtn = document.getElementById('sidebarOpenBtn');
+      const sidebar = document.getElementById('sidebar');
+      const isMobile = window.innerWidth <= 768;
+      if (!openBtn || !sidebar) return;
+      if (isMobile) {
+        openBtn.hidden = true;
+        return;
+      }
+      openBtn.hidden = !sidebar.classList.contains('collapsed');
+    }
+
     function toggleSidebar() {
       const sidebar = document.getElementById('sidebar');
       const overlay = document.getElementById('sidebarOverlay');
@@ -901,6 +914,7 @@
           const saved = parseInt(localStorage.getItem(SIDEBAR_WIDTH_KEY) || '280', 10);
           setSidebarWidth(saved);
         }
+        updateSidebarOpenButton();
       }
     }
     
