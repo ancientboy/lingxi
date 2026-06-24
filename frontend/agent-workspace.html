@@ -7,6 +7,7 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23667eea'/><text x='16' y='22' text-anchor='middle' fill='white' font-size='16' font-weight='700'>L</text></svg>">
   <link rel="stylesheet" href="assets/css/lume.css">
   <link rel="stylesheet" href="assets/css/lume-dialog.css">
+  <link rel="stylesheet" href="assets/css/workspace-shell.css?v=20260624p">
   <style>
     body {
       font-family: var(--font-body);
@@ -1165,7 +1166,7 @@
 
 <!-- ===== Overview Tab (办公室场景) ===== -->
 <div class="tab-content active" id="tabOverview">
-  <div id="officeContainer" style="height:calc(100vh - 48px);margin-top:48px;overflow:hidden;position:relative;">
+  <div id="officeContainer" class="office-container">
     <canvas id="officeCanvas" style="width:100%;height:100%;display:block;min-width:320px;min-height:400px;"></canvas>
   </div>
 </div>
@@ -1173,7 +1174,7 @@
 <div class="tab-content" id="tabManage">
   <div class="manage-panel">
     <div class="section-title">
-      Team
+      团队管理
       <small onclick="loadAndShowTemplates()">从模板创建</small>
     </div>
     <div id="manageMembers"></div>
@@ -1224,42 +1225,42 @@
 <!-- ===== Knowledge Tab (iframe) ===== -->
 <div class="tab-content" id="tabKnowledge">
   <div class="iframe-container">
-    <iframe id="iframeKnowledge" data-src="knowledge.html" src="about:blank"></iframe>
+    <iframe id="iframeKnowledge" data-src="knowledge.html?embedded=1" src="about:blank"></iframe>
   </div>
 </div>
 
 <!-- ===== Market Tab (iframe) ===== -->
 <div class="tab-content" id="tabMarket">
   <div class="iframe-container">
-    <iframe id="iframeMarket" data-src="market.html" src="about:blank"></iframe>
+    <iframe id="iframeMarket" data-src="market.html?embedded=1" src="about:blank"></iframe>
   </div>
 </div>
 
 <!-- ===== Workflows Tab (iframe) ===== -->
 <div class="tab-content" id="tabWorkflows">
   <div class="iframe-container">
-    <iframe id="iframeWorkflows" data-src="workflows.html" src="about:blank"></iframe>
+    <iframe id="iframeWorkflows" data-src="workflows.html?embedded=1" src="about:blank"></iframe>
   </div>
 </div>
 
 <!-- ===== Memories Tab (iframe) ===== -->
 <div class="tab-content" id="tabMemories">
   <div class="iframe-container">
-    <iframe id="iframeMemories" data-src="memory.html" src="about:blank"></iframe>
+    <iframe id="iframeMemories" data-src="memory.html?embedded=1" src="about:blank"></iframe>
   </div>
 </div>
 
 <!-- ===== Triggers Tab (iframe) ===== -->
 <div class="tab-content" id="tabTriggers">
   <div class="iframe-container">
-    <iframe id="iframeTriggers" data-src="triggers.html" src="about:blank"></iframe>
+    <iframe id="iframeTriggers" data-src="triggers.html?embedded=1" src="about:blank"></iframe>
   </div>
 </div>
 
 <!-- ===== Loops Tab (iframe) ===== -->
 <div class="tab-content" id="tabLoops">
   <div class="iframe-container">
-    <iframe id="iframeLoops" data-src="loops.html" src="about:blank"></iframe>
+    <iframe id="iframeLoops" data-src="loops.html?embedded=1" src="about:blank"></iframe>
   </div>
 </div>
 
@@ -1644,8 +1645,9 @@ function switchTab(tabId) {
     if (container) {
       container.classList.add('active');
       const iframe = container.querySelector('iframe');
-      if (iframe && (iframe.src === 'about:blank' || iframe.src === '')) {
-        iframe.src = iframe.dataset.src;
+      if (iframe && (iframe.src === 'about:blank' || iframe.src === '' || iframe.src.endsWith('about:blank'))) {
+        const src = iframe.dataset.src || '';
+        iframe.src = src.includes('embedded=1') ? src : (src + (src.includes('?') ? '&' : '?') + 'embedded=1');
       }
     }
   } else {

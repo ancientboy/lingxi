@@ -1,0 +1,200 @@
+/**
+ * 工作台子页面统一样式 — embed 模式 + 中性视觉
+ */
+
+body.lume-page {
+  background: var(--bg-main, #f7f7f8);
+  color: var(--text-1, #171717);
+}
+
+/* ===== 嵌入模式：隐藏重复顶栏 ===== */
+body.embedded .top-bar,
+body.in-iframe .top-bar,
+body.embedded .loops-standalone-header,
+body.in-iframe .loops-standalone-header {
+  display: none !important;
+}
+
+body.embedded .device-bar,
+body.in-iframe .device-bar {
+  display: none !important;
+}
+
+body.embedded .main-content,
+body.in-iframe .main-content {
+  padding-top: 16px !important;
+  padding-bottom: 24px !important;
+  max-width: 1120px;
+}
+
+body.embedded .main-content.no-device-bar,
+body.in-iframe .main-content.no-device-bar {
+  padding-top: 16px !important;
+}
+
+body.in-iframe .loops-container {
+  max-width: none;
+  padding: 0 0 24px !important;
+}
+
+/* ===== 中性主按钮（覆盖各页 inline accent） ===== */
+body.lume-page .btn-primary {
+  background: var(--text-1, #171717) !important;
+  color: #fff !important;
+  border-color: transparent !important;
+}
+
+body.lume-page .btn-primary:hover {
+  background: #2a2a2a !important;
+}
+
+body.lume-page .btn-outline {
+  color: var(--text-2, #525252) !important;
+  border-color: var(--border, #e5e7eb) !important;
+  background: var(--bg-card, #fff) !important;
+}
+
+body.lume-page .btn-outline:hover {
+  background: var(--bg-hover, #f5f5f4) !important;
+  color: var(--text-1, #171717) !important;
+}
+
+body.lume-page .device-tab.active {
+  background: var(--text-1, #171717) !important;
+  border-color: var(--text-1, #171717) !important;
+  color: #fff !important;
+  box-shadow: none !important;
+}
+
+body.lume-page .device-tab:hover {
+  color: var(--text-1, #171717) !important;
+  background: var(--bg-hover, #f5f5f4) !important;
+}
+
+/* ===== 页面工具栏 ===== */
+.embed-page-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.embed-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.embed-tab {
+  padding: 8px 14px;
+  border: 1px solid var(--border-sub, #f0f1f3);
+  border-radius: 8px;
+  background: var(--bg-card, #fff);
+  color: var(--text-2, #525252);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--font-display, 'DM Sans', sans-serif);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.embed-tab:hover {
+  background: var(--bg-hover, #f5f5f4);
+  color: var(--text-1, #171717);
+}
+
+.embed-tab.active {
+  background: var(--text-1, #171717);
+  border-color: var(--text-1, #171717);
+  color: #fff;
+}
+
+/* ===== 区块容器 ===== */
+.embed-section {
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border-sub, #f0f1f3);
+  border-radius: 14px;
+  padding: 16px 18px;
+  margin-bottom: 14px;
+}
+
+.embed-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.embed-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-1, #171717);
+  font-family: var(--font-display, 'DM Sans', sans-serif);
+}
+
+.embed-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+/* ===== 统一列表卡片 ===== */
+body.lume-page .doc-card,
+body.lume-page .trigger-card,
+body.lume-page .workflow-card,
+body.lume-page .market-card,
+body.lume-page .memory-card-item {
+  background: var(--bg-main, #f7f7f8) !important;
+  border: 1px solid var(--border-sub, #f0f1f3) !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+}
+
+body.lume-page .doc-card:hover,
+body.lume-page .trigger-card:hover,
+body.lume-page .workflow-card:hover,
+body.lume-page .market-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06) !important;
+  transform: none !important;
+  border-color: var(--border, #e5e7eb) !important;
+}
+
+body.lume-page .stats-bar {
+  background: var(--bg-card, #fff) !important;
+  border: 1px solid var(--border-sub, #f0f1f3) !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+}
+
+/* ===== 空状态 ===== */
+.embed-empty {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--text-3, #737373);
+}
+
+.embed-empty-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-1, #171717);
+  margin-bottom: 6px;
+}
+
+.embed-empty-desc {
+  font-size: 13px;
+  color: var(--text-3, #737373);
+}
+
+/* ===== 模态框统一 ===== */
+body.lume-page .modal-overlay.active {
+  background: rgba(15, 15, 15, 0.32) !important;
+  backdrop-filter: blur(6px);
+}
+
+body.lume-page .modal {
+  border: 1px solid var(--border-sub, #f0f1f3) !important;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.14) !important;
+}

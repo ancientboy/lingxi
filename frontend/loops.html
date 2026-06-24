@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Loop — Lume</title>
   <link rel="stylesheet" href="assets/css/lume.css">
+  <link rel="stylesheet" href="assets/css/embed-pages.css?v=20260624p">
+  <script src="assets/js/embed-init.js?v=20260624p"></script>
   <style>
     body {
       font-family: var(--font-body);
@@ -355,7 +357,7 @@
     }
   </style>
 </head>
-<body>
+<body class="lume-page">
 <script>
   if (window.parent !== window || new URLSearchParams(location.search).get('embedded') === '1') {
     document.body.classList.add('in-iframe');
@@ -727,8 +729,18 @@
     }
 
     function showToast(message, type) {
-      // 简单实现，实际可用更复杂的 toast 组件
-      console.log('[' + type + '] ' + message);
+      var text = String(message);
+      try {
+        if (window.parent && window.parent !== window && typeof window.parent.showLumeToast === 'function') {
+          window.parent.showLumeToast(text, type === 'error' ? 'error' : type === 'success' ? 'success' : 'info');
+          return;
+        }
+      } catch (e) {}
+      if (typeof showLumeToast === 'function') {
+        showLumeToast(text, type === 'error' ? 'error' : type === 'success' ? 'success' : 'info');
+        return;
+      }
+      console.log('[' + type + '] ' + text);
     }
 
     // 点击模态框外部关闭
