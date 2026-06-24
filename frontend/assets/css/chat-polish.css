@@ -55,6 +55,12 @@
   position: relative;
 }
 
+.compose-scroll-btn-row {
+  display: flex;
+  justify-content: center;
+  padding-bottom: 8px;
+}
+
 .chat-container:not(.is-home) .messages {
   padding-top: 28px;
   padding-bottom: 16px;

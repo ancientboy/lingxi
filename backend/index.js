@@ -97,6 +97,14 @@ app.use('/api/batch-update', batchUpdateRoutes);
 import genesRoutes from './routes/genes.js';
 app.use('/api/genes', genesRoutes);
 
+// 记忆管理
+import memoryRoutes from './routes/memory.js';
+app.use('/api/memory', memoryRoutes);
+
+// 定时任务（设备列表等）
+import cronRoutes from './routes/cron.js';
+app.use('/api/cron', cronRoutes);
+
 // 错误处理
 app.use((err, req, res, next) => {
   console.error('Error:', err);

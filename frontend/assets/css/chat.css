@@ -786,18 +786,30 @@ body::-webkit-scrollbar { display: none; }
   .usage-stats-cards { grid-template-columns: repeat(2, 1fr); }
 }
 
-/* Scroll to bottom button - fixed above input bar */
+/* Scroll to bottom button — 位于输入框上方 */
+.compose-scroll-btn-row {
+  display: flex;
+  justify-content: center;
+  padding-bottom: 10px;
+  pointer-events: none;
+}
+
+.compose-scroll-btn-row .scroll-bottom-btn {
+  pointer-events: auto;
+}
+
 .scroll-bottom-btn {
-  position: sticky; bottom: 0; left: 50%; transform: translateX(-50%);
+  position: relative;
   width: 34px; height: 34px; border-radius: 50%;
   background: var(--bg-card); border: 1px solid var(--border);
   box-shadow: var(--shadow-md); cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   color: var(--text-2); z-index: 10;
   transition: all 0.2s ease;
-  margin: 0 auto -34px auto; /* sit right above input bar */
+  margin: 0;
+  transform: none;
 }
-.scroll-bottom-btn:hover { background: var(--bg-hover); color: var(--accent); transform: translateX(-50%) translateY(-2px); box-shadow: var(--shadow-lg); }
+.scroll-bottom-btn:hover { background: var(--bg-hover); color: var(--accent); transform: translateY(-2px); box-shadow: var(--shadow-lg); }
 .scroll-bottom-btn.hidden { display: none; }
 
 /* Skill Tags in input */
