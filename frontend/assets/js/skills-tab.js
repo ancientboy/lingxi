@@ -25,36 +25,57 @@ let skillsState = {
 };
 
 // ===== View Switching =====
+const VIEW_IDS = ['skillsView', 'serversView', 'workspaceView', 'cronView'];
+
+function hideAllAppViews() {
+  VIEW_IDS.forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('active');
+  });
+}
+
+function updateViewShortcuts(activeView) {
+  document.querySelectorAll('.sidebar-shortcut-btn').forEach((btn) => {
+    const onclick = btn.getAttribute('onclick') || '';
+    const match = onclick.match(/switchView\('([^']+)'\)/);
+    btn.classList.toggle('active', match && match[1] === activeView);
+  });
+}
+
 function switchView(view) {
   const chatContainer = document.querySelector('.chat-container');
   const skillsView = document.getElementById('skillsView');
   const serversView = document.getElementById('serversView');
   const workspaceView = document.getElementById('workspaceView');
+  const cronView = document.getElementById('cronView');
 
-  if (chatContainer) chatContainer.classList.remove('hidden');
-  if (chatContainer) chatContainer.style.display = '';
-  if (skillsView) skillsView.classList.remove('active');
-  if (serversView) serversView.classList.remove('active');
-  if (workspaceView) workspaceView.classList.remove('active');
+  hideAllAppViews();
+
+  if (chatContainer) {
+    chatContainer.classList.remove('hidden');
+    chatContainer.style.display = '';
+  }
 
   if (view === 'chat') {
-    // default
-  } else if (view === 'skills') {
-    if (chatContainer) chatContainer.classList.add('hidden');
+    updateViewShortcuts(null);
+    return;
+  }
+
+  if (chatContainer) chatContainer.classList.add('hidden');
+
+  if (view === 'skills') {
     if (skillsView) skillsView.classList.add('active');
     if (!skillsState.loaded) loadSkillsLibrary();
   } else if (view === 'servers') {
-    if (chatContainer) chatContainer.classList.add('hidden');
     if (serversView) serversView.classList.add('active');
     loadServersView();
   } else if (view === 'workspace') {
-    if (chatContainer) chatContainer.classList.add('hidden');
     if (workspaceView) workspaceView.classList.add('active');
   } else if (view === 'cron') {
-    if (chatContainer) chatContainer.classList.add('hidden');
-    const cronView = document.getElementById('cronView');
     if (cronView) cronView.classList.add('active');
   }
+
+  updateViewShortcuts(view);
 }
 
 // ===== Load Skills =====

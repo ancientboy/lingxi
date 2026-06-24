@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="assets/css/dark.css" id="darkTheme" disabled>
   <link rel="stylesheet" href="assets/css/subscription.css">
   <link rel="stylesheet" href="assets/css/stripe-payment.css">
-  <link rel="stylesheet" href="assets/css/skills-tab.css?v=20260602a">
+  <link rel="stylesheet" href="assets/css/skills-tab.css?v=20260624i">
   <link rel="stylesheet" href="assets/css/file-preview.css">
   <!-- Lucide Icons - 使用 cdnjs 备用源 -->
   <script src="assets/libs/lucide.min.js"></script>
@@ -1787,6 +1787,17 @@
       </div><!-- /.compose-dock -->
     </div><!-- /.chat-container -->
     <div class="skills-view" id="skillsView">
+      <div class="view-panel-header">
+        <button type="button" class="view-panel-back" onclick="switchView('chat')" title="返回对话">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          <span>返回对话</span>
+        </button>
+        <span class="view-panel-title">技能库</span>
+        <button type="button" class="view-panel-close" onclick="switchView('chat')" title="关闭" aria-label="关闭">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="view-panel-body">
       <div class="skills-categories" id="skillsCategories">
         <div style="padding: 8px; color: var(--text-secondary);">加载中...</div>
       </div>
@@ -1803,13 +1814,24 @@
           <div class="skills-loading">加载中...</div>
         </div>
       </div>
+      </div>
     </div>
 
     <!-- 设备管理视图 -->
     <div class="skills-view" id="serversView">
-      <div class="skills-toolbar" style="padding: 16px 20px;">
-        <div style="display: flex; align-items: center; justify-content: space-between;">
-          <h2 style="font-size: 18px; font-weight: 600; margin: 0;">设备管理</h2>
+      <div class="view-panel-header">
+        <button type="button" class="view-panel-back" onclick="switchView('chat')" title="返回对话">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          <span>返回对话</span>
+        </button>
+        <span class="view-panel-title">设备管理</span>
+        <button type="button" class="view-panel-close" onclick="switchView('chat')" title="关闭" aria-label="关闭">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="view-panel-body">
+      <div class="skills-toolbar" style="padding: 16px 20px; border-bottom: 1px solid var(--border-sub, #f0f1f3);">
+        <div style="display: flex; align-items: center; justify-content: flex-end; width: 100%;">
           <div style="display:flex;gap:8px;">
             <button onclick="loadServersView()" style="background:none; border:1px solid #ddd; border-radius:8px; padding:6px 12px; cursor:pointer; font-size:13px; color:#666;">刷新</button>
             <button onclick="showAddServerModal()" style="background:var(--accent); color:white; border:none; padding:6px 14px; border-radius:8px; cursor:pointer; font-size:13px;">+ 添加设备</button>
@@ -1819,16 +1841,41 @@
       <div id="serversGridContainer" style="padding: 20px; overflow-y:auto; flex:1;">
         <div style="text-align:center; color:#999; padding:40px;">加载中...</div>
       </div>
+      </div>
     </div>
 
     <!-- 办公区视图 -->
     <div class="skills-view" id="workspaceView">
-      <iframe src="agent-workspace.html" style="width:100%;height:100%;border:none;"></iframe>
+      <div class="view-panel-header">
+        <button type="button" class="view-panel-back" onclick="switchView('chat')" title="返回对话">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          <span>返回对话</span>
+        </button>
+        <span class="view-panel-title">办公区</span>
+        <button type="button" class="view-panel-close" onclick="switchView('chat')" title="关闭" aria-label="关闭">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="view-panel-body">
+        <iframe src="agent-workspace.html"></iframe>
+      </div>
     </div>
 
     <!-- 定时任务视图 -->
     <div class="skills-view" id="cronView">
-      <iframe src="cron.html" style="width:100%;height:100%;border:none;"></iframe>
+      <div class="view-panel-header">
+        <button type="button" class="view-panel-back" onclick="switchView('chat')" title="返回对话">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          <span>返回对话</span>
+        </button>
+        <span class="view-panel-title">定时任务</span>
+        <button type="button" class="view-panel-close" onclick="switchView('chat')" title="关闭" aria-label="关闭">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="view-panel-body">
+        <iframe src="cron.html"></iframe>
+      </div>
     </div>
 
     <!-- 📱 添加/编辑设备弹框（放在 main 内部确保可达） -->
@@ -3373,7 +3420,7 @@
 
     <!-- 统一组件加载器 -->
     <script src="components/load-components.js"></script>
-  <script src="assets/js/skills-tab.js?v=20260608"></script>
+  <script src="assets/js/skills-tab.js?v=20260624i"></script>
     <script src="assets/js/subscription.js?v=1772525512"></script>
   <script src="assets/js/stripe-payment.js?v=1772524675"></script>
 </body>
