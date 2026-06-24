@@ -23,6 +23,12 @@ const __dirname = dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Favicon（浏览器默认请求 /favicon.ico）
+app.get('/favicon.ico', (req, res) => {
+  res.type('image/svg+xml');
+  res.sendFile(join(__dirname, '../frontend/favicon.svg'));
+});
+
 // 中间件
 app.use(cors());
 app.use(express.json());
