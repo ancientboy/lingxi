@@ -514,3 +514,49 @@ body.lume-page .spinner {
   border-color: var(--text-1, #171717);
   color: #fff;
 }
+
+/* ===== 市场页：中性按钮与分类 ===== */
+body.lume-page .btn-install {
+  border: 1px solid var(--border-sub, #f0f1f3) !important;
+  background: var(--bg-card, #fff) !important;
+  color: var(--text-2, #525252) !important;
+  border-radius: 8px !important;
+  font-weight: 500 !important;
+}
+
+body.lume-page .btn-install:hover {
+  background: var(--text-1, #171717) !important;
+  color: #fff !important;
+  border-color: var(--text-1, #171717) !important;
+}
+
+body.lume-page .btn-install.installed {
+  background: var(--bg-hover, #f5f5f4) !important;
+  color: var(--text-3, #737373) !important;
+  border-color: var(--border-sub, #f0f1f3) !important;
+}
+
+body.lume-page .category-tab.active {
+  background: var(--text-1, #171717) !important;
+  border-color: var(--text-1, #171717) !important;
+  color: #fff !important;
+  box-shadow: none !important;
+}
+
+body.lume-page .category-tab:hover:not(.active) {
+  background: var(--bg-hover, #f5f5f4) !important;
+  color: var(--text-1, #171717) !important;
+  border-color: var(--border-sub, #f0f1f3) !important;
+}
+
+body.lume-page .agent-card-icon {
+  background: var(--bg-hover, #f5f5f4) !important;
+  color: var(--text-2, #525252) !important;
+}
+
+body.lume-page .official-badge {
+  background: var(--bg-hover, #f5f5f4) !important;
+  color: var(--text-2, #525252) !important;
+  border: 1px solid var(--border-sub, #f0f1f3);
+  border-radius: 999px;
+}

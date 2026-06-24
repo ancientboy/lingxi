@@ -7,7 +7,7 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23667eea'/><text x='16' y='22' text-anchor='middle' fill='white' font-size='16' font-weight='700'>L</text></svg>">
   <link rel="stylesheet" href="assets/css/lume.css">
   <link rel="stylesheet" href="assets/css/lume-dialog.css">
-  <link rel="stylesheet" href="assets/css/workspace-shell.css?v=20260624t">
+  <link rel="stylesheet" href="assets/css/workspace-shell.css?v=20260624u">
   <style>
     body {
       font-family: var(--font-body);
@@ -1232,7 +1232,7 @@
 <!-- ===== Market Tab (iframe) ===== -->
 <div class="tab-content" id="tabMarket">
   <div class="iframe-container">
-    <iframe id="iframeMarket" data-src="market.html?embedded=1" src="about:blank"></iframe>
+    <iframe id="iframeMarket" data-src="market.html?embedded=1&v=20260624u" src="about:blank"></iframe>
   </div>
 </div>
 
@@ -1677,6 +1677,7 @@ const AGENT_MAP = {
   smart:   { id:'smart', name:'智家', abbr:'ZJ', color:'#89b4c4', role:'自动化', desc:'自动化工具专家，擅长脚本、效率工具' },
   reviewer:{ id:'reviewer', name:'清源', abbr:'QY', color:'#e67e22', role:'审查', desc:'代码审查专家，负责质量把关、安全审计、规范检查' },
   qa:      { id:'qa', name:'知微', abbr:'ZW', color:'#9b59b6', role:'测试', desc:'质量保证专家，知微见著，负责功能测试、集成验证' },
+  auto:    { id:'auto', name:'Auto', abbr:'AU', color:'#89b4c4', role:'助手', desc:'通用 AI 助手' },
 };
 
 // OpenClaw 真实 Agent 数据（从 API 拉取）— 已在顶部初始化
@@ -1725,6 +1726,9 @@ async function fetchOpenClawAgents() {
       });
       S = newS;
       render();
+      if (document.getElementById('tabManage')?.classList.contains('active')) {
+        renderManageTab();
+      }
     }
   } catch(e) {
     console.log('OpenClaw Agent 拉取失败，使用本地数据:', e.message);
@@ -1732,8 +1736,8 @@ async function fetchOpenClawAgents() {
 }
 
 function getMyAgentIds() {
-  // 优先用 OpenClaw 真实数据
-  if (openClawSource === 'openclaw' && openClawAgents.length > 0) {
+  // 优先用 OpenClaw / Lume 真实数据
+  if ((openClawSource === 'openclaw' || openClawSource === 'lume') && openClawAgents.length > 0) {
     return openClawAgents.map(a => a.id);
   }
   // 回退到灵犀云本地数据

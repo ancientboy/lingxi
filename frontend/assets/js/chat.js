@@ -214,8 +214,72 @@ const AGENT_INFO = {
       { text: '帮我设计一个自动化工作流', desc: '流程自动化' },
       { text: '推荐一些提高效率的工具', desc: '工具推荐' }
     ]
+  },
+  reviewer: {
+    icon: 'search',
+    name: '清源',
+    desc: '代码审查 · 质量把关',
+    scene: '代码审查',
+    skills: '审查、安全、规范、质量',
+    agentId: 'reviewer',
+    examples: [
+      { text: '审查这段代码有没有安全问题', desc: '安全审查' },
+      { text: '检查是否符合编码规范', desc: '规范检查' },
+      { text: '这段逻辑有什么潜在 bug？', desc: '逻辑审查' },
+      { text: '评估这次改动的风险', desc: '风险评估' }
+    ]
+  },
+  qa: {
+    icon: 'check-circle',
+    name: '知微',
+    desc: '质量保证 · 测试专家',
+    scene: '质量测试',
+    skills: '测试、验证、回归、用例',
+    agentId: 'qa',
+    examples: [
+      { text: '为这个功能设计测试用例', desc: '用例设计' },
+      { text: '帮我做一次回归测试清单', desc: '回归测试' },
+      { text: '这个接口如何验证正确性？', desc: '接口测试' },
+      { text: '总结本次发布的测试要点', desc: '测试总结' }
+    ]
+  },
+  auto: {
+    icon: 'bot',
+    name: 'Auto',
+    desc: 'AI 助手',
+    scene: '通用助手',
+    skills: '对话、任务、自动化',
+    agentId: 'auto',
+    examples: [
+      { text: '帮我处理这个任务', desc: '任务处理' },
+      { text: '总结一下刚才的内容', desc: '内容总结' },
+      { text: '有什么可以帮我的？', desc: '通用对话' }
+    ]
   }
 };
+
+function resolveAgentInfo(agentId) {
+  if (AGENT_INFO[agentId]) return { id: agentId, ...AGENT_INFO[agentId] };
+  const member = user?.team?.members?.find((m) => m.id === agentId);
+  if (member) {
+    return {
+      id: agentId,
+      icon: member.icon || 'bot',
+      name: member.name || agentId,
+      desc: member.desc || member.role || 'AI 助手',
+      agentId: member.agentId || agentId,
+      examples: [],
+    };
+  }
+  return {
+    id: agentId,
+    icon: 'bot',
+    name: agentId,
+    desc: 'AI 助手',
+    agentId: agentId,
+    examples: [],
+  };
+}
 
 // Agent 到技能的映射（用于技能库）
 const AGENT_SKILLS_MAP = {
@@ -226,7 +290,10 @@ const AGENT_SKILLS_MAP = {
   pm: { name: '梓萱', desc: '产品设计 · 需求专家' },
   noter: { name: '晓琳', desc: '学习顾问 · 知识管理' },
   media: { name: '音韵', desc: '多媒体创作 · AI绘图' },
-  smart: { name: '智家', desc: '效率工具 · 自动化专家' }
+  smart: { name: '智家', desc: '效率工具 · 自动化专家' },
+  reviewer: { name: '清源', desc: '代码审查 · 质量把关' },
+  qa: { name: '知微', desc: '质量保证 · 测试专家' },
+  auto: { name: 'Auto', desc: 'AI 助手' }
 };
 
 // 临时保存加载的技能数据
@@ -350,7 +417,7 @@ function renderTeamDrawer() {
     </button>
   `).join('');
 
-  const fullAgent = AGENT_INFO[currentAgentId] || AGENT_INFO.lingxi;
+  const fullAgent = resolveAgentInfo(currentAgentId);
   const examples = (fullAgent.examples || []).slice(0, 4);
   if (skillsEl) {
     skillsEl.innerHTML = examples.length
@@ -3648,12 +3715,8 @@ async function switchAgent(agentId) {
   const previousAgentId = currentAgentId;
   currentAgentId = agentId;
 
-  // 从完整的 AGENT_INFO 获取信息
-  const agent = AGENT_INFO[agentId];
-  if (!agent) {
-    console.error('找不到 Agent:', agentId);
-    return;
-  }
+  // 从 agent 元数据获取信息（支持 OpenClaw 动态成员）
+  const agent = resolveAgentInfo(agentId);
 
   // 更新导航栏图标
   const iconEl = document.getElementById('currentAgentIcon');
@@ -3741,7 +3804,7 @@ async function createAgentSession(sessionKey, agentName) {
 
 // 更新欢迎界面为指定 Agent
 function updateWelcomeForAgent(agentId) {
-  const agentInfo = AGENT_INFO[agentId];
+  const agentInfo = resolveAgentInfo(agentId);
   if (!agentInfo) return;
   renderWelcomeHome(agentInfo);
 }
