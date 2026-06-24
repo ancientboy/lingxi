@@ -4,43 +4,46 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Lume — Your AI Team, One Click Away</title>
-  <meta name="version" content="2026.06.08">
+  <meta name="version" content="2026.06.25">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&display=swap" rel="stylesheet">
   <script src="assets/libs/lucide.min.js"></script>
   <style>
     /* ===== RESET & TOKENS ===== */
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
     :root {
-      --bg:        #fafaf9;
+      --bg:        #fbfaf8;
       --bg-card:   #ffffff;
-      --bg-hover:  #f5f5f4;
-      --bg-input:  #fafaf9;
-      --border:    #e7e5e4;
-      --border-focus: #10a37f;
+      --bg-hover:  #f5f4f1;
+      --bg-input:  #ffffff;
+      --bg-panel:  #f3f1ec;
+      --border:    #e8e6e1;
+      --border-focus: #3d6b62;
 
-      --text-1:    #0c0c0c;
+      --text-1:    #1a1a1a;
       --text-2:    #525252;
-      --text-3:    #a3a3a3;
+      --text-3:    #8a8a8a;
       --text-inv:  #ffffff;
 
-      --accent:    #10a37f;
-      --accent-h:  #0d8a6a;
-      --accent-soft: rgba(16,163,127,0.08);
-      --accent-ring: rgba(16,163,127,0.25);
+      --accent:    #3d6b62;
+      --accent-h:  #2f554d;
+      --accent-soft: rgba(61, 107, 98, 0.08);
+      --accent-ring: rgba(61, 107, 98, 0.14);
 
-      --radius:    12px;
-      --radius-sm: 8px;
-      --radius-lg: 16px;
+      --radius:    14px;
+      --radius-sm: 10px;
+      --radius-lg: 20px;
+      --radius-xl: 28px;
       --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
-      --shadow-md: 0 2px 8px rgba(0,0,0,0.06);
-      --shadow-lg: 0 8px 30px rgba(0,0,0,0.08);
+      --shadow-md: 0 8px 32px rgba(0,0,0,0.06);
+      --shadow-lg: 0 24px 64px rgba(0,0,0,0.08);
 
       --font-display: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-serif:   'Newsreader', Georgia, 'Times New Roman', serif;
       --font-body:    'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     }
 
@@ -55,67 +58,238 @@
       overflow-x: hidden;
     }
 
-    /* ===== LAYOUT ===== */
-    .page {
-      max-width: 440px;
-      margin: 0 auto;
-      padding: 48px 24px 32px;
+    /* ===== SPLIT LAYOUT ===== */
+    .login-shell {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
       min-height: 100vh;
+    }
+
+    .login-left {
       display: flex;
       flex-direction: column;
+      padding: 32px 48px 28px;
+      min-height: 100vh;
+      background: var(--bg);
     }
 
-    /* ===== LOGO AREA ===== */
-    .logo-section {
-      text-align: center;
-      margin-bottom: 40px;
-      padding-top: 24px;
+    .login-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 48px;
     }
 
-    .logo-mark {
-      width: 56px;
-      height: 56px;
-      margin: 0 auto 20px;
+    .login-brand-mark {
+      width: 32px;
+      height: 32px;
+      border-radius: 9px;
       background: var(--accent);
-      border-radius: 14px;
+      color: #fff;
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 15px;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: white;
-      font-size: 24px;
-      font-family: var(--font-display);
-      font-weight: 700;
-      box-shadow: 0 4px 16px rgba(16,163,127,0.25);
-      transition: transform 0.3s ease, box-shadow 0.3s ease;
     }
-    .logo-mark:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(16,163,127,0.35); }
 
-    .logo-title {
-      font-family: var(--font-display);
-      font-size: 40px;
-      font-weight: 700;
-      letter-spacing: -1px;
+    .login-brand-name {
+      font-family: var(--font-serif);
+      font-size: 22px;
+      font-weight: 500;
       color: var(--text-1);
-      margin-bottom: 6px;
+      letter-spacing: -0.02em;
     }
 
-    .logo-tagline {
-      font-size: 15px;
+    .login-center {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      max-width: 400px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .login-hero {
+      margin-bottom: 32px;
+    }
+
+    .login-hero h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(36px, 4vw, 48px);
+      font-weight: 500;
+      line-height: 1.12;
+      letter-spacing: -0.03em;
+      color: var(--text-1);
+      margin-bottom: 12px;
+    }
+
+    .login-hero p {
+      font-size: 16px;
+      line-height: 1.55;
+      color: var(--text-2);
+      max-width: 340px;
+    }
+
+    .login-footer {
+      margin-top: 32px;
+      padding-top: 20px;
+      font-size: 12px;
       color: var(--text-3);
-      font-weight: 400;
-      letter-spacing: 0.3px;
+      text-align: center;
+    }
+    .login-footer a { color: var(--text-3); text-decoration: none; }
+    .login-footer a:hover { color: var(--text-1); }
+
+    /* Right showcase */
+    .login-right {
+      background: var(--bg-panel);
+      padding: 28px 28px 28px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
     }
 
-    /* ===== LOGGED IN VIEW ===== */
+    .showcase-panel {
+      width: 100%;
+      max-width: 640px;
+      height: calc(100vh - 56px);
+      background: #eceae4;
+      border-radius: 32px;
+      padding: 40px 36px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .showcase-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      background: rgba(255,255,255,0.55);
+      border: 1px solid rgba(0,0,0,0.06);
+      border-radius: 999px;
+      padding: 6px;
+      margin-bottom: 48px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+    }
+
+    .showcase-toggle-item {
+      padding: 12px 28px;
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text-3);
+      border-radius: 999px;
+      transition: all 0.25s ease;
+    }
+
+    .showcase-toggle-item.active {
+      background: #fff;
+      color: var(--text-1);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .showcase-team {
+      width: 100%;
+      max-width: 420px;
+    }
+
+    .showcase-team-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .showcase-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    .showcase-member {
+      background: rgba(255,255,255,0.72);
+      border: 1px solid rgba(0,0,0,0.05);
+      border-radius: 16px;
+      padding: 16px 8px 14px;
+      text-align: center;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .showcase-member:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+    }
+
+    .showcase-member .avatar {
+      width: 40px;
+      height: 40px;
+      margin: 0 auto 10px;
+      border-radius: 12px;
+      background: var(--bg-hover);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .showcase-member .avatar svg { width: 18px; height: 18px; color: var(--accent); }
+    .showcase-member .name { font-size: 12px; font-weight: 600; color: var(--text-1); }
+    .showcase-member .role { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+
+    .showcase-quote {
+      margin-top: 36px;
+      text-align: center;
+      font-family: var(--font-serif);
+      font-size: 18px;
+      line-height: 1.6;
+      color: var(--text-2);
+      font-style: italic;
+      max-width: 360px;
+    }
+
+    /* Brand story — compact in left column */
+    .brand-story {
+      margin-bottom: 20px;
+      padding: 14px 16px;
+      background: var(--bg-card);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+    }
+    .brand-story-text {
+      font-size: 14px;
+      line-height: 1.7;
+      color: var(--text-2);
+      white-space: pre-wrap;
+    }
+    .brand-story-text .highlight { color: var(--accent); font-weight: 600; }
+    .brand-story-cursor {
+      display: inline-block;
+      width: 2px; height: 14px;
+      background: var(--accent);
+      margin-left: 2px;
+      animation: blink 1s infinite;
+      vertical-align: text-bottom;
+    }
+    @keyframes blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
+
+    /* Logged in */
     .welcome-bar {
       display: flex;
       align-items: center;
       gap: 14px;
       padding: 18px 20px;
       background: var(--bg-card);
+      border: 1px solid var(--border);
       border-radius: var(--radius);
-      box-shadow: var(--shadow-sm);
-      margin-bottom: 20px;
+      margin-bottom: 16px;
     }
 
     .welcome-avatar {
@@ -130,37 +304,35 @@
     }
 
     .welcome-text .greeting { font-size: 16px; font-weight: 600; color: var(--text-1); }
-    .welcome-text .sub { font-size: 13px; color: var(--text-3); margin-top: 1px; }
+    .welcome-text .sub { font-size: 13px; color: var(--text-3); margin-top: 2px; }
 
-    /* Primary CTA */
     .btn-primary {
       width: 100%;
-      padding: 15px;
+      padding: 14px 18px;
       font-size: 15px;
       font-weight: 600;
       font-family: var(--font-display);
       color: white;
-      background: var(--accent);
+      background: var(--text-1);
       border: none;
-      border-radius: var(--radius);
+      border-radius: var(--radius-sm);
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 8px;
-      margin-bottom: 16px;
-      transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+      margin-bottom: 14px;
+      transition: background 0.2s, transform 0.15s;
     }
-    .btn-primary:hover { background: var(--accent-h); transform: translateY(-1px); box-shadow: 0 4px 16px var(--accent-ring); }
+    .btn-primary:hover { background: #2a2a2a; transform: translateY(-1px); }
     .btn-primary:active { transform: translateY(0); }
-    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 
-    /* Shortcut cards */
     .shortcuts {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 8px;
-      margin-bottom: 28px;
+      margin-bottom: 8px;
     }
 
     .shortcut-card {
@@ -168,22 +340,23 @@
       flex-direction: column;
       align-items: center;
       gap: 8px;
-      padding: 16px 8px;
+      padding: 14px 8px;
       background: var(--bg-card);
-      border-radius: var(--radius);
+      border-radius: var(--radius-sm);
       border: 1px solid var(--border);
       cursor: pointer;
       transition: border-color 0.15s, box-shadow 0.15s;
     }
-    .shortcut-card:hover { border-color: var(--accent); box-shadow: var(--shadow-md); }
-    .shortcut-card span { font-size: 13px; font-weight: 500; color: var(--text-1); }
-    .shortcut-card svg { color: var(--accent); }
+    .shortcut-card:hover { border-color: var(--text-1); box-shadow: var(--shadow-sm); }
+    .shortcut-card span { font-size: 12px; font-weight: 500; color: var(--text-1); }
+    .shortcut-card svg { color: var(--text-2); }
 
-    /* ===== AUTH CARD ===== */
+    /* Auth card */
     .auth-card {
       background: var(--bg-card);
       border-radius: var(--radius-lg);
       padding: 28px 24px;
+      border: 1px solid var(--border);
       box-shadow: var(--shadow-md);
     }
 
@@ -191,7 +364,7 @@
       display: flex;
       background: var(--bg-hover);
       border-radius: var(--radius-sm);
-      padding: 3px;
+      padding: 4px;
       margin-bottom: 24px;
     }
 
@@ -203,19 +376,18 @@
       font-weight: 500;
       color: var(--text-3);
       cursor: pointer;
-      border-radius: 6px;
+      border-radius: 8px;
       transition: all 0.2s;
       font-family: var(--font-display);
     }
     .auth-tab.active { background: var(--bg-card); color: var(--text-1); box-shadow: var(--shadow-sm); }
 
-    /* Form elements */
     .field { margin-bottom: 14px; }
     .field label { display: block; font-size: 13px; font-weight: 500; color: var(--text-2); margin-bottom: 6px; }
 
     .field input {
       width: 100%;
-      padding: 12px 14px;
+      padding: 13px 14px;
       border: 1px solid var(--border);
       border-radius: var(--radius-sm);
       font-size: 15px;
@@ -232,10 +404,10 @@
     .field-row input { flex: 1; }
 
     .btn-send-code {
-      padding: 12px 16px;
-      background: var(--accent);
-      color: white;
-      border: none;
+      padding: 13px 14px;
+      background: var(--bg-hover);
+      color: var(--text-1);
+      border: 1px solid var(--border);
       border-radius: var(--radius-sm);
       font-size: 13px;
       font-weight: 500;
@@ -244,11 +416,11 @@
       transition: background 0.2s;
       font-family: var(--font-display);
     }
-    .btn-send-code:hover { background: var(--accent-h); }
+    .btn-send-code:hover { background: var(--border); }
 
     .btn-auth {
       width: 100%;
-      padding: 13px;
+      padding: 14px;
       background: var(--text-1);
       color: white;
       border: none;
@@ -257,16 +429,18 @@
       font-weight: 600;
       font-family: var(--font-display);
       cursor: pointer;
-      transition: opacity 0.2s;
+      transition: background 0.2s;
     }
-    .btn-auth:hover { opacity: 0.85; }
+    .btn-auth:hover { background: #2a2a2a; }
 
     .divider {
       display: flex;
       align-items: center;
       margin: 18px 0;
       color: var(--text-3);
-      font-size: 13px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
     }
     .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
     .divider span { padding: 0 14px; }
@@ -282,9 +456,9 @@
       font-weight: 500;
       font-family: var(--font-display);
       cursor: pointer;
-      transition: background 0.15s, border-color 0.15s;
+      transition: background 0.15s;
     }
-    .btn-ghost:hover { background: var(--bg-hover); border-color: #d4d4d4; }
+    .btn-ghost:hover { background: var(--bg-hover); }
 
     .auth-error {
       background: #fef2f2;
@@ -298,104 +472,20 @@
     }
     .auth-error.show { display: block; }
 
-    /* ===== TEAM SHOWCASE ===== */
-    .team-section {
-      margin-top: 36px;
-      padding-top: 32px;
-      border-top: 1px solid var(--border);
-    }
-
-    .team-heading {
-      text-align: center;
-      font-size: 13px;
-      font-weight: 500;
+    .auth-legal {
+      margin-top: 16px;
+      font-size: 11px;
+      line-height: 1.5;
       color: var(--text-3);
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      margin-bottom: 18px;
-    }
-
-    .team-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 8px;
-    }
-
-    .team-member {
       text-align: center;
-      padding: 14px 4px;
-      border-radius: var(--radius);
-      transition: background 0.15s;
-    }
-    .team-member:hover { background: var(--accent-soft); }
-
-    .team-member .avatar {
-      width: 40px; height: 40px;
-      margin: 0 auto 8px;
-      border-radius: 10px;
-      background: var(--bg-hover);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: background 0.15s;
-    }
-    .team-member:hover .avatar { background: var(--accent-soft); }
-    .team-member .avatar svg { width: 18px; height: 18px; color: var(--accent); }
-
-    .team-member .name { font-size: 12px; font-weight: 600; color: var(--text-1); }
-    .team-member .role { font-size: 11px; color: var(--text-3); margin-top: 1px; }
-
-    /* ===== BRAND STORY ===== */
-    .brand-story {
-      text-align: center;
-      padding: 20px;
-      margin-bottom: 24px;
-      background: var(--bg-card);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow-sm);
-      border: 1px solid var(--border);
     }
 
-    .brand-story-text {
-      font-size: 15px;
-      line-height: 1.8;
-      color: var(--text-2);
-      white-space: pre-wrap;
-      font-weight: 400;
-    }
-
-    .brand-story-text .highlight { color: var(--accent); font-weight: 600; }
-
-    .brand-story-cursor {
-      display: inline-block;
-      width: 2px; height: 16px;
-      background: var(--accent);
-      margin-left: 2px;
-      animation: blink 1s infinite;
-      vertical-align: text-bottom;
-    }
-
-    @keyframes blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
-
-    /* ===== DEPLOY STEPS ===== */
     .deploy-steps { display: flex; flex-direction: column; gap: 6px; }
     .deploy-step { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: var(--radius-sm); background: var(--bg-hover); font-size: 13px; color: var(--text-2); }
     .deploy-step.step-active { background: var(--accent-soft); }
     .deploy-step.step-done { color: var(--accent); font-weight: 500; }
     .deploy-step .step-icon { width: 20px; text-align: center; }
 
-    /* ===== FOOTER ===== */
-    .page-footer {
-      margin-top: auto;
-      padding-top: 32px;
-      text-align: center;
-      font-size: 12px;
-      color: var(--text-3);
-    }
-    .page-footer a { color: var(--text-3); text-decoration: none; transition: color 0.15s; }
-    .page-footer a:hover { color: var(--accent); }
-
-    /* ===== LOADING SPINNER ===== */
     .loading-spinner {
       display: inline-block; width: 14px; height: 14px;
       border: 2px solid rgba(255,255,255,0.3);
@@ -410,151 +500,171 @@
     .hidden { display: none !important; }
 
     /* ===== RESPONSIVE ===== */
+    @media (max-width: 960px) {
+      .login-shell { grid-template-columns: 1fr; }
+      .login-right { display: none; }
+      .login-left { padding: 24px 20px 28px; min-height: auto; }
+      .login-brand { margin-bottom: 28px; }
+      .login-center { max-width: 100%; }
+    }
+
     @media (max-width: 480px) {
-      .page { padding: 24px 16px 24px; }
-      .logo-section { padding-top: 12px; }
-      .logo-title { font-size: 34px; }
-      .team-grid { gap: 4px; }
-      .team-member { padding: 10px 2px; }
+      .login-hero h1 { font-size: 32px; }
+      .shortcuts { grid-template-columns: 1fr; }
+      .auth-card { padding: 22px 18px; }
     }
   </style>
   <script src="assets/js/i18n.js?v=20260608"></script>
 </head>
 <body>
 
-  <div class="page">
+  <div class="login-shell">
 
-    <!-- Logo -->
-    <div class="logo-section">
-      <div class="logo-mark">L</div>
-      <h1 class="logo-title">Lume</h1>
-      <p class="logo-tagline">Your AI Team, One Click Away</p>
-    </div>
+    <div class="login-left">
+      <header class="login-brand">
+        <div class="login-brand-mark">L</div>
+        <span class="login-brand-name">Lume</span>
+      </header>
 
-    <!-- Brand Story (shown for returning visitors) -->
-    <div class="brand-story" id="brandStoryWrap">
-      <div class="brand-story-text" id="brandStoryText"></div>
-      <span class="brand-story-cursor" id="brandStoryCursor"></span>
-    </div>
-
-    <!-- Logged In View -->
-    <div id="loggedInView" class="hidden">
-      <div class="welcome-bar">
-        <div class="welcome-avatar" id="welcomeAvatar">U</div>
-        <div class="welcome-text">
-          <div class="greeting">Welcome back, <span id="welcomeName">User</span></div>
-          <div class="sub">Your AI team is ready</div>
-        </div>
-      </div>
-
-      <button class="btn-primary" onclick="goToChat()">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        Start Chat
-      </button>
-
-      <div class="shortcuts">
-        <div class="shortcut-card" onclick="window.location.href='chat.html?view=workspace'">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-          <span>Workspace</span>
-        </div>
-        <div class="shortcut-card" onclick="window.location.href='chat.html?view=servers'">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><circle cx="6" cy="6" r="1"/><circle cx="6" cy="18" r="1"/></svg>
-          <span>Devices</span>
-        </div>
-        <div class="shortcut-card" onclick="window.location.href='chat.html?view=skills'">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-          <span>Skills</span>
-        </div>
-      </div>
-
-      <!-- Hidden fields (JS compat) -->
-      <div class="hidden">
-        <span id="myPoints">0</span>
-        <span id="myInviteCode">-</span>
-        <span id="inviteCount">0</span>
-        <span id="earnedPoints">0</span>
-        <div id="claimTeamSection"></div>
-        <div id="hasTeamSection"></div>
-      </div>
-    </div>
-
-    <!-- Logged Out View -->
-    <div id="loggedOutView">
-      <div class="auth-card">
-        <div class="auth-tabs">
-          <div class="auth-tab active" onclick="showHomeTab('login')">Sign In</div>
-          <div class="auth-tab" onclick="showHomeTab('register')">Sign Up</div>
+      <div class="login-center">
+        <div class="login-hero" id="loginHero">
+          <h1>想得快，做得更快</h1>
+          <p>在对话里 brainstorm，在办公区里和 AI 团队一起协作</p>
         </div>
 
-        <!-- Login -->
-        <form id="loginForm" onsubmit="handleLogin(event)">
-          <div class="auth-error" id="loginError"></div>
-          <div class="field">
-            <label>Email or Nickname</label>
-            <input type="text" id="loginName" placeholder="you@email.com" required>
-          </div>
-          <div class="field">
-            <label>Password</label>
-            <input type="password" id="loginPassword" placeholder="Enter password" required>
-          </div>
-          <button type="submit" class="btn-auth" id="loginBtn">Sign In</button>
-        </form>
+        <div class="brand-story" id="brandStoryWrap">
+          <div class="brand-story-text" id="brandStoryText"></div>
+          <span class="brand-story-cursor" id="brandStoryCursor"></span>
+        </div>
 
-        <!-- Register -->
-        <form id="registerForm" class="hidden" onsubmit="handleRegister(event)">
-          <div class="auth-error" id="registerError"></div>
-          <div class="field">
-            <label>Invite Code (optional)</label>
-            <input type="text" id="registerCode" placeholder="Have an invite code?">
-          </div>
-          <div class="field">
-            <label>Nickname</label>
-            <input type="text" id="registerName" placeholder="Your name" required>
-          </div>
-          <div class="field">
-            <label>Password</label>
-            <input type="password" id="registerPassword" placeholder="At least 6 characters" required minlength="6">
-          </div>
-          <div class="field">
-            <label>Email <span style="color:#dc2626">*</span></label>
-            <div class="field-row">
-              <input type="email" id="registerEmail" placeholder="you@email.com" required onblur="validateEmailFormat()" oninput="clearEmailError()">
-              <button type="button" class="btn-send-code" id="sendCodeBtn" onclick="sendVerificationCode()">Send Code</button>
+        <!-- Logged In -->
+        <div id="loggedInView" class="hidden">
+          <div class="welcome-bar">
+            <div class="welcome-avatar" id="welcomeAvatar">U</div>
+            <div class="welcome-text">
+              <div class="greeting">欢迎回来，<span id="welcomeName">User</span></div>
+              <div class="sub">你的 AI 团队已就绪</div>
             </div>
           </div>
-          <div class="field" id="verifyCodeGroup">
-            <label>Verification Code</label>
-            <input type="text" id="verifyCode" placeholder="6-digit code" maxlength="6">
+
+          <button class="btn-primary" onclick="goToChat()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            进入对话
+          </button>
+
+          <div class="shortcuts">
+            <div class="shortcut-card" onclick="window.location.href='chat.html?view=workspace'">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+              <span>办公区</span>
+            </div>
+            <div class="shortcut-card" onclick="window.location.href='chat.html?view=servers'">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><circle cx="6" cy="6" r="1"/><circle cx="6" cy="18" r="1"/></svg>
+              <span>设备</span>
+            </div>
+            <div class="shortcut-card" onclick="window.location.href='chat.html?view=skills'">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              <span>技能库</span>
+            </div>
           </div>
-          <button type="submit" class="btn-auth" id="registerBtn">Create Account</button>
-        </form>
 
-        <div class="divider"><span>or</span></div>
-        <button class="btn-ghost" onclick="handleDemo()">Try Demo</button>
+          <div class="hidden">
+            <span id="myPoints">0</span>
+            <span id="myInviteCode">-</span>
+            <span id="inviteCount">0</span>
+            <span id="earnedPoints">0</span>
+            <div id="claimTeamSection"></div>
+            <div id="hasTeamSection"></div>
+          </div>
+        </div>
+
+        <!-- Logged Out -->
+        <div id="loggedOutView">
+          <div class="auth-card">
+            <div class="auth-tabs">
+              <div class="auth-tab active" data-tab="login" onclick="showHomeTab('login')">登录</div>
+              <div class="auth-tab" data-tab="register" onclick="showHomeTab('register')">注册</div>
+            </div>
+
+            <form id="loginForm" onsubmit="handleLogin(event)">
+              <div class="auth-error" id="loginError"></div>
+              <div class="field">
+                <label>邮箱或昵称</label>
+                <input type="text" id="loginName" placeholder="you@email.com" required>
+              </div>
+              <div class="field">
+                <label>密码</label>
+                <input type="password" id="loginPassword" placeholder="输入密码" required>
+              </div>
+              <button type="submit" class="btn-auth" id="loginBtn">继续登录</button>
+            </form>
+
+            <form id="registerForm" class="hidden" onsubmit="handleRegister(event)">
+              <div class="auth-error" id="registerError"></div>
+              <div class="field">
+                <label>邀请码（可选）</label>
+                <input type="text" id="registerCode" placeholder="有邀请码可填写">
+              </div>
+              <div class="field">
+                <label>昵称</label>
+                <input type="text" id="registerName" placeholder="你的昵称" required>
+              </div>
+              <div class="field">
+                <label>密码</label>
+                <input type="password" id="registerPassword" placeholder="至少 6 位" required minlength="6">
+              </div>
+              <div class="field">
+                <label>邮箱 <span style="color:#dc2626">*</span></label>
+                <div class="field-row">
+                  <input type="email" id="registerEmail" placeholder="you@email.com" required onblur="validateEmailFormat()" oninput="clearEmailError()">
+                  <button type="button" class="btn-send-code" id="sendCodeBtn" onclick="sendVerificationCode()">发送验证码</button>
+                </div>
+              </div>
+              <div class="field" id="verifyCodeGroup">
+                <label>验证码</label>
+                <input type="text" id="verifyCode" placeholder="6 位验证码" maxlength="6">
+              </div>
+              <button type="submit" class="btn-auth" id="registerBtn">创建账号</button>
+            </form>
+
+            <div class="divider"><span>或</span></div>
+            <button class="btn-ghost" onclick="handleDemo()">体验演示</button>
+
+            <p class="auth-legal">登录即表示你同意我们的服务条款与隐私政策</p>
+          </div>
+        </div>
       </div>
+
+      <footer class="login-footer">
+        <p style="margin-bottom: 6px;">
+          <a href="https://beian.miit.gov.cn/" target="_blank">浙ICP备2026013667号</a>
+        </p>
+        <p>没有邀请码？<a href="mailto:hi@lume.ai">联系我们</a></p>
+      </footer>
     </div>
 
-    <!-- Team -->
-    <div class="team-section">
-      <div class="team-heading">Your 8 AI Teammates</div>
-      <div class="team-grid">
-        <div class="team-member"><div class="avatar"><i data-lucide="sparkles"></i></div><div class="name">Lume</div><div class="role">Lead</div></div>
-        <div class="team-member"><div class="avatar"><i data-lucide="code"></i></div><div class="name">Spark</div><div class="role">Code</div></div>
-        <div class="team-member"><div class="avatar"><i data-lucide="activity"></i></div><div class="name">Pulse</div><div class="role">Ops</div></div>
-        <div class="team-member"><div class="avatar"><i data-lucide="lightbulb"></i></div><div class="name">Nova</div><div class="role">Ideas</div></div>
-        <div class="team-member"><div class="avatar"><i data-lucide="target"></i></div><div class="name">Scope</div><div class="role">Product</div></div>
-        <div class="team-member"><div class="avatar"><i data-lucide="file-text"></i></div><div class="name">Echo</div><div class="role">Notes</div></div>
-        <div class="team-member"><div class="avatar"><i data-lucide="palette"></i></div><div class="name">Prism</div><div class="role">Media</div></div>
-        <div class="team-member"><div class="avatar"><i data-lucide="home"></i></div><div class="name">Nest</div><div class="role">Smart</div></div>
+    <aside class="login-right" aria-hidden="true">
+      <div class="showcase-panel">
+        <div class="showcase-toggle">
+          <span class="showcase-toggle-item">对话</span>
+          <span class="showcase-toggle-item active">办公区</span>
+        </div>
+        <div class="showcase-team">
+          <div class="showcase-team-label">8 位 AI 队友随时待命</div>
+          <div class="showcase-grid">
+            <div class="showcase-member"><div class="avatar"><i data-lucide="sparkles"></i></div><div class="name">灵犀</div><div class="role">队长</div></div>
+            <div class="showcase-member"><div class="avatar"><i data-lucide="code"></i></div><div class="name">云溪</div><div class="role">代码</div></div>
+            <div class="showcase-member"><div class="avatar"><i data-lucide="activity"></i></div><div class="name">若曦</div><div class="role">运营</div></div>
+            <div class="showcase-member"><div class="avatar"><i data-lucide="lightbulb"></i></div><div class="name">紫萱</div><div class="role">创意</div></div>
+            <div class="showcase-member"><div class="avatar"><i data-lucide="target"></i></div><div class="name">梓萱</div><div class="role">产品</div></div>
+            <div class="showcase-member"><div class="avatar"><i data-lucide="file-text"></i></div><div class="name">晓琳</div><div class="role">笔记</div></div>
+            <div class="showcase-member"><div class="avatar"><i data-lucide="palette"></i></div><div class="name">音韵</div><div class="role">多媒体</div></div>
+            <div class="showcase-member"><div class="avatar"><i data-lucide="home"></i></div><div class="name">智家</div><div class="role">自动化</div></div>
+          </div>
+        </div>
+        <p class="showcase-quote">让优秀伙伴，不再是奢望</p>
       </div>
-    </div>
+    </aside>
 
-    <div class="page-footer">
-      <p style="margin-bottom: 8px;">
-        <a href="https://beian.miit.gov.cn/" target="_blank">浙ICP备2026013667号</a>
-      </p>
-      <p>No invite code? <a href="mailto:hi@lume.ai">Contact us</a></p>
-    </div>
   </div>
 
   <!-- ============================================================ -->
@@ -598,6 +708,13 @@
 
     function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+    function setLoggedInUi() {
+      const hero = document.getElementById('loginHero');
+      const story = document.getElementById('brandStoryWrap');
+      if (hero) hero.classList.add('hidden');
+      if (story) story.classList.add('hidden');
+    }
+
     // Init
     async function init() {
       initTheme();
@@ -610,6 +727,7 @@
             localStorage.setItem('lingxi_user', JSON.stringify(user));
             document.getElementById('loggedInView').classList.remove('hidden');
             document.getElementById('loggedOutView').classList.add('hidden');
+            setLoggedInUi();
             document.getElementById('welcomeName').textContent = user.nickname;
             const av = document.getElementById('welcomeAvatar');
             if (av) av.textContent = (user.nickname || 'U').charAt(0).toUpperCase();
@@ -627,6 +745,7 @@
           if (user.nickname) {
             document.getElementById('loggedInView').classList.remove('hidden');
             document.getElementById('loggedOutView').classList.add('hidden');
+            setLoggedInUi();
             document.getElementById('welcomeName').textContent = user.nickname;
             const av = document.getElementById('welcomeAvatar');
             if (av) av.textContent = (user.nickname || 'U').charAt(0).toUpperCase();
@@ -638,6 +757,8 @@
     function showLoginView() {
       document.getElementById('loggedInView').classList.add('hidden');
       document.getElementById('loggedOutView').classList.remove('hidden');
+      const hero = document.getElementById('loginHero');
+      if (hero) hero.classList.remove('hidden');
     }
 
     async function checkServerAndRedirect() {
@@ -683,10 +804,16 @@
     function initTheme() { const t = localStorage.getItem(THEME_KEY) || 'light'; /* light only for now */ }
 
     function showHomeTab(tab) {
-      document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
-      event.target.classList.add('active');
-      if (tab === 'login') { document.getElementById('loginForm').classList.remove('hidden'); document.getElementById('registerForm').classList.add('hidden'); }
-      else { document.getElementById('loginForm').classList.add('hidden'); document.getElementById('registerForm').classList.remove('hidden'); }
+      document.querySelectorAll('.auth-tab').forEach(el => {
+        el.classList.toggle('active', el.dataset.tab === tab);
+      });
+      if (tab === 'login') {
+        document.getElementById('loginForm').classList.remove('hidden');
+        document.getElementById('registerForm').classList.add('hidden');
+      } else {
+        document.getElementById('loginForm').classList.add('hidden');
+        document.getElementById('registerForm').classList.remove('hidden');
+      }
     }
 
     async function handleLogin(e) {
@@ -792,7 +919,6 @@
     typeBrandStory();
     if(window.lucide) lucide.createIcons();
   </script>
-</div>
 
 <!-- Starfield brand intro (first visit) -->
 <style>
@@ -803,16 +929,16 @@
 #starfieldIntro .star{position:absolute;background:white;border-radius:50%;animation:twinkle var(--duration) ease-in-out infinite;animation-delay:var(--delay)}
 @keyframes twinkle{0%,100%{opacity:.2;transform:scale(1)}50%{opacity:1;transform:scale(1.3)}}
 #starfieldIntro .content{position:relative;z-index:10;text-align:center;color:white;max-width:560px;padding:60px 32px;display:flex;flex-direction:column;align-items:center}
-#starfieldIntro .logo-icon{font-size:56px;color:#10a37f;margin-bottom:20px;font-family:'DM Sans',sans-serif}
+#starfieldIntro .logo-icon{font-size:56px;color:#3d6b62;margin-bottom:20px;font-family:'DM Sans',sans-serif}
 #starfieldIntro h1{font-family:'DM Sans',sans-serif;font-size:52px;font-weight:700;margin:0 0 10px;letter-spacing:-1px;color:#fff}
 #starfieldIntro .tagline{font-size:16px;color:rgba(255,255,255,0.45);margin:0 0 48px;font-weight:400;letter-spacing:.5px}
 #starfieldIntro .story{font-size:17px;line-height:2.1;margin-bottom:48px;min-height:280px;text-align:center;color:rgba(255,255,255,0.75);font-family:'DM Sans',sans-serif}
 #starfieldIntro .story .line{opacity:0;transform:translateY(12px);animation:fadeInUp .7s forwards}
 @keyframes fadeInUp{to{opacity:1;transform:translateY(0)}}
-#starfieldIntro .story .highlight{color:#10a37f;font-weight:600}
-#starfieldIntro .cta{background:#10a37f;color:white;border:none;padding:18px 56px;font-size:16px;font-weight:600;font-family:'DM Sans',sans-serif;border-radius:50px;cursor:pointer;transition:all .3s;display:inline-flex;align-items:center;gap:10px;opacity:.3;transform:scale(.9)}
-#starfieldIntro .cta.active{opacity:1;transform:scale(1);box-shadow:0 4px 24px rgba(16,163,127,0.4)}
-#starfieldIntro .cta:hover{transform:scale(1.05);box-shadow:0 8px 32px rgba(16,163,127,0.5)}
+#starfieldIntro .story .highlight{color:#3d6b62;font-weight:600}
+#starfieldIntro .cta{background:#3d6b62;color:white;border:none;padding:18px 56px;font-size:16px;font-weight:600;font-family:'DM Sans',sans-serif;border-radius:50px;cursor:pointer;transition:all .3s;display:inline-flex;align-items:center;gap:10px;opacity:.3;transform:scale(.9)}
+#starfieldIntro .cta.active{opacity:1;transform:scale(1);box-shadow:0 4px 24px rgba(61,107,98,0.35)}
+#starfieldIntro .cta:hover{transform:scale(1.05);box-shadow:0 8px 32px rgba(61,107,98,0.45)}
 #starfieldIntro .hint{margin-top:20px;font-size:13px;color:rgba(255,255,255,0.35);opacity:0;transition:opacity .5s}
 #starfieldIntro .hint.show{opacity:1}
 @media(max-width:480px){#starfieldIntro .content{padding:40px 20px}#starfieldIntro h1{font-size:38px}#starfieldIntro .story{font-size:15px}}
