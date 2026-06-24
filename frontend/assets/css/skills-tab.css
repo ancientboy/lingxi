@@ -2,15 +2,23 @@
 
 .skills-view {
   display: none;
+  flex: 1;
   flex-direction: column;
-  height: calc(100vh - 60px);
+  min-height: 0;
   overflow: hidden;
-  background: var(--bg-primary, #fff);
-  padding-top: 60px; /* 为固定 navbar 留空间 */
+  background: var(--surface-main, #fff);
+  padding-top: 0;
 }
 
-.skills-view.active { display: flex; }
-.chat-container.hidden { display: none; }
+.skills-view.active {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.chat-container.hidden {
+  display: none !important;
+}
 
 .skills-categories {
   display: flex;
@@ -42,9 +50,9 @@
 }
 
 .category-chip.active {
-  background: var(--primary, #10a37f);
+  background: var(--brand, #0d9488);
   color: #fff;
-  border-color: var(--primary, #10a37f);
+  border-color: var(--brand, #0d9488);
 }
 
 .category-icon { font-size: 16px; }

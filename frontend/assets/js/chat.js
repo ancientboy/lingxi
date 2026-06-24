@@ -321,18 +321,27 @@ let connectNonce = null;
 // ═══════════════════════════════════════════════════════════════
 // 🔌 WebSocket 模块
 // ═══════════════════════════════════════════════════════════════
+function updateConnectionStatus(connected) {
+  const statusEl = document.getElementById('connectionStatus');
+  if (!statusEl) return;
+  const statusDot = statusEl.querySelector('.status-dot');
+  const statusText = statusEl.querySelector('.status-text');
+  if (statusDot) {
+    statusDot.className = connected ? 'status-dot connected' : 'status-dot';
+  }
+  if (statusText) {
+    statusText.textContent = connected ? '已连接' : '未连接';
+  }
+  statusEl.title = connected ? '已连接' : '未连接';
+}
+
 function connectWebSocket() {
   const statusEl = document.getElementById('connectionStatus');
   if (!statusEl) {
     console.warn('⚠️ connectionStatus 元素未找到，跳过 WebSocket 状态更新');
     return;
   }
-  const statusDot = statusEl.querySelector('.status-dot');
-  if (!statusDot) {
-    console.warn('⚠️ status-dot 元素未找到，跳过 WebSocket 状态更新');
-    return;
-  }
-  statusDot.className = 'status-dot';
+  updateConnectionStatus(false);
   
   try {
     // 🔧 修复：通过后端 WebSocket 代理连接，解决 HTTPS 混合内容问题
@@ -364,17 +373,17 @@ function connectWebSocket() {
     
     ws.onerror = (error) => {
       console.error('WebSocket 错误:', error);
-      statusDot.className = 'status-dot';  // 红色
+      updateConnectionStatus(false);
     };
     
     ws.onclose = () => {
       console.log('WebSocket 已断开，5秒后重连...');
-      statusDot.className = 'status-dot';  // 红色
+      updateConnectionStatus(false);
       setTimeout(connectWebSocket, 5000);
     };
   } catch (e) {
     console.error('WebSocket 连接失败:', e);
-    statusDot.className = 'status-dot';  // 红色
+    updateConnectionStatus(false);
   }
 }
 
@@ -423,8 +432,7 @@ function handleWebSocketMessage(data) {
   
   // 连接响应
   if (data.type === 'res' && data.ok && data.payload?.type === 'hello-ok') {
-    const statusDot = statusEl?.querySelector('.status-dot');
-    if (statusDot) statusDot.className = 'status-dot connected';  // 绿色
+    updateConnectionStatus(true);
     console.log('✅ 认证成功');
     // 加载会话列表和历史
     loadSessions();
@@ -448,7 +456,7 @@ function handleWebSocketMessage(data) {
     
     // 如果是认证错误，显示红色状态
     if (errorMsg.includes('auth') || errorMsg.includes('token') || errorMsg.includes('认证')) {
-      statusDot.className = 'status-dot';  // 红色
+      updateConnectionStatus(false);
     }
     
     removeTyping();
@@ -696,15 +704,17 @@ function handleSendClick() {
 // 更新发送按钮状态
 function updateSendButton() {
   const btn = document.getElementById('sendBtn');
+  if (!btn) return;
   if (isGenerating) {
-    btn.textContent = '■';
     btn.classList.add('stopping');
     btn.title = '停止生成';
+    btn.innerHTML = '<i data-lucide="square" class="icon-sm"></i>';
   } else {
-    btn.textContent = '➤';
     btn.classList.remove('stopping');
     btn.title = '发送';
+    btn.innerHTML = '<i data-lucide="send" class="icon-sm"></i>';
   }
+  if (window.lucide) lucide.createIcons();
 }
 
 // 中止对话
@@ -2126,9 +2136,13 @@ function switchAgent(agentId) {
   
   // 更新导航栏图标
   const iconEl = document.getElementById('currentAgentIcon');
+  const labelEl = document.getElementById('currentAgentLabel');
   if (iconEl) {
     iconEl.setAttribute('data-lucide', agent.icon || 'bot');
     if (window.lucide) lucide.createIcons();
+  }
+  if (labelEl) {
+    labelEl.textContent = agent.name || agentId;
   }
   
   // 关闭下拉
@@ -2783,9 +2797,13 @@ function initAgentDropdown() {
     const agent = ALL_AGENTS[currentAgentId];
     if (agent) {
       const iconEl = document.getElementById('currentAgentIcon');
+      const labelEl = document.getElementById('currentAgentLabel');
       if (iconEl) {
         iconEl.setAttribute('data-lucide', agent.icon || 'bot');
         if (window.lucide) lucide.createIcons();
+      }
+      if (labelEl) {
+        labelEl.textContent = agent.name || currentAgentId;
       }
     }
   }
