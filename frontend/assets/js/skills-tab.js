@@ -107,6 +107,13 @@ function switchView(view) {
     }
   } else if (view === 'loops') {
     if (loopsView) loopsView.classList.add('active');
+    const loopsIframe = document.getElementById('loopsIframe');
+    if (loopsIframe) {
+      const src = loopsIframe.dataset.src || 'loops.html?embedded=1&v=20260625c';
+      if (!loopsIframe.src || loopsIframe.src === 'about:blank' || loopsIframe.src.endsWith('about:blank')) {
+        loopsIframe.src = src;
+      }
+    }
   }
 
   updateViewShortcuts(view);

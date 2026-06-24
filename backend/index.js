@@ -111,6 +111,10 @@ app.use('/api/memory', memoryRoutes);
 import cronRoutes from './routes/cron.js';
 app.use('/api/cron', cronRoutes);
 
+// Loop 引擎
+import loopsRoutes from './routes/loops.js';
+app.use('/api/loops', loopsRoutes);
+
 // 错误处理
 app.use((err, req, res, next) => {
   console.error('Error:', err);

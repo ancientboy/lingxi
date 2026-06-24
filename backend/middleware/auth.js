@@ -27,6 +27,7 @@ export async function verifyToken(req, res, next) {
     }
 
     req.user = user;
+    req.userId = user.id;
     next();
   } catch {
     return res.status(401).json({ success: false, error: '登录已过期' });
