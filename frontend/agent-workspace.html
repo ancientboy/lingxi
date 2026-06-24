@@ -6,6 +6,7 @@
   <title>Workspace — Lume</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23667eea'/><text x='16' y='22' text-anchor='middle' fill='white' font-size='16' font-weight='700'>L</text></svg>">
   <link rel="stylesheet" href="assets/css/lume.css">
+  <link rel="stylesheet" href="assets/css/lume-dialog.css">
   <style>
     body {
       font-family: var(--font-body);
@@ -1106,6 +1107,12 @@
 </script>
 
 <div class="top-bar">
+  <div class="top-bar-left">
+    <a href="chat.html" class="back-link" title="返回对话">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+      返回对话
+    </a>
+  </div>
   <h1 class="flex-center-gap">
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect width="18" height="18" rx="4" fill="#10a37f"/><path d="M9 4v10M5 8h8" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>
     Agent Workspace
@@ -1838,7 +1845,13 @@ async function addMember(agentId) {
     console.error('addMember error:', e);
     // 即使网络错误，也从本地移除（防止卡住）
     if (e.message.includes('服务器响应异常') || e.message.includes('Failed to fetch')) {
-      const doLocal = confirm(`移除失败：${e.message}\n\n是否先从本地列表中移除？\n（下次连接设备时会重新同步）`);
+      const doLocal = typeof showLumeConfirm === 'function'
+        ? await showLumeConfirm(`添加失败：${e.message}\n\n是否先从本地列表中移除？（下次连接设备时会重新同步）`, {
+            title: '网络异常',
+            confirmText: '从本地移除',
+            cancelText: '取消',
+          })
+        : confirm(`添加失败：${e.message}\n\n是否先从本地列表中移除？`);
       if (doLocal) {
         openClawAgents = openClawAgents.filter(ag => ag.id !== agentId);
         AGENTS = buildAgentsList();
@@ -1855,7 +1868,15 @@ async function addMember(agentId) {
 async function removeMember(agentId) {
   const a = getAgentInfo(agentId);
   const agentName = a.name || agentId;
-  if (!confirm(`确定移除 ${agentName}？\n\n将从 OpenClaw 配置中移除此 Agent，并清理其工作区目录。`)) return;
+  const confirmed = typeof showLumeConfirm === 'function'
+    ? await showLumeConfirm(`将从 OpenClaw 配置中移除「${agentName}」，并清理其工作区目录。`, {
+        title: '移除成员',
+        confirmText: '移除',
+        cancelText: '取消',
+        danger: true,
+      })
+    : confirm(`确定移除 ${agentName}？\n\n将从 OpenClaw 配置中移除此 Agent，并清理其工作区目录。`);
+  if (!confirmed) return;
   const token = getToken();
   showToast(`正在移除 ${agentName}...`);
 
@@ -2819,5 +2840,13 @@ async function fetchRealStatus() {
 document.addEventListener('DOMContentLoaded',init);
 </script>
 <script>if(window.lucide)lucide.createIcons();</script>
+<div class="lume-dialog-overlay" id="lumeDialogOverlay" hidden aria-hidden="true">
+  <div class="lume-dialog" role="dialog" aria-modal="true" aria-labelledby="lumeDialogTitle">
+    <h2 class="lume-dialog-title" id="lumeDialogTitle"></h2>
+    <p class="lume-dialog-message" id="lumeDialogMessage"></p>
+    <div class="lume-dialog-footer" id="lumeDialogFooter"></div>
+  </div>
+</div>
+<script src="assets/js/lume-dialog.js"></script>
 </body>
 </html>

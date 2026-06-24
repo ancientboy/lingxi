@@ -1,7 +1,9 @@
-/**
- * Stripe 支付模块
- * 依赖: Stripe.js
- */
+function payNotify(message, type) {
+  const text = String(message);
+  if (typeof showLumeToast === 'function') showLumeToast(text, type === 'error' ? 'error' : 'info');
+  else if (typeof showLumeAlert === 'function') showLumeAlert(text, { title: type === 'error' ? '提示' : '提示' });
+  else window.alert(text);
+}
 
 let stripe = null;
 let elements = null;
@@ -171,7 +173,7 @@ function closePaymentModal() {
 async function initiateSubscriptionPayment(planId, planName, amount) {
   const token = localStorage.getItem('lingxi_token');
   if (!token) {
-    alert('请先登录');
+    payNotify('请先登录', 'error');
     return;
   }
   
@@ -204,10 +206,10 @@ async function initiateSubscriptionPayment(planId, planName, amount) {
         }
       });
     } else {
-      alert('创建支付失败: ' + result.error);
+      payNotify('创建支付失败: ' + result.error, 'error');
     }
   } catch (e) {
-    alert('网络错误: ' + e.message);
+    payNotify('网络错误: ' + e.message, 'error');
   }
 }
 
@@ -215,7 +217,7 @@ async function initiateSubscriptionPayment(planId, planName, amount) {
 async function initiateCreditPayment(packId, packName, amount) {
   const token = localStorage.getItem('lingxi_token');
   if (!token) {
-    alert('请先登录');
+    payNotify('请先登录', 'error');
     return;
   }
   
@@ -246,10 +248,10 @@ async function initiateCreditPayment(packId, packName, amount) {
         }
       });
     } else {
-      alert('创建支付失败: ' + result.error);
+      payNotify('创建支付失败: ' + result.error, 'error');
     }
   } catch (e) {
-    alert('网络错误: ' + e.message);
+    payNotify('网络错误: ' + e.message, 'error');
   }
 }
 

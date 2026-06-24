@@ -16,7 +16,7 @@
   <link rel="stylesheet" href="assets/css/subscription.css">
   <link rel="stylesheet" href="assets/css/stripe-payment.css">
   <link rel="stylesheet" href="assets/css/skills-tab.css?v=20260624i">
-  <link rel="stylesheet" href="assets/css/file-preview.css">
+  <link rel="stylesheet" href="assets/css/lume-dialog.css?v=20260624n">
   <!-- Lucide Icons - 使用 cdnjs 备用源 -->
   <script src="assets/libs/lucide.min.js"></script>
   <!-- Markdown 渲染 -->
@@ -2475,21 +2475,27 @@
 
     function deleteSession(e) {
       e.stopPropagation();
-      if (confirm('确定删除这个会话？')) {
-        const session = e.target.closest('.sidebar-session');
-        session.remove();
+      const session = e.target.closest('.sidebar-session');
+      const sessionKey = session?.getAttribute('onclick')?.match(/switchToSession\('([^']+)'\)/)?.[1];
+      if (sessionKey && typeof window.deleteSessionWithRefresh === 'function') {
+        window.deleteSessionWithRefresh(sessionKey);
       }
     }
 
     // 关于弹窗
-    function showAbout() {
+    async function showAbout() {
+      if (typeof showLumeAlert === 'function') {
+        await showLumeAlert('你的 AI 团队，一键拥有\n\n浙ICP备2026013667号-2A', {
+          title: 'Lume v1.0',
+          confirmText: '好的',
+        });
+        return;
+      }
       const modal = document.createElement('div');
       modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;';
       modal.innerHTML = `<div style="background:white;border-radius:16px;padding:32px;max-width:320px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);"><h3 style="margin:0 0 16px;color:var(--accent);">Lume v1.0</h3><p style="margin:0 0 12px;color:#666;font-size:14px;">你的 AI 团队，一键拥有</p><p style="margin:16px 0 0;font-size:12px;color:#999;"><a href="https://beian.miit.gov.cn/" target="_blank" style="color:#666;">浙ICP备2026013667号-2A</a></p></div>`;
       modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
       document.body.appendChild(modal);
-      return;
-      alert('Lume v1.0\n\n你的 AI 团队，一键拥有');
     }
 
     // ===== LumeClaw 维护模式 =====
@@ -2525,7 +2531,9 @@
     async function openLumeClaw() {
       const token = localStorage.getItem('lingxi_token');
       if (!token) {
-        alert('请先登录');
+        if (typeof showLumeAlert === 'function') {
+          await showLumeAlert('登录后即可使用 LumeClaw。', { title: '请先登录' });
+        }
         return;
       }
 
@@ -3179,7 +3187,9 @@
     async function handleCheckin() {
       const token = localStorage.getItem('lingxi_token');
       if (!token) {
-        alert('请先登录');
+        if (typeof showLumeAlert === 'function') {
+          await showLumeAlert('登录后即可签到领取积分。', { title: '请先登录' });
+        }
         return;
       }
 
@@ -3204,13 +3214,19 @@
           checkinBtn.classList.add('checked-in');
           document.getElementById('checkinText').textContent = '已签到';
           document.getElementById('checkinPoints').textContent = `+${data.bonus || 10}`;
-          alert(data.message || `签到成功！获得 ${data.bonus || 10} 积分`);
+          const bonus = data.bonus || 10;
+          const msg = data.message || `签到成功，获得 ${bonus} 积分`;
+          if (typeof showLumeToast === 'function') showLumeToast(msg, 'success');
+          else if (typeof showLumeAlert === 'function') await showLumeAlert(msg, { title: '签到成功', confirmText: '好的' });
         } else {
-          alert(data.message || '签到失败');
+          const errMsg = data.message || '签到失败';
+          if (typeof showLumeAlert === 'function') await showLumeAlert(errMsg, { title: '签到失败' });
         }
       } catch (e) {
         console.error('签到失败:', e);
-        alert('签到失败，请重试');
+        if (typeof showLumeAlert === 'function') {
+          await showLumeAlert('网络异常，请稍后重试。', { title: '签到失败' });
+        }
       } finally {
         checkinBtn.disabled = false;
       }
@@ -3403,14 +3419,23 @@
   })();
   </script>
 
+  <script src="assets/js/lume-dialog.js?v=20260624n"></script>
   <script src="assets/js/lume-rpc.js?v=20260615p1"></script>
   <script src="assets/js/chat-lume.js?v=20260615p2"></script>
-  <script src="assets/js/chat.js?v=20260624l"></script>
+  <script src="assets/js/chat.js?v=20260624n"></script>
 
     <!-- 统一组件加载器 -->
     <script src="components/load-components.js"></script>
-  <script src="assets/js/skills-tab.js?v=20260624j"></script>
+  <script src="assets/js/skills-tab.js?v=20260624n"></script>
     <script src="assets/js/subscription.js?v=1772525512"></script>
   <script src="assets/js/stripe-payment.js?v=1772524675"></script>
+
+  <div class="lume-dialog-overlay" id="lumeDialogOverlay" hidden aria-hidden="true">
+    <div class="lume-dialog" role="dialog" aria-modal="true" aria-labelledby="lumeDialogTitle">
+      <h2 class="lume-dialog-title" id="lumeDialogTitle"></h2>
+      <p class="lume-dialog-message" id="lumeDialogMessage"></p>
+      <div class="lume-dialog-footer" id="lumeDialogFooter"></div>
+    </div>
+  </div>
 </body>
 </html>

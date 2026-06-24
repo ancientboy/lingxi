@@ -23,6 +23,18 @@ function _accentSoft() { return getComputedStyle(document.documentElement).getPr
 
 // 配置变量（从后端动态获取）
 const API_BASE = window.location.origin;
+
+// 统一弹窗（优先 Lume 自定义，fallback 原生）
+function uiAlert(message, options) {
+  if (typeof showLumeAlert === 'function') return showLumeAlert(message, options);
+  window.alert(message);
+  return Promise.resolve(true);
+}
+function uiConfirm(message, options) {
+  if (typeof showLumeConfirm === 'function') return showLumeConfirm(message, options);
+  return Promise.resolve(window.confirm(message));
+}
+
 let GATEWAY_WS = null;
 let GATEWAY_TOKEN = null;  // JWT token，用于 WebSocket 代理认证
 let OPENCLAW_TOKEN = null;  // OpenClaw token，用于 connect 消息
@@ -572,7 +584,7 @@ async function init() {
     // 🔒 检查是否有团队（agents 不为空）
     if (!userData.agents || userData.agents.length === 0) {
       console.log('用户没有团队，跳转首页领取');
-      alert('请先在首页领取 AI 团队');
+      await uiAlert('请先在首页领取 AI 团队');
       window.location.href = 'index.html';
       return;
     }
@@ -588,7 +600,7 @@ async function init() {
   // 初始化用户专属会话
   if (!user.id) {
     console.error('用户 ID 不存在');
-    alert('用户信息错误，请重新登录');
+    await uiAlert('用户信息错误，请重新登录');
     window.location.href = 'index.html';
     return;
   }
@@ -606,28 +618,28 @@ async function init() {
 
       // 检查是否是服务器正在创建中
       if (errorData.needServer && errorData.status === 'creating') {
-        alert('服务器正在创建中，请稍候...\n\n将返回首页等待创建完成。');
+        await uiAlert('服务器正在创建中，请稍候...\n\n将返回首页等待创建完成。');
         window.location.href = 'index.html';
         return;
       }
 
       // 检查是否是需要服务器的错误
       if (errorData.needServer) {
-        alert('您还没有专属服务器，请先在首页领取团队');
+        await uiAlert('您还没有专属服务器，请先在首页领取团队');
         window.location.href = 'index.html';
         return;
       }
 
       // 检查是否是 token 过期
       if (errorData.error === '登录已过期' || errorData.error === '未登录') {
-        alert('登录已过期，请重新登录');
+        await uiAlert('登录已过期，请重新登录');
         localStorage.removeItem('lingxi_token');
         window.location.href = 'index.html';
         return;
       }
 
       // 其他错误
-      alert(errorData.error || '获取连接信息失败');
+      await uiAlert(errorData.error || '获取连接信息失败');
       window.location.href = 'index.html';
       return;
     }
@@ -643,7 +655,7 @@ async function init() {
 
   } catch (e) {
     console.error('获取 Gateway 配置失败:', e);
-    alert('网络错误，请刷新页面');
+    await uiAlert('网络错误，请刷新页面');
     return;
   }
 
@@ -999,7 +1011,7 @@ async function handleImageSelect(event) {
   
   // 检查文件类型
   if (!isImage && !isDocument) {
-    alert('不支持的文件类型\n\n支持的格式：\n• 图片：JPG, PNG, GIF, WebP\n• 文档：PDF, TXT, MD, HTML, CSV, JSON');
+    await uiAlert('不支持的文件类型\n\n支持的格式：\n• 图片：JPG, PNG, GIF, WebP\n• 文档：PDF, TXT, MD, HTML, CSV, JSON');
     return;
   }
 
@@ -1008,7 +1020,7 @@ async function handleImageSelect(event) {
   const maxSizeText = isDocument ? '5MB' : '10MB';
   
   if (file.size > maxSize) {
-    alert(`${isDocument ? '文档' : '图片'}大小不能超过 ${maxSizeText}\n\n当前文件大小：${(file.size / 1024 / 1024).toFixed(2)}MB`);
+    await uiAlert(`${isDocument ? '文档' : '图片'}大小不能超过 ${maxSizeText}\n\n当前文件大小：${(file.size / 1024 / 1024).toFixed(2)}MB`);
     return;
   }
 
@@ -1175,7 +1187,7 @@ async function handleImageSelect(event) {
     }
   } catch (e) {
     console.error(`${isDocument ? '文档' : '图片'}上传失败:`, e);
-    alert(`${isDocument ? '文档' : '图片'}上传失败: ` + e.message);
+    await uiAlert(`${isDocument ? '文档' : '图片'}上传失败: ` + e.message);
     removeSelectedImage();
   }
 
@@ -1448,7 +1460,7 @@ async function sendMessage() {
 
   if (!currentSessionKey) {
     console.error('currentSessionKey 为空');
-    alert('会话未初始化，请刷新页面');
+    await uiAlert('会话未初始化，请刷新页面');
     return;
   }
 
@@ -2044,11 +2056,19 @@ async function switchSession(sessionKey) {
 // 删除会话
 async function deleteSession(sessionKey) {
   if (sessionKey === currentSessionKey) {
-    alert('无法删除当前会话');
+    await uiAlert('请先切换到其他对话后再删除当前对话。', { title: '无法删除' });
     return;
   }
 
-  if (!confirm('确定删除这个会话吗？')) return;
+  const session = window.sessions?.find(s => s.key === sessionKey);
+  const label = session?.label || session?.title || '该对话';
+
+  if (!await uiConfirm(`将永久删除「${label}」，此操作无法恢复。`, {
+    title: '删除对话',
+    confirmText: '删除',
+    cancelText: '取消',
+    danger: true,
+  })) return;
 
   console.log('🗑️ 开始删除会话:', sessionKey);
 
@@ -2462,18 +2482,21 @@ document.addEventListener('click', (e) => {
 });
 
 // 显示设置
-function showSettings() {
-  alert('设置功能开发中...');
+async function showSettings() {
+  await uiAlert('设置功能开发中...');
 }
 
 // 显示关于
-function showAbout() {
-  alert('灵犀云 v1.0\n\n你的 AI 团队，一键拥有');
+async function showAbout() {
+  await uiAlert('你的 AI 团队，一键拥有\n\n浙ICP备2026013667号-2A', {
+    title: 'Lume v1.0',
+    confirmText: '好的',
+  });
 }
 
 // 退出登录
-function logout() {
-  if (confirm('确定要退出登录吗？')) {
+async function logout() {
+  if (await uiConfirm('退出后需要重新登录才能继续使用。', { title: '退出登录', confirmText: '退出', cancelText: '取消', danger: true })) {
     localStorage.removeItem('lingxi_token');
     localStorage.removeItem('lingxi_user');
     window.location.href = 'index.html';
@@ -2695,11 +2718,11 @@ async function addAgent(agentId) {
       initAgentDropdown();
       console.log('成员添加成功:', agentId);
     } else {
-      alert('添加失败：' + (data.error || '未知错误'));
+      await uiAlert('添加失败：' + (data.error || '未知错误'));
     }
   } catch (e) {
     console.error('添加成员失败:', e);
-    alert('网络错误：' + e.message);
+    await uiAlert('网络错误：' + e.message);
   }
 }
 
@@ -2711,16 +2734,16 @@ async function removeAgent(agentId) {
   // 不允许删除默认成员（灵犀）
   const member = user.team.members.find(m => m.id === agentId);
   if (!member) {
-    alert('成员不存在');
+    await uiAlert('成员不存在');
     return;
   }
   
   if (member.isDefault) {
-    alert('不能删除默认成员');
+    await uiAlert('不能删除默认成员');
     return;
   }
 
-  if (!confirm(`确定要移除 ${member.name} 吗？`)) return;
+  if (!await uiConfirm(`将从团队中移除「${member.name}」。`, { title: '移除成员', confirmText: '移除', cancelText: '取消', danger: true })) return;
 
   try {
     const res = await fetch(`${API_BASE}/api/team/${user.id}/members/${agentId}`, {
@@ -2744,11 +2767,11 @@ async function removeAgent(agentId) {
       initAgentDropdown();
       console.log('成员移除成功:', agentId);
     } else {
-      alert('移除失败：' + (data.error || '未知错误'));
+      await uiAlert('移除失败：' + (data.error || '未知错误'));
     }
   } catch (e) {
     console.error('移除成员失败:', e);
-    alert('网络错误：' + e.message);
+    await uiAlert('网络错误：' + e.message);
   }
 }
 
@@ -2840,7 +2863,7 @@ async function showTemplateDetail(templateId) {
     }
   } catch (e) {
     console.error('加载模板详情失败:', e);
-    alert('加载模板详情失败');
+    await uiAlert('加载模板详情失败');
   }
 }
 
@@ -2909,7 +2932,7 @@ function closeTemplateDetailModal() {
 // 确认应用模板
 async function confirmApplyTemplate() {
   if (!selectedTemplate || !user) {
-    alert('请先选择模板');
+    await uiAlert('请先选择模板');
     return;
   }
   
@@ -2951,13 +2974,13 @@ async function confirmApplyTemplate() {
       
       console.log('模板应用成功:', templateId);
     } else {
-      alert('应用失败: ' + (data.error || '未知错误'));
+      await uiAlert('应用失败: ' + (data.error || '未知错误'));
     }
   } catch (e) {
     console.error('应用模板失败:', e);
     console.error('异常堆栈:', e.stack);
     console.error('selectedTemplate:', selectedTemplate);
-    alert('网络错误：' + e.message);
+    await uiAlert('网络错误：' + e.message);
   } finally {
     btn.disabled = false;
     btn.textContent = '应用此模板';
@@ -3011,14 +3034,14 @@ function closeSessionModal() {
 // ═══════════════════════════════════════════════════════════════
 // ⚙️ 配置模块
 // ═══════════════════════════════════════════════════════════════
-function showFeishuConfig() {
+async function showFeishuConfig() {
   const dropdown = document.getElementById('userDropdown');
   if (dropdown) dropdown.classList.remove('show');
   const userMenu = document.getElementById('sidebarUserMenu');
   if (userMenu) userMenu.classList.remove('show');
 
   if (!user || !user.id) {
-    alert('请先登录');
+    await uiAlert('请先登录');
     return;
   }
 
@@ -3061,7 +3084,7 @@ async function saveFeishuConfig(e) {
   const appSecret = document.getElementById('feishuAppSecret').value.trim();
 
   if (!appId || !appSecret) {
-    alert('请填写完整信息');
+    await uiAlert('请填写完整信息');
     return;
   }
 
@@ -3083,15 +3106,15 @@ async function saveFeishuConfig(e) {
     const data = await res.json();
 
     if (data.success) {
-      alert(`飞书配置成功！\n\n请在飞书开放平台配置：\n1. 进入应用管理 → 事件订阅\n2. 选择 WebSocket 连接方式\n3. 订阅事件：im.message.receive_v1\n4. 点击"保存"\n\n配置完成后即可在飞书里与机器人对话！`);
+      await uiAlert(`飞书配置成功！\n\n请在飞书开放平台配置：\n1. 进入应用管理 → 事件订阅\n2. 选择 WebSocket 连接方式\n3. 订阅事件：im.message.receive_v1\n4. 点击"保存"\n\n配置完成后即可在飞书里与机器人对话！`);
 
       loadFeishuStatus();
       closeFeishuModal(); // 关闭弹窗
     } else {
-      alert('配置失败: ' + (data.error || '未知错误'));
+      await uiAlert('配置失败: ' + (data.error || '未知错误'));
     }
   } catch (e) {
-    alert('网络错误: ' + e.message);
+    await uiAlert('网络错误: ' + e.message);
   }
 }
 
@@ -3099,19 +3122,20 @@ function copyFeishuWebhook() {
   const input = document.getElementById('feishuWebhookUrl');
   input.select();
   document.execCommand('copy');
-  alert('已复制到剪贴板');
+  if (typeof showLumeToast === 'function') showLumeToast('已复制到剪贴板', 'success');
+  else uiAlert('已复制到剪贴板');
 }
 
 // ===== 企业微信配置 =====
 
-function showWecomConfig() {
+async function showWecomConfig() {
   const dropdown = document.getElementById('userDropdown');
   if (dropdown) dropdown.classList.remove('show');
   const userMenu = document.getElementById('sidebarUserMenu');
   if (userMenu) userMenu.classList.remove('show');
 
   if (!user || !user.id) {
-    alert('请先登录');
+    await uiAlert('请先登录');
     return;
   }
 
@@ -3156,7 +3180,7 @@ async function saveWecomConfig(e) {
   const encodingAesKey = document.getElementById('wecomEncodingAesKey')?.value.trim() || '';
 
   if (!corpId || !agentId || !agentSecret) {
-    alert('请填写完整信息');
+    await uiAlert('请填写完整信息');
     return;
   }
 
@@ -3181,14 +3205,14 @@ async function saveWecomConfig(e) {
 
     if (data.success) {
       const callbackInfo = data.webhook ? `\n\n请配置回调地址：\n${data.webhook.callbackUrl}` : '';
-      alert('企业微信配置成功！' + callbackInfo);
+      await uiAlert('企业微信配置成功！' + callbackInfo);
       loadWecomStatus();
       closeWecomModal();
     } else {
-      alert('配置失败: ' + (data.error || '未知错误'));
+      await uiAlert('配置失败: ' + (data.error || '未知错误'));
     }
   } catch (e) {
-    alert('网络错误: ' + e.message);
+    await uiAlert('网络错误: ' + e.message);
   }
 }
 
@@ -3196,7 +3220,8 @@ function copyWecomWebhook() {
   const input = document.getElementById('wecomWebhookUrl');
   input.select();
   document.execCommand('copy');
-  alert('已复制到剪贴板');
+  if (typeof showLumeToast === 'function') showLumeToast('已复制到剪贴板', 'success');
+  else uiAlert('已复制到剪贴板');
 }
 
 // ===== 修改密码 =====
@@ -3222,12 +3247,12 @@ async function changePassword(e) {
   const confirmPwd = document.getElementById('confirmPassword').value;
 
   if (newPwd !== confirmPwd) {
-    alert('两次输入的新密码不一致');
+    await uiAlert('两次输入的新密码不一致');
     return;
   }
 
   if (newPwd.length < 6) {
-    alert('新密码至少6位');
+    await uiAlert('新密码至少6位');
     return;
   }
 
@@ -3247,13 +3272,13 @@ async function changePassword(e) {
     const data = await res.json();
 
     if (data.success) {
-      alert('密码修改成功！');
+      await uiAlert('密码修改成功！');
       closePasswordModal();
     } else {
-      alert('修改失败: ' + (data.error || '未知错误'));
+      await uiAlert('修改失败: ' + (data.error || '未知错误'));
     }
   } catch (e) {
-    alert('网络错误: ' + e.message);
+    await uiAlert('网络错误: ' + e.message);
   }
 }
 
@@ -3338,7 +3363,7 @@ try {
   console.log('页面初始化完成');
 } catch (e) {
   console.error('页面初始化失败:', e);
-  alert('页面初始化失败: ' + e.message);
+  uiAlert('页面初始化失败: ' + e.message);
 }
 
 // ==================== Agent 切换功能 ====================
@@ -3523,10 +3548,10 @@ async function applyRecommendation() {
       // 跳转到完成步骤
       goToOnboardingStep(4);
     } else {
-      alert('配置失败: ' + (data.error || '未知错误'));
+      await uiAlert('配置失败: ' + (data.error || '未知错误'));
     }
   } catch (e) {
-    alert('网络错误: ' + e.message);
+    await uiAlert('网络错误: ' + e.message);
   }
 
   btn.disabled = false;
@@ -3810,7 +3835,7 @@ async function loadSkillLibrary() {
 
   } catch (e) {
     console.error('加载技能库失败:', e);
-    alert('加载技能库失败，请稍后重试');
+    await uiAlert('加载技能库失败，请稍后重试');
   }
 }
 
@@ -4650,10 +4675,10 @@ function initVoiceRecognition() {
   };
 
   // 错误处理
-  recognition.onerror = (event) => {
+  recognition.onerror = async (event) => {
     console.error('[语音] 识别错误:', event.error);
     if (event.error === 'not-allowed') {
-      alert('请允许浏览器访问麦克风');
+      await uiAlert('请允许浏览器访问麦克风');
     } else if (event.error === 'no-speech') {
       console.log('[语音] 未检测到语音');
     }
@@ -4701,9 +4726,9 @@ function initVoiceRecognition() {
 }
 
 // 切换录音状态（改为按住说话模式）
-function toggleVoiceInput() {
+async function toggleVoiceInput() {
   if (!recognition) {
-    alert('您的浏览器不支持语音识别，请使用 Chrome、Edge 或 Safari 浏览器');
+    await uiAlert('您的浏览器不支持语音识别，请使用 Chrome、Edge 或 Safari 浏览器');
     return;
   }
 
@@ -4883,7 +4908,7 @@ async function handleCameraCapture() {
     input.click();
   } catch (error) {
     console.error('打开摄像头失败:', error);
-    alert('无法打开摄像头，请检查权限设置');
+    await uiAlert('无法打开摄像头，请检查权限设置');
   }
 }
 

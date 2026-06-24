@@ -1,0 +1,163 @@
+/**
+ * Lume 统一弹窗 — 替代浏览器 alert / confirm
+ */
+
+.lume-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 15, 15, 0.32);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.lume-dialog-overlay.show {
+  opacity: 1;
+  visibility: visible;
+}
+
+.lume-dialog-overlay[hidden] {
+  display: none !important;
+}
+
+.lume-dialog {
+  width: 100%;
+  max-width: 400px;
+  background: var(--bg-card, #fff);
+  border-radius: 16px;
+  border: 1px solid var(--border-sub, #f0f1f3);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.14), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  padding: 22px 22px 18px;
+  transform: translateY(8px) scale(0.98);
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.lume-dialog-overlay.show .lume-dialog {
+  transform: translateY(0) scale(1);
+}
+
+.lume-dialog-title {
+  font-family: var(--font-display, 'DM Sans', sans-serif);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-1, #171717);
+  margin: 0 0 8px;
+  line-height: 1.35;
+}
+
+.lume-dialog-message {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-2, #525252);
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.lume-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 22px;
+}
+
+.lume-dialog-btn {
+  min-width: 88px;
+  padding: 9px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: var(--font-display, 'DM Sans', sans-serif);
+  cursor: pointer;
+  border: none;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.lume-dialog-btn-ghost {
+  background: transparent;
+  color: var(--text-2, #525252);
+  border: 1px solid var(--border, #e5e7eb);
+}
+
+.lume-dialog-btn-ghost:hover {
+  background: var(--bg-hover, #f5f5f4);
+  color: var(--text-1, #171717);
+}
+
+.lume-dialog-btn-primary {
+  background: var(--text-1, #171717);
+  color: #fff;
+}
+
+.lume-dialog-btn-primary:hover {
+  background: #2a2a2a;
+}
+
+.lume-dialog-btn-danger {
+  background: #dc2626;
+  color: #fff;
+}
+
+.lume-dialog-btn-danger:hover {
+  background: #b91c1c;
+}
+
+/* Toast */
+.lume-toast-stack {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 13000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.lume-toast {
+  pointer-events: auto;
+  padding: 11px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  animation: lume-toast-in 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  max-width: 360px;
+}
+
+.lume-toast-success {
+  background: var(--text-1, #171717);
+}
+
+.lume-toast-error {
+  background: #dc2626;
+}
+
+.lume-toast-info {
+  background: var(--text-1, #171717);
+}
+
+@keyframes lume-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+body[data-theme="dark"] .lume-dialog,
+html[data-theme="dark"] .lume-dialog {
+  background: #1a1a1a;
+  border-color: var(--border, #2d2d2d);
+}

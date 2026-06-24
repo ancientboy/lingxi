@@ -2,6 +2,18 @@
  * 订阅管理模块 - 支付宝支付（支持电脑扫码 + 手机H5）
  */
 
+function subToast(message, type) {
+  const text = String(message).replace(/^[\u2705\u274c]\s*/, '');
+  if (typeof showLumeToast === 'function') showLumeToast(text, type === 'error' ? 'error' : 'success');
+  else window.alert(message);
+}
+
+function subAlert(message, title) {
+  if (typeof showLumeAlert === 'function') return showLumeAlert(message, { title: title || '提示' });
+  window.alert(message);
+  return Promise.resolve(true);
+}
+
 // 显示订阅弹窗
 window.showSubscription = function() {
   const dropdown = document.getElementById('userDropdown');
@@ -116,16 +128,16 @@ window.handleSubscribe = async function(planId) {
       });
       const result = await res.json();
       if (result.success) {
-        alert('✅ 试用已开启');
+        subToast('试用已开启', 'success');
         loadSubscriptionData();
         if (typeof refreshSidebarCredits === 'function') refreshSidebarCredits();
       } else {
-        alert('❌ ' + result.error);
+        subToast(result.error || '操作失败', 'error');
         btn.disabled = false;
         btn.textContent = '开始试用';
       }
     } catch (e) {
-      alert('网络错误');
+      subToast('网络错误', 'error');
       btn.disabled = false;
       btn.textContent = '开始试用';
     }
@@ -156,12 +168,12 @@ window.handleSubscribe = async function(planId) {
         pollOrderStatus(result.data.outTradeNo);
       }
     } else {
-      alert('❌ ' + (result.error || '创建订单失败'));
+      subToast(result.error || '创建订单失败', 'error');
       btn.disabled = false;
       btn.textContent = '订阅';
     }
   } catch (e) {
-    alert('网络错误');
+    subToast('网络错误', 'error');
     btn.disabled = false;
     btn.textContent = '订阅';
   }
@@ -187,10 +199,10 @@ window.handleBuyPack = async function(packId) {
         window.open(result.data.payUrl, '_blank', 'width=900,height=600');
       }
     } else {
-      alert('❌ ' + (result.error || '创建订单失败'));
+      subToast(result.error || '创建订单失败', 'error');
     }
   } catch (e) {
-    alert('网络错误');
+    subToast('网络错误', 'error');
   }
 };
 
@@ -215,7 +227,7 @@ async function pollOrderStatus(outTradeNo) {
       const result = await res.json();
       if (result.success && result.data.status === 'paid') {
         clearInterval(interval);
-        alert('✅ 支付成功！');
+        subToast('支付成功！', 'success');
         loadSubscriptionData();
         if (typeof refreshSidebarCredits === 'function') refreshSidebarCredits();
       }

@@ -3,6 +3,16 @@
  * Unified with lume.css design system, no emoji, lucide icons
  */
 
+function uiAlert(message, options) {
+  if (typeof showLumeAlert === 'function') return showLumeAlert(message, options);
+  window.alert(message);
+  return Promise.resolve(true);
+}
+function uiConfirm(message, options) {
+  if (typeof showLumeConfirm === 'function') return showLumeConfirm(message, options);
+  return Promise.resolve(window.confirm(message));
+}
+
 const SKILLS_AGENT_CONFIG = {
   coder: { name: 'Spark', icon: 'code', color: 'var(--accent)' },
   ops: { name: 'Pulse', icon: 'bar-chart-2', color: '#f59e0b' },
@@ -471,15 +481,83 @@ function showEditServerModal(id) { const s = _serversCache.servers.find(x=>x.id=
 function closeServerFormModal() { const m=document.getElementById('serverFormModal'); if(m)m.style.display='none'; }
 
 async function submitServerForm() {
-  const ip=document.getElementById('sf_ip').value.trim(); if(!ip){alert('IP required');return;}
-  const body={name:document.getElementById('sf_name').value.trim(),ip,openclawPort:parseInt(document.getElementById('sf_port').value.trim())||18789,openclawToken:document.getElementById('sf_token').value.trim(),openclawSession:document.getElementById('sf_session').value.trim(),description:document.getElementById('sf_desc').value.trim()};
-  const token=localStorage.getItem('lingxi_token'), userId=_getUserId();
-  try{ const res=_editingServerId?await fetch(`${API_BASE}/api/servers/${userId}/${_editingServerId}`,{method:'PUT',headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},body:JSON.stringify(body)}):await fetch(`${API_BASE}/api/servers/${userId}`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},body:JSON.stringify(body)}); closeServerFormModal(); loadServersView(); }catch(e){alert('Save failed: '+e.message);}
+  const ip = document.getElementById('sf_ip').value.trim();
+  if (!ip) {
+    await uiAlert('请填写设备 IP 地址', { title: '缺少信息' });
+    return;
+  }
+  const body = {
+    name: document.getElementById('sf_name').value.trim(),
+    ip,
+    openclawPort: parseInt(document.getElementById('sf_port').value.trim()) || 18789,
+    openclawToken: document.getElementById('sf_token').value.trim(),
+    openclawSession: document.getElementById('sf_session').value.trim(),
+    description: document.getElementById('sf_desc').value.trim(),
+  };
+  const token = localStorage.getItem('lingxi_token');
+  const userId = _getUserId();
+  try {
+    const res = _editingServerId
+      ? await fetch(`${API_BASE}/api/servers/${userId}/${_editingServerId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(body) })
+      : await fetch(`${API_BASE}/api/servers/${userId}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(body) });
+    closeServerFormModal();
+    loadServersView();
+    if (typeof showLumeToast === 'function') showLumeToast('设备已保存', 'success');
+  } catch (e) {
+    await uiAlert('保存失败：' + e.message, { title: '保存失败' });
+  }
 }
 
-async function checkServer(id) { const token=localStorage.getItem('lingxi_token'),userId=_getUserId(); try{ const res=await fetch(`${API_BASE}/api/servers/${userId}/${id}/check`,{method:'POST',headers:{'Authorization':`Bearer ${token}`}}); const data=await res.json(); alert(data.status==='running'?'Online':'Offline'); loadServersView(); }catch(e){alert('Check failed');} }
-async function activateServer(id) { const token=localStorage.getItem('lingxi_token'),userId=_getUserId(); try{ await fetch(`${API_BASE}/api/servers/${userId}/${id}/activate`,{method:'POST',headers:{'Authorization':`Bearer ${token}`}}); await loadServersView(); if(typeof reconnectAfterDeviceSwitch==='function')await reconnectAfterDeviceSwitch(); else location.reload(); }catch(e){alert('Switch failed');} }
-async function deleteServer(id) { if(!confirm('Delete this device?'))return; const token=localStorage.getItem('lingxi_token'),userId=_getUserId(); try{ await fetch(`${API_BASE}/api/servers/${userId}/${id}`,{method:'DELETE',headers:{'Authorization':`Bearer ${token}`}}); loadServersView(); }catch(e){alert('Delete failed');} }
+async function checkServer(id) {
+  const token = localStorage.getItem('lingxi_token');
+  const userId = _getUserId();
+  try {
+    const res = await fetch(`${API_BASE}/api/servers/${userId}/${id}/check`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+    const data = await res.json();
+    const online = data.status === 'running';
+    if (typeof showLumeToast === 'function') {
+      showLumeToast(online ? '设备在线' : '设备离线', online ? 'success' : 'info');
+    } else {
+      await uiAlert(online ? '设备在线' : '设备离线');
+    }
+    loadServersView();
+  } catch (e) {
+    await uiAlert('检测失败，请稍后重试', { title: '连接检测' });
+  }
+}
+
+async function activateServer(id) {
+  const token = localStorage.getItem('lingxi_token');
+  const userId = _getUserId();
+  try {
+    await fetch(`${API_BASE}/api/servers/${userId}/${id}/activate`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+    await loadServersView();
+    if (typeof reconnectAfterDeviceSwitch === 'function') await reconnectAfterDeviceSwitch();
+    else location.reload();
+  } catch (e) {
+    await uiAlert('切换设备失败，请稍后重试', { title: '切换失败' });
+  }
+}
+
+async function deleteServer(id) {
+  const server = _serversCache?.servers?.find(x => x.id === id);
+  const label = server?.name || server?.ip || '该设备';
+  if (!await uiConfirm(`将永久删除「${label}」，此操作无法恢复。`, {
+    title: '删除设备',
+    confirmText: '删除',
+    cancelText: '取消',
+    danger: true,
+  })) return;
+  const token = localStorage.getItem('lingxi_token');
+  const userId = _getUserId();
+  try {
+    await fetch(`${API_BASE}/api/servers/${userId}/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
+    loadServersView();
+    if (typeof showLumeToast === 'function') showLumeToast('设备已删除', 'success');
+  } catch (e) {
+    await uiAlert('删除失败，请稍后重试', { title: '删除失败' });
+  }
+}
 
 // Init
 function initSkillsView() {
