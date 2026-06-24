@@ -2,7 +2,7 @@
  * 模型路由工具 — 统一拦截已停用的 OpenCode Go (ocg/*) 链路
  */
 
-export const GLM_CN_PRIMARY = 'glm-cn/glm-5.1';
+export const GLM_CN_PRIMARY = 'glm-cn/glm-5.2';
 
 export function isOpenCodeGoModel(model) {
   if (!model) return false;

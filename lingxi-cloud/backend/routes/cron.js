@@ -18,6 +18,7 @@ import { verifyToken } from '../middleware/auth.js';
 import { getDB } from '../utils/db.js';
 import { getActiveServer } from '../utils/activeServer.js';
 import { callOpenClawRPC } from '../utils/openclaw-rpc.js';
+import nodemailer from 'nodemailer';
 
 const router = Router();
 
@@ -35,8 +36,78 @@ const ALLOWED_SCHEDULE_KINDS = ['cron', 'interval', 'at'];
 /** /update patch 字段白名单 */
 const ALLOWED_PATCH_FIELDS = ['name', 'schedule', 'payload', 'enabled'];
 
+/** 通知渠道白名单 */
+const ALLOWED_NOTIFY_CHANNELS = ['email', 'webhook', 'none'];
+
 /** jobId 合法字符：字母、数字、短横线 */
 const JOB_ID_RE = /^[a-zA-Z0-9-]+$/;
+
+/** 邮箱格式校验 */
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// ============ Notify Helpers ============
+
+/**
+ * 校验通知配置
+ * @returns {string|null} 错误消息，null 表示通过
+ */
+function validateNotify(notify) {
+  if (!notify || typeof notify !== 'object') {
+    return null; // 可选，不传不报错
+  }
+  if (notify.channel && !ALLOWED_NOTIFY_CHANNELS.includes(notify.channel)) {
+    return `notify.channel 仅允许: ${ALLOWED_NOTIFY_CHANNELS.join(', ')}`;
+  }
+  if (notify.channel === 'email' && notify.target) {
+    if (!EMAIL_RE.test(notify.target)) {
+      return 'notify.target 邮箱格式无效';
+    }
+  }
+  if (notify.channel === 'webhook' && notify.target) {
+    try {
+      new URL(notify.target);
+    } catch {
+      return 'notify.target webhook URL 格式无效';
+    }
+  }
+  return null;
+}
+
+/**
+ * 从 payload.message 中提取通知配置（前端嵌入）
+ * 格式: <!--notify:{"channel":"email","target":"a@b.com"}-->
+ * @returns {Object|null} 通知配置对象
+ */
+function extractNotifyFromMessage(message) {
+  if (!message || typeof message !== 'string') return null;
+  const match = message.match(/<!--notify:({.+?})-->/);
+  if (!match) return null;
+  try {
+    return JSON.parse(match[1]);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 将通知配置注入到 payload.message 中
+ */
+function injectNotifyToMessage(message, notify) {
+  if (!notify || !notify.channel) return message;
+  const notifyStr = `<!--notify:${JSON.stringify(notify)}-->`;
+  if (message.includes('<!--notify:')) {
+    return message.replace(/<!--notify:{.+?}-->/, notifyStr);
+  }
+  return message + '\n' + notifyStr;
+}
+
+/**
+ * 从 payload.message 中移除通知配置标记
+ */
+function stripNotifyFromMessage(message) {
+  if (!message || typeof message !== 'string') return message;
+  return message.replace(/\n?<!--notify:{.+?}-->/, '').trim();
+}
 
 // ============ Helpers ============
 
@@ -182,12 +253,17 @@ router.get('/list', async (req, res) => {
   if (!result) return;
 
   const jobs = result.payload?.jobs || result.payload || [];
-  res.json({ success: true, jobs });
+  // 为每个 job 提取 notify 配置
+  const jobsWithNotify = jobs.map(function(job) {
+    var msg = job.payload?.message;
+    return Object.assign({}, job, { notify: extractNotifyFromMessage(msg) || null });
+  });
+  res.json({ success: true, jobs: jobsWithNotify });
 });
 
 // POST /api/cron/add — 创建任务
 router.post('/add', async (req, res) => {
-  const { name, schedule, payload, enabled } = req.body;
+  const { name, schedule, payload, enabled, notify } = req.body;
 
   // 1. 基本参数检查
   if (!name || typeof name !== 'string') {
@@ -207,11 +283,20 @@ router.post('/add', async (req, res) => {
     return res.status(400).json({ success: false, error: payloadErr });
   }
 
-  // 4. 获取服务器
+  // 4. notify 校验 + 注入到 message
+  const notifyErr = validateNotify(notify);
+  if (notifyErr) {
+    return res.status(400).json({ success: false, error: notifyErr });
+  }
+  if (notify && notify.channel && notify.channel !== 'none') {
+    finalPayload.message = injectNotifyToMessage(finalPayload.message, notify);
+  }
+
+  // 5. 获取服务器
   const userServer = await resolveServer(req, res);
   if (!userServer) return;
 
-  // 5. RPC 调用（只传必要字段）
+  // 6. RPC 调用（只传必要字段）
   const result = await rpc(res, userServer, 'cron.add', {
     name,
     schedule,
@@ -221,7 +306,9 @@ router.post('/add', async (req, res) => {
   if (!result) return;
 
   const job = result.payload?.job || result.payload || {};
-  res.json({ success: true, job });
+  // 返回时附带 notify 配置（从 message 中提取）
+  const jobNotify = extractNotifyFromMessage(finalPayload.message);
+  res.json({ success: true, job, notify: jobNotify });
 });
 
 // POST /api/cron/update — 更新任务
@@ -270,11 +357,26 @@ router.post('/update', async (req, res) => {
   const userServer = await resolveServer(req, res);
   if (!userServer) return;
 
-  // 6. RPC 调用 — jobId 独立传递，patch 经白名单过滤
+  // 6. 如果传了 notify，注入到 payload.message
+  if (safePatch.payload && req.body.notify) {
+    const notifyErr = validateNotify(req.body.notify);
+    if (notifyErr) {
+      return res.status(400).json({ success: false, error: notifyErr });
+    }
+    if (req.body.notify.channel && req.body.notify.channel !== 'none') {
+      safePatch.payload.message = injectNotifyToMessage(safePatch.payload.message || '', req.body.notify);
+    } else {
+      // channel=none → 移除已有通知配置
+      safePatch.payload.message = stripNotifyFromMessage(safePatch.payload.message || '');
+    }
+  }
+
   const result = await rpc(res, userServer, 'cron.update', { id: jobId, patch: safePatch }, 15000);
   if (!result) return;
 
-  res.json({ success: true, job: result.payload?.job || result.payload || {} });
+  // 返回时附带 notify 配置
+  const jobNotify = safePatch.payload?.message ? extractNotifyFromMessage(safePatch.payload.message) : null;
+  res.json({ success: true, job: result.payload?.job || result.payload || {}, notify: jobNotify });
 });
 
 // POST /api/cron/remove — 删除任务
@@ -346,6 +448,288 @@ router.get('/status', async (req, res) => {
   if (!result) return;
 
   res.json({ success: true, status: result.payload?.status || result.payload || {} });
+});
+
+// ============ 邮件通知服务 ============
+
+/**
+ * 获取邮件发送器（支持用户自定义 SMTP 或 fallback 到系统默认）
+ * @param {Object} customSmtp - 用户自定义 SMTP 配置 {host, port, secure, user, pass, from}
+ */
+function getMailTransporter(customSmtp) {
+  // 优先使用用户自定义 SMTP
+  if (customSmtp && customSmtp.host && customSmtp.user && customSmtp.pass) {
+    return nodemailer.createTransport({
+      host: customSmtp.host,
+      port: parseInt(customSmtp.port || '587', 10),
+      secure: customSmtp.secure === true || customSmtp.port === '465',
+      auth: { user: customSmtp.user, pass: customSmtp.pass },
+    });
+  }
+
+  // Fallback: 系统默认 SMTP
+  const smtpHost = process.env.SMTP_HOST;
+  const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
+  const smtpUser = process.env.SMTP_USER;
+  const smtpPass = process.env.SMTP_PASS;
+  const smtpSecure = process.env.SMTP_SECURE === 'true';
+
+  if (!smtpHost || !smtpUser || !smtpPass) {
+    console.error('[邮件] SMTP 未配置');
+    return null;
+  }
+
+  return nodemailer.createTransport({
+    host: smtpHost,
+    port: smtpPort,
+    secure: smtpSecure,
+    auth: { user: smtpUser, pass: smtpPass },
+  });
+}
+
+// POST /api/cron/notify — 发送邮件通知（供 Agent 调用）
+router.post('/notify', async (req, res) => {
+  try {
+    const { to, subject, body, html, smtp } = req.body;
+
+    if (!to || !subject || !body) {
+      return res.status(400).json({ success: false, error: '缺少 to/subject/body' });
+    }
+
+    const transporter = getMailTransporter(smtp);
+    if (!transporter) {
+      return res.status(503).json({ success: false, error: '邮件服务未配置' });
+    }
+
+    await transporter.sendMail({
+      from: smtp?.from || process.env.SMTP_FROM || process.env.SMTP_USER,
+      to: to,
+      subject: subject,
+      text: body,
+      html: html || undefined,
+    });
+
+    res.json({ success: true, message: '邮件已发送' });
+  } catch (err) {
+    console.error('[邮件] 发送失败:', err.message);
+    res.status(500).json({ success: false, error: err.message || '邮件发送失败' });
+  }
+});
+
+// GET /api/cron/notify/config — 检查邮件配置状态
+router.get('/notify/config', async (req, res) => {
+  const configured = !!(
+    process.env.SMTP_HOST &&
+    process.env.SMTP_USER &&
+    process.env.SMTP_PASS
+  );
+  res.json({
+    success: true,
+    configured,
+    host: process.env.SMTP_HOST || null,
+    from: process.env.SMTP_FROM || process.env.SMTP_USER || null,
+  });
+});
+
+// ============ 用户 SMTP 配置 ============
+
+/**
+ * 获取用户的邮件配置（脱敏）
+ * GET /api/cron/smtp/config
+ * 返回 configured + 邮箱地址（用于前端显示"默认通知邮箱"）
+ */
+router.get('/smtp/config', async (req, res) => {
+  try {
+    const db = await getDB();
+    const userSmtp = (db.userSmtpConfigs || []).find(s => s.userId === req.user.id);
+
+    if (!userSmtp) {
+      return res.json({ success: true, configured: false });
+    }
+
+    // 脱敏返回（不返回密码）
+    res.json({
+      success: true,
+      configured: true,
+      email: userSmtp.recipientEmail || userSmtp.user, // 收件邮箱（默认=发件邮箱）
+      config: {
+        host: userSmtp.host,
+        port: userSmtp.port,
+        secure: userSmtp.secure,
+        user: userSmtp.user,
+        from: userSmtp.from || userSmtp.user,
+        recipientEmail: userSmtp.recipientEmail || userSmtp.user,
+      }
+    });
+  } catch (e) {
+    console.error('[SMTP] 获取配置失败:', e);
+    res.status(500).json({ success: false, error: '获取配置失败' });
+  }
+});
+
+/**
+ * 保存用户的 SMTP 配置
+ * POST /api/cron/smtp/config
+ * body: { host, port, secure, user, pass, from }
+ */
+router.post('/smtp/config', async (req, res) => {
+  try {
+    const { host, port, secure, user, pass, from, recipientEmail } = req.body;
+
+    // 校验必填
+    if (!host || !user || !pass) {
+      return res.status(400).json({ success: false, error: '缺少 host/user/pass' });
+    }
+
+    // 校验邮箱格式
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(user)) {
+      return res.status(400).json({ success: false, error: 'user 邮箱格式无效' });
+    }
+
+    const db = await getDB();
+    if (!db.userSmtpConfigs) db.userSmtpConfigs = [];
+
+    const idx = db.userSmtpConfigs.findIndex(s => s.userId === req.user.id);
+    const newConfig = {
+      userId: req.user.id,
+      host,
+      port: parseInt(port || '587', 10),
+      secure: secure === true || port === '465',
+      user,
+      pass,
+      from: from || user,
+      recipientEmail: recipientEmail || user, // 收件邮箱，默认=发件邮箱
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (idx >= 0) {
+      db.userSmtpConfigs[idx] = newConfig;
+    } else {
+      db.userSmtpConfigs.push(newConfig);
+    }
+
+    await saveDB(db);
+    res.json({ success: true, message: 'SMTP 配置已保存' });
+  } catch (e) {
+    console.error('[SMTP] 保存配置失败:', e);
+    res.status(500).json({ success: false, error: '保存配置失败' });
+  }
+});
+
+/**
+ * 测试邮件发送
+ * POST /api/cron/smtp/test
+ * body: { to }
+ */
+router.post('/smtp/test', async (req, res) => {
+  try {
+    const { to } = req.body;
+    if (!to) {
+      return res.status(400).json({ success: false, error: '缺少 to' });
+    }
+
+    const db = await getDB();
+    const userSmtp = (db.userSmtpConfigs || []).find(s => s.userId === req.user.id);
+    if (!userSmtp) {
+      return res.status(400).json({ success: false, error: '请先配置 SMTP' });
+    }
+
+    const transporter = getMailTransporter(userSmtp);
+    if (!transporter) {
+      return res.status(503).json({ success: false, error: '邮件服务配置无效' });
+    }
+
+    await transporter.sendMail({
+      from: userSmtp.from || userSmtp.user,
+      to: to,
+      subject: '【灵犀云】SMTP 测试邮件',
+      text: '这是一封测试邮件，确认你的 SMTP 配置正常工作。',
+      html: '<h2>✅ SMTP 配置成功</h2><p>这是一封测试邮件，确认你的 SMTP 配置正常工作。</p><p>—— 灵犀云</p>',
+    });
+
+    res.json({ success: true, message: '测试邮件已发送' });
+  } catch (e) {
+    console.error('[SMTP] 测试失败:', e);
+    res.status(500).json({ success: false, error: e.message || '测试发送失败' });
+  }
+});
+
+// ============ Cron Webhook — 任务完成后自动发邮件 ============
+
+// POST /api/cron/webhook — 接收 OpenClaw cron 任务完成事件
+// OpenClaw delivery.mode=webhook 会 POST 到这里
+router.post('/webhook', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const jobId = body.jobId || body.id || '';
+    const jobName = body.jobName || body.name || '定时任务';
+    const status = body.status || body.runStatus || '';
+    const result = body.result || body.output || body.payload || '';
+    const errorMsg = body.error || body.errorReason || '';
+
+    console.log(`[Cron Webhook] 收到任务事件: ${jobName} (${jobId}) status=${status}`);
+
+    // 从 message 中提取 notify 配置（可选）
+    const message = body.message || body.payload?.message || '';
+    const notifyMatch = message.match(/<!--notify:(\{[\s\S]*?\})-->/);
+    const notify = notifyMatch ? JSON.parse(notifyMatch[1]) : null;
+
+    // notify:none → 明确跳过
+    if (notify && notify.channel === 'none') {
+      console.log('[Cron Webhook] notify=none，跳过');
+      return res.json({ success: true, skipped: true });
+    }
+
+    // 获取用户 SMTP 配置 — webhook 无用户身份，取第一条配置（单用户场景）
+    const db = await getDB();
+    const userSmtp = (db.userSmtpConfigs || [])[0];
+    if (!userSmtp) {
+      console.log('[Cron Webhook] 无 SMTP 配置，跳过');
+      return res.json({ success: true, skipped: true });
+    }
+
+    // 收件人优先级：notify.target > recipientEmail > user
+    const recipient = (notify && notify.target) || userSmtp.recipientEmail || userSmtp.user;
+
+    const transporter = getMailTransporter(userSmtp);
+    if (!transporter) {
+      console.log('[Cron Webhook] transporter 创建失败，跳过');
+      return res.json({ success: true, skipped: true });
+    }
+
+    // 构建邮件内容
+    const isSuccess = status === 'ok' || status === 'success' || status === 'completed';
+    const subject = isSuccess
+      ? `✅ [${jobName}] 任务完成报告`
+      : `❌ [${jobName}] 任务执行失败`;
+
+    // 把结果转成简洁文本
+    const resultText = typeof result === 'string'
+      ? result.slice(0, 5000)
+      : JSON.stringify(result, null, 2).slice(0, 5000);
+
+    const textBody = isSuccess
+      ? `任务「${jobName}」已完成执行。\n\n--- 执行结果 ---\n${resultText}\n\n--- \n灵犀云`
+      : `任务「${jobName}」执行失败。\n\n--- 错误信息 ---\n${errorMsg || '未知错误'}\n\n--- \n灵犀云`;
+
+    const htmlBody = isSuccess
+      ? `<h2>✅ 任务「${jobName}」已完成</h2><hr><pre style="white-space:pre-wrap;font-size:14px;">${resultText}</pre><hr><p style="color:#999;font-size:12px;">灵犀云</p>`
+      : `<h2>❌ 任务「${jobName}」执行失败</h2><hr><pre style="white-space:pre-wrap;font-size:14px;color:red;">${errorMsg || '未知错误'}</pre><hr><p style="color:#999;font-size:12px;">灵犀云</p>`;
+
+    await transporter.sendMail({
+      from: userSmtp.from || userSmtp.user,
+      to: recipient,
+      subject,
+      text: textBody,
+      html: htmlBody,
+    });
+
+    console.log(`[Cron Webhook] 邮件已发送到 ${recipient}`);
+    res.json({ success: true, sent: true });
+  } catch (err) {
+    console.error('[Cron Webhook] 错误:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 export default router;

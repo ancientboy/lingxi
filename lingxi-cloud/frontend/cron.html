@@ -284,6 +284,36 @@
     .time-row-mb { margin-bottom: 8px; }
     .hourly-hint { font-size: 12px; color: var(--text-3); }
 
+    /* ===== Notify Badge ===== */
+    .notify-badge {
+      display: inline-flex; align-items: center; gap: 3px;
+      padding: 1px 7px; border-radius: 10px; font-size: 10px; font-weight: 500;
+      background: var(--accent-soft); color: var(--accent); margin-left: 6px;
+    }
+    .notify-badge svg { width: 10px; height: 10px; }
+
+    /* ===== Notify Section in Modal ===== */
+    .notify-section { margin-bottom: 14px; padding: 12px; background: var(--bg); border-radius: var(--radius-sm); border: 1px solid var(--border-sub); }
+    .notify-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .notify-row:last-child { margin-bottom: 0; }
+    .notify-channel-btn {
+      flex: 1; padding: 7px 0; text-align: center; font-size: 12px; font-weight: 500;
+      border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer;
+      background: var(--bg-card); color: var(--text-2); transition: all var(--transition);
+    }
+    .notify-channel-btn.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+
+    /* ===== SMTP Modal ===== */
+    .smtp-status {
+      display: flex; align-items: center; gap: 6px; padding: 8px 12px;
+      border-radius: var(--radius-sm); font-size: 12px; margin-bottom: 12px;
+    }
+    .smtp-status.configured { background: rgba(67,233,123,0.1); color: #2da94f; }
+    .smtp-status.not-configured { background: var(--bg-hover); color: var(--text-3); }
+    .smtp-status-dot { width: 6px; height: 6px; border-radius: 50%; }
+    .smtp-status.configured .smtp-status-dot { background: #43e97b; }
+    .smtp-status.not-configured .smtp-status-dot { background: var(--text-3); }
+
     /* ===== Responsive ===== */
     @media (max-width: 480px) {
       .top-bar { padding: 0 12px; }
@@ -315,6 +345,9 @@
         <button class="topbar-tab" id="tabReminders" onclick="switchTab('reminders')">提醒</button>
       </div>
       <button class="btn btn-primary btn-sm" id="topBarCreateBtn" onclick="handleCreate()">+ 创建任务</button>
+      <button class="btn-icon" title="邮件通知设置" onclick="openSmtpModal()" style="color: var(--text-2);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+      </button>
     </div>
   </div>
 
@@ -382,6 +415,20 @@
         <div class="form-group">
           <label class="form-label">任务内容</label>
           <textarea class="form-textarea" id="jobPayload" placeholder="帮我汇总今天的日程、天气和未读消息" maxlength="500"></textarea>
+        </div>
+
+        <!-- Notify -->
+        <div class="form-group">
+          <label class="form-label">结果通知</label>
+          <div class="notify-section">
+            <div class="notify-row">
+              <div class="notify-channel-btn active" data-notify="none" onclick="setNotifyChannel('none',this)">不通知</div>
+              <div class="notify-channel-btn" data-notify="email" onclick="setNotifyChannel('email',this)">邮件</div>
+            </div>
+            <div id="notifyEmailRow" style="display:none">
+              <input type="email" class="form-input" id="notifyEmail" placeholder="接收报告的邮箱地址">
+            </div>
+          </div>
         </div>
 
         <div class="modal-actions">
@@ -482,6 +529,112 @@ var selectedWeekday = 1; // 1=周一
 var confirmCallback = null;
 var WEEKDAYS = ['周日','周一','周二','周三','周四','周五','周六'];
 var currentServerId = null; // 当前选中的设备 ID
+var currentNotifyChannel = 'none';
+var userSmtpConfigured = false;
+
+// ===== Notify Channel =====
+function setNotifyChannel(channel, el) {
+  currentNotifyChannel = channel;
+  document.querySelectorAll('[data-notify]').forEach(function(b) { b.classList.remove('active'); });
+  el.classList.add('active');
+  document.getElementById('notifyEmailRow').style.display = channel === 'email' ? '' : 'none';
+  // 如果选邮件但未配置 SMTP，提示
+  if (channel === 'email' && !userSmtpConfigured) {
+    showToast('请先在邮件设置中配置 SMTP', 'error');
+  }
+}
+
+// ===== SMTP Modal =====
+function openSmtpModal() {
+  document.getElementById('smtpModal').classList.add('open');
+  loadSmtpConfig();
+}
+function closeSmtpModal() {
+  document.getElementById('smtpModal').classList.remove('open');
+}
+
+async function loadSmtpConfig() {
+  try {
+    var res = await fetch('/api/cron/smtp/config', { headers: authHeaders() });
+    var data = await res.json();
+    var statusEl = document.getElementById('smtpStatus');
+    var formEl = document.getElementById('smtpForm');
+
+    if (data.success && data.configured) {
+      userSmtpConfigured = true;
+      statusEl.className = 'smtp-status configured';
+      statusEl.innerHTML = '<span class="smtp-status-dot"></span> SMTP 已配置 · ' + escapeHtml(data.config.user);
+      formEl.style.display = '';
+      // 填入已有配置（不填 pass）
+      document.getElementById('smtpHost').value = data.config.host || '';
+      document.getElementById('smtpPort').value = data.config.port || 587;
+      document.getElementById('smtpSecure').checked = data.config.secure;
+      document.getElementById('smtpUser').value = data.config.user || '';
+      document.getElementById('smtpPass').value = '';
+      document.getElementById('smtpFrom').value = data.config.from || '';
+    } else {
+      userSmtpConfigured = false;
+      statusEl.className = 'smtp-status not-configured';
+      statusEl.innerHTML = '<span class="smtp-status-dot"></span> SMTP 未配置 · 请填写下方信息';
+      formEl.style.display = '';
+    }
+  } catch (e) {
+    showToast('加载配置失败: ' + e.message, 'error');
+  }
+}
+
+async function saveSmtpConfig() {
+  var host = document.getElementById('smtpHost').value.trim();
+  var port = parseInt(document.getElementById('smtpPort').value, 10) || 587;
+  var secure = document.getElementById('smtpSecure').checked;
+  var user = document.getElementById('smtpUser').value.trim();
+  var pass = document.getElementById('smtpPass').value.trim();
+  var from = document.getElementById('smtpFrom').value.trim();
+
+  if (!host || !user || !pass) {
+    showToast('请填写 Host、邮箱、授权码', 'error'); return;
+  }
+
+  var btn = document.getElementById('smtpSaveBtn');
+  btn.disabled = true; btn.textContent = '保存中...';
+
+  try {
+    var res = await fetch('/api/cron/smtp/config', {
+      method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ host: host, port: port, secure: secure, user: user, pass: pass, from: from || user })
+    });
+    var data = await res.json();
+    if (!data.success) throw new Error(data.error);
+    showToast('SMTP 配置已保存', 'success');
+    userSmtpConfigured = true;
+    loadSmtpConfig();
+  } catch (e) {
+    showToast('保存失败: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '保存';
+  }
+}
+
+async function testSmtp() {
+  var btn = document.getElementById('smtpTestBtn');
+  btn.disabled = true; btn.textContent = '发送中...';
+
+  try {
+    // 先保存再测试
+    await saveSmtpConfig();
+    var res = await fetch('/api/cron/smtp/test', {
+      method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ to: document.getElementById('smtpUser').value.trim() })
+    });
+    var data = await res.json();
+    if (!data.success) throw new Error(data.error);
+    showToast('测试邮件已发送，请检查收件箱', 'success');
+  } catch (e) {
+    showToast('测试失败: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '发送测试邮件';
+  }
+}
 
 // ===== Auth =====
 function getToken() {
@@ -722,7 +875,11 @@ function renderJobs() {
     html += '<div class="job-header" data-action="toggle-history" data-job-id="' + safeId + '">';
     html += '<div class="job-info">';
     html += '<div class="job-name">' + escapeHtml(job.name || '未命名') + '</div>';
-    html += '<div class="job-schedule">' + escapeHtml(scheduleDesc(job)) + '</div>';
+    html += '<div class="job-schedule">' + escapeHtml(scheduleDesc(job));
+    if (job.notify && job.notify.channel === 'email') {
+      html += '<span class="notify-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>' + escapeHtml(job.notify.target) + '</span>';
+    }
+    html += '</div>';
     html += '<div class="job-meta">上次执行: ' + (lastRun ? relativeTime(lastRun) : '未执行') + '</div>';
     html += '</div>';
 
@@ -907,6 +1064,11 @@ function resetForm() {
   document.getElementById('jobName').value = '';
   document.getElementById('jobPayload').value = '';
   setFrequency('daily');
+  currentNotifyChannel = 'none';
+  document.querySelectorAll('[data-notify]').forEach(function(b) { b.classList.remove('active'); });
+  document.querySelector('[data-notify="none"]').classList.add('active');
+  document.getElementById('notifyEmailRow').style.display = 'none';
+  document.getElementById('notifyEmail').value = '';
 }
 
 // ===== Frequency =====
@@ -1062,11 +1224,18 @@ async function createJob() {
   btn.textContent = '创建中...';
 
   try {
+    var notify = null;
+    if (currentNotifyChannel === 'email') {
+      var email = document.getElementById('notifyEmail').value.trim();
+      if (!email) { showToast('请填写接收邮箱', 'error'); return; }
+      notify = { channel: 'email', target: email };
+    }
     await api('POST', '/add', {
       name: name,
       schedule: schedule,
       payload: { kind: 'agentTurn', message: payload },
-      enabled: true
+      enabled: true,
+      notify: notify
     });
     showToast('任务创建成功', 'success');
     closeCreateModal();
@@ -1368,6 +1537,9 @@ async function createReminder() {
 document.getElementById('reminderCreateModal').addEventListener('click', function(e) {
   if (e.target === this) closeReminderModal();
 });
+document.getElementById('smtpModal').addEventListener('click', function(e) {
+  if (e.target === this) closeSmtpModal();
+});
 (async function init() {
   // Check token first, redirect if not logged in
   if (!checkAuth()) return;
@@ -1384,5 +1556,60 @@ document.getElementById('reminderCreateModal').addEventListener('click', functio
 </script>
 <script>if(window.lucide)lucide.createIcons();</script>
 <script>if(window.parent!==window)document.body.classList.add("in-iframe");</script>
+
+<!-- SMTP Config Modal -->
+<div class="modal-overlay" id="smtpModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>邮件通知设置</h3>
+      <button class="modal-close" onclick="closeSmtpModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div id="smtpStatus" class="smtp-status not-configured">
+        <span class="smtp-status-dot"></span> 加载中...
+      </div>
+      <div id="smtpForm" style="display:none">
+        <div class="form-group">
+          <label class="form-label">SMTP 服务器</label>
+          <input type="text" class="form-input" id="smtpHost" placeholder="smtp.qq.com">
+        </div>
+        <div class="form-group">
+          <label class="form-label">端口</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="number" class="form-input" id="smtpPort" value="587" style="flex:1">
+            <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-2);white-space:nowrap">
+              <input type="checkbox" id="smtpSecure"> SSL
+            </label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">发件邮箱</label>
+          <input type="email" class="form-input" id="smtpUser" placeholder="your@qq.com">
+        </div>
+        <div class="form-group">
+          <label class="form-label">授权码（非登录密码）</label>
+          <input type="password" class="form-input" id="smtpPass" placeholder="SMTP 授权码">
+        </div>
+        <div class="form-group">
+          <label class="form-label">发件人地址（可选）</label>
+          <input type="email" class="form-input" id="smtpFrom" placeholder="默认同发件邮箱">
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-outline" id="smtpTestBtn" onclick="testSmtp()">发送测试邮件</button>
+          <button class="btn btn-primary" id="smtpSaveBtn" onclick="saveSmtpConfig()">保存</button>
+        </div>
+        <div style="margin-top:12px;padding:10px;background:var(--bg);border-radius:var(--radius-sm);font-size:11px;color:var(--text-3);line-height:1.6">
+          <b>QQ 邮箱</b>：smtp.qq.com / 端口 465 / 勾选 SSL<br>
+          <b>Gmail</b>：smtp.gmail.com / 端口 587 / 不勾选<br>
+          <b>Outlook</b>：smtp.office365.com / 端口 587 / 不勾选<br>
+          <b>163 邮箱</b>：smtp.163.com / 端口 465 / 勾选 SSL
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

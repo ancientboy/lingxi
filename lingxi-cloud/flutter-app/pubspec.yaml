@@ -2,7 +2,7 @@ name: lingxicloud
 description: "Lume AI Assistant"
 publish_to: 'none'
 
-version: 1.9.2+192
+version: 1.9.4+194
 
 environment:
   sdk: '>=3.3.1 <4.0.0'
@@ -51,6 +51,9 @@ dependencies:
   
   # 音频播放（用于 TTS）
   audioplayers: ^5.2.1
+
+  # WebView
+  webview_flutter: ^4.7.0
 
   # 本地通知
   flutter_local_notifications: ^16.3.3

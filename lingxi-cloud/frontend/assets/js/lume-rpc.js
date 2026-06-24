@@ -8,6 +8,7 @@ const LumeRpc = (function () {
   let connecting = false;
   let userId = null;
   let secret = null;
+  let authHandledByProxy = false;
   const pending = new Map();
   const eventListeners = [];
   let reqSeq = 1;
@@ -33,6 +34,12 @@ const LumeRpc = (function () {
     }
   }
 
+  function markConnected(payload) {
+    connected = true;
+    connecting = false;
+    if (payload?.userId) userId = payload.userId;
+  }
+
   async function connect() {
     if (connected) return true;
     if (connecting) {
@@ -54,13 +61,21 @@ const LumeRpc = (function () {
         return false;
       }
       userId = info.userId;
-      secret = info.secret;
+      secret = info.secret || null;
+      authHandledByProxy = info.authHandled === true;
       const wsUrl = info.wsUrl;
 
       return await new Promise((resolve) => {
         ws = new WebSocket(wsUrl);
         const authId = 'auth-' + Date.now();
         let settled = false;
+
+        const succeed = (payload) => {
+          if (settled) return;
+          settled = true;
+          markConnected(payload || { userId });
+          resolve(true);
+        };
 
         const fail = () => {
           if (settled) return;
@@ -71,13 +86,16 @@ const LumeRpc = (function () {
         };
 
         ws.onopen = () => {
-          ws.send(
-            JSON.stringify({
-              id: authId,
-              method: 'auth',
-              params: { token: secret, userId },
-            }),
-          );
+          // 代理已代完成 Lume auth 时，不再发送 secret:null 的无效 auth
+          if (!authHandledByProxy && secret) {
+            ws.send(
+              JSON.stringify({
+                id: authId,
+                method: 'auth',
+                params: { token: secret, userId },
+              }),
+            );
+          }
         };
 
         ws.onmessage = (ev) => {
@@ -87,29 +105,36 @@ const LumeRpc = (function () {
           } catch {
             return;
           }
+
           if (msg.type === 'event') {
             emitEvent(msg);
             return;
           }
-          if (msg.id === authId) {
-            if (msg.ok) {
-              connected = true;
-              connecting = false;
-              if (!settled) {
-                settled = true;
-                resolve(true);
-              }
-            } else {
-              fail();
-            }
+
+          // WSS 代理 authHandled：收到带 userId 的成功 res 即视为已连接
+          if (
+            authHandledByProxy &&
+            !connected &&
+            msg.type === 'res' &&
+            msg.ok &&
+            msg.payload?.userId
+          ) {
+            succeed(msg.payload);
             return;
           }
+
+          if (msg.id === authId) {
+            if (msg.ok) succeed(msg.payload);
+            else fail();
+            return;
+          }
+
           if (msg.type === 'res' && msg.id && pending.has(msg.id)) {
             const entry = pending.get(msg.id);
             pending.delete(msg.id);
             clearTimeout(entry.timer);
             if (msg.ok) entry.resolve(msg);
-            else entry.reject(new Error(msg.error?.message || 'RPC failed'));
+            else entry.reject(new Error(msg.error?.message || msg.error || 'RPC failed'));
           }
         };
 
@@ -196,6 +221,7 @@ const LumeRpc = (function () {
     ws = null;
     connected = false;
     connecting = false;
+    authHandledByProxy = false;
   }
 
   return {

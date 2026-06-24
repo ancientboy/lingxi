@@ -234,7 +234,7 @@ router.post('/publish', async (req, res) => {
       description: description.trim(),
       soulMd: soulMd.trim(),
       skills: Array.isArray(skills) ? skills.slice(0, 20) : [],
-      model: model || 'glm-5.1',
+      model: model || 'glm-5.2',
       tags: Array.isArray(tags) ? tags.slice(0, 10).map(t => String(t).slice(0, 20)) : [],
       avatar: avatar || 'bot',
       category: category || 'personal',
@@ -323,7 +323,7 @@ router.post('/install/:id', async (req, res) => {
         name: item.name,
         emoji: '🤖',
       },
-      model: item.model || 'glm-5.1',
+      model: item.model || 'glm-5.2',
     };
 
     // 添加到列表

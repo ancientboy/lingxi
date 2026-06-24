@@ -1212,15 +1212,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         final payload = data['payload'] as Map<String, dynamic>?;
         if (payload != null) DeviceSwitchManager.instance.onDeviceSwitchedEvent(payload);
         if (!_isApplyingDeviceSwitch && !DeviceSwitchManager.instance.switching) {
-          _replaceSessionsOnNextParse = true;
-          _currentSessionKey = null;
-          _incrementalHistorySessionKey = null;
-          _lastHistoryRequestSessionKey = null;
-          setState(() {
-            _messages.clear();
-            _sessions.clear();
-            _isGenerating = false;
-          });
           Future.microtask(() => _onWsReadyLoadSessions(source: 'device.switched'));
         }
         return;
@@ -2092,9 +2083,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       return;
     }
     try {
-      if (source == 'device.switched' || source == 'device-switch') {
-        _replaceSessionsOnNextParse = true;
-      }
       if (source != 'device-switch') {
         final prefs = await SharedPreferences.getInstance();
         if (prefs.getBool('need_refresh_after_switch') == true) {

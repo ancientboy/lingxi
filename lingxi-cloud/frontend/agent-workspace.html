@@ -1086,7 +1086,7 @@
   </style>
   <script src="assets/js/i18n.js?v=20260608"></script>
   <script src="assets/libs/lucide.min.js"></script>
-  <script src="assets/js/lume-rpc.js?v=20260613"></script>
+  <script src="assets/js/lume-rpc.js?v=20260615p1"></script>
   <script src="assets/js/office-engine.js?v=20260608b"></script>
 </head>
 <body>
@@ -1135,6 +1135,10 @@
   <div class="tab-item" onclick="switchTab('triggers')">
     <i data-lucide="zap" class="icon-sm"></i>
     <span class="tab-label">触发器</span>
+  </div>
+  <div class="tab-item" onclick="switchTab('loops')">
+    <i data-lucide="repeat" class="icon-sm"></i>
+    <span class="tab-label">Loop</span>
   </div>
 </div>
 
@@ -1228,6 +1232,13 @@
 <div class="tab-content" id="tabTriggers">
   <div class="iframe-container">
     <iframe id="iframeTriggers" data-src="triggers.html" src="about:blank"></iframe>
+  </div>
+</div>
+
+<!-- ===== Loops Tab (iframe) ===== -->
+<div class="tab-content" id="tabLoops">
+  <div class="iframe-container">
+    <iframe id="iframeLoops" data-src="loops.html" src="about:blank"></iframe>
   </div>
 </div>
 
@@ -1586,14 +1597,15 @@ function togglePanel(){const p=document.getElementById('bottomPanels');p.classLi
 // ═══════════════════════════════════════════════════════════
 
 function switchTab(tabId) {
-  const allTabIds = ['overview','manage','templates','logs','knowledge','market','workflows','memories','triggers'];
-  const iframeTabs = ['knowledge','market','workflows','memories','triggers'];
+  const allTabIds = ['overview','manage','templates','logs','knowledge','market','workflows','memories','triggers','loops'];
+  const iframeTabs = ['knowledge','market','workflows','memories','triggers','loops'];
   const iframeMap = {
     knowledge: 'tabKnowledge',
     market: 'tabMarket',
     workflows: 'tabWorkflows',
     memories: 'tabMemories',
-    triggers: 'tabTriggers'
+    triggers: 'tabTriggers',
+    loops: 'tabLoops'
   };
   // Update tab active state
   document.querySelectorAll('.tab-item').forEach((t, i) => {

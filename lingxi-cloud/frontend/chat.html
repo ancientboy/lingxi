@@ -2268,9 +2268,9 @@
       const currentKey = typeof currentSessionKey !== 'undefined' ? currentSessionKey : window.currentSessionKey;
       const isActive = session.key === currentKey;
 
-      const displayName = session.title || (typeof deriveSessionTitle === 'function' ? deriveSessionTitle(session) : (session.label || 'Untitled'));
-      const time = session.relativeTime || '';
-      const preview = (session.lastMessage || session.preview || '').substring(0, 40);
+      const displayName = session.title || session.derivedTitle || session.label || session.displayName || 'Untitled';
+      const time = session.relativeTime || (session.updatedAt && typeof formatRelativeTime === 'function' ? formatRelativeTime(session.updatedAt) : '');
+      const preview = (session.lastMessagePreview || session.lastMessage || session.preview || '').substring(0, 40);
       const previewText = preview.length >= 40 ? preview + '...' : preview;
       const subText = [time, previewText].filter(Boolean).join(' · ');
 
@@ -3356,9 +3356,9 @@
   })();
   </script>
 
-  <script src="assets/js/lume-rpc.js?v=20260613p4"></script>
-  <script src="assets/js/chat-lume.js?v=20260613p4"></script>
-  <script src="assets/js/chat.js?v=1781253163"></script>
+  <script src="assets/js/lume-rpc.js?v=20260615p1"></script>
+  <script src="assets/js/chat-lume.js?v=20260615p2"></script>
+  <script src="assets/js/chat.js?v=20260615p2"></script>
 
     <!-- 统一组件加载器 -->
     <script src="components/load-components.js"></script>

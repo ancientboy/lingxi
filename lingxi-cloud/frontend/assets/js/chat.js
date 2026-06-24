@@ -402,8 +402,17 @@ async function init() {
 
   renderTeamTags();
 
-  await tryConnectLume();
-  initLumeChatMode();
+  const lumeOk = await tryConnectLume();
+  if (lumeOk) {
+    initLumeChatMode();
+  } else {
+    console.error('❌ [Lume] Web 连接失败，无法加载会话');
+    const statusEl = document.getElementById('connectionStatus');
+    if (statusEl) {
+      statusDot = statusEl.querySelector('.status-dot');
+      if (statusDot) statusDot.className = 'status-dot disconnected';
+    }
+  }
 
   let _isComposing = false;
   document.getElementById('inputField').addEventListener('compositionstart', () => { _isComposing = true; });
@@ -1660,9 +1669,9 @@ function renderSessionList() {
     const isActive = session.key === currentSessionKey;
     
     // 🆕 使用提取的标题、预览和时间
-    const displayName = session.title || session.label || session.derivedTitle || 'Untitled';
-    const preview = session.preview || session.lastMessage || session.lastMessagePreview || 'No messages';
-    const time = session.relativeTime || '';
+    const displayName = session.title || session.derivedTitle || session.label || session.displayName || 'Untitled';
+    const preview = session.lastMessagePreview || session.preview || session.lastMessage || 'No messages';
+    const time = session.relativeTime || (session.updatedAt && typeof formatRelativeTime === 'function' ? formatRelativeTime(session.updatedAt) : '');
     
     // 截断预览文本
     const truncatedPreview = preview.substring(0, 50);

@@ -14,9 +14,11 @@ import 'package:lingxicloud/pages/workspace/market_tab.dart';
 import 'package:lingxicloud/pages/workspace/workflow_tab.dart';
 import 'package:lingxicloud/pages/workspace/memory_tab.dart';
 import 'package:lingxicloud/pages/workspace/trigger_tab.dart';
+import 'package:lingxicloud/pages/workspace/loop_tab.dart';
 
 class WorkspacePage extends StatefulWidget {
-  const WorkspacePage({super.key});
+  final int initialTab;
+  const WorkspacePage({super.key, this.initialTab = 0});
   @override
   State<WorkspacePage> createState() => _WorkspacePageState();
 }
@@ -71,7 +73,7 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 9, vsync: this);
+    _tabController = TabController(length: 10, vsync: this, initialIndex: widget.initialTab);
     _breathCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 3))..repeat();
     _typeCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 700))..repeat();
     _loadStatus();
@@ -304,6 +306,7 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
             Tab(icon: Icon(Icons.account_tree_outlined, size: 18), text: '工作流'),
             Tab(icon: Icon(Icons.psychology_outlined, size: 18), text: '记忆'),
             Tab(icon: Icon(Icons.bolt_outlined, size: 18), text: '触发器'),
+            Tab(icon: Icon(Icons.repeat_outlined, size: 18), text: 'Loop'),
           ],
         ),
       ),
@@ -317,6 +320,7 @@ class _WorkspacePageState extends State<WorkspacePage> with TickerProviderStateM
         WorkflowTab(dk: dk),
         MemoryTab(dk: dk),
         TriggerTab(dk: dk),
+        LoopTab(dk: dk),
       ]),
     );
   }

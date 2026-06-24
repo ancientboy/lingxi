@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lingxicloud/services/lume_websocket_service.dart';
+import 'package:lingxicloud/services/websocket_service.dart';
 
 /// 设备切换编排：热切换 device.switch → 失败则 WSS 重连（Lume 主通道）
 class DeviceSwitchManager extends ChangeNotifier {
@@ -51,6 +52,8 @@ class DeviceSwitchManager extends ChangeNotifier {
   /// 优先热切换（不断 WS），失败才全量重连
   Future<bool> rebindTransport(String serverId) async {
     final lume = LumeWebSocketService();
+    // 对齐 Web：重置 Gateway 缓存，避免双通道仍指向旧设备
+    WebSocketService().reset();
 
     // 路径 1: 热切换（WS 不断，proxy 换后端）
     if (lume.isConnected) {

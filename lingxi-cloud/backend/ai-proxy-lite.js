@@ -75,7 +75,7 @@ function getRouterApiKey() {
 const CURSOR_AUTO_MODEL = 'cu/gpt-5.2';
 
 const AUTO_FALLBACK_MODELS = [
-  'glm-cn/glm-5.1',   // 智谱（默认首选）
+  'glm-cn/glm-5.2',   // 智谱（默认首选）
   'kimi/kimi-k2.7',   // Kimi
   CURSOR_AUTO_MODEL,  // Cursor（cu/default 映射到此）
 ];
@@ -93,8 +93,8 @@ function markModelFailed(routerModel) {
   const existing = modelFailures.get(routerModel) || { lastFail: 0, count: 0, cooldownUntil: 0 };
   existing.lastFail = now;
   existing.count++;
-  // 失败 1 次冷却 2 分钟，失败 2+ 次冷却 10 分钟
-  existing.cooldownUntil = now + (existing.count >= 2 ? 10 * 60 * 1000 : 2 * 60 * 1000);
+  // 失败 1 次冷却 10 秒，失败 2+ 次冷却 30 秒
+  existing.cooldownUntil = now + (existing.count >= 2 ? 30 * 1000 : 10 * 1000);
   modelFailures.set(routerModel, existing);
 }
 
@@ -147,6 +147,7 @@ const MODEL_MAP_TO_9ROUTER = {
   'claude-4.6-sonnet':  'gh/claude-sonnet-4.6',
   'claude-4.5-opus':    'gh/claude-opus-4.5',
   // 智谱 GLM 系列 → glm-cn (官方 Coding Plan)
+  'glm-5.2':            GLM_CN_PRIMARY,
   'glm-5.1':            GLM_CN_PRIMARY,
   'glm-5':              'glm-cn/glm-5',
   'glm-4.7':            'glm-cn/glm-4.7',
@@ -191,7 +192,7 @@ function findAutoFallbackIndex(model) {
 
 // ============ 用户模型偏好 ============
 // 从灵犀云数据库加载：IP → userId → preferredModel
-// preferredModel 是用户在灵犀云前端选择的模型（如 "gpt-4o"、"glm-5.1"）
+// preferredModel 是用户在灵犀云前端选择的模型（如 "gpt-4o"、"glm-5.2"）
 const DB_FILE = join(__dirname, 'data/db.json');
 let ipUserMap = {};   // { ip: { userId, nickname, preferredModel } }
 let userModelMap = {}; // { userId: preferredModel }
@@ -674,7 +675,7 @@ async function proxyAutoFallbackChain(reqBody, reqUrl, clientIp, res, startIndex
 // 支持图片输入的模型列表
 const VISION_MODELS = new Set([
   'gh/gpt-4o', 'gh/gpt-4.1', 'gh/gpt-5-mini', 'gh/gpt-4o-mini',
-  'glm-cn/glm-5.1',
+  'glm-cn/glm-5.2',
 ]);
 
 function isVisionModel(model) {

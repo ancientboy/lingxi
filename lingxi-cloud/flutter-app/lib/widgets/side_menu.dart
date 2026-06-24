@@ -551,7 +551,7 @@ class _SessionsDialogState extends State<_SessionsDialog> {
 
     final List<Widget> children = [];
 
-    // 办公区入口（在"新会话"上面）
+    // 办公区入口
     children.add(
       ListTile(
         leading: Icon(Icons.business_outlined, color: Constants.primaryColor),
@@ -561,6 +561,20 @@ class _SessionsDialogState extends State<_SessionsDialog> {
           Navigator.pop(context);
           Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => WorkspacePage()),
+          );
+        },
+      ),
+    );
+    // Loop 入口
+    children.add(
+      ListTile(
+        leading: Icon(Icons.repeat, color: Constants.primaryColor),
+        title: Text('Loop 引擎', style: TextStyle(fontWeight: FontWeight.w600)),
+        trailing: Icon(Icons.chevron_right, size: 18, color: Constants.textTertiaryColor),
+        onTap: () {
+          Navigator.pop(context);
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => WorkspacePage(initialTab: 9)),
           );
         },
       ),

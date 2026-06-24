@@ -19,6 +19,10 @@ async function tryConnectLume() {
 }
 
 function initLumeChatMode() {
+  if (!window.USE_LUME || !LumeRpc.isConnected()) {
+    console.warn('[Lume] 未连接，跳过 initLumeChatMode');
+    return;
+  }
   const statusEl = document.getElementById('connectionStatus');
   if (statusEl) {
     statusDot = statusEl.querySelector('.status-dot');
@@ -32,6 +36,24 @@ function initLumeChatMode() {
   // health.subscribe 已改为按需，不再自动订阅（减少无用网络请求）
 }
 
+
+function normalizeLumeSession(s) {
+  const title = s.title || s.derivedTitle || s.label || s.displayName || 'Untitled';
+  const preview = s.lastMessagePreview || s.lastMessage || s.preview || '';
+  let relativeTime = s.relativeTime || '';
+  if (!relativeTime && s.updatedAt && typeof formatRelativeTime === 'function') {
+    relativeTime = formatRelativeTime(s.updatedAt);
+  }
+  return Object.assign({}, s, {
+    title,
+    derivedTitle: s.derivedTitle || title,
+    preview,
+    lastMessage: preview || s.lastMessage,
+    lastMessagePreview: s.lastMessagePreview || preview,
+    relativeTime,
+  });
+}
+
 async function loadLumeSessions() {
   try {
     const res = await LumeRpc.sendRequest('sessions.list', {
@@ -40,9 +62,12 @@ async function loadLumeSessions() {
       includeDerivedTitles: true,
     });
     if (res.ok && res.payload?.sessions) {
-      window.sessions = res.payload.sessions;
+      window.sessions = res.payload.sessions.map(normalizeLumeSession);
       if (typeof renderSessionList === 'function') renderSessionList();
       if (typeof loadSessions === 'function') loadSessions();
+      if (typeof loadChatHistory === 'function') {
+        await loadChatHistory();
+      }
     }
   } catch (e) {
     console.warn('[Lume] 加载会话列表失败:', e);
@@ -94,6 +119,13 @@ function incrementalUpdateSession(payload) {
 }
 
 function handleLumeEvent(msg) {
+  if (msg.event === 'device.switched') {
+    console.log('[Lume] device.switched → 重新加载会话与历史');
+    localStorage.removeItem('currentSessionKey');
+    window.sessions = [];
+    void loadLumeSessions();
+    return;
+  }
   if (msg.event === 'health.status') {
     console.log('[Lume] health.status', msg.payload);
     return;
@@ -110,16 +142,23 @@ function handleLumeEvent(msg) {
     if (typeof addTyping === 'function') addTyping();
     return;
   }
-  if (state === 'delta' && p.delta) {
-    if (typeof appendStreamingText === 'function') appendStreamingText(p.delta);
+  const runId = p.runId || p.messageId || 'lume-stream';
+  if (state === 'delta' || state === 'block') {
+    const text = p.message || p.text || p.delta || '';
+    if (text && typeof updateStreamingMessage === 'function') {
+      updateStreamingMessage(text, runId);
+    }
     return;
   }
-  if (state === 'final' || p.message) {
+  if (state === 'final') {
     if (typeof removeTyping === 'function') removeTyping();
     const text = p.message || p.text || '';
-    if (text && typeof addMessage === 'function') {
+    if (text && typeof finalizeStreamingMessage === 'function') {
+      finalizeStreamingMessage(text, runId, p.modelInfo);
+    } else if (text && typeof addMessage === 'function') {
       addMessage('assistant', text, '灵犀');
     }
+    return;
   }
 }
 

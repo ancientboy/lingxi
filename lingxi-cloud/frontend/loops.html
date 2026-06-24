@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Loop 引擎 - 灵犀云</title>
+  <link rel="stylesheet" href="/styles.css">
+  <style>
+    :root {
+      --bg: #f5f1eb;
+      --card: #ffffff;
+      --primary: #667eea;
+      --primary-hover: #5a6fd6;
+      --text: #2d3748;
+      --text-secondary: #666;
+      --border: #ddd;
+      --success: #43e97b;
+      --warning: #f5a623;
+      --danger: #f5576c;
+      --info: #4a90d9;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
+
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+
+    /* 顶部栏 - iframe 内嵌时隐藏 */
+    .header {
+      background: rgba(255,255,255,0.94);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    /* 当作为 iframe 内嵌时，隐藏标题和副标题 */
+    body.in-iframe .header h1,
+    body.in-iframe .header .subtitle { display: none; }
+    body.in-iframe .header { padding: 8px 16px; min-height: 44px; }
+
+    /* 标签页 */
+    .tabs { display: flex; gap: 4px; margin: 20px 0; border-bottom: 1px solid var(--border); }
+    .tab {
+      padding: 10px 20px;
+      border: none;
+      background: none;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 14px;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    .tab:hover { color: var(--primary); }
+    .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+    /* 卡片 */
+    .card {
+      background: var(--card);
+      border-radius: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .card-title { font-size: 16px; font-weight: 600; }
+
+    /* 按钮 */
+    .btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: none;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-outline { background: #fff; color: var(--primary); border: 1px solid var(--primary); }
+    .btn-danger { background: #fff; color: var(--danger); border: 1px solid var(--danger); }
+    .btn-sm { padding: 6px 12px; font-size: 13px; }
+
+    /* Loop 模板列表 */
+    .loop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+    .loop-card {
+      background: var(--card);
+      border-radius: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      padding: 20px;
+      transition: transform 0.2s, box-shadow 0.2s;
+      cursor: pointer;
+    }
+    .loop-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .loop-card .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+    .badge-built-in { background: #e8f0fe; color: var(--info); }
+    .badge-custom { background: #f0f0f0; color: var(--text-secondary); }
+    .loop-card h3 { font-size: 15px; margin-bottom: 6px; }
+    .loop-card p { font-size: 13px; color: var(--text-secondary); margin-bottom: 12px; }
+    .loop-card .meta { display: flex; gap: 12px; font-size: 12px; color: var(--text-secondary); }
+    .loop-card .actions { margin-top: 12px; display: flex; gap: 8px; }
+
+    /* 运行列表 */
+    .run-item {
+      display: flex;
+      align-items: center;
+      padding: 12px 16px;
+      border-bottom: 1px solid #f0f0f0;
+      transition: background 0.2s;
+    }
+    .run-item:hover { background: #fafafa; }
+    .run-item:last-child { border-bottom: none; }
+    .run-status {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 12px;
+      flex-shrink: 0;
+    }
+    .status-pending { background: var(--text-secondary); }
+    .status-running { background: var(--primary); animation: pulse 1.5s infinite; }
+    .status-success { background: var(--success); }
+    .status-failed { background: var(--danger); }
+    .status-human_required { background: var(--warning); }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    .run-info { flex: 1; }
+    .run-name { font-size: 14px; font-weight: 500; }
+    .run-meta { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+    .run-progress { width: 120px; margin-right: 16px; }
+    .progress-bar {
+      height: 6px;
+      background: #f0f0f0;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: var(--primary);
+      border-radius: 3px;
+      transition: width 0.3s;
+    }
+    .progress-text { font-size: 11px; color: var(--text-secondary); text-align: center; margin-top: 4px; }
+
+    /* 模态框 */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s;
+    }
+    .modal-overlay.active { opacity: 1; visibility: visible; }
+    .modal {
+      background: var(--card);
+      border-radius: 16px;
+      width: 90%;
+      max-width: 600px;
+      max-height: 80vh;
+      overflow: hidden;
+      transform: translateY(20px);
+      transition: transform 0.3s;
+    }
+    .modal-overlay.active .modal { transform: translateY(0); }
+    .modal-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-body { padding: 24px; overflow-y: auto; max-height: 60vh; }
+    .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; }
+
+    /* 步骤可视化 */
+    .step-flow { display: flex; align-items: center; gap: 8px; margin: 16px 0; overflow-x: auto; padding: 8px 0; }
+    .step-node {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: #f8f9fa;
+      border: 2px solid transparent;
+      min-width: 80px;
+    }
+    .step-node.active { border-color: var(--primary); background: #f0f4ff; }
+    .step-node.success { border-color: var(--success); background: #f0fff4; }
+    .step-node.failed { border-color: var(--danger); background: #fff0f0; }
+    .step-node.pending { opacity: 0.6; }
+    .step-icon { font-size: 20px; margin-bottom: 4px; }
+    .step-label { font-size: 12px; text-align: center; }
+    .step-arrow { color: var(--text-secondary); font-size: 14px; }
+
+    /* 日志 */
+    .log-entry {
+      padding: 6px 0;
+      font-size: 13px;
+      font-family: monospace;
+      border-bottom: 1px solid #f5f5f5;
+    }
+    .log-time { color: var(--text-secondary); margin-right: 8px; }
+    .log-level { font-weight: 600; margin-right: 8px; }
+    .log-level.info { color: var(--info); }
+    .log-level.warn { color: var(--warning); }
+    .log-level.error { color: var(--danger); }
+
+    /* 响应式 */
+    @media (max-width: 768px) {
+      .loop-grid { grid-template-columns: 1fr; }
+      .run-item { flex-wrap: wrap; }
+      .run-progress { width: 100%; margin-top: 8px; }
+    }
+  </style>
+</head>
+<body>
+<script>if(window.parent!==window)document.body.classList.add('in-iframe');</script>
+  <div class="header">
+    <div>
+      <h1>Loop 引擎</h1>
+      <div class="subtitle">AI Agent 协作编排系统</div>
+    </div>
+    <div>
+      <button class="btn btn-primary" onclick="showCreateModal()">+ 创建 Loop</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('templates')">Loop 模板</button>
+      <button class="tab" onclick="switchTab('runs')">运行记录</button>
+    </div>
+
+    <!-- 模板列表 -->
+    <div id="templates-panel" class="panel">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">内置模板</span>
+        </div>
+        <div class="loop-grid" id="builtin-loops"></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">我的模板</span>
+        </div>
+        <div class="loop-grid" id="custom-loops"></div>
+      </div>
+    </div>
+
+    <!-- 运行记录 -->
+    <div id="runs-panel" class="panel" style="display:none">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">最近运行</span>
+          <button class="btn btn-outline btn-sm" onclick="loadRuns()">刷新</button>
+        </div>
+        <div id="runs-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 运行详情模态框 -->
+  <div class="modal-overlay" id="run-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>运行详情</h3>
+        <button class="btn btn-sm" onclick="closeModal()">关闭</button>
+      </div>
+      <div class="modal-body" id="run-detail"></div>
+    </div>
+  </div>
+
+  <!-- 创建/运行模态框 -->
+  <div class="modal-overlay" id="action-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="action-title">运行 Loop</h3>
+        <button class="btn btn-sm" onclick="closeActionModal()">关闭</button>
+      </div>
+      <div class="modal-body" id="action-body"></div>
+      <div class="modal-footer" id="action-footer"></div>
+    </div>
+  </div>
+
+  <script>
+    // 全局状态
+    var currentTab = 'templates';
+    var loops = [];
+    var runs = [];
+    var token = localStorage.getItem('token') || '';
+
+    // 初始化
+    document.addEventListener('DOMContentLoaded', function() {
+      loadLoops();
+      loadRuns();
+    });
+
+    // 切换标签
+    function switchTab(tab) {
+      currentTab = tab;
+      document.querySelectorAll('.tab').forEach(function(t) {
+        t.classList.toggle('active', t.textContent.includes(tab === 'templates' ? '模板' : '运行'));
+      });
+      document.getElementById('templates-panel').style.display = tab === 'templates' ? 'block' : 'none';
+      document.getElementById('runs-panel').style.display = tab === 'runs' ? 'block' : 'none';
+    }
+
+    // 加载 Loop 模板
+    async function loadLoops() {
+      try {
+        var res = await fetch('/api/loops/templates', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        var data = await res.json();
+        if (data.success) {
+          loops = data.loops;
+          renderLoops();
+        }
+      } catch (err) {
+        showToast('加载失败: ' + err.message, 'error');
+      }
+    }
+
+    // 渲染 Loop 列表
+    function renderLoops() {
+      var builtin = loops.filter(function(l) { return l.isBuiltin; });
+      var custom = loops.filter(function(l) { return !l.isBuiltin; });
+
+      document.getElementById('builtin-loops').innerHTML = builtin.map(renderLoopCard).join('');
+      document.getElementById('custom-loops').innerHTML = custom.length > 0 
+        ? custom.map(renderLoopCard).join('')
+        : '<div style="color:#999;padding:20px;text-align:center">暂无自定义模板</div>';
+    }
+
+    function renderLoopCard(loop) {
+      return '<div class="loop-card" onclick="showLoopDetail(\'' + loop.id + '\')">' +
+        '<span class="badge ' + (loop.isBuiltin ? 'badge-built-in' : 'badge-custom') + '">' +
+        (loop.isBuiltin ? '内置' : '自定义') + '</span>' +
+        '<h3>' + escapeHtml(loop.name) + '</h3>' +
+        '<p>' + escapeHtml(loop.description || '') + '</p>' +
+        '<div class="meta">' +
+        '<span>' + (loop.stepCount || 0) + ' 个步骤</span>' +
+        '<span>' + (loop.trigger === 'manual' ? '手动触发' : '自动触发') + '</span>' +
+        '</div>' +
+        '<div class="actions" onclick="event.stopPropagation()">' +
+        '<button class="btn btn-primary btn-sm" onclick="runLoop(\'' + loop.id + '\')">运行</button>' +
+        (!loop.isBuiltin ? '<button class="btn btn-outline btn-sm" onclick="editLoop(\'' + loop.id + '\')">编辑</button>' : '') +
+        '</div>' +
+        '</div>';
+    }
+
+    // 运行 Loop
+    function runLoop(loopId) {
+      var loop = loops.find(function(l) { return l.id === loopId; });
+      if (!loop) return;
+
+      document.getElementById('action-title').textContent = '运行: ' + loop.name;
+      document.getElementById('action-body').innerHTML = 
+        '<div style="margin-bottom:16px">' +
+        '<label style="display:block;margin-bottom:8px;font-size:14px">输入参数（可选）</label>' +
+        '<textarea id="run-context" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;min-height:80px;font-size:13px" ' +
+        'placeholder="{\n  &#92;"task&#92;": &#92;"具体任务描述&#92;"\n}"></textarea>' +
+        '</div>' +
+        '<div style="font-size:13px;color:#666">' +
+        '<p>即将执行 ' + loop.stepCount + ' 个步骤：</p>' +
+        '<ol style="margin:8px 0 0 20px">' +
+        loop.steps.map(function(s) { return '<li>' + escapeHtml(s.name) + '</li>'; }).join('') +
+        '</ol>' +
+        '</div>';
+      document.getElementById('action-footer').innerHTML = 
+        '<button class="btn btn-outline" onclick="closeActionModal()">取消</button>' +
+        '<button class="btn btn-primary" onclick="confirmRun(\'' + loopId + '\')">开始运行</button>';
+      document.getElementById('action-modal').classList.add('active');
+    }
+
+    async function confirmRun(loopId) {
+      try {
+        var context = {};
+        var contextText = document.getElementById('run-context').value.trim();
+        if (contextText) {
+          try { context = JSON.parse(contextText); } catch(e) {}
+        }
+
+        var res = await fetch('/api/loops/runs', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + token,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ loopId: loopId, context: context })
+        });
+        var data = await res.json();
+        if (data.success) {
+          showToast('Loop 已启动', 'success');
+          closeActionModal();
+          switchTab('runs');
+          loadRuns();
+        } else {
+          showToast(data.error || '启动失败', 'error');
+        }
+      } catch (err) {
+        showToast('启动失败: ' + err.message, 'error');
+      }
+    }
+
+    // 加载运行记录
+    async function loadRuns() {
+      try {
+        var res = await fetch('/api/loops/runs', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        var data = await res.json();
+        if (data.success) {
+          runs = data.runs;
+          renderRuns();
+        }
+      } catch (err) {
+        showToast('加载失败: ' + err.message, 'error');
+      }
+    }
+
+    // 渲染运行列表
+    function renderRuns() {
+      if (runs.length === 0) {
+        document.getElementById('runs-list').innerHTML = 
+          '<div style="color:#999;padding:40px;text-align:center">暂无运行记录</div>';
+        return;
+      }
+
+      document.getElementById('runs-list').innerHTML = runs.map(function(run) {
+        var statusClass = 'status-' + run.status;
+        var statusText = {
+          pending: '等待中',
+          running: '运行中',
+          success: '成功',
+          failed: '失败',
+          human_required: '需人工'
+        }[run.status] || run.status;
+
+        return '<div class="run-item" onclick="showRunDetail(\'' + run.id + '\')">' +
+          '<div class="run-status ' + statusClass + '"></div>' +
+          '<div class="run-info">' +
+          '<div class="run-name">' + escapeHtml(run.loopName) + '</div>' +
+          '<div class="run-meta">' + statusText + ' | 步骤 ' + (run.currentStep + 1) + '/' + run.totalSteps + '</div>' +
+          '</div>' +
+          '<div class="run-progress">' +
+          '<div class="progress-bar"><div class="progress-fill" style="width:' + run.progress + '%"></div></div>' +
+          '<div class="progress-text">' + run.progress + '%</div>' +
+          '</div>' +
+          '</div>';
+      }).join('');
+    }
+
+    // 显示运行详情
+    async function showRunDetail(runId) {
+      try {
+        var res = await fetch('/api/loops/runs/' + runId, {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        var data = await res.json();
+        if (!data.success) return;
+
+        var run = data.run;
+        var html = '<div style="margin-bottom:20px">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">' +
+          '<h4>' + escapeHtml(run.loopName) + '</h4>' +
+          '<span class="badge badge-' + (run.status === 'success' ? 'success' : run.status === 'failed' ? 'danger' : 'info') + '">' + run.status + '</span>' +
+          '</div>' +
+          '<div class="step-flow">';
+
+        run.steps.forEach(function(step, i) {
+          var nodeClass = step.status === 'running' ? 'active' : 
+                         step.status === 'success' ? 'success' :
+                         step.status === 'failed' ? 'failed' : 'pending';
+          html += '<div class="step-node ' + nodeClass + '">' +
+            '<div class="step-icon">' + getStepIcon(step.status) + '</div>' +
+            '<div class="step-label">' + escapeHtml(step.name) + '</div>' +
+            '</div>';
+          if (i < run.steps.length - 1) {
+            html += '<div class="step-arrow">→</div>';
+          }
+        });
+
+        html += '</div></div>';
+
+        // 日志
+        if (run.logs && run.logs.length > 0) {
+          html += '<div style="margin-top:16px"><h4 style="margin-bottom:8px">执行日志</h4>';
+          run.logs.forEach(function(log) {
+            html += '<div class="log-entry">' +
+              '<span class="log-time">' + formatTime(log.time) + '</span>' +
+              '<span class="log-level ' + log.level + '">' + log.level.toUpperCase() + '</span>' +
+              escapeHtml(log.message) +
+              '</div>';
+          });
+          html += '</div>';
+        }
+
+        // 人工确认按钮
+        if (run.status === 'human_required') {
+          html += '<div style="margin-top:16px;padding:16px;background:#fffbeb;border-radius:8px;border:1px solid #f5a623">' +
+            '<p style="margin-bottom:12px">当前步骤需要人工确认</p>' +
+            '<div style="display:flex;gap:8px">' +
+            '<button class="btn btn-primary" onclick="approveRun(\'' + run.id + '\', \'approve\')">通过</button>' +
+            '<button class="btn btn-outline" onclick="approveRun(\'' + run.id + '\', \'retry\')">重试</button>' +
+            '<button class="btn btn-danger" onclick="approveRun(\'' + run.id + '\', \'reject\')">拒绝</button>' +
+            '</div>' +
+            '</div>';
+        }
+
+        document.getElementById('run-detail').innerHTML = html;
+        document.getElementById('run-modal').classList.add('active');
+      } catch (err) {
+        showToast('加载详情失败', 'error');
+      }
+    }
+
+    async function approveRun(runId, decision) {
+      try {
+        var res = await fetch('/api/loops/runs/' + runId + '/approve', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + token,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ stepId: 'current', decision: decision })
+        });
+        var data = await res.json();
+        if (data.success) {
+          showToast('已' + (decision === 'approve' ? '通过' : decision === 'reject' ? '拒绝' : '重试'), 'success');
+          closeModal();
+          loadRuns();
+        }
+      } catch (err) {
+        showToast('操作失败', 'error');
+      }
+    }
+
+    function getStepIcon(status) {
+      if (status === 'success') return '✓';
+      if (status === 'failed') return '✗';
+      if (status === 'running') return '●';
+      return '○';
+    }
+
+    function formatTime(time) {
+      return new Date(time).toLocaleTimeString('zh-CN');
+    }
+
+    // 模态框控制
+    function closeModal() {
+      document.getElementById('run-modal').classList.remove('active');
+    }
+    function closeActionModal() {
+      document.getElementById('action-modal').classList.remove('active');
+    }
+
+    // 工具函数
+    function escapeHtml(text) {
+      if (!text) return '';
+      var div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function showToast(message, type) {
+      // 简单实现，实际可用更复杂的 toast 组件
+      console.log('[' + type + '] ' + message);
+    }
+
+    // 点击模态框外部关闭
+    document.querySelectorAll('.modal-overlay').forEach(function(overlay) {
+      overlay.addEventListener('click', function(e) {
+        if (e.target === overlay) {
+          overlay.classList.remove('active');
+        }
+      });
+    });
+  </script>
+</body>
+</html>

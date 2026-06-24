@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import 'package:lingxicloud/utils/constants.dart';
 import 'package:lingxicloud/services/rpc_ws.dart';
 import 'package:lingxicloud/services/lume_websocket_service.dart';
+import 'package:lingxicloud/services/api_service.dart';
 
 /// 定时任务页面 — 通过 Lume gateway.call / Gateway cron.* 直连
 class CronPage extends StatefulWidget {
@@ -14,10 +16,20 @@ class CronPage extends StatefulWidget {
 
 class _CronPageState extends State<CronPage> {
   final _taskController = TextEditingController();
+  final _notifyEmailController = TextEditingController();
+  final _smtpHostController = TextEditingController();
+  final _smtpUserController = TextEditingController();
+  final _smtpPassController = TextEditingController();
+  final _smtpFromController = TextEditingController();
+  final _recipientEmailController = TextEditingController();
   String _frequency = '每天';
   String _time = '09:00';
   String? _selectedDay;
   bool _isCreating = false;
+  bool _notifyEmail = false; // 默认开启邮件通知
+  String _notifyEmailAddr = ''; // 全局通知邮箱（从 SMTP 配置读取）
+  bool _smtpConfigured = false;
+  bool _smtpTesting = false;
   List<Map<String, dynamic>> _tasks = [];
   bool _isLoadingTasks = false;
   String? _loadError;
@@ -35,12 +47,46 @@ class _CronPageState extends State<CronPage> {
   void initState() {
     super.initState();
     _loadTasks();
+    _loadSmtpConfig();
   }
 
   @override
   void dispose() {
     _taskController.dispose();
+    _notifyEmailController.dispose();
+    _smtpHostController.dispose();
+    _smtpUserController.dispose();
+    _smtpPassController.dispose();
+    _smtpFromController.dispose();
+    _recipientEmailController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadSmtpConfig() async {
+    try {
+      final res = await ApiService().get('/api/cron/smtp/config');
+      final data = res.data;
+      print('[SMTP Config] response: $data');
+      if (data is Map && data['success'] == true && data['configured'] == true) {
+        final cfg = data['config'] as Map<String, dynamic>?;
+        final email = data['email']?.toString() ?? '';
+        if (mounted) setState(() {
+          _smtpConfigured = true;
+          _notifyEmailAddr = email;
+          _notifyEmailController.text = email;
+          _notifyEmail = true;
+          _smtpHostController.text = cfg?['host']?.toString() ?? '';
+          _smtpUserController.text = cfg?['user']?.toString() ?? '';
+          _recipientEmailController.text = (cfg?['recipientEmail']?.toString() ?? email);
+          _smtpPassController.clear();
+        });
+      } else {
+        print('[SMTP Config] not configured or failed: $data');
+      }
+    } catch (e, st) {
+      print('[SMTP Config] error: $e');
+      print(st);
+    }
   }
 
   Future<void> _ensureConnected() async {
@@ -202,12 +248,22 @@ class _CronPageState extends State<CronPage> {
       return;
     }
     final name = title.length > 40 ? '${title.substring(0, 40)}…' : title;
-    final res = await rpcGatewayCall('cron.add', {
+    final Map<String, dynamic> body = {
       'name': name,
       'schedule': _buildSchedule(),
       'payload': {'kind': 'agentTurn', 'message': title},
       'enabled': true,
-    }, timeout: const Duration(seconds: 20));
+    };
+    if (_notifyEmail && _notifyEmailController.text.trim().isNotEmpty) {
+      body['notify'] = {
+        'channel': 'email',
+        'target': _notifyEmailController.text.trim(),
+      };
+    } else if (!_notifyEmail && _smtpConfigured) {
+      // 明确关闭通知——注入 notify:none 让 webhook 跳过
+      body['notify'] = {'channel': 'none'};
+    }
+    final res = await rpcGatewayCall('cron.add', body, timeout: const Duration(seconds: 20));
     if (!mounted) return;
     setState(() => _isCreating = false);
     if (!rpcGatewayOk(res)) {
@@ -300,6 +356,282 @@ class _CronPageState extends State<CronPage> {
     });
   }
 
+  void _showSmtpDialog() {
+    // 只在未配置时给默认值，已配置则保留 _loadSmtpConfig 回填的值
+    if (!_smtpConfigured && _smtpHostController.text.isEmpty) {
+      _smtpHostController.text = 'smtp.qq.com';
+    }
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          return AlertDialog(
+            title: const Text('邮件通知设置'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_smtpConfigured)
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(children: [
+                        Icon(Icons.check_circle, size: 14, color: Colors.green.shade600),
+                        const SizedBox(width: 6),
+                        Text('SMTP 已配置', style: TextStyle(fontSize: 12, color: Colors.green.shade600)),
+                      ]),
+                    ),
+                  TextField(
+                    controller: _smtpHostController,
+                    style: const TextStyle(fontSize: 14),
+                    decoration: const InputDecoration(
+                      labelText: 'SMTP 服务器',
+                      hintText: 'smtp.qq.com',
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _smtpUserController,
+                    keyboardType: TextInputType.emailAddress,
+                    style: const TextStyle(fontSize: 14),
+                    decoration: const InputDecoration(
+                      labelText: '发件邮箱',
+                      hintText: 'your@qq.com',
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _recipientEmailController,
+                    keyboardType: TextInputType.emailAddress,
+                    style: const TextStyle(fontSize: 14),
+                    decoration: const InputDecoration(
+                      labelText: '收件邮箱（接收报告的邮箱）',
+                      hintText: '默认同发件邮箱',
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _smtpPassController,
+                    obscureText: true,
+                    style: const TextStyle(fontSize: 14),
+                    decoration: const InputDecoration(
+                      labelText: '授权码（非登录密码）',
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Text(
+                      'QQ邮箱: smtp.qq.com:465(SSL)\n'
+                      'Gmail: smtp.gmail.com:587\n'
+                      'Outlook: smtp.office365.com:587\n'
+                      '163: smtp.163.com:465(SSL)',
+                      style: TextStyle(fontSize: 11, color: Colors.black54),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: _smtpTesting
+                    ? null
+                    : () async {
+                        setDialogState(() => _smtpTesting = true);
+                        await _saveSmtp();
+                        setDialogState(() => _smtpTesting = false);
+                      },
+                child: _smtpTesting
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Text('保存'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('关闭'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _saveSmtp() async {
+    final host = _smtpHostController.text.trim();
+    final user = _smtpUserController.text.trim();
+    final pass = _smtpPassController.text.trim();
+    if (host.isEmpty || user.isEmpty || pass.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('请填写服务器、邮箱、授权码'), backgroundColor: Colors.red),
+        );
+      }
+      return;
+    }
+    try {
+      final res = await ApiService().post('/api/cron/smtp/config', data: {
+        'host': host,
+        'port': 465,
+        'secure': true,
+        'user': user,
+        'pass': pass,
+        'from': user,
+        'recipientEmail': _recipientEmailController.text.trim().isEmpty ? user : _recipientEmailController.text.trim(),
+      });
+      final data = res.data;
+      if (data is Map && data['success'] == true) {
+        final recipient = _recipientEmailController.text.trim().isEmpty
+            ? user
+            : _recipientEmailController.text.trim();
+        setState(() {
+          _smtpConfigured = true;
+          _notifyEmailAddr = recipient;
+          _notifyEmailController.text = recipient;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('SMTP 配置已保存'), backgroundColor: Color(0xFF8B5CF6)),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('保存失败：${data is Map ? data['error'] : '未知错误'}'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('保存失败：$e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  /// 检测任务是否已明确关闭通知
+  bool _isTaskNotifyOff(Map<String, dynamic> task) {
+    final raw = task['raw'] as Map<String, dynamic>?;
+    final message = raw?['payload'] is Map ? raw!['payload']['message']?.toString() ?? '' : '';
+    final m = RegExp(r'<!--notify:(\{[\s\S]*?\})-->').firstMatch(message);
+    if (m == null) return false; // 无标记 = 默认开
+    try {
+      final notify = jsonDecode(m.group(1)!);
+      return notify['channel'] == 'none';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// 设置任务通知开关
+  Future<void> _setTaskNotify(Map<String, dynamic> task, bool enable) async {
+    final jobId = task['id']?.toString() ?? '';
+    if (jobId.isEmpty) return;
+    try {
+      final raw = task['raw'] as Map<String, dynamic>?;
+      final oldMessage = raw?['payload'] is Map ? raw!['payload']['message']?.toString() ?? '' : '';
+      String newMessage;
+      if (enable) {
+        // 移除 notify:none 标记 → 恢复默认（发邮件）
+        newMessage = oldMessage.replaceFirst(RegExp(r'\s*<!--notify:\{[\s\S]*?\}-->'), '');
+      } else {
+        // 注入 notify:none
+        if (oldMessage.contains('<!--notify:')) {
+          newMessage = oldMessage.replaceFirst(RegExp(r'<!--notify:[\s\S]*?-->'), '<!--notify:{"channel":"none"}-->');
+        } else {
+          newMessage = oldMessage + '\n\n<!--notify:{"channel":"none"}-->';
+        }
+      }
+      await rpcGatewayCall('cron.update', {
+        'id': jobId,
+        'patch': {'payload': {'kind': 'agentTurn', 'message': newMessage}},
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(enable ? '已开启此任务通知' : '已关闭此任务通知'),
+            backgroundColor: const Color(0xFF8B5CF6),
+          ),
+        );
+        await _loadTasks();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('操作失败：$e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  /// 关闭单个任务的通知（注入 notify:none 标记）
+  void _showEditNotifyDialog(Map<String, dynamic> task) {
+    final jobId = task['id']?.toString() ?? '';
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('关闭此任务通知'),
+        content: Text('关闭后，此任务执行完成不再发邮件通知。\n\n其他任务不受影响。\n\n可随时重新开启。'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await _disableNotifyForTask(jobId, task);
+            },
+            child: const Text('确认关闭'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 给单个任务注入 notify:none 标记，阻止 webhook 发邮件
+  Future<void> _disableNotifyForTask(String jobId, Map<String, dynamic> task) async {
+    try {
+      final raw = task['raw'] as Map<String, dynamic>?;
+      final oldMessage = raw?['payload'] is Map ? raw!['payload']['message']?.toString() ?? '' : '';
+      String newMessage;
+      if (oldMessage.contains('<!--notify:')) {
+        newMessage = oldMessage.replaceFirst(RegExp(r'<!--notify:[\s\S]*?-->'), '<!--notify:{"channel":"none"}-->');
+      } else {
+        newMessage = oldMessage + '\n\n<!--notify:{"channel":"none"}-->';
+      }
+      await rpcGatewayCall('cron.update', {
+        'id': jobId,
+        'patch': {'payload': {'kind': 'agentTurn', 'message': newMessage}},
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已关闭此任务通知'), backgroundColor: Color(0xFF8B5CF6)),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('操作失败：$e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   Widget _buildTaskDetail(Map<String, dynamic> task, Color subColor, Color textColor, Color fieldBg) {
     return Container(
       width: double.infinity,
@@ -328,6 +660,39 @@ class _CronPageState extends State<CronPage> {
               Expanded(child: _detailRow('下次执行', task['nextRunAt']?.toString() ?? '—', subColor, textColor, compact: true)),
             ],
           ),
+          const SizedBox(height: 8),
+          // 通知开关
+          if (_smtpConfigured) ...[
+            Row(
+              children: [
+                Text('结果通知', style: TextStyle(fontSize: 11, color: subColor, fontWeight: FontWeight.w500)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '📧 $_notifyEmailAddr',
+                    style: TextStyle(fontSize: 13, color: const Color(0xFF8B5CF6)),
+                  ),
+                ),
+                Switch(
+                  value: !_isTaskNotifyOff(task),
+                  onChanged: (v) => _setTaskNotify(task, v),
+                  activeColor: const Color(0xFF8B5CF6),
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ],
+            ),
+          ] else ...[
+            Row(
+              children: [
+                Text('结果通知', style: TextStyle(fontSize: 11, color: subColor, fontWeight: FontWeight.w500)),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: _showSmtpDialog,
+                  child: Text('请先配置 SMTP', style: TextStyle(fontSize: 12, color: const Color(0xFF8B5CF6))),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 8),
           _detailRow('任务 ID', task['id']?.toString() ?? '', subColor, textColor, mono: true),
         ],
@@ -371,6 +736,12 @@ class _CronPageState extends State<CronPage> {
         elevation: 0,
         actions: [
           IconButton(icon: const Icon(Icons.refresh), onPressed: _loadTasks, tooltip: '刷新'),
+          IconButton(
+            icon: Icon(_smtpConfigured ? Icons.notifications_active : Icons.notifications_none, 
+                color: _smtpConfigured ? const Color(0xFF8B5CF6) : null),
+            onPressed: _showSmtpDialog,
+            tooltip: '邮件通知设置',
+          ),
         ],
       ),
       body: ListView(
@@ -495,6 +866,54 @@ class _CronPageState extends State<CronPage> {
                       ),
                     ],
                   ],
+                ),
+                const SizedBox(height: 14),
+                // 通知配置 — 简化：全局配了 SMTP 就默认开，只需开关
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: fieldBg,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.notifications_outlined, size: 16, color: subColor),
+                          const SizedBox(width: 6),
+                          Text('结果通知', style: TextStyle(fontSize: 13, color: subColor, fontWeight: FontWeight.w500)),
+                          const Spacer(),
+                          if (!_smtpConfigured)
+                            GestureDetector(
+                              onTap: _showSmtpDialog,
+                              child: Text('先配置 SMTP', style: TextStyle(fontSize: 12, color: const Color(0xFF8B5CF6))),
+                            )
+                          else
+                            Switch(
+                              value: _notifyEmail,
+                              onChanged: (v) => setState(() => _notifyEmail = v),
+                              activeColor: const Color(0xFF8B5CF6),
+                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                        ],
+                      ),
+                      if (_smtpConfigured && _notifyEmail) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          '📧 执行后自动发报告到 $_notifyEmailAddr',
+                          style: TextStyle(fontSize: 11, color: subColor),
+                        ),
+                      ],
+                      if (!_smtpConfigured) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          '配置 SMTP 后，任务执行完自动发邮件通知',
+                          style: TextStyle(fontSize: 11, color: subColor),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 16),
                 SizedBox(

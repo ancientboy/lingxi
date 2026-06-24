@@ -249,6 +249,84 @@ app.use('/api/genes', genesRoutes);
 
 // Cron 定时任务代理
 import cronRoutes from './routes/cron.js';
+
+// Cron webhook 接收端点（不需要登录认证，供 OpenClaw 直接调用）
+// 用户配一次 SMTP → 所有任务自动发邮件，无需每个任务单独配置
+app.post('/api/cron/webhook', express.json(), async (req, res) => {
+  try {
+    const body = req.body || {};
+    const jobId = body.jobId || body.id || '';
+    const jobName = body.jobName || body.name || '定时任务';
+    const status = body.status || body.runStatus || '';
+    const result = body.result || body.output || body.payload || '';
+    const errorMsg = body.error || body.errorReason || '';
+
+    console.log(`[Cron Webhook] ${jobName} (${jobId}) status=${status}`);
+
+    // 直接查全局 SMTP 配置——配了就发，没配就跳过
+    const dbPath = join(__dirname, 'data/db.json');
+    const db = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
+    const userSmtp = (db.userSmtpConfigs || []).find(s => s.userId === 'admin')
+      || (db.cronSettings || []).find(s => s.userId === 'admin')?.smtp;
+    if (!userSmtp) {
+      console.log('[Cron Webhook] 未配置 SMTP，跳过');
+      return res.json({ success: true, skipped: true });
+    }
+
+    // 如果 message 里有 notify 标记且明确设为 none，则跳过该任务
+    const message = body.message || (body.payload && body.payload.message) || '';
+    const notifyMatch = message.match(/<!--notify:(\{[\s\S]*?\})-->/);
+    if (notifyMatch) {
+      try {
+        const notify = JSON.parse(notifyMatch[1]);
+        if (notify.channel === 'none') {
+          console.log('[Cron Webhook] 任务已明确关闭通知，跳过');
+          return res.json({ success: true, skipped: true });
+        }
+      } catch {}
+    }
+
+    const { default: nodemailer } = await import('nodemailer');
+    const transporter = nodemailer.createTransport({
+      host: userSmtp.host,
+      port: parseInt(userSmtp.port || '587', 10),
+      secure: userSmtp.secure === true || userSmtp.port === 465,
+      auth: { user: userSmtp.user, pass: userSmtp.pass },
+    });
+
+    const isSuccess = status === 'ok' || status === 'success' || status === 'completed';
+    const subject = isSuccess
+      ? `✅ [${jobName}] 任务完成报告`
+      : `❌ [${jobName}] 任务执行失败`;
+
+    const resultText = typeof result === 'string'
+      ? result.slice(0, 5000)
+      : JSON.stringify(result, null, 2).slice(0, 5000);
+
+    const textBody = isSuccess
+      ? `任务「${jobName}」已完成执行。\n\n--- 执行结果 ---\n${resultText}\n\n---\n灵犀云`
+      : `任务「${jobName}」执行失败。\n\n--- 错误信息 ---\n${errorMsg || '未知错误'}\n\n---\n灵犀云`;
+
+    const htmlBody = isSuccess
+      ? `<h2>✅ 任务「${jobName}」已完成</h2><hr><pre style="white-space:pre-wrap;font-size:14px;">${resultText}</pre><hr><p style="color:#999;font-size:12px;">灵犀云</p>`
+      : `<h2>❌ 任务「${jobName}」执行失败</h2><hr><pre style="white-space:pre-wrap;font-size:14px;color:red;">${errorMsg || '未知错误'}</pre><hr><p style="color:#999;font-size:12px;">灵犀云</p>`;
+
+    await transporter.sendMail({
+      from: userSmtp.from || userSmtp.user,
+      to: userSmtp.user, // 默认发到 SMTP 配置邮箱
+      subject,
+      text: textBody,
+      html: htmlBody,
+    });
+
+    console.log(`[Cron Webhook] 邮件已发送到 ${userSmtp.user}`);
+    res.json({ success: true, sent: true });
+  } catch (err) {
+    console.error('[Cron Webhook] 错误:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.use('/api/cron', cronRoutes);
 
 // 记忆系统
@@ -386,6 +464,10 @@ setTimeout(function() {
   runAutoHealthCheck();
   setInterval(runAutoHealthCheck, HEALTHCHECK_INTERVAL);
 }, 60 * 1000);
+
+// Loop 引擎
+import loopRoutes from './routes/loops.js';
+app.use('/api/loops', loopRoutes);
 
 // 错误处理
 app.use((err, req, res, next) => {
