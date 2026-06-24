@@ -308,6 +308,10 @@ async function init() {
   
   // 初始化 agent 下拉（放在最后，确保 user 已加载）
   initAgentDropdown();
+  if (typeof initTeamPanel === 'function') {
+    try { initTeamPanel(); } catch (e) { /* 组件可能尚未加载 */ }
+  }
+  updateSessionTitle();
   
   // 🎯 检查是否需要引导（放在初始化最后）
   await checkOnboarding();
@@ -321,18 +325,27 @@ let connectNonce = null;
 // ═══════════════════════════════════════════════════════════════
 // 🔌 WebSocket 模块
 // ═══════════════════════════════════════════════════════════════
+function updateConnectionStatus(connected) {
+  const statusEl = document.getElementById('connectionStatus');
+  if (!statusEl) return;
+  const statusDot = statusEl.querySelector('.status-dot');
+  const statusText = statusEl.querySelector('.status-text');
+  if (statusDot) {
+    statusDot.className = connected ? 'status-dot connected' : 'status-dot';
+  }
+  if (statusText) {
+    statusText.textContent = connected ? '已连接' : '未连接';
+  }
+  statusEl.title = connected ? '已连接' : '未连接';
+}
+
 function connectWebSocket() {
   const statusEl = document.getElementById('connectionStatus');
   if (!statusEl) {
     console.warn('⚠️ connectionStatus 元素未找到，跳过 WebSocket 状态更新');
     return;
   }
-  const statusDot = statusEl.querySelector('.status-dot');
-  if (!statusDot) {
-    console.warn('⚠️ status-dot 元素未找到，跳过 WebSocket 状态更新');
-    return;
-  }
-  statusDot.className = 'status-dot';
+  updateConnectionStatus(false);
   
   try {
     // 🔧 修复：通过后端 WebSocket 代理连接，解决 HTTPS 混合内容问题
@@ -364,17 +377,17 @@ function connectWebSocket() {
     
     ws.onerror = (error) => {
       console.error('WebSocket 错误:', error);
-      statusDot.className = 'status-dot';  // 红色
+      updateConnectionStatus(false);
     };
     
     ws.onclose = () => {
       console.log('WebSocket 已断开，5秒后重连...');
-      statusDot.className = 'status-dot';  // 红色
+      updateConnectionStatus(false);
       setTimeout(connectWebSocket, 5000);
     };
   } catch (e) {
     console.error('WebSocket 连接失败:', e);
-    statusDot.className = 'status-dot';  // 红色
+    updateConnectionStatus(false);
   }
 }
 
@@ -423,8 +436,7 @@ function handleWebSocketMessage(data) {
   
   // 连接响应
   if (data.type === 'res' && data.ok && data.payload?.type === 'hello-ok') {
-    const statusDot = statusEl?.querySelector('.status-dot');
-    if (statusDot) statusDot.className = 'status-dot connected';  // 绿色
+    updateConnectionStatus(true);
     console.log('✅ 认证成功');
     // 加载会话列表和历史
     loadSessions();
@@ -448,7 +460,7 @@ function handleWebSocketMessage(data) {
     
     // 如果是认证错误，显示红色状态
     if (errorMsg.includes('auth') || errorMsg.includes('token') || errorMsg.includes('认证')) {
-      statusDot.className = 'status-dot';  // 红色
+      updateConnectionStatus(false);
     }
     
     removeTyping();
@@ -562,26 +574,91 @@ function cleanMessageText(text) {
 // 流式消息管理
 let streamingMessages = {};  // runId -> {element, text}
 
+function scrollMessagesToBottom() {
+  const scroll = document.getElementById('messageScroll');
+  const messages = document.getElementById('messages');
+  if (scroll) scroll.scrollTop = scroll.scrollHeight;
+  else if (messages) messages.scrollTop = messages.scrollHeight;
+}
+
+function getMessageTextFromEl(row) {
+  if (!row) return '';
+  const content = row.querySelector('.message-content');
+  return content ? content.textContent.trim() : '';
+}
+
+function attachMessageActions(row, content) {
+  const wrap = row.querySelector('.message-assistant-wrap');
+  if (!wrap || wrap.querySelector('.message-actions')) return;
+  const actions = document.createElement('div');
+  actions.className = 'message-actions';
+  actions.innerHTML = `
+    <button type="button" class="msg-action" title="复制" onclick="copyMessage(this)">
+      <i data-lucide="copy" class="icon-sm"></i>
+    </button>
+    <button type="button" class="msg-action" title="重新生成" onclick="regenerateMessage(this)">
+      <i data-lucide="rotate-ccw" class="icon-sm"></i>
+    </button>
+  `;
+  wrap.appendChild(actions);
+  row.dataset.messageContent = content;
+  if (window.lucide) lucide.createIcons();
+}
+
+function markLastAssistantMessage() {
+  document.querySelectorAll('.message-row.assistant').forEach((el) => el.classList.remove('is-last'));
+  const rows = document.querySelectorAll('.message-row.assistant:not(.typing-row)');
+  if (rows.length) rows[rows.length - 1].classList.add('is-last');
+}
+
+function copyMessage(btn) {
+  const row = btn.closest('.message-row.assistant');
+  const text = row?.dataset.messageContent || getMessageTextFromEl(row);
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.classList.add('copied');
+    setTimeout(() => btn.classList.remove('copied'), 1500);
+  }).catch(() => {
+    showToast?.('复制失败', 'error');
+  });
+}
+
+function regenerateMessage(btn) {
+  if (isGenerating) return;
+  const row = btn.closest('.message-row.assistant');
+  if (!row) return;
+  let prev = row.previousElementSibling;
+  while (prev && !prev.classList.contains('user')) {
+    prev = prev.previousElementSibling;
+  }
+  if (!prev) return;
+  const userText = getMessageTextFromEl(prev);
+  if (!userText) return;
+  row.remove();
+  markLastAssistantMessage();
+  const input = document.getElementById('inputField');
+  if (input) {
+    input.value = userText;
+    sendMessage();
+  }
+}
+
 // 更新或创建流式消息
 function updateStreamingMessage(text, runId) {
   removeTyping();
   
   if (!streamingMessages[runId]) {
-    // 创建新的流式消息
-    const div = addMessage('assistant', text, '灵犀');
+    const div = addMessage('assistant', text, '灵犀', { streaming: true });
     streamingMessages[runId] = { element: div, text: text };
   } else {
-    // 更新现有消息
     streamingMessages[runId].text = text;
-    const bubble = streamingMessages[runId].element.querySelector('.bubble');
-    if (bubble) {
-      bubble.innerHTML = escapeHtml(text);
-    }
+    const row = streamingMessages[runId].element;
+    row.dataset.messageContent = text;
+    const content = row.querySelector('.message-content');
+    if (content) content.innerHTML = escapeHtml(text);
   }
   
-  // 滚动到底部
-  const messages = document.getElementById('messages');
-  messages.scrollTop = messages.scrollHeight;
+  scrollMessagesToBottom();
 }
 
 // 检查是否有流式消息
@@ -591,15 +668,20 @@ function hasStreamingMessage(runId) {
 
 // 完成流式消息
 function finalizeStreamingMessage(text, runId) {
-  if (streamingMessages[runId] && text) {
-    streamingMessages[runId].text = text;
-    const bubble = streamingMessages[runId].element.querySelector('.bubble');
-    if (bubble) {
-      bubble.innerHTML = escapeHtml(text);
+  if (streamingMessages[runId]) {
+    const row = streamingMessages[runId].element;
+    const finalText = text || streamingMessages[runId].text || '';
+    if (finalText) {
+      streamingMessages[runId].text = finalText;
+      row.dataset.messageContent = finalText;
+      const content = row.querySelector('.message-content');
+      if (content) content.innerHTML = escapeHtml(finalText);
     }
+    row.classList.remove('is-streaming');
+    attachMessageActions(row, finalText);
+    markLastAssistantMessage();
+    delete streamingMessages[runId];
   }
-  // 清理
-  delete streamingMessages[runId];
 }
 
 // 渲染团队标签
@@ -696,15 +778,17 @@ function handleSendClick() {
 // 更新发送按钮状态
 function updateSendButton() {
   const btn = document.getElementById('sendBtn');
+  if (!btn) return;
   if (isGenerating) {
-    btn.textContent = '■';
     btn.classList.add('stopping');
     btn.title = '停止生成';
+    btn.innerHTML = '<i data-lucide="square" class="icon-sm"></i>';
   } else {
-    btn.textContent = '➤';
     btn.classList.remove('stopping');
     btn.title = '发送';
+    btn.innerHTML = '<i data-lucide="send" class="icon-sm"></i>';
   }
+  if (window.lucide) lucide.createIcons();
 }
 
 // 中止对话
@@ -831,7 +915,6 @@ function renderHistory(messages) {
     
     container.innerHTML = `
       <div class="welcome" id="welcome">
-        <div class="welcome-icon">${agentIcon(agentInfo, 'lg')}</div>
         <div class="welcome-title">${agentInfo.name}</div>
         <div class="welcome-desc">${agentInfo.desc}</div>
         ${examplesHtml ? `
@@ -842,6 +925,7 @@ function renderHistory(messages) {
         ` : ''}
       </div>
     `;
+    updateSessionTitle();
     return;
   }
   
@@ -859,31 +943,12 @@ function renderHistory(messages) {
   }
   
   console.log('✅ 渲染了', messages.length, '条历史消息');
+  markLastAssistantMessage();
+  updateSessionTitle();
   
-  // 强制滚动到底部（延迟确保DOM渲染完成）
-  const scrollToBottom = () => {
-    // 滚动消息容器
-    container.scrollTop = container.scrollHeight;
-    
-    // 滚动整个页面（移动端更可靠）
-    window.scrollTo({
-      top: document.body.scrollHeight,
-      behavior: 'instant'
-    });
-    
-    // 额外：确保输入框可见
-    const inputArea = document.querySelector('.input-area');
-    if (inputArea) {
-      inputArea.scrollIntoView({ behavior: 'instant', block: 'end' });
-    }
-    
-    console.log('📜 已滚动到底部');
-  };
-  
-  // 多次尝试滚动，确保生效
+  const scrollToBottom = () => scrollMessagesToBottom();
   setTimeout(scrollToBottom, 50);
   setTimeout(scrollToBottom, 200);
-  setTimeout(scrollToBottom, 500);
 }
 
 // ===== 会话管理 =====
@@ -1127,20 +1192,18 @@ async function switchSession(sessionKey) {
   const container = document.getElementById('messages');
   container.innerHTML = `
     <div class="welcome" id="welcome">
-      <div class="welcome-icon">
-        <i data-lucide="loader-2" class="icon-lg" style="animation: spin 1s linear infinite;"></i>
-      </div>
       <div class="welcome-title">加载中...</div>
       <div class="welcome-desc">正在获取聊天历史</div>
+      <div class="message-typing" style="margin-top:16px;"><span class="typing-shimmer"></span></div>
     </div>
   `;
   
-  // 重新渲染 Lucide 图标
-  if (window.lucide) lucide.createIcons();
+  updateSessionTitle();
   
   // 加载该会话的历史
   try {
     await loadChatHistory();
+    updateSessionTitle();
   } catch (e) {
     console.error('加载历史失败:', e);
   }
@@ -1293,28 +1356,37 @@ function quickSend(text) {
 }
 
 // 添加消息
-function addMessage(role, content, name) {
+function addMessage(role, content, name, options = {}) {
   const messages = document.getElementById('messages');
   const div = document.createElement('div');
-  div.className = `message ${role}`;
   
-  // 获取当前 Agent 的头像
-  const currentAgent = AGENT_INFO[currentAgentId] || { icon: 'zap', name: '灵犀' };
-  const avatarHtml = role === 'user' 
-    ? '<div class="avatar user-avatar"><i data-lucide="user" class="icon-sm"></i></div>'
-    : `<div class="avatar">${agentIcon(currentAgent, 'sm')}</div>`;
-  
-  div.innerHTML = `
-    ${avatarHtml}
-    <div class="bubble">${escapeHtml(content)}</div>
-  `;
+  if (role === 'user') {
+    div.className = 'message-row user';
+    div.innerHTML = `
+      <div class="message-user-block">
+        <div class="message-content">${escapeHtml(content)}</div>
+      </div>
+    `;
+  } else {
+    div.className = 'message-row assistant';
+    if (options.streaming) div.classList.add('is-streaming');
+    div.dataset.messageContent = content;
+    div.innerHTML = `
+      <div class="message-assistant-wrap">
+        <div class="message-content">${escapeHtml(content)}</div>
+      </div>
+    `;
+    if (!options.streaming) {
+      attachMessageActions(div, content);
+      div.classList.add('is-last');
+      document.querySelectorAll('.message-row.assistant:not(.typing-row)').forEach((el) => {
+        if (el !== div) el.classList.remove('is-last');
+      });
+    }
+  }
   
   messages.appendChild(div);
-  messages.scrollTop = messages.scrollHeight;
-  
-  // 重新渲染 Lucide 图标
-  if (window.lucide) lucide.createIcons();
-  
+  scrollMessagesToBottom();
   return div;
 }
 
@@ -1322,18 +1394,15 @@ function addMessage(role, content, name) {
 function addTyping() {
   const messages = document.getElementById('messages');
   const div = document.createElement('div');
-  div.className = 'message assistant';
+  div.className = 'message-row assistant typing-row';
   div.id = 'typing-indicator';
-  
-  // 获取当前 Agent 的头像
-  const currentAgent = AGENT_INFO[currentAgentId] || { icon: 'zap' };
-  
   div.innerHTML = `
-    <div class="avatar">${agentIcon(currentAgent, 'sm')}</div>
-    <div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div>
+    <div class="message-assistant-wrap">
+      <div class="message-typing"><span class="typing-shimmer"></span></div>
+    </div>
   `;
   messages.appendChild(div);
-  messages.scrollTop = messages.scrollHeight;
+  scrollMessagesToBottom();
   return div.id;
 }
 
@@ -1405,6 +1474,90 @@ function closeTeamModal() {
   document.getElementById('teamModal').classList.remove('show');
 }
 
+// ===== 会话标题 & 团队右栏（M6/M7） =====
+const TEAM_PANEL_KEY = 'lingxi_team_panel_expanded';
+
+function updateSessionTitle(text) {
+  const el = document.getElementById('sessionTitle');
+  if (!el) return;
+  if (text) {
+    el.textContent = text;
+    return;
+  }
+  const session = (window.sessions || []).find((s) => s.key === currentSessionKey);
+  const label = session?.displayName || session?.title || session?.name;
+  if (label) {
+    el.textContent = label;
+    return;
+  }
+  const agent = AGENT_INFO[currentAgentId];
+  el.textContent = agent?.name ? `与${agent.name}对话` : '新对话';
+}
+
+function initTeamPanel() {
+  const shell = document.getElementById('appShell');
+  // 默认仅显示 48px 图标轨，不自动展开大面板
+  if (shell) {
+    shell.classList.remove('team-panel-expanded');
+  }
+  localStorage.setItem(TEAM_PANEL_KEY, 'false');
+  renderTeamPanel();
+}
+
+function toggleTeamPanel(forceExpand) {
+  const shell = document.getElementById('appShell');
+  if (!shell) return;
+  const shouldExpand = typeof forceExpand === 'boolean'
+    ? forceExpand
+    : !shell.classList.contains('team-panel-expanded');
+  shell.classList.toggle('team-panel-expanded', shouldExpand);
+  localStorage.setItem(TEAM_PANEL_KEY, shouldExpand ? 'true' : 'false');
+  if (window.lucide) lucide.createIcons();
+}
+
+function renderTeamPanel() {
+  const activeAgent = AGENT_INFO[currentAgentId] || AGENT_INFO.lingxi;
+  const activeName = document.getElementById('teamPanelActiveName');
+  const activeRole = document.getElementById('teamPanelActiveRole');
+  const activeAvatar = document.getElementById('teamPanelActiveAvatar');
+  if (activeName) activeName.textContent = activeAgent.name;
+  if (activeRole) activeRole.textContent = `${activeAgent.scene || activeAgent.desc} · 在线`;
+  if (activeAvatar) activeAvatar.innerHTML = agentIcon(activeAgent, 'sm');
+
+  const membersEl = document.getElementById('teamPanelMembers');
+  if (membersEl) {
+    const agents = user?.agents?.length ? user.agents : ['lingxi'];
+    membersEl.innerHTML = agents.map((id) => {
+      const agent = AGENT_INFO[id] || { icon: 'bot', name: id, desc: '' };
+      const isActive = id === currentAgentId;
+      return `
+        <div class="team-panel-member ${isActive ? 'active' : ''}" onclick="switchAgent('${id}')">
+          <div class="team-panel-member-avatar">${agentIcon(agent, 'sm')}</div>
+          <div class="team-panel-member-info">
+            <div class="team-panel-member-name">${agent.name}</div>
+            <div class="team-panel-member-role">${agent.desc || ''}</div>
+          </div>
+          <span class="team-panel-member-dot"></span>
+        </div>
+      `;
+    }).join('');
+  }
+
+  const skillsEl = document.getElementById('teamPanelSkills');
+  if (skillsEl) {
+    const quickSkills = [
+      { label: '代码审查', text: '帮我审查一下这段代码' },
+      { label: '任务规划', text: '帮我规划今天的任务' },
+      { label: '联网搜索', text: '搜索一下最新行业动态' }
+    ];
+    skillsEl.innerHTML = quickSkills.map((s) =>
+      `<button type="button" class="skill-quick-chip" onclick="quickSend('${s.text.replace(/'/g, "\\'")}')">${s.label}</button>`
+    ).join('');
+  }
+
+  if (window.lucide) lucide.createIcons();
+}
+
 // 渲染我的团队
 function renderMyTeam() {
   let myAgents = user?.agents || [];
@@ -1435,14 +1588,15 @@ function renderMyTeam() {
     `;
   }).join('');
   
-  // 如果用户没有团队，显示提示
   if (!user?.agents || user.agents.length === 0) {
     container.innerHTML += `
-      <div style="text-align:center;padding:16px;color:rgba(255,255,255,0.5);font-size:13px;margin-top:12px;border-top:1px solid rgba(255,255,255,0.1);">
+      <div style="text-align:center;padding:16px;color:var(--text-muted);font-size:13px;margin-top:12px;">
         💡 你还没有领取完整团队<br>邀请好友获得积分后即可领取
       </div>
     `;
   }
+  
+  renderTeamPanel();
 }
 
 // 渲染可添加的成员
@@ -1471,9 +1625,9 @@ function renderAvailableAgents() {
   
   // 重新渲染 Lucide 图标
   if (window.lucide) lucide.createIcons();
+  renderTeamPanel();
 }
 
-// 添加成员
 async function addAgent(agentId) {
   if (!user) return;
   
@@ -2126,9 +2280,13 @@ function switchAgent(agentId) {
   
   // 更新导航栏图标
   const iconEl = document.getElementById('currentAgentIcon');
+  const labelEl = document.getElementById('currentAgentLabel');
   if (iconEl) {
     iconEl.setAttribute('data-lucide', agent.icon || 'bot');
     if (window.lucide) lucide.createIcons();
+  }
+  if (labelEl) {
+    labelEl.textContent = agent.name || agentId;
   }
   
   // 关闭下拉
@@ -2146,6 +2304,8 @@ function switchAgent(agentId) {
   
   // 更新欢迎界面 - 显示当前 Agent 的示例
   updateWelcomeForAgent(agentId);
+  renderTeamPanel();
+  updateSessionTitle();
 }
 
 // 更新欢迎界面为指定 Agent
@@ -2769,6 +2929,11 @@ function installSkill(skillId, btnElement) {
 
 // 暴露到全局作用域（供 onclick 调用）
 window.installSkill = installSkill;
+window.copyMessage = copyMessage;
+window.regenerateMessage = regenerateMessage;
+window.toggleTeamPanel = toggleTeamPanel;
+window.updateSessionTitle = updateSessionTitle;
+window.renderTeamPanel = renderTeamPanel;
 
 // 初始化时渲染 agent 下拉
 function initAgentDropdown() {
@@ -2783,9 +2948,13 @@ function initAgentDropdown() {
     const agent = ALL_AGENTS[currentAgentId];
     if (agent) {
       const iconEl = document.getElementById('currentAgentIcon');
+      const labelEl = document.getElementById('currentAgentLabel');
       if (iconEl) {
         iconEl.setAttribute('data-lucide', agent.icon || 'bot');
         if (window.lucide) lucide.createIcons();
+      }
+      if (labelEl) {
+        labelEl.textContent = agent.name || currentAgentId;
       }
     }
   }

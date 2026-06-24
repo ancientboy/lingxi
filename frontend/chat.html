@@ -4,69 +4,28 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>灵犀云 - AI 团队</title>
+  <link rel="stylesheet" href="assets/css/tokens.css">
   <link rel="stylesheet" href="assets/css/chat.css">
   <link rel="stylesheet" href="assets/css/dark.css" id="darkTheme" disabled>
   <link rel="stylesheet" href="assets/css/skills-tab.css?v=1772358437">
-  <!-- Lucide Icons - 使用 cdnjs 备用源 -->
   <script src="assets/libs/lucide.min.js"></script>
   <style>
-    /* 顶部导航链接 */
-    .nav-links {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    
-    .nav-link {
-      font-size: 14px;
-      font-weight: 500;
-      padding: 8px 16px;
-      border-radius: 8px;
-      transition: all 0.2s;
-    }
-    
-    .nav-link:hover {
-      background: #f3f4f6;
-    }
-    
-    .nav-link.active {
-      background: rgba(16, 163, 127, 0.1);
-      color: #10a37f;
-    }
-
-      /* 导航栏右侧布局 */
-      .nav-right {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-      }
-      
-      #connectionStatus {
-        display: flex;
-        align-items: center;
-      }
-
-    /* 图标统一样式 */
     .icon { width: 20px; height: 20px; color: currentColor; }
     .icon-sm { width: 16px; height: 16px; }
     .icon-lg { width: 24px; height: 24px; }
-    .icon-primary { color: #10a37f; }
   </style>
 </head>
 <body data-page="chat">
-  <!-- 侧边栏容器 -->
-  <div id="sidebar-container"></div>
+  <div class="app-shell" id="appShell">
+    <div class="session-rail-wrap" id="sessionRailWrap">
+      <div id="sidebar-container"></div>
+    </div>
 
-  <!-- 侧边栏遮罩（移动端） -->
-  <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+    <div class="sidebar-resizer" id="sidebarResizer"></div>
 
-  <!-- 侧边栏拖拽调整器 -->
-  <div class="sidebar-resizer" id="sidebarResizer"></div>
-
-  <!-- 主内容区 -->
-  <main class="main-content" id="mainContent">
-    <!-- 导航栏容器 -->
-    <div id="navbar-container"></div>
+    <main class="chat-stage main-content" id="mainContent">
+      <div id="stage-toolbar-container"></div>
 
     <!-- 团队管理弹窗 -->
     <div class="modal-overlay" id="teamModal">
@@ -817,25 +776,34 @@
       }
     </style>
 
-    <div class="chat-container">
-      <div class="messages" id="messages">
-        <div class="welcome" id="welcome">
-          <div class="welcome-icon">
-            <i data-lucide="sparkles" class="icon-lg"></i>
+    <div class="chat-container" id="chatView">
+      <div class="message-scroll" id="messageScroll">
+        <div class="messages" id="messages">
+          <div class="welcome" id="welcome">
+            <div class="welcome-title">你好，我是灵犀</div>
+            <div class="welcome-desc">你的 AI 团队队长，随时为你调度</div>
+            <div class="team-tags" id="teamTags"></div>
           </div>
-          <div class="welcome-title">你好，我是 Lume</div>
-          <div class="welcome-desc">你的 AI 团队队长，来自星际的智能助手</div>
-          <div class="team-tags" id="teamTags"></div>
         </div>
       </div>
 
-      <div class="input-area">
-        <div class="input-wrapper">
-          <textarea class="input-field" id="inputField" placeholder="输入消息..." rows="1"></textarea>
-          <button class="send-btn" id="sendBtn" onclick="handleSendClick()">
-            <i data-lucide="send" class="icon-sm"></i>
+      <div class="composer-wrap">
+        <div class="composer" id="composer">
+          <button type="button" class="composer-attach icon-btn" title="附件（即将支持）">
+            <i data-lucide="plus" class="icon-sm"></i>
           </button>
+          <textarea class="composer-input" id="inputField" placeholder="向灵犀或你的团队提问..." rows="1"></textarea>
+          <div class="composer-actions">
+            <button type="button" class="model-pill" title="模型选择">Auto ▾</button>
+            <button type="button" class="composer-mic icon-btn" title="语音（即将支持）">
+              <i data-lucide="mic" class="icon-sm"></i>
+            </button>
+            <button type="button" class="send-btn" id="sendBtn" onclick="handleSendClick()" title="发送">
+              <i data-lucide="send" class="icon-sm"></i>
+            </button>
+          </div>
         </div>
+        <p class="composer-disclaimer">AI 可能出错，请核实重要信息</p>
       </div>
     </div>
 
@@ -858,7 +826,10 @@
         </div>
       </div>
     </div>
-  </main><!-- /.main-content -->
+    </main><!-- /.chat-stage -->
+
+    <div id="team-panel-container"></div>
+  </div><!-- /.app-shell -->
 
   <!-- 技能库弹窗 -->
 
@@ -897,55 +868,64 @@
     }
 
     // ===== 侧边栏功能 =====
-    function initSidebar() {
-      const sidebar = document.getElementById('sidebar');
-      const mainContent = document.getElementById('mainContent');
+    function setSidebarWidth(width) {
+      const px = Math.max(0, Math.min(400, width));
+      document.documentElement.style.setProperty('--sidebar-width', px + 'px');
       const resizer = document.getElementById('sidebarResizer');
+      if (resizer) resizer.style.left = px + 'px';
+      if (px > 0) localStorage.setItem(SIDEBAR_WIDTH_KEY, px);
+    }
+
+    function initSidebar() {
       const savedWidth = localStorage.getItem(SIDEBAR_WIDTH_KEY);
-      
-      // 恢复保存的宽度（仅桌面端）
       if (savedWidth && window.innerWidth > 768) {
-        sidebar.style.width = savedWidth + 'px';
-        mainContent.style.marginLeft = savedWidth + 'px';
-        resizer.style.left = savedWidth + 'px';
+        setSidebarWidth(parseInt(savedWidth, 10));
       }
-      
-      // 初始化拖拽调整
       initSidebarResizer();
-      
-      // 加载会话列表 - 延迟调用，等待 chat.js 加载完成
-      // loadSidebarSessions() 会在 loadSessions() 完成后自动调用
-      
-      // 加载用户信息
       loadUserInfo();
+      setTimeout(updateSidebarOpenButton, 0);
     }
     
+    function updateSidebarOpenButton() {
+      const openBtn = document.getElementById('sidebarOpenBtn');
+      const sidebar = document.getElementById('sidebar');
+      const isMobile = window.innerWidth <= 768;
+      if (!openBtn || !sidebar) return;
+      if (isMobile) {
+        openBtn.hidden = true;
+        return;
+      }
+      openBtn.hidden = !sidebar.classList.contains('collapsed');
+    }
+
     function toggleSidebar() {
       const sidebar = document.getElementById('sidebar');
-      const mainContent = document.getElementById('mainContent');
       const overlay = document.getElementById('sidebarOverlay');
-      
       const isMobile = window.innerWidth <= 768;
       
       if (isMobile) {
-        // 移动端：显示/隐藏侧边栏
         sidebar.classList.toggle('show');
         overlay.classList.toggle('show');
       } else {
-        // 桌面端：收起/展开
         sidebar.classList.toggle('collapsed');
-        mainContent.classList.toggle('expanded');
+        if (sidebar.classList.contains('collapsed')) {
+          document.documentElement.style.setProperty('--sidebar-width', '0px');
+        } else {
+          const saved = parseInt(localStorage.getItem(SIDEBAR_WIDTH_KEY) || '280', 10);
+          setSidebarWidth(saved);
+        }
+        updateSidebarOpenButton();
       }
     }
     
     function initSidebarResizer() {
-      const sidebar = document.getElementById('sidebar');
-      const mainContent = document.getElementById('mainContent');
       const resizer = document.getElementById('sidebarResizer');
+      if (!resizer) return;
       
       let isResizing = false;
       
-      resizer.addEventListener('mousedown', (e) => {
+      resizer.addEventListener('mousedown', () => {
+        if (window.innerWidth <= 768) return;
         isResizing = true;
         resizer.classList.add('dragging');
         document.body.style.cursor = 'col-resize';
@@ -954,11 +934,7 @@
       
       document.addEventListener('mousemove', (e) => {
         if (!isResizing) return;
-        
-        const newWidth = Math.max(200, Math.min(400, e.clientX));
-        sidebar.style.width = newWidth + 'px';
-        mainContent.style.marginLeft = newWidth + 'px';
-        resizer.style.left = newWidth + 'px';
+        setSidebarWidth(e.clientX);
       });
       
       document.addEventListener('mouseup', () => {
@@ -967,10 +943,6 @@
           resizer.classList.remove('dragging');
           document.body.style.cursor = '';
           document.body.style.userSelect = '';
-          
-          // 保存宽度
-          const width = parseInt(sidebar.style.width);
-          localStorage.setItem(SIDEBAR_WIDTH_KEY, width);
         }
       });
     }
@@ -1165,11 +1137,8 @@
       const messages = document.getElementById('messages');
       messages.innerHTML = `
         <div class="welcome" id="welcome">
-          <div class="welcome-icon">
-            <i data-lucide="sparkles" class="icon-lg"></i>
-          </div>
-          <div class="welcome-title">你好，我是 Lume</div>
-          <div class="welcome-desc">你的 AI 团队队长，来自星际的智能助手</div>
+          <div class="welcome-title">你好，我是灵犀</div>
+          <div class="welcome-desc">你的 AI 团队队长，随时为你调度</div>
           <div class="team-tags" id="teamTags"></div>
         </div>
       `;

@@ -1,0 +1,47 @@
+<!-- 团队工作台右栏：默认 48px 图标轨，展开为 overlay 抽屉 -->
+<aside class="team-panel" id="teamPanel" aria-label="团队工作台">
+  <div class="team-panel-backdrop" id="teamPanelBackdrop" onclick="toggleTeamPanel(false)"></div>
+  <div class="team-panel-drawer" id="teamPanelDrawer">
+    <div class="team-panel-header">
+      <span class="team-panel-title">团队工作台</span>
+      <button type="button" class="icon-btn panel-collapse-btn" onclick="toggleTeamPanel(false)" title="收起面板">
+        <i data-lucide="chevrons-right" class="icon-sm"></i>
+      </button>
+    </div>
+
+    <div class="team-active-card" id="teamPanelActive">
+      <div class="team-active-avatar" id="teamPanelActiveAvatar"></div>
+      <div class="team-active-info">
+        <div class="team-active-name" id="teamPanelActiveName">灵犀</div>
+        <div class="team-active-role" id="teamPanelActiveRole">队长 · 在线</div>
+      </div>
+    </div>
+
+    <div class="team-panel-section">
+      <div class="team-panel-section-title">团队成员</div>
+      <div class="team-panel-members" id="teamPanelMembers"></div>
+    </div>
+
+    <div class="team-panel-section">
+      <div class="team-panel-section-title">快捷技能</div>
+      <div class="skill-quick-chips" id="teamPanelSkills"></div>
+    </div>
+
+    <button type="button" class="team-panel-link" onclick="showMyTeam()">管理团队成员 →</button>
+  </div>
+
+  <div class="team-panel-rail" id="teamPanelRail">
+    <button type="button" class="rail-btn" onclick="toggleTeamPanel()" title="展开团队面板">
+      <i data-lucide="chevrons-left" class="icon-sm"></i>
+    </button>
+    <button type="button" class="rail-btn" onclick="showMyTeam()" title="我的团队">
+      <i data-lucide="users" class="icon-sm"></i>
+    </button>
+    <button type="button" class="rail-btn" onclick="switchView('skills')" title="技能库">
+      <i data-lucide="layout-grid" class="icon-sm"></i>
+    </button>
+    <button type="button" class="rail-btn" onclick="showFeishuConfig()" title="飞书配置">
+      <i data-lucide="message-square" class="icon-sm"></i>
+    </button>
+  </div>
+</aside>

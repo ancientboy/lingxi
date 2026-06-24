@@ -1,0 +1,29 @@
+<!-- 融入式顶区：无底边线、非 fixed -->
+<div class="stage-toolbar">
+  <div class="stage-toolbar-left">
+    <button class="sidebar-open-btn" id="sidebarOpenBtn" type="button" onclick="toggleSidebar()" title="展开侧边栏" hidden>
+      <i data-lucide="chevrons-right" class="icon-sm"></i>
+    </button>
+    <h1 class="session-title" id="sessionTitle">新对话</h1>
+  </div>
+  <div class="stage-toolbar-right">
+    <div id="connectionStatus" class="status-pill" title="未连接">
+      <span class="status-dot"></span>
+      <span class="status-text">未连接</span>
+    </div>
+    <div class="agent-switcher agent-pill" onclick="toggleAgentDropdown()" title="切换 Agent">
+      <i data-lucide="zap" class="icon-sm" id="currentAgentIcon"></i>
+      <span class="agent-pill-label" id="currentAgentLabel">灵犀</span>
+      <span class="agent-switcher-arrow">▾</span>
+      <div class="agent-dropdown" id="agentDropdown"></div>
+    </div>
+    <div class="checkin-btn" id="checkinBtn" onclick="handleCheckin()" title="每日签到">
+      <i data-lucide="calendar" class="icon-sm"></i>
+      <span class="checkin-text" id="checkinText">签到</span>
+      <span class="checkin-points" id="checkinPoints"></span>
+    </div>
+    <button class="theme-toggle-btn icon-btn" onclick="toggleTheme()" title="切换主题" type="button">
+      <i data-lucide="moon" class="icon" id="themeToggleIcon"></i>
+    </button>
+  </div>
+</div>

@@ -19,12 +19,18 @@ async function loadComponent(containerId, componentPath) {
 
 async function loadChatComponents() {
   console.log('🔧 加载聊天组件...');
-  await loadComponent('navbar-container', 'components/navbar.html');
+  await loadComponent('stage-toolbar-container', 'components/stage-toolbar.html');
   await loadComponent('sidebar-container', 'components/sidebar.html');
+  await loadComponent('team-panel-container', 'components/team-panel.html');
+  
+  if (typeof initTeamPanel === 'function') initTeamPanel();
   
   // 组件加载完成后再加载用户信息
   if (typeof loadUserInfo === 'function') {
     loadUserInfo();
+  }
+  if (typeof updateSidebarOpenButton === 'function') {
+    updateSidebarOpenButton();
   }
   
   console.log('✅ 聊天组件加载完成');
