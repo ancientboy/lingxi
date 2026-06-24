@@ -1,0 +1,43 @@
+<!-- 右侧图标轨 + 团队抽屉 -->
+<div class="right-rail-backdrop" id="teamDrawerBackdrop" onclick="toggleTeamDrawer(false)"></div>
+
+<aside class="right-rail" id="rightRail" aria-label="右侧工具栏">
+  <button type="button" class="rail-btn" id="railTeamBtn" onclick="toggleTeamDrawer()" title="团队工作台" aria-label="团队工作台">
+    <i data-lucide="users" class="icon-sm"></i>
+  </button>
+  <button type="button" class="rail-btn" id="railFilesBtn" onclick="toggleFileExplorer()" title="文件" aria-label="文件">
+    <i data-lucide="folder-open" class="icon-sm"></i>
+  </button>
+  <button type="button" class="rail-btn" id="railNotifBtn" onclick="toggleNotificationPanel(event)" title="通知" aria-label="通知">
+    <i data-lucide="bell" class="icon-sm"></i>
+  </button>
+</aside>
+
+<aside class="team-drawer" id="teamDrawer" aria-label="团队工作台">
+  <div class="team-drawer-header">
+    <span class="team-drawer-title">团队工作台</span>
+    <button type="button" class="icon-btn-ghost" onclick="toggleTeamDrawer(false)" title="收起">
+      <i data-lucide="x" class="icon-sm"></i>
+    </button>
+  </div>
+
+  <div class="team-drawer-active" id="teamDrawerActive">
+    <div class="team-drawer-active-avatar" id="teamDrawerActiveAvatar"></div>
+    <div>
+      <div class="team-drawer-active-name" id="teamDrawerActiveName">灵犀</div>
+      <div class="team-drawer-active-role" id="teamDrawerActiveRole">在线</div>
+    </div>
+  </div>
+
+  <div class="team-drawer-section">
+    <div class="team-drawer-section-title">团队成员</div>
+    <div class="team-drawer-members" id="teamDrawerMembers"></div>
+  </div>
+
+  <div class="team-drawer-section">
+    <div class="team-drawer-section-title">快捷技能</div>
+    <div class="team-drawer-chips" id="teamDrawerSkills"></div>
+  </div>
+
+  <button type="button" class="team-drawer-link" onclick="switchView('workspace')">打开办公区 →</button>
+</aside>

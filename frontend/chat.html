@@ -10,6 +10,8 @@
   <script src="https://js.stripe.com/v3/"></script>
   <link rel="stylesheet" href="assets/css/chat.css?v=20260612fix">
   <link rel="stylesheet" href="assets/css/chat-polish.css?v=20260624d">
+  <link rel="stylesheet" href="assets/css/right-rail.css?v=20260624f">
+  <link rel="stylesheet" href="assets/css/scroll-context.css?v=20260624f">
   <link rel="stylesheet" href="assets/css/dark.css" id="darkTheme" disabled>
   <link rel="stylesheet" href="assets/css/subscription.css">
   <link rel="stylesheet" href="assets/css/stripe-payment.css">
@@ -269,7 +271,7 @@
   <div class="sidebar-resizer" id="sidebarResizer"></div>
 
   <!-- 主内容区 -->
-  <main class="main-content" id="mainContent">
+  <main class="main-content has-right-rail" id="mainContent">
     <!-- 侧栏收起后：左侧固定展开钮（仅此时显示） -->
     <button type="button" class="sidebar-edge-expand" id="sidebarExpandBtn" onclick="toggleSidebar()" title="展开侧边栏" aria-label="展开侧边栏" hidden>
       <svg class="sidebar-toggle-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -1695,6 +1697,10 @@
 
     <div class="chat-container is-home" id="chatContainer">
       <div class="chat-scroll" id="chatScroll">
+      <div class="scroll-context-bar hidden" id="scrollContextBar" aria-hidden="true">
+        <span class="scroll-context-label">提问</span>
+        <span class="scroll-context-text" id="scrollContextText"></span>
+      </div>
       <div class="messages" id="messages">
         <div class="welcome" id="welcome">
           <h1 class="welcome-title">我们先从哪里开始呢？</h1>
@@ -1859,6 +1865,8 @@
     
   </main><!-- /.main-content -->
 
+  <div id="right-rail-container"></div>
+
   <!-- 技能库弹窗 -->
 
   <!-- 文件管理器逻辑 -->
@@ -1871,8 +1879,9 @@
       feOpen = !feOpen;
       document.getElementById('fileExplorerPanel').classList.toggle('open', feOpen);
       document.getElementById('mainContent').classList.toggle('fe-open', feOpen);
-      const btn = document.querySelector('.nav-icon-btn');
-      if (btn) btn.classList.toggle('active', feOpen);
+      const railFiles = document.getElementById('railFilesBtn');
+      if (railFiles) railFiles.classList.toggle('active', feOpen);
+      if (feOpen && typeof toggleTeamDrawer === 'function') toggleTeamDrawer(false);
       if (feOpen) feLoadDir('/root');
     }
 
@@ -2132,22 +2141,24 @@
 
     // Scroll to bottom
     function scrollToBottom() {
-      const messages = document.getElementById('messages');
-      if (messages) {
-        messages.scrollTo({ top: messages.scrollHeight, behavior: 'smooth' });
+      const scrollEl = document.getElementById('chatScroll');
+      if (scrollEl) {
+        scrollEl.scrollTo({ top: scrollEl.scrollHeight, behavior: 'smooth' });
         document.getElementById('scrollBottomBtn')?.classList.add('hidden');
+        if (typeof updateScrollContextBar === 'function') updateScrollContextBar();
       }
     }
 
     // Detect scroll position for scroll-to-bottom button
     function initScrollDetection() {
-      const messages = document.getElementById('messages');
+      const scrollEl = document.getElementById('chatScroll');
       const scrollBtn = document.getElementById('scrollBottomBtn');
-      if (!messages || !scrollBtn) return;
+      if (!scrollEl || !scrollBtn) return;
       
-      messages.addEventListener('scroll', () => {
-        const isNearBottom = messages.scrollHeight - messages.scrollTop - messages.clientHeight < 100;
+      scrollEl.addEventListener('scroll', () => {
+        const isNearBottom = scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight < 100;
         scrollBtn.classList.toggle('hidden', isNearBottom);
+        if (typeof updateScrollContextBar === 'function') updateScrollContextBar();
       });
     }
 
@@ -3351,7 +3362,7 @@
 
   <script src="assets/js/lume-rpc.js?v=20260615p1"></script>
   <script src="assets/js/chat-lume.js?v=20260615p2"></script>
-  <script src="assets/js/chat.js?v=20260615p2"></script>
+  <script src="assets/js/chat.js?v=20260624f"></script>
 
     <!-- 统一组件加载器 -->
     <script src="components/load-components.js"></script>

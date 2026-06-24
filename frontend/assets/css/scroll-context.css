@@ -1,0 +1,62 @@
+/**
+ * Cursor 式滚动上下文条：上滑时显示当前对应的用户提问
+ */
+
+.scroll-context-bar {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  max-width: var(--content-max, 720px);
+  margin: 0 auto;
+  padding: 10px 16px;
+  background: rgba(248, 249, 250, 0.94);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border-sub, #f0f1f3);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-2, #525252);
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  animation: context-in 0.2s ease;
+}
+
+.scroll-context-bar.hidden {
+  display: none !important;
+}
+
+.scroll-context-label {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  padding-top: 1px;
+}
+
+.scroll-context-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@keyframes context-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+body[data-theme="dark"] .scroll-context-bar,
+html[data-theme="dark"] .scroll-context-bar {
+  background: rgba(24, 24, 24, 0.94);
+  border-bottom-color: var(--border);
+}

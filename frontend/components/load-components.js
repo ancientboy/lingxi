@@ -21,6 +21,9 @@ async function loadChatComponents() {
   console.log('🔧 加载聊天组件...');
   await loadComponent('navbar-container', 'components/navbar.html');
   await loadComponent('sidebar-container', 'components/sidebar.html');
+  await loadComponent('right-rail-container', 'components/right-rail.html');
+  
+  if (typeof initTeamDrawer === 'function') initTeamDrawer();
   
   // 组件加载完成后再加载用户信息
   if (typeof loadUserInfo === 'function') {

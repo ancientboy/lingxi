@@ -250,6 +250,150 @@ function setHomeMode(isHome) {
     suggestions.innerHTML = '';
     suggestions.classList.add('hidden');
   }
+  if (typeof updateScrollContextBar === 'function') updateScrollContextBar();
+}
+
+// ===== 右侧团队抽屉 + Cursor 式滚动提问条 =====
+function scrollChatToBottom(instant = false) {
+  const scrollEl = document.getElementById('chatScroll');
+  if (!scrollEl) return;
+  scrollEl.scrollTo({ top: scrollEl.scrollHeight, behavior: instant ? 'auto' : 'smooth' });
+}
+
+function getPlainUserText(content) {
+  if (typeof content === 'string') return content.trim();
+  if (content?.text && typeof content.text === 'string') return content.text.trim();
+  return '';
+}
+
+function updateScrollContextBar() {
+  const scrollEl = document.getElementById('chatScroll');
+  const bar = document.getElementById('scrollContextBar');
+  const textEl = document.getElementById('scrollContextText');
+  const chatContainer = document.getElementById('chatContainer');
+  if (!scrollEl || !bar || !textEl) return;
+
+  const isHome = chatContainer?.classList.contains('is-home');
+  const nearTop = scrollEl.scrollTop < 40;
+  const nearBottom = scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight < 100;
+
+  if (isHome || nearTop || nearBottom) {
+    bar.classList.add('hidden');
+    bar.setAttribute('aria-hidden', 'true');
+    return;
+  }
+
+  const scrollRect = scrollEl.getBoundingClientRect();
+  const threshold = scrollEl.scrollTop + 52;
+  const userMsgs = scrollEl.querySelectorAll('.message.user');
+  let label = '';
+
+  userMsgs.forEach((msg) => {
+    const msgTop = msg.getBoundingClientRect().top - scrollRect.top + scrollEl.scrollTop;
+    if (msgTop <= threshold) {
+      label = msg.dataset.userText || '';
+    }
+  });
+
+  if (label) {
+    textEl.textContent = label;
+    bar.classList.remove('hidden');
+    bar.setAttribute('aria-hidden', 'false');
+  } else {
+    bar.classList.add('hidden');
+    bar.setAttribute('aria-hidden', 'true');
+  }
+}
+
+function getTeamDrawerAgents() {
+  if (user?.team?.members?.length) {
+    return user.team.members.map((m) => ({
+      id: m.id,
+      name: m.name || m.id,
+      icon: m.icon || 'bot',
+      desc: m.desc || m.role || 'AI 助手',
+    }));
+  }
+  const ids = user?.agents?.length ? user.agents : ['lingxi'];
+  return ids.map((id) => {
+    const info = AGENT_INFO[id] || { name: id, icon: 'bot', desc: 'AI 助手' };
+    return { id, name: info.name, icon: info.icon, desc: info.desc };
+  });
+}
+
+function renderTeamDrawer() {
+  const membersEl = document.getElementById('teamDrawerMembers');
+  const skillsEl = document.getElementById('teamDrawerSkills');
+  const activeAvatar = document.getElementById('teamDrawerActiveAvatar');
+  const activeName = document.getElementById('teamDrawerActiveName');
+  const activeRole = document.getElementById('teamDrawerActiveRole');
+  if (!membersEl) return;
+
+  const teamMember = user?.team?.members?.find((m) => m.id === currentAgentId);
+  const agentInfo = teamMember || AGENT_INFO[currentAgentId] || AGENT_INFO.lingxi;
+
+  if (activeAvatar) activeAvatar.innerHTML = agentIcon(agentInfo, 'sm');
+  if (activeName) activeName.textContent = agentInfo.name || currentAgentId;
+  if (activeRole) activeRole.textContent = agentInfo.desc || agentInfo.role || '在线';
+
+  const agents = getTeamDrawerAgents();
+  membersEl.innerHTML = agents.map((a) => `
+    <button type="button" class="team-drawer-member${a.id === currentAgentId ? ' active' : ''}"
+            onclick="switchAgentFromDrawer('${a.id}')">
+      <div class="team-drawer-member-avatar">${agentIcon(a, 'sm')}</div>
+      <div>
+        <div class="team-drawer-member-name">${escapeHtml(a.name)}</div>
+        <div class="team-drawer-member-role">${escapeHtml(a.desc || '')}</div>
+      </div>
+    </button>
+  `).join('');
+
+  const fullAgent = AGENT_INFO[currentAgentId] || AGENT_INFO.lingxi;
+  const examples = (fullAgent.examples || []).slice(0, 4);
+  if (skillsEl) {
+    skillsEl.innerHTML = examples.length
+      ? examples.map((ex) => `
+        <button type="button" class="team-drawer-chip"
+                onclick="sendFromTeamDrawer('${ex.text.replace(/'/g, "\\'").replace(/\n/g, '\\n')}')">
+          ${escapeHtml(ex.desc || ex.text.slice(0, 24))}
+        </button>
+      `).join('')
+      : '<span class="team-drawer-empty">暂无快捷技能</span>';
+  }
+
+  if (window.lucide) lucide.createIcons();
+}
+
+function toggleTeamDrawer(forceOpen) {
+  const willOpen = typeof forceOpen === 'boolean'
+    ? forceOpen
+    : !document.body.classList.contains('team-drawer-open');
+
+  if (willOpen) {
+    const fePanel = document.getElementById('fileExplorerPanel');
+    if (fePanel?.classList.contains('open') && typeof toggleFileExplorer === 'function') {
+      toggleFileExplorer();
+    }
+    renderTeamDrawer();
+  }
+
+  document.body.classList.toggle('team-drawer-open', willOpen);
+  const railBtn = document.getElementById('railTeamBtn');
+  if (railBtn) railBtn.classList.toggle('active', willOpen);
+}
+
+function initTeamDrawer() {
+  renderTeamDrawer();
+}
+
+function switchAgentFromDrawer(agentId) {
+  toggleTeamDrawer(false);
+  if (agentId && typeof switchAgent === 'function') switchAgent(agentId);
+}
+
+function sendFromTeamDrawer(text) {
+  toggleTeamDrawer(false);
+  if (typeof sendWelcomeExample === 'function') sendWelcomeExample(text);
 }
 
 function getWelcomeGreeting(agent) {
@@ -516,6 +660,8 @@ async function init() {
 
   // 检查是否需要引导（放在初始化最后）
   await checkOnboarding();
+
+  renderTeamDrawer();
 }
 
 let requestId = 1;
@@ -539,7 +685,7 @@ function extractText(message) {
         .join('');
     }
   }
-  return { id: skillId, name: skillId, description: `Use skill ${skillId}`, example: `Use skill ${skillId}` };
+  return '';
 }
 
 // 清理消息文本，过滤掉元数据等技术信息
@@ -590,9 +736,7 @@ function updateStreamingMessage(text, runId) {
     }
   }
 
-  // 滚动到底部
-  const messages = document.getElementById('messages');
-  messages.scrollTop = messages.scrollHeight;
+  scrollChatToBottom(true);
 }
 
 // 检查是否有流式消息
@@ -1628,21 +1772,7 @@ function renderHistory(messages, appendOnly = false) {
 
   // 强制滚动到底部（延迟确保DOM渲染完成）
   const scrollToBottom = () => {
-    // 滚动消息容器
-    container.scrollTop = container.scrollHeight;
-
-    // 滚动整个页面（移动端更可靠）
-    window.scrollTo({
-      top: document.body.scrollHeight,
-      behavior: 'instant'
-    });
-
-    // 额外：确保输入框可见
-    const inputArea = document.querySelector('.input-area');
-    if (inputArea) {
-      inputArea.scrollIntoView({ behavior: 'instant', block: 'end' });
-    }
-
+    scrollChatToBottom(true);
     console.log('📜 已滚动到底部');
   };
 
@@ -1924,6 +2054,13 @@ function addMessage(role, content, name, modelInfo) {
   const div = document.createElement('div');
   div.className = `message ${role}`;
 
+  if (role === 'user') {
+    const plain = getPlainUserText(content);
+    if (plain) {
+      div.dataset.userText = plain.replace(/\s+/g, ' ').slice(0, 240);
+    }
+  }
+
   // 获取当前 Agent 的头像
   const currentAgent = AGENT_INFO[currentAgentId] || { icon: 'zap', name: '灵犀' };
   const avatarHtml = role === 'user'
@@ -2012,7 +2149,8 @@ function addMessage(role, content, name, modelInfo) {
   `;
 
   messages.appendChild(div);
-  messages.scrollTop = messages.scrollHeight;
+  scrollChatToBottom(true);
+  if (role === 'user') updateScrollContextBar();
 
   // 重新渲染 Lucide 图标
   if (window.lucide) lucide.createIcons();
@@ -2067,7 +2205,7 @@ function addTyping() {
     <div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div>
   `;
   messages.appendChild(div);
-  messages.scrollTop = messages.scrollHeight;
+  scrollChatToBottom(true);
   return div.id;
 }
 
@@ -3465,6 +3603,9 @@ async function switchAgent(agentId) {
   if (typeof loadSidebarSessions === 'function') {
     loadSidebarSessions();
   }
+
+  renderTeamDrawer();
+  updateScrollContextBar();
 }
 
 // 创建 agent 专属 session
@@ -4867,12 +5008,18 @@ function escapeHtml(str) {
 document.addEventListener('click', (e) => {
   const panel = document.getElementById('notificationPanel');
   const bell = document.getElementById('notificationBell');
-  if (panel && panel.style.display !== 'none' && !panel.contains(e.target) && !bell?.contains(e.target)) {
+  const railNotif = document.getElementById('railNotifBtn');
+  if (panel && panel.style.display !== 'none' && !panel.contains(e.target) && !bell?.contains(e.target) && !railNotif?.contains(e.target)) {
     panel.style.display = 'none';
   }
 });
 
 // 导出函数
+window.toggleTeamDrawer = toggleTeamDrawer;
+window.initTeamDrawer = initTeamDrawer;
+window.updateScrollContextBar = updateScrollContextBar;
+window.switchAgentFromDrawer = switchAgentFromDrawer;
+window.sendFromTeamDrawer = sendFromTeamDrawer;
 window.toggleNotificationPanel = toggleNotificationPanel;
 window.markAllNotificationsRead = markAllNotificationsRead;
 window.markNotificationRead = markNotificationRead;
