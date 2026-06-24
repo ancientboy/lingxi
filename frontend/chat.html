@@ -9,7 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://js.stripe.com/v3/"></script>
   <link rel="stylesheet" href="assets/css/chat.css?v=20260612fix">
-  <link rel="stylesheet" href="assets/css/chat-polish.css?v=20260624l">
+  <link rel="stylesheet" href="assets/css/chat-polish.css?v=20260624u">
   <link rel="stylesheet" href="assets/css/right-rail.css?v=20260624k">
   <link rel="stylesheet" href="assets/css/scroll-context.css?v=20260624g">
   <link rel="stylesheet" href="assets/css/dark.css" id="darkTheme" disabled>
@@ -1769,16 +1769,16 @@
             </button>
           </div>
           <div class="input-tools-right">
-            <button class="model-pill" onclick="toggleModelDropdown()">
-              <span class="model-dot"></span>
-              <span id="currentModelName">GLM-5.1</span>
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" style="opacity:0.4;"><path d="M2.5 3.75L5 6.25L7.5 3.75" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
-            </button>
+            <div class="model-picker-wrap" id="modelPickerWrap">
+              <button type="button" class="model-pill" id="modelPillBtn" aria-haspopup="listbox" aria-expanded="false">
+                <span id="currentModelName">Auto</span>
+                <span id="currentModelTag" class="model-pill-tag"></span>
+                <svg class="model-pill-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M2.5 3.75L5 6.25L7.5 3.75" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              </button>
+              <div class="model-dropdown" id="modelDropdown" role="listbox" aria-label="选择模型"></div>
+            </div>
           </div>
         </div>
-
-        <!-- 模型下拉 -->
-        <div class="model-dropdown" id="modelDropdown"></div>
 
         <input type="file" id="imageInput" class="image-input" accept="image/*,.pdf,.txt,.md,.html,.csv,.json" onchange="handleImageSelect(event)">
       </div>
@@ -3261,178 +3261,274 @@
   (function() {
     const MODEL_KEY = 'lingxi_selected_model';
     let modelDropdownOpen = false;
+    let cachedModels = [];
+    let modelSearchQuery = '';
+    let isFreeUser = true;
 
-    // 初始化模型选择器
+    const FALLBACK_MODELS = [
+      { id: 'auto', name: 'Auto', provider: '系统', desc: '智能选模', tier: 'free' },
+      { id: 'glm-cn/glm-5.1', name: 'GLM-5.1', provider: '智谱', desc: '主力', tier: 'pro' },
+      { id: 'gh/gpt-4o', name: 'GPT-4o', provider: 'OpenAI', desc: '经典', tier: 'pro' },
+      { id: 'gh/gpt-4.1', name: 'GPT-4.1', provider: 'OpenAI', desc: '强推理', tier: 'pro' },
+      { id: 'gh/gpt-5-mini', name: 'GPT-5 Mini', provider: 'OpenAI', desc: '快速', tier: 'free' },
+      { id: 'openrouter/openrouter/free', name: 'Free', provider: 'OpenRouter', desc: '免费', tier: 'free' },
+      { id: 'cu/default', name: 'Cursor Auto', provider: 'Cursor', desc: '智能', tier: 'pro' },
+      { id: 'cu/gpt-5.2', name: 'GPT-5.2', provider: 'Cursor', desc: '旗舰', tier: 'pro' },
+      { id: 'cu/gpt-5.2-codex', name: 'GPT-5.2 Codex', provider: 'Cursor', desc: '代码', tier: 'pro' },
+      { id: 'cu/gpt-5.3-codex', name: 'GPT-5.3 Codex', provider: 'Cursor', desc: '代码', tier: 'pro' },
+      { id: 'cu/gpt-5.5-high-fast', name: 'GPT-5.5', provider: 'Cursor', desc: 'Fast', tier: 'pro' },
+      { id: 'cu/gpt-5.5-high', name: 'GPT-5.5', provider: 'Cursor', desc: 'High', tier: 'pro' },
+      { id: 'cu/claude-4.5-sonnet', name: 'Claude 4.5 Sonnet', provider: 'Cursor', desc: '平衡', tier: 'pro' },
+      { id: 'cu/claude-4.5-haiku', name: 'Claude 4.5 Haiku', provider: 'Cursor', desc: '快速', tier: 'pro' },
+      { id: 'cu/claude-4.5-opus', name: 'Claude 4.5 Opus', provider: 'Cursor', desc: '高级', tier: 'pro' },
+      { id: 'cu/claude-4.5-opus-high', name: 'Claude 4.5 Opus', provider: 'Cursor', desc: 'High', tier: 'pro' },
+      { id: 'cu/claude-4.6-opus-max', name: 'Claude 4.6 Opus Max', provider: 'Cursor', desc: 'Max', tier: 'pro' },
+      { id: 'cu/claude-4.5-sonnet-thinking', name: 'Claude 4.5 Sonnet', provider: 'Cursor', desc: 'Think', tier: 'pro' },
+      { id: 'cu/claude-4.5-opus-high-thinking', name: 'Claude 4.5 Opus', provider: 'Cursor', desc: 'Think', tier: 'pro' },
+      { id: 'cu/claude-4.6-opus-max-thinking', name: 'Claude 4.6 Opus', provider: 'Cursor', desc: 'Think', tier: 'pro' },
+      { id: 'cu/claude-4.6-sonnet-medium-thinking', name: 'Claude 4.6 Sonnet', provider: 'Cursor', desc: 'Think', tier: 'pro' },
+      { id: 'cu/gemini-3-flash-preview', name: 'Gemini 3 Flash', provider: 'Google', desc: '预览', tier: 'pro' },
+      { id: 'cu/kimi-k2.5', name: 'Kimi K2.5', provider: 'Cursor', desc: 'Kimi', tier: 'pro' },
+    ];
+
+    function esc(s) {
+      return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    }
+
+    function detectFreeUser() {
+      isFreeUser = true;
+      try {
+        const token = localStorage.getItem('lingxi_token');
+        if (token) {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          if (payload.plan && payload.plan !== 'free') isFreeUser = false;
+        }
+        const userStr = localStorage.getItem('lingxi_user');
+        if (userStr) {
+          const user = JSON.parse(userStr);
+          if (user.subscription?.plan && user.subscription.plan !== 'free') isFreeUser = false;
+        }
+      } catch (e) {}
+    }
+
+    function getModelTag(m) {
+      if (!m) return '';
+      if (m.id === 'auto') return '';
+      return m.desc || m.provider || '';
+    }
+
+    function findModel(modelId) {
+      return cachedModels.find(function(m) { return m.id === modelId; });
+    }
+
+    async function loadModels() {
+      detectFreeUser();
+      try {
+        const token = localStorage.getItem('lingxi_token');
+        const res = await fetch(window.location.origin + '/api/user-models', {
+          headers: token ? { Authorization: 'Bearer ' + token } : {}
+        });
+        const data = await res.json();
+        if (data.availableModels && data.availableModels.length) {
+          cachedModels = data.availableModels;
+          return;
+        }
+      } catch (e) {}
+      cachedModels = FALLBACK_MODELS.slice();
+    }
+
     async function initModelSelector() {
       let saved = localStorage.getItem(MODEL_KEY) || 'auto';
       if (saved.startsWith('ocg/') || saved.startsWith('opencode-go/')) {
         saved = 'auto';
         localStorage.setItem(MODEL_KEY, saved);
       }
+      await loadModels();
       updateModelPill(saved);
-      
-      // 点击外部关闭下拉
-      document.addEventListener('click', (e) => {
-        if (!e.target.closest('.model-pill') && !e.target.closest('.model-dropdown')) {
-          closeModelDropdown();
-        }
-      });
+      bindModelPickerEvents();
     }
 
-    // 更新模型药丸显示
+    function bindModelPickerEvents() {
+      const pillBtn = document.getElementById('modelPillBtn');
+      const dropdown = document.getElementById('modelDropdown');
+
+      if (pillBtn) {
+        pillBtn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          toggleModelDropdown();
+        });
+      }
+
+      document.addEventListener('click', function(e) {
+        if (!e.target.closest('.model-picker-wrap')) closeModelDropdown();
+      });
+
+      if (dropdown) {
+        dropdown.addEventListener('click', function(e) {
+          const item = e.target.closest('.model-dropdown-item:not(.locked)');
+          if (item && item.dataset.modelId) {
+            window.selectModel(item.dataset.modelId);
+          }
+          const footerLink = e.target.closest('.model-dropdown-footer a');
+          if (footerLink) closeModelDropdown();
+        });
+      }
+    }
+
     function updateModelPill(modelId) {
       const nameEl = document.getElementById('currentModelName');
-      const dotEl = document.querySelector('.model-dot');
+      const tagEl = document.getElementById('currentModelTag');
       if (!nameEl) return;
-      
-      // 模型名称映射
-      const names = {
-        'auto': 'Auto',
-        'glm-cn/glm-5.1': 'GLM-5.1',
-        'gh/gpt-4o': 'GPT-4o',
-        'gh/gpt-4.1': 'GPT-4.1',
-        'gh/gpt-5-mini': 'GPT-5-Mini',
-        'openrouter/openrouter/free': 'Free'
-      };
-      nameEl.textContent = names[modelId] || modelId;
-      
-      // 颜色指示
-      if (dotEl) {
-        dotEl.style.background = modelId === 'auto' ? '#667eea' : '#10b981';
+
+      if (modelId === 'auto') {
+        nameEl.textContent = 'Auto';
+        if (tagEl) tagEl.textContent = '';
+        return;
+      }
+
+      const m = findModel(modelId);
+      if (m) {
+        nameEl.textContent = m.name;
+        if (tagEl) tagEl.textContent = getModelTag(m);
+      } else {
+        nameEl.textContent = modelId;
+        if (tagEl) tagEl.textContent = '';
       }
     }
 
-    // 切换下拉菜单
     window.toggleModelDropdown = function() {
-      if (modelDropdownOpen) {
-        closeModelDropdown();
-      } else {
-        openModelDropdown();
-      }
+      if (modelDropdownOpen) closeModelDropdown();
+      else openModelDropdown();
     };
 
-    // 打开下拉菜单
-    async function openModelDropdown() {
+    function renderModelDropdown() {
       const dropdown = document.getElementById('modelDropdown');
       if (!dropdown) return;
-      
-      // 获取模型列表
-      let models = [];
-      try {
-        const token = localStorage.getItem('lingxi_token');
-        const res = await fetch(`${window.location.origin}/api/user-models`, {
-          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-        });
-        const data = await res.json();
-        models = data.availableModels || [];
-      } catch(e) {
-        // 回退到默认列表
-        models = [
-          { id: 'auto', name: 'Auto', provider: '系统', desc: '智能选择最优模型', tier: 'free' },
-          { id: 'glm-cn/glm-5.1', name: 'GLM-5.1主力', provider: '智谱直连', desc: '智谱大号直接干', tier: 'pro' },
-          { id: 'gh/gpt-4o', name: 'GPT-4o', provider: 'OpenAI', desc: 'GPT经典', tier: 'pro' },
-          { id: 'gh/gpt-4.1', name: 'GPT-4.1', provider: 'OpenAI', desc: '强推理', tier: 'pro' },
-          { id: 'gh/gpt-5-mini', name: 'GPT-5-Mini', provider: 'OpenAI', desc: '快速免费', tier: 'free' },
-          { id: 'openrouter/openrouter/free', name: 'Free', provider: 'OpenRouter', desc: '免费兜底', tier: 'free' },
-          { id: 'cu/default', name: 'Cursor Auto', provider: 'Cursor', desc: 'Cursor 智能选模', tier: 'pro' },
-          { id: 'cu/gpt-5.2', name: 'GPT-5.2', provider: 'Cursor', desc: 'OpenAI 旗舰', tier: 'pro' },
-          { id: 'cu/gpt-5.2-codex', name: 'GPT-5.2 Codex', provider: 'Cursor', desc: '代码专精', tier: 'pro' },
-          { id: 'cu/gpt-5.3-codex', name: 'GPT-5.3 Codex', provider: 'Cursor', desc: '最新代码', tier: 'pro' },
-          { id: 'cu/gpt-5.5-high-fast', name: 'GPT-5.5 Fast', provider: 'Cursor', desc: '极速旗舰', tier: 'pro' },
-          { id: 'cu/gpt-5.5-high', name: 'GPT-5.5', provider: 'Cursor', desc: '顶级推理', tier: 'pro' },
-          { id: 'cu/claude-4.5-sonnet', name: 'Claude 4.5 Sonnet', provider: 'Cursor', desc: 'Anthropic 平衡', tier: 'pro' },
-          { id: 'cu/claude-4.5-haiku', name: 'Claude 4.5 Haiku', provider: 'Cursor', desc: 'Anthropic 快速', tier: 'pro' },
-          { id: 'cu/claude-4.5-opus', name: 'Claude 4.5 Opus', provider: 'Cursor', desc: 'Anthropic 高级', tier: 'pro' },
-          { id: 'cu/claude-4.5-opus-high', name: 'Claude 4.5 Opus High', provider: 'Cursor', desc: 'Anthropic 旗舰', tier: 'pro' },
-          { id: 'cu/claude-4.6-opus-max', name: 'Claude 4.6 Opus Max', provider: 'Cursor', desc: '最强 Claude', tier: 'pro' },
-          { id: 'cu/claude-4.5-sonnet-thinking', name: 'Claude 4.5 Sonnet Think', provider: 'Cursor', desc: '带推理链', tier: 'pro' },
-          { id: 'cu/claude-4.5-opus-high-thinking', name: 'Claude 4.5 Opus Think', provider: 'Cursor', desc: '旗舰推理链', tier: 'pro' },
-          { id: 'cu/claude-4.6-opus-max-thinking', name: 'Claude 4.6 Opus Think', provider: 'Cursor', desc: '最强推理链', tier: 'pro' },
-          { id: 'cu/claude-4.6-sonnet-medium-thinking', name: 'Claude 4.6 Sonnet Think', provider: 'Cursor', desc: '新一代推理', tier: 'pro' },
-          { id: 'cu/gemini-3-flash-preview', name: 'Gemini 3 Flash', provider: 'Cursor', desc: 'Google 预览', tier: 'pro' },
-          { id: 'cu/kimi-k2.5', name: 'Kimi K2.5', provider: 'Cursor', desc: '月之暗面', tier: 'pro' },
-        ];
-      }
 
       const currentModel = localStorage.getItem(MODEL_KEY) || 'auto';
-      
-      // 检查是否为免费用户（读取 token 解码或 localStorage）
-      let isFreeUser = true; // 默认免费
-      try {
-        const token = localStorage.getItem('lingxi_token');
-        if (token) {
-          const payload = JSON.parse(atob(token.split('.')[1]));
-          // 从 token payload 判断（如有 subscription 信息）
-          if (payload.plan && payload.plan !== 'free') isFreeUser = false;
-        }
-        // 也检查本地存的 user 信息
-        const userStr = localStorage.getItem('lingxi_user');
-        if (userStr) {
-          const user = JSON.parse(userStr);
-          if (user.subscription?.plan && user.subscription.plan !== 'free') isFreeUser = false;
-        }
-      } catch(e) {}
+      const q = modelSearchQuery.trim().toLowerCase();
+      const listModels = cachedModels.filter(function(m) {
+        if (m.id === 'auto') return false;
+        if (!q) return true;
+        const hay = (m.name + ' ' + (m.provider || '') + ' ' + (m.desc || '')).toLowerCase();
+        return hay.indexOf(q) !== -1;
+      });
 
-      dropdown.innerHTML = models.map(m => {
-        const isLocked = m.tier === 'pro' && isFreeUser;
-        return `
-        <div class="model-dropdown-item ${m.id === currentModel ? 'active' : ''} ${isLocked ? 'locked' : ''}" onclick="${isLocked ? '' : `window.selectModel('${m.id}')`}">
-          <div class="model-info">
-            <div class="model-title">${m.name}${isLocked ? ' 🔒' : (m.tier === 'pro' ? ' ⭐' : '')}</div>
-            <div class="model-desc">${isLocked ? '订阅可用' : (m.desc || '')}</div>
-          </div>
-          <span class="model-check">✓</span>
-        </div>
-      `}).join('');
+      let listHtml = '';
+      if (listModels.length === 0) {
+        listHtml = '<div class="model-dropdown-item" style="cursor:default;opacity:0.6"><span class="model-item-name">无匹配模型</span></div>';
+      } else {
+        listHtml = listModels.map(function(m) {
+          const isLocked = m.tier === 'pro' && isFreeUser;
+          const isActive = m.id === currentModel;
+          const tag = getModelTag(m);
+          return (
+            '<div class="model-dropdown-item' + (isActive ? ' active' : '') + (isLocked ? ' locked' : '') + '" data-model-id="' + esc(m.id) + '" role="option"' + (isActive ? ' aria-selected="true"' : '') + '>' +
+              '<div class="model-item-main">' +
+                '<span class="model-item-name">' + esc(m.name) + '</span>' +
+                (tag ? '<span class="model-item-tag">' + esc(tag) + '</span>' : '') +
+              '</div>' +
+              (isLocked ? '<span class="model-lock">🔒</span>' : '<span class="model-check">✓</span>') +
+            '</div>'
+          );
+        }).join('');
+      }
 
+      const footerHtml = isFreeUser
+        ? '<div class="model-dropdown-footer"><a href="subscription.html" target="_blank">升级订阅解锁全部模型</a></div>'
+        : '';
+
+      dropdown.innerHTML =
+        '<div class="model-dropdown-search">' +
+          '<input type="text" id="modelSearchInput" placeholder="搜索模型" autocomplete="off" value="' + esc(modelSearchQuery) + '">' +
+        '</div>' +
+        '<div class="model-dropdown-toggles">' +
+          '<div class="model-toggle-row">' +
+            '<span class="model-toggle-label">Auto</span>' +
+            '<label class="model-toggle-switch" title="智能选择最优模型">' +
+              '<input type="checkbox" id="modelAutoToggle"' + (currentModel === 'auto' ? ' checked' : '') + '>' +
+              '<span class="model-toggle-slider"></span>' +
+            '</label>' +
+          '</div>' +
+        '</div>' +
+        '<div class="model-dropdown-divider"></div>' +
+        '<div class="model-dropdown-list" id="modelDropdownList">' + listHtml + '</div>' +
+        footerHtml;
+
+      const searchInput = document.getElementById('modelSearchInput');
+      if (searchInput) {
+        searchInput.addEventListener('input', function() {
+          modelSearchQuery = searchInput.value;
+          renderModelDropdown();
+          const next = document.getElementById('modelSearchInput');
+          if (next) {
+            next.focus();
+            next.setSelectionRange(next.value.length, next.value.length);
+          }
+        });
+        searchInput.addEventListener('click', function(e) { e.stopPropagation(); });
+        setTimeout(function() { searchInput.focus(); }, 0);
+      }
+
+      const autoToggle = document.getElementById('modelAutoToggle');
+      if (autoToggle) {
+        autoToggle.addEventListener('change', function() {
+          if (autoToggle.checked) window.selectModel('auto');
+        });
+        autoToggle.addEventListener('click', function(e) { e.stopPropagation(); });
+      }
+    }
+
+    async function openModelDropdown() {
+      const dropdown = document.getElementById('modelDropdown');
+      const pillBtn = document.getElementById('modelPillBtn');
+      if (!dropdown) return;
+
+      if (!cachedModels.length) await loadModels();
+      modelSearchQuery = '';
+      renderModelDropdown();
       dropdown.classList.add('show');
+      if (pillBtn) pillBtn.setAttribute('aria-expanded', 'true');
       modelDropdownOpen = true;
     }
 
-    // 关闭下拉菜单
     function closeModelDropdown() {
       const dropdown = document.getElementById('modelDropdown');
+      const pillBtn = document.getElementById('modelPillBtn');
       if (dropdown) dropdown.classList.remove('show');
+      if (pillBtn) pillBtn.setAttribute('aria-expanded', 'false');
+      modelSearchQuery = '';
       modelDropdownOpen = false;
     }
 
-    // 选择模型
     window.selectModel = async function(modelId) {
       if (modelId && (modelId.startsWith('ocg/') || modelId.startsWith('opencode-go/'))) {
-        console.warn('OpenCode Go 已停用，回退到 Auto');
         modelId = 'auto';
       }
       localStorage.setItem(MODEL_KEY, modelId);
       updateModelPill(modelId);
-      closeModelDropdown();
-      console.log('🔄 模型切换为:', modelId);
+      if (modelDropdownOpen) renderModelDropdown();
+      else closeModelDropdown();
 
-      // 同步到后端（写入 db.json，让 ai-proxy-lite 读取）
       try {
         const token = localStorage.getItem('lingxi_token');
         if (token) {
-          const res = await fetch(`${window.location.origin}/api/user-models/preference`, {
+          await fetch(window.location.origin + '/api/user-models/preference', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
+              Authorization: 'Bearer ' + token
             },
             body: JSON.stringify({ model: modelId === 'auto' ? null : modelId })
           });
-          const data = await res.json();
-          console.log('✅ 模型偏好已同步:', data);
         }
-      } catch(e) {
-        console.warn('⚠️ 同步模型偏好失败:', e);
-      }
+      } catch (e) {}
     };
 
-    // 获取当前选择的模型
     window.getSelectedModel = function() {
       return localStorage.getItem(MODEL_KEY) || 'auto';
     };
 
-    // 页面加载时初始化
     initModelSelector();
   })();
   </script>
