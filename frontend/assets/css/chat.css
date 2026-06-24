@@ -79,14 +79,13 @@ body::-webkit-scrollbar { display: none; }
 
 .sidebar-brand-icon {
   width: 34px; height: 34px;
-  background: var(--accent); border-radius: 10px;
-  display: flex; align-items: center; justify-content: center;
-  color: white; font-family: var(--font-display); font-weight: 700; font-size: 15px;
+  border-radius: 10px;
+  display: block;
+  flex-shrink: 0;
   box-shadow: 0 2px 8px var(--accent-ring);
   transition: transform 0.2s;
 }
 .sidebar-brand:hover .sidebar-brand-icon { transform: scale(1.05); }
-.sidebar-brand-icon svg { width: 18px; height: 18px; }
 
 .sidebar-brand-name {
   font-family: var(--font-display);

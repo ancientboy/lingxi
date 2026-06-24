@@ -1,4 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="8" fill="#3d6b62"/>
-  <text x="16" y="22" text-anchor="middle" fill="white" font-size="16" font-weight="700" font-family="system-ui,sans-serif">L</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+  <g transform="translate(-4,-2) scale(0.72)">
+    <path d="M28 8.5c2.8 2.1 4.6 5.2 5.1 8.6" stroke="#3d6b62" stroke-width="2.2" stroke-linecap="round" opacity="0.22"/>
+    <path d="M31.5 10.5c1.8 2.2 2.6 5 2.3 7.8" stroke="#3d6b62" stroke-width="2.2" stroke-linecap="round" opacity="0.14"/>
+    <circle cx="28" cy="15" r="8.5" fill="#3d6b62" opacity="0.12"/>
+    <circle cx="28" cy="15" r="4.25" fill="#3d6b62"/>
+    <rect x="10" y="12" width="6" height="18" rx="3" fill="#3d6b62"/>
+    <rect x="10" y="27" width="16" height="6" rx="3" fill="#3d6b62"/>
+  </g>
 </svg>
