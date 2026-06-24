@@ -2,7 +2,27 @@
  * 统一组件加载器
  */
 
-const COMPONENT_VERSION = '20260625a';
+const COMPONENT_VERSION = '20260625b';
+
+async function refreshChatSidebarAfterComponentsLoad() {
+  if (typeof loadSidebarSessions === 'function') {
+    loadSidebarSessions();
+  }
+
+  const messagesEl = document.getElementById('messages');
+  const hasChatMessages = messagesEl && messagesEl.querySelectorAll('.message').length > 0;
+  const onlyWelcome = messagesEl && !hasChatMessages && (
+    messagesEl.querySelector('#welcome') || document.getElementById('chatContainer')?.classList.contains('is-home')
+  );
+
+  if (onlyWelcome && window.USE_LUME && typeof LumeRpc !== 'undefined' && LumeRpc.isConnected() && typeof loadChatHistory === 'function') {
+    try {
+      await loadChatHistory();
+    } catch (e) {
+      console.warn('侧栏加载后刷新历史失败:', e);
+    }
+  }
+}
 
 async function loadComponent(containerId, componentPath) {
   try {
@@ -37,6 +57,8 @@ async function loadChatComponents() {
   if (typeof checkLumeclawAccess === 'function') {
     checkLumeclawAccess();
   }
+
+  await refreshChatSidebarAfterComponentsLoad();
   
   console.log('✅ 聊天组件加载完成');
 }

@@ -330,6 +330,11 @@ function setHomeMode(isHome) {
     suggestions.classList.add('hidden');
   }
   if (typeof updateScrollContextBar === 'function') updateScrollContextBar();
+  if (!isHome) {
+    requestAnimationFrame(() => {
+      scrollChatToBottom(true);
+    });
+  }
 }
 
 // ===== 右侧团队抽屉 + Cursor 式滚动提问条 =====
@@ -582,6 +587,16 @@ function hideWelcomeHome() {
   setHomeMode(false);
   const welcome = document.getElementById('welcome');
   if (welcome) welcome.classList.add('hidden');
+  requestAnimationFrame(() => {
+    scrollChatToBottom(true);
+    if (typeof updateScrollContextBar === 'function') updateScrollContextBar();
+  });
+}
+
+function syncCurrentSessionKey(key) {
+  currentSessionKey = key;
+  window.currentSessionKey = key;
+  if (typeof updateMobileChatHeader === 'function') updateMobileChatHeader();
 }
 
 let user = null;
@@ -756,10 +771,10 @@ async function init() {
   // 🆕 从 localStorage 恢复上次会话（如果存在）
   const savedSessionKey = localStorage.getItem('currentSessionKey');
   if (savedSessionKey && savedSessionKey.startsWith(SESSION_PREFIX)) {
-    currentSessionKey = savedSessionKey;
+    syncCurrentSessionKey(savedSessionKey);
     console.log('🔄 从 localStorage 恢复会话:', currentSessionKey);
   } else {
-    currentSessionKey = SESSION_KEY;
+    syncCurrentSessionKey(SESSION_KEY);
     console.log('🔑 初始化主会话:', currentSessionKey);
   }
 
@@ -2059,7 +2074,7 @@ async function createNewSession() {
 
   // 生成新的会话 key（使用从后端获取的 session prefix）
   const newSessionKey = `${SESSION_PREFIX}:chat_${Date.now()}`;
-  currentSessionKey = newSessionKey;
+  syncCurrentSessionKey(newSessionKey);
   console.log('🆕 创建新会话:', currentSessionKey);
 
   // 清空聊天，显示欢迎界面
@@ -2075,7 +2090,7 @@ async function switchSession(sessionKey) {
     return;
   }
 
-  currentSessionKey = sessionKey;
+  syncCurrentSessionKey(sessionKey);
   console.log('🔄 切换到会话:', sessionKey);
 
   // 从 sessionKey 解析 agent（格式：agent:{agentId}:{namespace}:{sessionId}）
@@ -3757,7 +3772,7 @@ async function switchAgent(agentId) {
   }
 
   // 切换到该 session
-  currentSessionKey = targetSessionKey;
+  syncCurrentSessionKey(targetSessionKey);
 
   // 清空当前消息区域
   const messages = document.getElementById('messages');

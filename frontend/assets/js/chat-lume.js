@@ -64,7 +64,11 @@ async function loadLumeSessions() {
     if (res.ok && res.payload?.sessions) {
       window.sessions = res.payload.sessions.map(normalizeLumeSession);
       if (typeof renderSessionList === 'function') renderSessionList();
-      if (typeof loadSessions === 'function') loadSessions();
+      try {
+        if (typeof loadSessions === 'function') loadSessions();
+      } catch (e) {
+        console.warn('[Lume] loadSessions 失败（侧栏可能尚未加载）:', e);
+      }
       if (typeof loadChatHistory === 'function') {
         await loadChatHistory();
       }

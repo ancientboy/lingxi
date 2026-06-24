@@ -289,6 +289,24 @@
     </button>
     <div id="navbar-container"></div>
 
+    <!-- 移动端顶栏：打开侧栏 / 当前会话 / 新对话 -->
+    <header class="mobile-chat-header" id="mobileChatHeader" aria-label="移动端导航">
+      <button type="button" class="mobile-chat-header-btn" id="mobileMenuBtn" onclick="toggleSidebar()" aria-label="打开菜单">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <line x1="4" y1="7" x2="20" y2="7"/>
+          <line x1="4" y1="12" x2="20" y2="12"/>
+          <line x1="4" y1="17" x2="20" y2="17"/>
+        </svg>
+      </button>
+      <div class="mobile-chat-header-title" id="mobileChatTitle">Lume</div>
+      <button type="button" class="mobile-chat-header-btn" onclick="newChat()" aria-label="新对话">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="12" y1="5" x2="12" y2="19"/>
+          <line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+      </button>
+    </header>
+
     <!-- 通知铃铛 -->
     <div class="notification-bell" id="notificationBell" onclick="toggleNotificationPanel(event)">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2182,10 +2200,10 @@
       const savedWidth = localStorage.getItem(SIDEBAR_WIDTH_KEY);
 
       // 恢复保存的宽度（仅桌面端）
-      if (savedWidth && window.innerWidth > 768) {
+      if (sidebar && savedWidth && window.innerWidth > 768) {
         sidebar.style.width = savedWidth + 'px';
         mainContent.style.marginLeft = savedWidth + 'px';
-        resizer.style.left = savedWidth + 'px';
+        if (resizer) resizer.style.left = savedWidth + 'px';
       }
 
       // 初始化拖拽调整
@@ -2232,7 +2250,22 @@
       if (expandBtn) {
         expandBtn.hidden = isMobile || !collapsed;
       }
+      if (typeof updateMobileChatHeader === 'function') {
+        updateMobileChatHeader();
+      }
     }
+
+    function updateMobileChatHeader() {
+      const titleEl = document.getElementById('mobileChatTitle');
+      if (!titleEl || window.innerWidth > 768) return;
+
+      const key = window.currentSessionKey;
+      const session = (window.sessions || []).find((s) => s.key === key);
+      const name = session?.title || session?.derivedTitle || session?.label || session?.displayName;
+      titleEl.textContent = name || '新对话';
+    }
+
+    window.updateMobileChatHeader = updateMobileChatHeader;
 
     function toggleSidebar() {
       const sidebar = document.getElementById('sidebar');
@@ -2257,6 +2290,7 @@
       const sidebar = document.getElementById('sidebar');
       const mainContent = document.getElementById('mainContent');
       const resizer = document.getElementById('sidebarResizer');
+      if (!sidebar || !mainContent || !resizer) return;
 
       let isResizing = false;
 
@@ -2297,12 +2331,17 @@
       const todayEl = document.getElementById('todaySessions');
       const weekEl = document.getElementById('weekSessions');
       const olderEl = document.getElementById('olderSessions');
+      if (!todayEl || !weekEl || !olderEl) {
+        return;
+      }
+
       const allSessions = window.sessions || [];
 
       if (allSessions.length === 0) {
-        todayEl.innerHTML = '<div class="session-empty">No conversations yet</div>';
+        todayEl.innerHTML = '<div class="session-empty">暂无对话</div>';
         weekEl.innerHTML = '';
         olderEl.innerHTML = '';
+        if (typeof updateMobileChatHeader === 'function') updateMobileChatHeader();
         return;
       }
 
@@ -2323,7 +2362,10 @@
       weekEl.innerHTML = renderSessionGroup('This Week', week);
       olderEl.innerHTML = renderSessionGroup('Earlier', older);
       if (window.lucide) lucide.createIcons();
+      if (typeof updateMobileChatHeader === 'function') updateMobileChatHeader();
     }
+
+    window.loadSidebarSessions = loadSidebarSessions;
 
     function renderSessionGroup(title, sessions) {
       if (!sessions.length) return '';
@@ -3146,6 +3188,9 @@
     initThemePicker();
     initTheme();
     initSidebar();
+    window.addEventListener('resize', () => {
+      updateSidebarToggleUi();
+    });
 
     // 自动切换视图（从 skills.html 跳转）
     const autoView = sessionStorage.getItem('autoSwitchView');
@@ -3546,11 +3591,11 @@
 
   <script src="assets/js/lume-dialog.js?v=20260624n"></script>
   <script src="assets/js/lume-rpc.js?v=20260615p1"></script>
-  <script src="assets/js/chat-lume.js?v=20260615p2"></script>
-  <script src="assets/js/chat.js?v=20260624u"></script>
+  <script src="assets/js/chat-lume.js?v=20260624v"></script>
+  <script src="assets/js/chat.js?v=20260624v"></script>
 
     <!-- 统一组件加载器 -->
-    <script src="components/load-components.js?v=20260625a"></script>
+    <script src="components/load-components.js?v=20260625b"></script>
   <script src="assets/js/skills-tab.js?v=20260624w"></script>
     <script src="assets/js/subscription.js?v=1772525512"></script>
   <script src="assets/js/stripe-payment.js?v=1772524675"></script>
