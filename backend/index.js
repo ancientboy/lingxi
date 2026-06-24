@@ -115,6 +115,10 @@ app.use('/api/cron', cronRoutes);
 import loopsRoutes from './routes/loops.js';
 app.use('/api/loops', loopsRoutes);
 
+// 订阅管理
+import subscriptionRoutes from './routes/subscription.js';
+app.use('/api/subscription', subscriptionRoutes);
+
 // 错误处理
 app.use((err, req, res, next) => {
   console.error('Error:', err);

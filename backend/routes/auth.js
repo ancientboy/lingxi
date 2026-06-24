@@ -27,6 +27,7 @@ function authUserPayload(user) {
     points: user.points || 0,
     canClaimTeam: (user.points || 0) >= 100,
     onboardingCompleted: user.onboardingCompleted === true,
+    subscription: user.subscription || null,
   };
 }
 async function getInviteCodeInfo(code) {
@@ -315,7 +316,9 @@ router.get('/me', async (req, res) => {
       claimTeamCost: 100,
       inviteReward: 100,
       // 引导状态
-      onboardingCompleted: user.onboardingCompleted === true
+      onboardingCompleted: user.onboardingCompleted === true,
+      // 订阅状态（模型选择器等依赖此字段）
+      subscription: user.subscription || null,
     });
   } catch (error) {
     res.status(401).json({ error: '令牌无效' });

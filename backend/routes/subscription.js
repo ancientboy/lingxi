@@ -1,0 +1,499 @@
+/**
+ * 订阅管理路由
+ * 
+ * 逻辑说明：
+ * 1. 升级套餐：补差价积分（Lite→Pro 只加 40,000）
+ * 2. 月度续费：补齐到月额度，不累加
+ * 3. 积分消耗：AI 代理自动扣除
+ */
+
+import { Router } from 'express';
+import jwt from 'jsonwebtoken';
+import { getDB, saveDB } from '../utils/db.js';
+import { readFileSync } from 'fs';
+import { join } from 'path';
+
+const router = Router();
+const JWT_SECRET = process.env.JWT_SECRET;
+
+// Token 验证中间件
+function authMiddleware(req, res, next) {
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ success: false, error: '未登录' });
+  }
+  
+  const token = authHeader.substring(7);
+  
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = { id: decoded.userId };
+    next();
+  } catch (err) {
+    return res.status(401).json({ success: false, error: 'Token 无效' });
+  }
+}
+
+// 加载订阅计划数据
+function loadPlans() {
+  const dataPath = join(import.meta.dirname, '..', 'data', 'plans.json');
+  const data = readFileSync(dataPath, 'utf-8');
+  return JSON.parse(data);
+}
+
+/**
+ * 获取所有订阅计划
+ * GET /api/subscription/plans
+ */
+router.get('/plans', async (req, res) => {
+  try {
+    const plansData = loadPlans();
+    
+    res.json({
+      success: true,
+      data: {
+        plans: plansData.plans,
+        creditPacks: plansData.creditPacks
+      }
+    });
+  } catch (error) {
+    console.error('获取订阅计划失败:', error);
+    res.status(500).json({ success: false, error: '服务器错误' });
+  }
+});
+
+/**
+ * 获取当前用户的订阅状态
+ * GET /api/subscription/current
+ */
+router.get('/current', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const db = await getDB();
+    const user = db.users.find(u => u.id === userId);
+    
+    if (!user) {
+      return res.status(404).json({ success: false, error: '用户不存在' });
+    }
+    
+    const plansData = loadPlans();
+    const subscription = user.subscription || null;
+    const server = user.server || null;
+    const credits = user.credits || {};
+    
+    // 检查试用状态
+    let trialStatus = 'not-started';
+    if (subscription && subscription.plan === 'free' && subscription.trialUsed) {
+      const startDate = new Date(subscription.startDate);
+      const today = new Date();
+      const diffTime = Math.abs(today - startDate);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (diffDays >= 3) {
+        trialStatus = 'expired';
+      } else {
+        trialStatus = 'active';
+      }
+    } else if (subscription && subscription.plan === 'free' && !subscription.trialUsed) {
+      trialStatus = 'pending';
+    }
+    
+    // 计算剩余天数
+    let remainingDays = 0;
+    if (subscription && subscription.endDate) {
+      const endDate = new Date(subscription.endDate);
+      const today = new Date();
+      const diffTime = endDate - today;
+      remainingDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    }
+    
+    res.json({
+      success: true,
+      data: {
+        subscription: subscription,
+        server: server,
+        credits: credits,
+        trialStatus: trialStatus,
+        remainingDays: Math.max(0, remainingDays),
+        plans: plansData.plans,
+        creditPacks: plansData.creditPacks
+      }
+    });
+  } catch (error) {
+    console.error('获取订阅状态失败:', error);
+    res.status(500).json({ success: false, error: '服务器错误' });
+  }
+});
+
+/**
+ * 领取免费积分
+ * POST /api/subscription/trial
+ */
+router.post('/trial', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const db = await getDB();
+    const user = db.users.find(u => u.id === userId);
+    
+    if (!user) {
+      return res.status(404).json({ success: false, error: '用户不存在' });
+    }
+    
+    // 检查是否已使用过免费积分
+    if (user.subscription && user.subscription.trialUsed) {
+      return res.status(400).json({ 
+        success: false, 
+        error: '您已经领取过免费积分' 
+      });
+    }
+    
+    // 标记已使用
+    user.subscription = {
+      plan: 'free',
+      planName: 'Free',
+      status: 'active',
+      startDate: new Date().toISOString().split('T')[0],
+      trialUsed: true
+    };
+    
+    // 初始化积分系统（赠送 100 积分）
+    if (!user.credits) user.credits = { balance: 0 };
+    user.credits.balance += 100;  // 直接加 100 积分
+    user.points = user.credits.balance;
+    
+    // 设置为共享服务器
+    user.server = {
+      type: 'shared',
+      ip: process.env.GATEWAY_IP || '120.55.192.144',
+      port: parseInt(process.env.GATEWAY_PORT) || 18789,
+      status: 'running'
+    };
+    
+    await saveDB(db);
+    
+    console.log(`[订阅] ${user.nickname} 领取免费积分 100`);
+    
+    res.json({
+      success: true,
+      data: {
+        subscription: user.subscription,
+        server: user.server,
+        credits: user.credits,
+        message: '已赠送 100 积分，开始体验吧！'
+      }
+    });
+  } catch (error) {
+    console.error('领取免费积分失败:', error);
+    res.status(500).json({ success: false, error: '服务器错误' });
+  }
+});
+
+/**
+ * 订阅套餐
+ * 逻辑：
+ * - 新订阅：全额积分
+ * - 升级套餐：补差价积分
+ * - 月度续费：补齐到月额度
+ * 
+ * POST /api/subscription/subscribe
+ */
+router.post('/subscribe', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { planId } = req.body;
+    
+    const db = await getDB();
+    const user = db.users.find(u => u.id === userId);
+    
+    if (!user) {
+      return res.status(404).json({ success: false, error: '用户不存在' });
+    }
+    
+    const plansData = loadPlans();
+    const plan = plansData.plans[planId];
+    
+    if (!plan) {
+      return res.status(400).json({ success: false, error: '套餐不存在' });
+    }
+    
+    // 免费套餐走 trial 接口
+    if (planId === 'free') {
+      return res.status(400).json({ success: false, error: '请使用试用功能' });
+    }
+    
+    // 初始化 credits
+    if (!user.credits) user.credits = { balance: 0 };
+    const previousBalance = user.credits.balance || 0;
+    const previousPlan = user.subscription?.plan || null;
+    const previousQuota = user.credits.monthlyQuota || 0;
+    
+    let creditsToAdd = 0;
+    let action = '';
+    
+    if (!previousPlan || previousPlan === 'free') {
+      // 新订阅：全额积分
+      creditsToAdd = plan.credits;
+      action = '新订阅';
+    } else if (previousPlan === planId) {
+      // 续费：补齐到月额度（不累加）
+      if (previousBalance < plan.credits) {
+        creditsToAdd = plan.credits - previousBalance;
+        action = '续费';
+      } else {
+        creditsToAdd = 0;
+        action = '续费（余额充足，无需补充）';
+      }
+    } else {
+      // 升级/降级：补差价
+      const previousPlanData = plansData.plans[previousPlan];
+      const previousCredits = previousPlanData?.credits || 0;
+      
+      if (plan.credits > previousCredits) {
+        // 升级：补差价
+        creditsToAdd = plan.credits - previousCredits;
+        action = '升级';
+      } else {
+        // 降级：不扣积分，但降低月额度
+        creditsToAdd = 0;
+        action = '降级';
+      }
+    }
+    
+    const today = new Date().toISOString().split('T')[0];
+    
+    // 更新订阅状态
+    user.subscription = {
+      plan: planId,
+      planName: plan.name,
+      price: plan.price,
+      credits: plan.credits,
+      startDate: today,
+      endDate: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0],
+      trialUsed: user.subscription?.trialUsed || false,
+      autoRenew: false,
+      subscribedAt: new Date().toISOString()
+    };
+    
+    // 更新积分
+    user.credits.balance = previousBalance + creditsToAdd;
+    user.credits.monthlyQuota = plan.credits;
+    user.credits.monthlyUsed = 0;
+    user.credits.lastSubscribe = new Date().toISOString();
+    
+    // 同步旧系统
+    user.points = user.credits.balance;
+    
+    // 设置服务器类型
+    if (plan.serverType === 'dedicated') {
+      user.server = user.server || {};
+      user.server.type = 'dedicated';
+    }
+
+    // Fix 4: 仅全新用户（previousPlan === null）重置 onboarding，free→付费 和 降级→升级 不重置
+    if (previousPlan === null) {
+      user.onboardingCompleted = false;
+    }
+    
+    await saveDB(db);
+    
+    console.log(`[订阅] ${user.nickname} ${action} ${plan.name}，积分: ${previousBalance} + ${creditsToAdd} = ${user.credits.balance}`);
+    
+    res.json({
+      success: true,
+      data: {
+        subscription: user.subscription,
+        credits: user.credits,
+        creditsAdded: creditsToAdd,
+        action: action,
+        message: creditsToAdd > 0 
+          ? `${action}成功！获得 ${creditsToAdd.toLocaleString()} 积分，当前余额: ${user.credits.balance.toLocaleString()}`
+          : `${action}成功！当前余额: ${user.credits.balance.toLocaleString()}`
+      }
+    });
+  } catch (error) {
+    console.error('订阅失败:', error);
+    res.status(500).json({ success: false, error: '服务器错误' });
+  }
+});
+
+/**
+ * 充值积分包
+ * POST /api/subscription/credit-pack
+ */
+router.post('/credit-pack', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { packId } = req.body;
+    
+    const db = await getDB();
+    const user = db.users.find(u => u.id === userId);
+    
+    if (!user) {
+      return res.status(404).json({ success: false, error: '用户不存在' });
+    }
+    
+    const plansData = loadPlans();
+    const pack = plansData.creditPacks.find(p => p.id === packId);
+    
+    if (!pack) {
+      return res.status(400).json({ success: false, error: '积分包不存在' });
+    }
+    
+    // 计算实际积分（包含赠送）
+    const bonusCredits = Math.floor(pack.credits * pack.bonus);
+    const totalCredits = pack.credits + bonusCredits;
+    
+    // 初始化 credits
+    if (!user.credits) user.credits = { balance: 0 };
+    const previousBalance = user.credits.balance || 0;
+    user.credits.balance = previousBalance + totalCredits;
+    user.credits.lastRecharge = new Date().toISOString();
+    
+    // 同步旧系统
+    user.points = user.credits.balance;
+    
+    await saveDB(db);
+    
+    console.log(`[充值] ${user.nickname} 充值 ${pack.name}，积分: ${previousBalance} + ${totalCredits} = ${user.credits.balance}`);
+    
+    res.json({
+      success: true,
+      data: {
+        balance: user.credits.balance,
+        added: totalCredits,
+        message: `充值成功！获得 ${totalCredits.toLocaleString()} 积分，当前余额: ${user.credits.balance.toLocaleString()}`
+      }
+    });
+  } catch (error) {
+    console.error('充值失败:', error);
+    res.status(500).json({ success: false, error: '服务器错误' });
+  }
+});
+
+// ============ 健康检查（复用 servers.js 的逻辑） ============
+
+async function checkServerHealth(server) {
+  const { ip, openclawPort, openclawSession, openclawToken } = server;
+  const port = openclawPort || 18789;
+
+  // Fix 1: 缺少关键字段时直接返回 false
+  if (!ip || !openclawToken) {
+    console.warn('[健康检查] 缺少关键字段 (ip=%s, token=%s)，跳过', !!ip, !!openclawToken);
+    return false;
+  }
+
+  // Fix 6: 拼接路径避免双斜杠
+  const sessionPath = openclawSession ? `/${openclawSession}` : '';
+
+  // Fix 2: Promise.race 全局超时 5s，防止无限等待
+  const healthPromise = (async () => {
+    const url = `http://${ip}:${port}${sessionPath}?token=${openclawToken}`;
+    const resp = await fetch(url, {
+      signal: AbortSignal.timeout(4000),
+      redirect: 'manual'
+    });
+    return resp.status === 302 || resp.ok;
+  })();
+
+  try {
+    return await Promise.race([
+      healthPromise,
+      new Promise(resolve => setTimeout(() => resolve(false), 5000))
+    ]);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 获取订阅 & onboarding 状态
+ * GET /api/subscription/status
+ */
+router.get('/status', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const db = await getDB();
+    const user = db.users.find(u => u.id === userId);
+
+    if (!user) {
+      return res.status(404).json({ success: false, error: '用户不存在' });
+    }
+
+    // 订阅状态
+    const plan = user.subscription?.plan || null;
+    const subscribed = plan !== null && plan !== 'free';
+
+    // 服务器状态
+    const userServers = (db.userServers || []).filter(s => s.userId === userId);
+    const hasServer = userServers.length > 0;
+
+    let serverStatus = null;
+    let serverInfo = null;
+
+    if (hasServer) {
+      // Fix 3: 直接取第一条服务器记录（activeServerId 已废弃）
+      const server = userServers[0];
+
+      serverInfo = {
+        ip: server.ip,
+        name: server.name || ''
+      };
+
+      // 异步健康检查（超时 5 秒）
+      try {
+        const healthy = await checkServerHealth(server);
+        serverStatus = healthy ? 'running' : 'offline';
+      } catch {
+        serverStatus = 'offline';
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        subscribed,
+        plan: subscribed ? plan : null,
+        hasServer,
+        serverStatus,
+        onboardingCompleted: !!user.onboardingCompleted,
+        serverInfo
+      }
+    });
+  } catch (error) {
+    console.error('获取订阅状态失败:', error);
+    res.status(500).json({ success: false, error: '服务器错误' });
+  }
+});
+
+/**
+ * 标记 onboarding 完成
+ * POST /api/subscription/onboarding-complete
+ */
+router.post('/onboarding-complete', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const db = await getDB();
+    const user = db.users.find(u => u.id === userId);
+
+    if (!user) {
+      return res.status(404).json({ success: false, error: '用户不存在' });
+    }
+
+    // Fix 7: 未订阅用户不允许完成 onboarding
+    const userPlan = user.subscription?.plan;
+    if (!userPlan || userPlan === 'free') {
+      return res.status(400).json({ success: false, error: '请先订阅套餐后再完成引导' });
+    }
+
+    user.onboardingCompleted = true;
+    await saveDB(db);
+
+    res.json({ success: true, message: 'Onboarding 已完成' });
+  } catch (error) {
+    console.error('标记 onboarding 完成失败:', error);
+    res.status(500).json({ success: false, error: '服务器错误' });
+  }
+});
+
+export default router;

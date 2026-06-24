@@ -3295,7 +3295,7 @@
       return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
     }
 
-    function detectFreeUser() {
+    async function detectFreeUser() {
       isFreeUser = true;
       try {
         const token = localStorage.getItem('lingxi_token');
@@ -3307,6 +3307,17 @@
         if (userStr) {
           const user = JSON.parse(userStr);
           if (user.subscription?.plan && user.subscription.plan !== 'free') isFreeUser = false;
+        }
+        // 登录改版后 localStorage 可能缺 subscription，从 /me 补全
+        if (isFreeUser && token) {
+          const res = await fetch(window.location.origin + '/api/auth/me', {
+            headers: { Authorization: 'Bearer ' + token }
+          });
+          if (res.ok) {
+            const user = await res.json();
+            localStorage.setItem('lingxi_user', JSON.stringify(user));
+            if (user.subscription?.plan && user.subscription.plan !== 'free') isFreeUser = false;
+          }
         }
       } catch (e) {}
     }
@@ -3322,7 +3333,7 @@
     }
 
     async function loadModels() {
-      detectFreeUser();
+      await detectFreeUser();
       try {
         const token = localStorage.getItem('lingxi_token');
         const res = await fetch(window.location.origin + '/api/user-models', {
