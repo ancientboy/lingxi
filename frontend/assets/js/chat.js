@@ -658,6 +658,13 @@ async function init() {
 
     console.log('用户已有团队:', userData.agents);
 
+    // 刷新侧边栏积分（依赖 /api/user/credits）
+    if (typeof refreshSidebarCredits === 'function') {
+      refreshSidebarCredits();
+    } else if (userData.points) {
+      setSidebarCreditsDisplay(userData.points);
+    }
+
   } catch (e) {
     console.error('检查团队失败:', e);
     window.location.href = 'index.html';
@@ -4550,10 +4557,16 @@ async function refreshSidebarCredits() {
     if (result.success && result.data) {
       setSidebarCreditsDisplay(result.data.total);
       console.log('侧边栏积分已更新:', result.data.total);
+      return;
     }
   } catch (e) {
     console.error('刷新积分失败:', e);
   }
+  // 回退：使用 /me 中的 points（邀请积分体系）
+  try {
+    const user = JSON.parse(localStorage.getItem('lingxi_user') || '{}');
+    if (user.points) setSidebarCreditsDisplay(user.points);
+  } catch (_) {}
 }
 
 async function showUsageStats() {
