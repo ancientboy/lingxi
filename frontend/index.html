@@ -268,9 +268,9 @@
 
     .showcase-stage {
       width: 100%;
-      max-width: 420px;
+      max-width: 440px;
       position: relative;
-      min-height: 320px;
+      min-height: 340px;
     }
 
     .showcase-view {
@@ -353,83 +353,289 @@
       50% { transform: translate(6px, 4px); }
     }
 
+    .showcase-panel.mode-workspace {
+      background-image:
+        radial-gradient(circle at 1px 1px, rgba(0, 0, 0, 0.04) 1px, transparent 0),
+        radial-gradient(ellipse 80% 60% at 70% 20%, rgba(61, 107, 98, 0.07), transparent 55%),
+        radial-gradient(ellipse 60% 50% at 20% 80%, rgba(61, 107, 98, 0.05), transparent 50%);
+      background-size: 24px 24px, 100% 100%, 100% 100%;
+    }
+
     .showcase-team {
       width: 100%;
-      max-width: 420px;
+      max-width: 440px;
     }
 
-    .showcase-team-label {
-      font-size: 11px;
+    .showcase-workspace-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      padding: 0 2px;
+    }
+
+    .showcase-workspace-title {
+      font-family: var(--font-display);
+      font-size: 15px;
       font-weight: 600;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--text-3);
-      text-align: center;
-      margin-bottom: 20px;
+      color: var(--text-1);
+      letter-spacing: -0.02em;
     }
 
-    .showcase-grid {
+    .showcase-workspace-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-3);
+      padding: 5px 10px 5px 8px;
+      background: rgba(255, 255, 255, 0.7);
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      border-radius: 999px;
+      backdrop-filter: blur(8px);
+    }
+
+    .showcase-workspace-badge::before {
+      content: '';
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #4ade80;
+      box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.25);
+      animation: showcasePulse 2.5s ease-in-out infinite;
+    }
+
+    @keyframes showcasePulse {
+      0%, 100% { box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.25); }
+      50% { box-shadow: 0 0 0 5px rgba(74, 222, 128, 0.12); }
+    }
+
+    .showcase-bento {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      gap: 12px;
+      grid-template-rows: repeat(3, auto);
+      gap: 10px;
     }
 
     .showcase-member {
-      background: #fff;
-      border: 1px solid rgba(0, 0, 0, 0.06);
-      border-radius: 16px;
-      padding: 16px 8px 14px;
+      position: relative;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      border-radius: 18px;
+      padding: 14px 10px 12px;
       text-align: center;
-      transition: transform 0.2s, box-shadow 0.2s;
-      animation: showcaseCardIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+      transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s, border-color 0.25s;
+      animation: showcaseCardIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+      backdrop-filter: blur(12px);
     }
 
-    .showcase-member:nth-child(1) { animation-delay: 0.05s; }
-    .showcase-member:nth-child(2) { animation-delay: 0.1s; }
-    .showcase-member:nth-child(3) { animation-delay: 0.15s; }
-    .showcase-member:nth-child(4) { animation-delay: 0.2s; }
-    .showcase-member:nth-child(5) { animation-delay: 0.25s; }
-    .showcase-member:nth-child(6) { animation-delay: 0.3s; }
-    .showcase-member:nth-child(7) { animation-delay: 0.35s; }
-    .showcase-member:nth-child(8) { animation-delay: 0.4s; }
+    .showcase-member-lead {
+      grid-column: 1 / 3;
+      grid-row: 1 / 3;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: flex-end;
+      text-align: left;
+      padding: 20px 18px 18px;
+      min-height: 148px;
+      background: linear-gradient(145deg, #2f554d 0%, #3d6b62 45%, #4a7d72 100%);
+      border: none;
+      box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.12) inset,
+        0 12px 32px rgba(47, 85, 77, 0.35);
+    }
+
+    .showcase-member-lead::after {
+      content: '';
+      position: absolute;
+      right: -20%;
+      top: -30%;
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255, 255, 255, 0.14) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .showcase-member-lead .avatar {
+      width: 44px;
+      height: 44px;
+      margin: 0 0 12px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.16);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .showcase-member-lead .avatar svg { color: #fff; width: 22px; height: 22px; }
+
+    .showcase-member-lead .name {
+      font-size: 18px;
+      font-weight: 600;
+      color: #fff;
+      letter-spacing: -0.02em;
+    }
+
+    .showcase-member-lead .role {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 3px 8px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: rgba(255, 255, 255, 0.9);
+      background: rgba(255, 255, 255, 0.14);
+      border-radius: 6px;
+    }
+
+    .showcase-member-lead .lead-desc {
+      margin-top: 10px;
+      font-size: 12px;
+      line-height: 1.5;
+      color: rgba(255, 255, 255, 0.78);
+      max-width: 92%;
+    }
+
+    .showcase-member:nth-child(1) { animation-delay: 0.04s; }
+    .showcase-member:nth-child(2) { animation-delay: 0.08s; }
+    .showcase-member:nth-child(3) { animation-delay: 0.12s; }
+    .showcase-member:nth-child(4) { animation-delay: 0.16s; }
+    .showcase-member:nth-child(5) { animation-delay: 0.2s; }
+    .showcase-member:nth-child(6) { animation-delay: 0.24s; }
+    .showcase-member:nth-child(7) { animation-delay: 0.28s; }
+    .showcase-member:nth-child(8) { animation-delay: 0.32s; }
 
     @keyframes showcaseCardIn {
-      from { opacity: 0; transform: translateY(10px) scale(0.96); }
+      from { opacity: 0; transform: translateY(12px) scale(0.97); }
       to { opacity: 1; transform: translateY(0) scale(1); }
     }
 
     .showcase-panel.mode-workspace .showcase-member {
-      animation: showcaseCardIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+      animation: showcaseCardIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) backwards;
     }
 
     .showcase-member:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+      transform: translateY(-3px);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.08);
+      border-color: rgba(0, 0, 0, 0.08);
+    }
+
+    .showcase-member-lead:hover {
+      transform: translateY(-3px);
+      box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.12) inset,
+        0 16px 40px rgba(47, 85, 77, 0.4);
     }
 
     .showcase-member .avatar {
-      width: 40px;
-      height: 40px;
-      margin: 0 auto 10px;
-      border-radius: 12px;
-      background: var(--bg-hover);
+      width: 36px;
+      height: 36px;
+      margin: 0 auto 8px;
+      border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
+      position: relative;
     }
-    .showcase-member .avatar svg { width: 18px; height: 18px; color: var(--accent); }
-    .showcase-member .name { font-size: 12px; font-weight: 600; color: var(--text-1); }
-    .showcase-member .role { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+
+    .showcase-member .avatar::before {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border-radius: 50%;
+      background: var(--member-ring, linear-gradient(135deg, #e8e6e1, #f5f4f1));
+      z-index: 0;
+    }
+
+    .showcase-member .avatar::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: var(--member-bg, #f5f4f1);
+      z-index: 1;
+    }
+
+    .showcase-member .avatar svg,
+    .showcase-member .avatar i {
+      position: relative;
+      z-index: 2;
+      width: 16px;
+      height: 16px;
+      color: var(--member-accent, var(--accent));
+    }
+
+    .showcase-member[data-accent="code"] { --member-accent: #2563eb; --member-bg: #eff6ff; --member-ring: linear-gradient(135deg, #93c5fd, #dbeafe); }
+    .showcase-member[data-accent="ops"] { --member-accent: #d97706; --member-bg: #fffbeb; --member-ring: linear-gradient(135deg, #fcd34d, #fef3c7); }
+    .showcase-member[data-accent="creative"] { --member-accent: #9333ea; --member-bg: #faf5ff; --member-ring: linear-gradient(135deg, #c4b5fd, #ede9fe); }
+    .showcase-member[data-accent="product"] { --member-accent: #db2777; --member-bg: #fdf2f8; --member-ring: linear-gradient(135deg, #f9a8d4, #fce7f3); }
+    .showcase-member[data-accent="notes"] { --member-accent: #059669; --member-bg: #ecfdf5; --member-ring: linear-gradient(135deg, #6ee7b7, #d1fae5); }
+    .showcase-member[data-accent="media"] { --member-accent: #ea580c; --member-bg: #fff7ed; --member-ring: linear-gradient(135deg, #fdba74, #ffedd5); }
+    .showcase-member[data-accent="auto"] { --member-accent: #0891b2; --member-bg: #ecfeff; --member-ring: linear-gradient(135deg, #67e8f9, #cffafe); }
+
+    .showcase-member .name {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-1);
+      letter-spacing: -0.01em;
+    }
+
+    .showcase-member .role {
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--text-3);
+      margin-top: 3px;
+      letter-spacing: 0.02em;
+    }
+
+    .showcase-member-stat {
+      grid-column: 4;
+      grid-row: 3;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 12px 8px;
+      background: rgba(255, 255, 255, 0.55);
+      border: 1px dashed rgba(61, 107, 98, 0.22);
+      border-radius: 18px;
+      animation: showcaseCardIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.36s backwards;
+    }
+
+    .showcase-member-stat .stat-num {
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: -0.03em;
+      line-height: 1;
+    }
+
+    .showcase-member-stat .stat-label {
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--text-3);
+      text-align: center;
+      line-height: 1.3;
+    }
+
+    .showcase-quote-wrap {
+      margin-top: 28px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(0, 0, 0, 0.06);
+      text-align: center;
+      max-width: 360px;
+    }
 
     .showcase-quote {
-      margin-top: 36px;
-      text-align: center;
       font-family: var(--font-serif);
-      font-size: 18px;
-      line-height: 1.6;
+      font-size: 17px;
+      line-height: 1.55;
       color: var(--text-2);
-      font-style: italic;
-      max-width: 360px;
+      font-style: normal;
+      letter-spacing: -0.01em;
     }
 
     /* Brand story — 登录页默认隐藏 */
@@ -749,6 +955,7 @@
       .showcase-view,
       .showcase-bubble,
       .showcase-member,
+      .showcase-member-stat,
       .showcase-cursor {
         animation: none !important;
         transition: none !important;
@@ -923,19 +1130,33 @@
           </div>
           <div class="showcase-view" id="showcaseWorkspace">
             <div class="showcase-team">
-              <div class="showcase-team-label">8 位 AI 队友随时待命</div>
-              <div class="showcase-grid">
-                <div class="showcase-member"><div class="avatar"><i data-lucide="sparkles"></i></div><div class="name">灵犀</div><div class="role">队长</div></div>
-                <div class="showcase-member"><div class="avatar"><i data-lucide="code"></i></div><div class="name">云溪</div><div class="role">代码</div></div>
-                <div class="showcase-member"><div class="avatar"><i data-lucide="activity"></i></div><div class="name">若曦</div><div class="role">运营</div></div>
-                <div class="showcase-member"><div class="avatar"><i data-lucide="lightbulb"></i></div><div class="name">紫萱</div><div class="role">创意</div></div>
-                <div class="showcase-member"><div class="avatar"><i data-lucide="target"></i></div><div class="name">梓萱</div><div class="role">产品</div></div>
-                <div class="showcase-member"><div class="avatar"><i data-lucide="file-text"></i></div><div class="name">晓琳</div><div class="role">笔记</div></div>
-                <div class="showcase-member"><div class="avatar"><i data-lucide="palette"></i></div><div class="name">音韵</div><div class="role">多媒体</div></div>
-                <div class="showcase-member"><div class="avatar"><i data-lucide="home"></i></div><div class="name">智家</div><div class="role">自动化</div></div>
+              <div class="showcase-workspace-head">
+                <span class="showcase-workspace-title">你的 AI 团队</span>
+                <span class="showcase-workspace-badge">8 人在线</span>
+              </div>
+              <div class="showcase-bento">
+                <div class="showcase-member showcase-member-lead">
+                  <div class="avatar"><i data-lucide="sparkles"></i></div>
+                  <div class="name">灵犀</div>
+                  <div class="role">队长</div>
+                  <p class="lead-desc">协调全队，拆解任务，随时响应你的每一个想法</p>
+                </div>
+                <div class="showcase-member" data-accent="code"><div class="avatar"><i data-lucide="code"></i></div><div class="name">云溪</div><div class="role">代码</div></div>
+                <div class="showcase-member" data-accent="ops"><div class="avatar"><i data-lucide="activity"></i></div><div class="name">若曦</div><div class="role">运营</div></div>
+                <div class="showcase-member" data-accent="creative"><div class="avatar"><i data-lucide="lightbulb"></i></div><div class="name">紫萱</div><div class="role">创意</div></div>
+                <div class="showcase-member" data-accent="product"><div class="avatar"><i data-lucide="target"></i></div><div class="name">梓萱</div><div class="role">产品</div></div>
+                <div class="showcase-member" data-accent="notes"><div class="avatar"><i data-lucide="file-text"></i></div><div class="name">晓琳</div><div class="role">笔记</div></div>
+                <div class="showcase-member" data-accent="media"><div class="avatar"><i data-lucide="palette"></i></div><div class="name">音韵</div><div class="role">多媒体</div></div>
+                <div class="showcase-member" data-accent="auto"><div class="avatar"><i data-lucide="home"></i></div><div class="name">智家</div><div class="role">自动化</div></div>
+                <div class="showcase-member-stat" aria-hidden="true">
+                  <span class="stat-num">24/7</span>
+                  <span class="stat-label">随时<br>待命</span>
+                </div>
+              </div>
+              <div class="showcase-quote-wrap">
+                <p class="showcase-quote">让优秀伙伴，不再是奢望</p>
               </div>
             </div>
-            <p class="showcase-quote">让优秀伙伴，不再是奢望</p>
           </div>
         </div>
       </div>
@@ -1305,11 +1526,11 @@
         });
         // 重播卡片入场动画
         if (isWorkspace) {
-          workspaceView.querySelectorAll('.showcase-member').forEach((el, i) => {
+          workspaceView.querySelectorAll('.showcase-member, .showcase-member-stat').forEach((el, i) => {
             el.style.animation = 'none';
             el.offsetHeight;
             el.style.animation = '';
-            el.style.animationDelay = `${0.05 + i * 0.05}s`;
+            el.style.animationDelay = `${0.04 + i * 0.04}s`;
           });
         }
       }
