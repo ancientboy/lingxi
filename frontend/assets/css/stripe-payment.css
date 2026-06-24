@@ -9,7 +9,7 @@
 .payment-info {
   text-align: center;
   padding: 24px;
-  background: linear-gradient(135deg, #10a37f 0%, #059669 100%);
+  background: var(--accent-gradient);
   border-radius: 12px;
   margin-bottom: 24px;
   color: #fff;
@@ -46,8 +46,8 @@
 }
 
 .payment-message.success {
-  background: rgba(16, 163, 127, 0.1);
-  color: #10a37f;
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 .payment-message.error {
@@ -63,7 +63,7 @@
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
-  background: #10a37f;
+  background: var(--accent);
   color: #fff;
   display: flex;
   align-items: center;
@@ -73,7 +73,7 @@
 }
 
 .payment-submit-btn:hover:not(:disabled) {
-  background: #059669;
+  background: var(--accent-h);
 }
 
 .payment-submit-btn:disabled {
@@ -82,7 +82,7 @@
 }
 
 .payment-submit-btn.success {
-  background: #10a37f;
+  background: var(--accent);
 }
 
 /* 加载动画 */
@@ -101,14 +101,12 @@
   }
 }
 
-/* Stripe 元素样式覆盖 */
 #paymentElement iframe {
   border-radius: 8px;
 }
 
-/* 深色主题 */
 .dark .payment-info {
-  background: linear-gradient(135deg, #10a37f 0%, #059669 100%);
+  background: var(--accent-gradient);
 }
 
 .dark #paymentElement {

@@ -6,6 +6,8 @@
 /* ===== FONTS ===== */
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Inter:wght@400;500;600&display=swap');
 
+@import url('lume-tokens.css');
+
 /* ===== TOKENS ===== */
 :root {
   --bg:          #fafaf9;
@@ -22,10 +24,7 @@
   --text-3:      #a3a3a3;
   --text-inv:    #ffffff;
 
-  --accent:      #10a37f;
-  --accent-h:    #0d8a6a;
-  --accent-soft: rgba(16,163,127,0.08);
-  --accent-ring: rgba(16,163,127,0.25);
+  /* accent from lume-tokens.css */
 
   --danger:      #ef4444;
   --danger-soft: #fef2f2;
@@ -289,7 +288,7 @@ tr:hover td { background: var(--bg-hover); }
 
 /* Button hover lift */
 .btn { transition: all 0.2s ease; }
-.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(16,163,127,0.25); }
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px var(--accent-ring); }
 .btn-primary:active { transform: translateY(0); }
 .btn-secondary:hover { transform: translateY(-1px); box-shadow: var(--shadow-sm); }
 

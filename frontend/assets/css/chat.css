@@ -5,6 +5,8 @@
  * Inspired by: Claude / Linear / Notion
  */
 
+@import url('lume-tokens.css');
+
 /* ===== DESIGN TOKENS ===== */
 :root {
   --bg:          #fafaf9;
@@ -21,11 +23,7 @@
   --text-3:      #a3a3a3;
   --text-inv:    #ffffff;
 
-  /* 默认主题：克制墨绿 */
-  --accent:      #3d6b62;
-  --accent-h:    #2f554d;
-  --accent-soft: rgba(61, 107, 98, 0.08);
-  --accent-ring: rgba(61, 107, 98, 0.14);
+  /* accent from lume-tokens.css */
 
   --radius:      12px;
   --radius-sm:   8px;
@@ -711,6 +709,17 @@ body::-webkit-scrollbar { display: none; }
 .usage-quota-percent { font-size: 18px; font-weight: 700; color: var(--accent); }
 .usage-quota-bar { height: 8px; background: var(--accent-soft); border-radius: 4px; overflow: hidden; margin-bottom: 10px; }
 .usage-quota-fill { height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.3s; }
+.usage-quota-label { display: flex; align-items: center; gap: 6px; }
+.usage-section { margin-bottom: 16px; }
+.usage-section-title {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; font-weight: 600; color: var(--text-1);
+  margin-bottom: 10px; font-family: var(--font-display);
+}
+.usage-modal-title {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-display);
+}
 
 /* ===== DOCUMENT PREVIEW ===== */
 .document-preview-card {
@@ -1151,7 +1160,7 @@ body.mobile-chat-ui .chat-container:not(.is-home) .chat-scroll {
   user-select: none;
 }
 .bubble-meta .meta-model {
-  background: var(--accent-soft, rgba(16,163,127,0.08));
+  background: var(--accent-soft);
   color: var(--accent, #3d6b62);
   padding: 2px 6px;
   border-radius: 4px;

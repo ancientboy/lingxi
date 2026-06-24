@@ -72,12 +72,12 @@
 .sub-plan-card:hover {
   border-color: var(--accent);
   transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(16, 163, 127, 0.15);
+  box-shadow: 0 8px 24px var(--accent-ring);
 }
 
 .sub-plan-card.current {
   border-color: var(--accent);
-  background: rgba(16, 163, 127, 0.05);
+  background: var(--accent-soft);
 }
 
 .sub-plan-card.current::after {
@@ -226,7 +226,7 @@
 
 .sub-pack-card:hover {
   border-color: var(--accent);
-  background: rgba(16, 163, 127, 0.02);
+  background: var(--accent-soft);
 }
 
 .sub-pack-name {

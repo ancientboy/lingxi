@@ -188,7 +188,7 @@
     }
     .tpl-apply-btn {
       width: 100%; padding: 12px; margin-top: 20px;
-      background: linear-gradient(135deg, #10a37f, #764ba2);
+      background: linear-gradient(135deg, #3d6b62, #4a7d72);
       color: #fff; border: none; border-radius: var(--radius);
       font-size: 14px; font-weight: 600; cursor: pointer;
       transition: opacity 0.2s;
@@ -876,7 +876,7 @@
     /* Save Button */
     .drawer-save-btn {
       width: 100%; padding: 10px; margin-top: 16px;
-      background: linear-gradient(135deg, #10a37f, #764ba2);
+      background: linear-gradient(135deg, #3d6b62, #4a7d72);
       color: #fff; border: none; border-radius: var(--radius);
       font-size: 13px; font-weight: 600; cursor: pointer;
       transition: opacity 0.2s;
@@ -903,7 +903,7 @@
       font-size: 13px; font-weight: 600; cursor: pointer; transition: all var(--transition);
     }
     .soul-btn-primary {
-      background: linear-gradient(135deg, #10a37f, #764ba2);
+      background: linear-gradient(135deg, #3d6b62, #4a7d72);
       color: #fff;
     }
     .soul-btn-primary:hover { opacity: 0.9; }
@@ -1062,7 +1062,7 @@
     .tpl-current-badge { position:absolute; top:8px; right:8px; background:#43e97b; color:#fff; font-size:11px; padding:2px 8px; border-radius:10px; font-weight:600; }
     .tpl-snapshot-icon { background:#43e97b; color:#fff; width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:16px; margin-bottom:10px; }
     .tpl-snapshot-tag { background:#43e97b22; color:#43e97b; }
-    .tpl-custom-hint { background:#10a37f18; border:1px solid #10a37f44; border-radius:8px; padding:8px 12px; margin-bottom:12px; font-size:13px; color:var(--accent); }
+    .tpl-custom-hint { background:#3d6b6218; border:1px solid #3d6b6244; border-radius:8px; padding:8px 12px; margin-bottom:12px; font-size:13px; color:var(--accent); }
     .tpl-snapshot-hint { background:#43e97b18; border:1px solid #43e97b44; border-radius:8px; padding:8px 12px; margin-bottom:12px; font-size:13px; color:#2d8; }
     .tpl-snapshot-note { background:#43e97b15; border:1px solid #43e97b33; border-radius:8px; padding:10px 12px; margin-bottom:12px; }
     .section-title-sm { font-size:14px; }
@@ -1115,7 +1115,7 @@
     </a>
   </div>
   <h1 class="flex-center-gap">
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect width="18" height="18" rx="4" fill="#10a37f"/><path d="M9 4v10M5 8h8" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect width="18" height="18" rx="4" fill="#3d6b62"/><path d="M9 4v10M5 8h8" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>
     Agent Workspace
   </h1>
 </div>
@@ -1408,9 +1408,9 @@ function workspaceGoBack() {
 
 // Agent 外观配置（固定，决定 3D 形象）
 const AGENT_STYLES = {
-  main:     { abbr:'LX', color:'#10a37f', gradient:['#10a37f','#764ba2'], hair:'purple-cape', items:{coffee:true,plant:'🌵',paper:false} },
-  lingxi:   { abbr:'LX', color:'#10a37f', gradient:['#10a37f','#764ba2'], hair:'purple-cape', items:{coffee:true,plant:'🌵',paper:false} },
-  captain:  { abbr:'LX', color:'#10a37f', gradient:['#10a37f','#764ba2'], hair:'purple-cape', items:{coffee:true,plant:'🌵',paper:false} },
+  main:     { abbr:'LX', color:'#3d6b62', gradient:['#3d6b62','#4a7d72'], hair:'purple-cape', items:{coffee:true,plant:'🌵',paper:false} },
+  lingxi:   { abbr:'LX', color:'#3d6b62', gradient:['#3d6b62','#4a7d72'], hair:'purple-cape', items:{coffee:true,plant:'🌵',paper:false} },
+  captain:  { abbr:'LX', color:'#3d6b62', gradient:['#3d6b62','#4a7d72'], hair:'purple-cape', items:{coffee:true,plant:'🌵',paper:false} },
   coder:    { abbr:'YX', color:'#4facfe', gradient:['#4facfe','#00f2fe'], hair:'blue-twin', items:{coffee:true,plant:'🌿',paper:true} },
   ops:      { abbr:'RX', color:'#43e97b', gradient:['#43e97b','#38f9d7'], hair:'green-ponytail', items:{coffee:false,plant:'🌱',paper:true} },
   operator: { abbr:'RX', color:'#43e97b', gradient:['#43e97b','#38f9d7'], hair:'green-ponytail', items:{coffee:false,plant:'🌱',paper:true} },
@@ -1514,7 +1514,7 @@ function renderTasks() {
   if (!p) return;
   const tasks = AGENTS.map(a=>({a,s:S[a.id]})).filter(({s})=>s&&s.status==='working'&&s.task).map(({a,s})=>({a,t:s.task}));
   if (!tasks.length) { p.innerHTML='<div class="empty-msg">暂无进行中任务</div>'; return; }
-  p.innerHTML = tasks.map(({a,t})=>`<div class="t-row"><div class="t-top">  <span class="t-id">${t.id}</span> ${t.title} <span class="t-agent" style="background:${a.color}15;color:${a.color}">${a.abbr||''}${a.name}</span></div><div class="t-step">${t.step}/${t.totalSteps} ${t.stepName}</div><div class="t-bar"><div class="t-fill" style="width:${t.progress}%;background:linear-gradient(90deg,${a.gradient?a.gradient[0]:'#667eea'},${a.gradient?a.gradient[1]:'#764ba2'})"></div></div></div>`).join('');
+  p.innerHTML = tasks.map(({a,t})=>`<div class="t-row"><div class="t-top">  <span class="t-id">${t.id}</span> ${t.title} <span class="t-agent" style="background:${a.color}15;color:${a.color}">${a.abbr||''}${a.name}</span></div><div class="t-step">${t.step}/${t.totalSteps} ${t.stepName}</div><div class="t-bar"><div class="t-fill" style="width:${t.progress}%;background:linear-gradient(90deg,${a.gradient?a.gradient[0]:'#667eea'},${a.gradient?a.gradient[1]:'#4a7d72'})"></div></div></div>`).join('');
 }
 
 function renderLogs() {
@@ -1669,8 +1669,8 @@ function switchTab(tabId) {
 // ═══════════════════════════════════════════════════════════
 
 const AGENT_MAP = {
-  main:    { id:'main', name:'灵犀', abbr:'LX', color:'#10a37f', role:'队长', desc:'智能调度队长，负责理解需求、分配任务、协调团队' },
-  lingxi:  { id:'lingxi', name:'灵犀', abbr:'LX', color:'#10a37f', role:'队长', desc:'智能调度队长，负责理解需求、分配任务、协调团队' },
+  main:    { id:'main', name:'灵犀', abbr:'LX', color:'#3d6b62', role:'队长', desc:'智能调度队长，负责理解需求、分配任务、协调团队' },
+  lingxi:  { id:'lingxi', name:'灵犀', abbr:'LX', color:'#3d6b62', role:'队长', desc:'智能调度队长，负责理解需求、分配任务、协调团队' },
   coder:   { id:'coder', name:'云溪', abbr:'YX', color:'#4facfe', role:'代码', desc:'全栈开发专家，精通 JS/Python/Go' },
   ops:     { id:'ops', name:'若曦', abbr:'RX', color:'#43e97b', role:'运营', desc:'数据分析与运营专家，擅长报表、增长分析' },
   inventor:{ id:'inventor', name:'紫萱', abbr:'ZX', color:'#fa709a', role:'创意', desc:'创意策划大师，擅长文案、营销、品牌' },
@@ -2103,7 +2103,7 @@ function renderTplCard(t) {
     `;
   }
 
-  const colors = { development:'#4facfe', marketing:'#fa709a', assistant:'#10a37f' };
+  const colors = { development:'#4facfe', marketing:'#fa709a', assistant:'#3d6b62' };
   const abbrs = { 'lingxi-team':'ALL', development:'DEV', marketing:'CTN' };
   function hashColor(str) {
     let h = 0; for (let i = 0; i < str.length; i++) h = str.charCodeAt(i) + ((h << 5) - h);

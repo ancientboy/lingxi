@@ -123,8 +123,8 @@
 }
 
 .category-chip:hover {
-  border-color: var(--accent, #10a37f);
-  background: rgba(16, 163, 127, 0.05);
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .category-chip.active {
@@ -158,7 +158,7 @@
 
 .skills-search:focus {
   outline: none;
-  border-color: var(--accent, #10a37f);
+  border-color: var(--accent);
 }
 
 .skills-filters { display: flex; gap: 6px; }
@@ -490,8 +490,8 @@
 }
 
 .feature-item {
-  background: rgba(16, 163, 127, 0.1);
-  color: #10a37f;
+  background: var(--accent-soft);
+  color: var(--accent);
   padding: 4px 10px;
   border-radius: 6px;
   font-size: 12px;
@@ -505,7 +505,7 @@
   border-radius: 8px;
   font-size: 13px;
   color: var(--text-secondary, #6b7280);
-  border-left: 3px solid var(--accent, #10a37f);
+  border-left: 3px solid var(--accent);
   font-style: italic;
 }
 
