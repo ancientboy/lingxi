@@ -597,10 +597,12 @@ body.lume-page .wf-card-footer .btn-primary {
 }
 
 body.lume-page .wf-card .btn-primary:hover,
-body.lume-page .wf-card-footer .btn-primary:hover {
-  background: var(--bg-hover, #f5f5f4) !important;
-  color: var(--text-1, #171717) !important;
-  border-color: var(--border, #e5e7eb) !important;
+body.lume-page .wf-card-footer .btn-primary:hover,
+body.lume-page .wf-card .btn-primary:focus-visible,
+body.lume-page .wf-card-footer .btn-primary:focus-visible {
+  background: var(--text-1, #171717) !important;
+  color: #fff !important;
+  border-color: var(--text-1, #171717) !important;
 }
 
 body.lume-page .section-badge.active {
