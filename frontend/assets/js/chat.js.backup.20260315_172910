@@ -2,9 +2,6 @@
  * 灵犀云 - 聊天界面主脚本
  *
  * 总计: 2718 行，90 个函数
-// 全局主题色（跟随 CSS 变量）
-function _accent() { return getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#10a37f"; }
-function _accentSoft() { return getComputedStyle(document.documentElement).getPropertyValue("--accent-soft").trim() || "rgba(16,163,127,0.08)"; }
  *
  * 模块索引:
  * ─────────────────────────────────────────
@@ -15,7 +12,7 @@ function _accentSoft() { return getComputedStyle(document.documentElement).getPr
  * 👥 Agent 模块             第 1336-1509 行
  * ⚙️ 配置模块               第 1519-1760 行
  * 🎯 技能库模块             第 2148-2698 行
- * 引导模块               第 1803-1988 行
+ * 🚀 引导模块               第 1803-1988 行
  * 🎨 UI 工具模块            第 143-1768 行
  * 📍 初始化入口             第 155-294 行
  * ─────────────────────────────────────────
@@ -31,64 +28,6 @@ let SESSION_PREFIX = null;
 
 let SESSION_KEY = null;  // 用户主会话（根据用户ID生成）
 let currentSessionKey = null;  // 当前活动会话
-
-// 监听设备切换事件（从 servers.html postMessage 发出）
-window.addEventListener('message', (event) => {
-  if (event.data?.type === 'device-switched') {
-    console.log('🖥️ 检测到设备切换（postMessage），重新加载...');
-    if (ws) { try { ws.onclose = null; ws.close(); } catch(e) {} }
-    setTimeout(() => location.reload(), 300);
-  }
-});
-
-// 跨 tab 监听 storage 变化
-window.addEventListener('storage', (event) => {
-  if (event.key === 'device_switched_at' && event.newValue) {
-    console.log('🖥️ 检测到设备切换（storage），重新加载...');
-    if (ws) { try { ws.onclose = null; ws.close(); } catch(e) {} }
-    setTimeout(() => location.reload(), 300);
-  }
-});
-
-// 🖥️ 同一 tab 返回时检测设备切换（pageshow/visibilitychange）
-// 用户在同一 tab 中从 servers.html 返回时触发
-// 用 sessionStorage 记录上次处理的切换时间（跨页面导航保留，但新 tab 不受影响）
-let _lastDeviceSwitchHandled = sessionStorage.getItem('last_device_switch_handled') || '0';
-// 页面加载时立即检查：如果 localStorage 里有未处理的设备切换，立即 reload
-(function checkDeviceSwitchOnLoad() {
-  const current = localStorage.getItem('device_switched_at') || '0';
-  if (current !== _lastDeviceSwitchHandled) {
-    console.log('🖥️ 检测到未处理的设备切换（页面加载），清理旧数据...');
-    sessionStorage.setItem('last_device_switch_handled', current);
-    _lastDeviceSwitchHandled = current;
-    // 清理旧会话数据，让 init() 重新加载新设备的会话
-    localStorage.removeItem('currentSessionKey');
-    localStorage.removeItem('cached_sessions');
-    localStorage.removeItem('chat_messages_cache');
-  }
-})();
-window.addEventListener('pageshow', () => {
-  const current = localStorage.getItem('device_switched_at') || '0';
-  if (current !== _lastDeviceSwitchHandled) {
-    _lastDeviceSwitchHandled = current;
-    sessionStorage.setItem('last_device_switch_handled', current);
-    console.log('🖥️ 检测到设备切换（pageshow），重新加载...');
-    if (ws) { try { ws.onclose = null; ws.close(); } catch(e) {} }
-    setTimeout(() => location.reload(), 300);
-  }
-});
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') {
-    const current = localStorage.getItem('device_switched_at') || '0';
-    if (current !== _lastDeviceSwitchHandled) {
-      _lastDeviceSwitchHandled = current;
-      sessionStorage.setItem('last_device_switch_handled', current);
-      console.log('🖥️ 检测到设备切换（visibilitychange），重新加载...');
-      if (ws) { try { ws.onclose = null; ws.close(); } catch(e) {} }
-      setTimeout(() => location.reload(), 300);
-    }
-  }
-});
 
 const AGENT_INFO = {
   lingxi: {
@@ -241,30 +180,13 @@ let userServerInfo = null; // 用户服务器信息（IP、端口）
 // 📍 初始化入口
 // ═══════════════════════════════════════════════════════════════
 async function init() {
-  console.log('初始化聊天页面...');
-
-  // 清空消息区，确保每次初始化都是干净状态（防止设备切换后残留旧消息）
-  const _msgContainer = document.getElementById('messages');
-  if (_msgContainer) _msgContainer.innerHTML = '';
+  console.log('🚀 初始化聊天页面...');
 
   const token = localStorage.getItem('lingxi_token');
   if (!token) {
-    console.log('没有 token，跳转到首页');
+    console.log('❌ 没有 token，跳转到首页');
     window.location.href = 'index.html';
     return;
-  }
-
-  // 🖥️ 检测设备切换：如果从 servers.html 切换了设备回来，需要清理旧数据
-  const _lastSwitchHandled = sessionStorage.getItem('last_device_switch_handled') || '0';
-  const _currentSwitch = localStorage.getItem('device_switched_at') || '0';
-  const _deviceSwitched = _currentSwitch !== _lastSwitchHandled;
-  if (_deviceSwitched) {
-    console.log('🖥️ 检测到设备切换，清理旧会话数据...');
-    sessionStorage.setItem('last_device_switch_handled', _currentSwitch);
-    localStorage.removeItem('currentSessionKey');  // 清除旧会话 key
-    localStorage.removeItem('cached_sessions');     // 清除缓存的 session 列表
-    localStorage.removeItem('chat_messages_cache'); // 清除消息缓存
-    window.sessions = [];  // 清除内存中的旧会话列表
   }
 
   // 🔒 先从服务器获取最新用户信息并检查团队状态
@@ -275,7 +197,7 @@ async function init() {
     });
 
     if (!meRes.ok) {
-      console.log('获取用户信息失败，跳转首页');
+      console.log('❌ 获取用户信息失败，跳转首页');
       localStorage.removeItem('lingxi_token');
       window.location.href = 'index.html';
       return;
@@ -287,30 +209,30 @@ async function init() {
 
     console.log('👤 用户信息:', userData);
 
-    // 更新用户订阅徽章
+    // ✅ 更新用户订阅徽章
     if (typeof updateUserBadge === 'function') {
       updateUserBadge();
     }
 
     // 🔒 检查是否有团队（agents 不为空）
     if (!userData.agents || userData.agents.length === 0) {
-      console.log('用户没有团队，跳转首页领取');
+      console.log('⚠️ 用户没有团队，跳转首页领取');
       alert('请先在首页领取 AI 团队');
       window.location.href = 'index.html';
       return;
     }
 
-    console.log('用户已有团队:', userData.agents);
+    console.log('✅ 用户已有团队:', userData.agents);
 
   } catch (e) {
-    console.error('检查团队失败:', e);
+    console.error('❌ 检查团队失败:', e);
     window.location.href = 'index.html';
     return;
   }
 
   // 初始化用户专属会话
   if (!user.id) {
-    console.error('用户 ID 不存在');
+    console.error('❌ 用户 ID 不存在');
     alert('用户信息错误，请重新登录');
     window.location.href = 'index.html';
     return;
@@ -325,7 +247,7 @@ async function init() {
 
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      console.error('获取连接信息失败:', errorData);
+      console.error('❌ 获取连接信息失败:', errorData);
 
       // 检查是否是服务器正在创建中
       if (errorData.needServer && errorData.status === 'creating') {
@@ -362,15 +284,15 @@ async function init() {
     GATEWAY_SESSION = gatewayInfo.session;
     SESSION_PREFIX = gatewayInfo.sessionPrefix;
 
-    console.log('Gateway 配置已获取');
+    console.log('✅ Gateway 配置已获取');
 
   } catch (e) {
-    console.error('获取 Gateway 配置失败:', e);
+    console.error('❌ 获取 Gateway 配置失败:', e);
     alert('网络错误，请刷新页面');
     return;
   }
 
-  // 获取用户服务器信息（用于文件预览）
+  // 🔧 获取用户服务器信息（用于文件预览）
   try {
     console.log('📡 获取用户服务器信息...');
     const serverRes = await fetch(`${API_BASE}/api/user/server`, {
@@ -379,16 +301,16 @@ async function init() {
 
     if (serverRes.ok) {
       userServerInfo = await serverRes.json();
-      console.log('服务器信息:', userServerInfo);
+      console.log('✅ 服务器信息:', userServerInfo);
     } else {
-      console.warn(' 无法获取服务器信息，文件预览可能不可用');
+      console.warn('⚠️  无法获取服务器信息，文件预览可能不可用');
     }
   } catch (e) {
-    console.warn(' 获取服务器信息失败:', e.message);
+    console.warn('⚠️  获取服务器信息失败:', e.message);
   }
 
   // 使用用户ID生成主会话key
-  SESSION_KEY = SESSION_PREFIX;  // 格式：agent:main:user_xxx
+  SESSION_KEY = `${SESSION_PREFIX}:main`;
 
   // 🆕 从 localStorage 恢复上次会话（如果存在）
   const savedSessionKey = localStorage.getItem('currentSessionKey');
@@ -401,24 +323,10 @@ async function init() {
   }
 
   renderTeamTags();
+  connectWebSocket();
 
-  const lumeOk = await tryConnectLume();
-  if (lumeOk) {
-    initLumeChatMode();
-  } else {
-    console.error('❌ [Lume] Web 连接失败，无法加载会话');
-    const statusEl = document.getElementById('connectionStatus');
-    if (statusEl) {
-      statusDot = statusEl.querySelector('.status-dot');
-      if (statusDot) statusDot.className = 'status-dot disconnected';
-    }
-  }
-
-  let _isComposing = false;
-  document.getElementById('inputField').addEventListener('compositionstart', () => { _isComposing = true; });
-  document.getElementById('inputField').addEventListener('compositionend', () => { _isComposing = false; });
   document.getElementById('inputField').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey && !_isComposing) {
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
     }
@@ -427,30 +335,276 @@ async function init() {
   document.getElementById('inputField').addEventListener('input', function() {
     this.style.height = 'auto';
     this.style.height = Math.min(this.scrollHeight, 150) + 'px';
-    // Update send button visibility
-    if (typeof _updateSendBtnVisibility === 'function') _updateSendBtnVisibility();
   });
 
   // 初始化 agent 下拉（放在最后，确保 user 已加载）
   initAgentDropdown();
 
-  // 加载通知未读数（异步，不阻塞初始化）
-  loadNotificationUnreadCount();
-
-  // 检查是否需要引导（放在初始化最后）
+  // 🎯 检查是否需要引导（放在初始化最后）
   await checkOnboarding();
 }
 
 let requestId = 1;
-let statusDot = null;  // 状态指示器（由 Lume 模式设置）
+let connectNonce = null;
+let statusDot = null;  // WebSocket 状态指示器（全局变量）
 
-// ════════════════════════════════════════════════════════════════
-// 🔌 消息处理（Lume 事件由 chat-lume.js 中的 handleLumeEvent 处理）
-// ════════════════════════════════════════════════════════════════
+// WebSocket 连接
+
+// ═══════════════════════════════════════════════════════════════
+// 🔌 WebSocket 模块
+// ═══════════════════════════════════════════════════════════════
+function connectWebSocket() {
+  const statusEl = document.getElementById('connectionStatus');
+  if (!statusEl) {
+    console.warn('⚠️ connectionStatus 元素未找到，跳过 WebSocket 状态更新');
+    return;
+  }
+  statusDot = statusEl.querySelector('.status-dot');
+  if (!statusDot) {
+    console.warn('⚠️ status-dot 元素未找到，跳过 WebSocket 状态更新');
+    return;
+  }
+  statusDot.className = 'status-dot';
+
+  try {
+    // 🔧 修复：通过后端 WebSocket 代理连接，解决 HTTPS 混合内容问题
+    // 代理地址格式：wss://lumeword.com/api/ws?token=xxx
+    const wsUrl = `${GATEWAY_WS}?token=${encodeURIComponent(GATEWAY_TOKEN)}`;
+    console.log('🔌 连接 WebSocket 代理:', wsUrl.replace(/token=[^&]+/, 'token=***'));
+
+    ws = new WebSocket(wsUrl);
+
+    ws.onopen = () => {
+      console.log('WebSocket 已连接，等待 750ms 后发送 connect...');
+      
+      // 🆕 标记为重连
+      const isReconnect = ws.isReconnect || false;
+
+      // OpenClaw 要求等待 750ms 后再发送 connect
+      setTimeout(() => {
+        sendConnect();
+        
+        // 🆕 重连后加载会话列表，但不切换当前会话
+        if (isReconnect) {
+          console.log('🔄 重连完成，保持当前会话:', currentSessionKey);
+          // 延迟加载会话列表用于显示，不改变 currentSessionKey
+          setTimeout(() => {
+            if (typeof loadSessions === 'function') {
+              loadSessions();
+            }
+          }, 1000);
+        }
+      }, 750);
+    };
+
+    ws.onmessage = async (event) => {
+      try {
+        const text = typeof event.data === "string" ? event.data : await event.data.text();
+        const data = JSON.parse(text);
+        handleWebSocketMessage(data);
+      } catch (e) {
+        console.error('解析消息失败:', e);
+      }
+    };
+
+    ws.onerror = (error) => {
+      console.error('WebSocket 错误:', error);
+      statusDot.className = 'status-dot';  // 红色
+    };
+
+    ws.onclose = () => {
+      console.log('WebSocket 已断开，5秒后重连...');
+      statusDot.className = 'status-dot';  // 红色
+      setTimeout(connectWebSocket, 5000);
+    };
+  } catch (e) {
+    console.error('WebSocket 连接失败:', e);
+    statusDot.className = 'status-dot';  // 红色
+  }
+}
+
+// 发送 connect 请求
+function sendConnect() {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  
+  // 🆕 标记为重连完成
+  if (ws) ws.isReconnect = true;
+
+  const params = {
+    minProtocol: 3,
+    maxProtocol: 3,
+    client: {
+      id: 'openclaw-control-ui',  // 使用 control-ui 获得完整 operator 权限
+      version: '1.0.0',
+      platform: 'web',
+      mode: 'webchat'
+    },
+    role: 'operator',
+    scopes: ['operator.admin', 'operator.read', 'operator.write'],
+    auth: { token: OPENCLAW_TOKEN },  // 使用 OpenClaw token
+    locale: 'zh-CN',
+    userAgent: navigator.userAgent
+  };
+
+  // 禁用设备认证后不需要发送 device
+  console.log('📤 发送 connect 请求:', JSON.stringify({ type: 'req', method: 'connect' }));
+    ws.send(JSON.stringify({
+    type: 'req',
+    id: `req_${requestId++}`,
+    method: 'connect',
+    params
+  }));
+}
+
+// 处理 WebSocket 消息
+function handleWebSocketMessage(data) {
+  console.log('📥 收到消息:', data.type, data.event || data.payload?.type);
+
+  const statusEl = document.getElementById('connectionStatus');
+
+  // 连接挑战 - 设备认证已禁用时不应该收到
+  if (data.type === 'event' && data.event === 'connect.challenge') {
+    console.log('⚠️ 收到设备认证挑战，但已禁用，继续...');
+    // 设备认证已禁用，忽略挑战，等待 hello-ok
+    return;
+  }
+
+  // 连接响应
+  if (data.type === 'res' && data.ok && data.payload?.type === 'hello-ok') {
+    const statusDot = statusEl?.querySelector('.status-dot');
+    if (statusDot) statusDot.className = 'status-dot connected';  // 绿色
+    console.log('✅ 认证成功');
+    // 加载会话列表和历史
+    loadSessions();
+    loadChatHistory();
+    return;
+  }
+
+  // chat.send 响应 (开始运行)
+  if (data.type === 'res' && data.payload?.status === 'started') {
+    console.log('消息发送中，runId:', data.payload.runId);
+    currentRunId = data.payload.runId;
+    isGenerating = true;
+    updateSendButton();
+    return;
+  }
+
+  // 错误响应
+  if (data.type === 'res' && !data.ok) {
+    // 检查是否是积分不足错误
+    if (data.error?.code === 'INSUFFICIENT_CREDITS') {
+      console.log('💎 积分不足，弹出订阅窗口');
+      removeTyping();
+      isGenerating = false;
+      currentRunId = null;
+      updateSendButton();
+
+      // 弹出订阅窗口
+      if (typeof showSubscription === 'function') {
+        showSubscription();
+      } else {
+        addMessage('assistant', '💎 积分不足，请订阅或充值以继续', '灵犀');
+      }
+      return;
+    }
+
+    // 其他错误
+    const errorMsg = data.error?.message || data.error?.error || '请求失败';
+    console.error('❌ 请求失败:', errorMsg);
+    removeTyping();
+    isGenerating = false;
+    currentRunId = null;
+    updateSendButton();
+    addMessage('assistant', `❌ ${errorMsg}`, '灵犀');
+
+    // 如果是认证错误，显示红色状态
+    if (errorMsg.includes('auth') || errorMsg.includes('token') || errorMsg.includes('认证')) {
+      statusDot.className = 'status-dot';  // 红色
+    }
+
+    removeTyping();
+    isGenerating = false;
+    currentRunId = null;
+    updateSendButton();
+    addMessage('assistant', '❌ ' + errorMsg, '系统');
+    return;
+  }
+
+  // 聊天响应事件
+  if (data.type === 'event' && data.event === 'chat') {
+    const payload = data.payload || {};
+
+    // 检查是否是当前会话（宽松匹配，只检查后缀）
+    if (payload.sessionKey && currentSessionKey) {
+      const payloadSuffix = payload.sessionKey.split(':').pop();
+      const currentSuffix = currentSessionKey.split(':').pop();
+      if (payloadSuffix !== currentSuffix && payload.sessionKey !== currentSessionKey) {
+        console.log('⚠️ 跳过非当前会话消息:', payload.sessionKey, '当前:', currentSessionKey);
+        return;
+      }
+    }
+
+    const runId = payload.runId;
+
+    // delta - 流式输出
+    if (payload.state === 'delta') {
+      const text = extractText(payload.message);
+      if (text) {
+        // 创建或更新流式消息
+        updateStreamingMessage(text, runId);
+      }
+    }
+    // final - 完成
+    else if (payload.state === 'final') {
+      const text = extractText(payload.message);
+      removeTyping();
+
+      // 如果 delta 阶段没有显示过内容，final 才显示
+      if (text && !hasStreamingMessage(runId)) {
+        addMessage('assistant', text, '灵犀');
+      } else if (hasStreamingMessage(runId)) {
+        // delta 已经显示过了，确保消息完整
+        finalizeStreamingMessage(text, runId);
+      }
+
+      isGenerating = false;
+      currentRunId = null;
+      updateSendButton();
+      console.log('✅ 消息完成');
+
+      // 刷新侧边栏积分
+      refreshSidebarCredits();
+    }
+    // error
+    else if (payload.state === 'error') {
+      removeTyping();
+      isGenerating = false;
+      currentRunId = null;
+      updateSendButton();
+      addMessage('assistant', '❌ 错误: ' + (payload.errorMessage || '未知错误'), '灵犀');
+    }
+    // aborted
+    else if (payload.state === 'aborted') {
+      removeTyping();
+      isGenerating = false;
+      currentRunId = null;
+      updateSendButton();
+      console.log('⚠️ 消息已中止');
+    }
+  }
+
+  // 🎵 音频消息处理
+  if (data.type === 'audio') {
+    const { url, text, name } = data.payload || {};
+    console.log('🎵 收到音频消息:', url);
+    addMessage('assistant', { audio: url, text }, name || '灵犀');
+    return;
+  }
+}
 
 // 从消息对象中提取文本
 function extractText(message) {
-  if (!message) return '';
+  if (!message) return null;
   if (typeof message === 'string') return cleanMessageText(message);
   if (message.text) return cleanMessageText(message.text);
   if (message.content) {
@@ -462,7 +616,7 @@ function extractText(message) {
         .join('');
     }
   }
-  return { id: skillId, name: skillId, description: `Use skill ${skillId}`, example: `Use skill ${skillId}` };
+  return null;
 }
 
 // 清理消息文本，过滤掉元数据等技术信息
@@ -503,13 +657,9 @@ function updateStreamingMessage(text, runId) {
     streamingMessages[runId].text = text;
     const bubble = streamingMessages[runId].element.querySelector('.bubble');
     if (bubble) {
-      // 使用 processMessageFull 解析 Markdown 图片
+      // 🔧 使用 processMessageFull 解析 Markdown 图片
       const { text: cleanText, filesHtml, imagesHtml } = processMessageFull(text, {});
-      const renderedText = cleanText ? renderMarkdown(cleanText) : '';
-      // 保留复制按钮
-      const existingCopyBtn = bubble.querySelector('.bubble-copy-btn');
-      const copyHtml = existingCopyBtn ? existingCopyBtn.outerHTML : '<button class="bubble-copy-btn" onclick="copyBubble(this)" title="复制"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>';
-      bubble.innerHTML = `${renderedText}${imagesHtml}${filesHtml}${copyHtml}`;
+      bubble.innerHTML = `${cleanText ? escapeHtml(cleanText) : ''}${imagesHtml}${filesHtml}`;
     }
   }
 
@@ -524,12 +674,12 @@ function hasStreamingMessage(runId) {
 }
 
 // 完成流式消息
-function finalizeStreamingMessage(text, runId, modelInfo) {
+function finalizeStreamingMessage(text, runId) {
   if (streamingMessages[runId] && text) {
     streamingMessages[runId].text = text;
     const bubble = streamingMessages[runId].element.querySelector('.bubble');
     if (bubble) {
-      // 使用 processMessageFull 解析 Markdown 图片、音频和文件
+      // 🔧 使用 processMessageFull 解析 Markdown 图片、音频和文件
       const fileOptions = userServerInfo ? {
         serverIp: userServerInfo.serverIp,
         serverPort: userServerInfo.fileServerPort || 9876,
@@ -537,10 +687,7 @@ function finalizeStreamingMessage(text, runId, modelInfo) {
         userId: user?.id
       } : { userId: user?.id };
       const { text: cleanText, filesHtml, imagesHtml, audioHtml } = processMessageFull(text, fileOptions);
-      const renderedText = cleanText ? renderMarkdown(cleanText) : '';
-      const metaHtml = modelInfo ? renderBubbleMeta(modelInfo) : '';
-      const copyHtml = '<button class="bubble-copy-btn" onclick="copyBubble(this)" title="复制"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>';
-      bubble.innerHTML = `${renderedText}${audioHtml}${imagesHtml}${filesHtml}${copyHtml}${metaHtml}`;
+      bubble.innerHTML = `${cleanText ? escapeHtml(cleanText) : ''}${audioHtml}${imagesHtml}${filesHtml}`;
     }
   }
   // 清理
@@ -644,7 +791,7 @@ async function handleImageSelect(event) {
   console.log('🖼️ handleImageSelect 被调用');
   const file = event.target.files[0];
   if (!file) {
-    console.log('没有选择文件');
+    console.log('⚠️ 没有选择文件');
     return;
   }
 
@@ -689,11 +836,11 @@ async function handleImageSelect(event) {
     'ppt': 'application/vnd.ms-powerpoint'
   };
   
-  // 优先使用 MIME 类型，如果没有则使用扩展名判断
+  // 🎯 优先使用 MIME 类型，如果没有则使用扩展名判断
   let mimeType = file.type;
   if (!mimeType && extensionMimeMap[fileExtension]) {
     mimeType = extensionMimeMap[fileExtension];
-    console.log(`浏览器未返回 MIME 类型，通过扩展名判断: ${fileExtension} → ${mimeType}`);
+    console.log(`🔧 浏览器未返回 MIME 类型，通过扩展名判断: ${fileExtension} → ${mimeType}`);
   }
   
   const isDocument = allowedDocMimes.includes(mimeType);
@@ -724,7 +871,7 @@ async function handleImageSelect(event) {
   imageBtn.classList.add('has-image');
   previewImg.style.opacity = '0.5';
   
-  // 添加进度条（大文件时显示）
+  // 🔧 添加进度条（大文件时显示）
   let progressBar = document.getElementById('uploadProgressBar');
   if (!progressBar && (file.size > 500 * 1024)) {  // 大于 500KB 显示进度条
     progressBar = document.createElement('div');
@@ -741,7 +888,7 @@ async function handleImageSelect(event) {
     if (isImage) {
       const FILE_SIZE_LIMIT = 200 * 1024; // 200KB（和 Flutter 一致）
       
-      // 如果大于 200KB，压缩图片（和 Flutter 逻辑一致）
+      // 🔧 如果大于 200KB，压缩图片（和 Flutter 逻辑一致）
       if (file.size > FILE_SIZE_LIMIT && (file.type === 'image/jpeg' || file.type === 'image/webp' || file.type === 'image/png')) {
         try {
           console.log(`🔄 图片大于 200KB，开始压缩: ${(file.size / 1024).toFixed(1)}KB`);
@@ -749,9 +896,9 @@ async function handleImageSelect(event) {
           // 创建新的 File 对象
           const filename = file.name.replace(/\.(png|webp)$/i, '.jpg');
           fileToUpload = new File([compressedBlob], filename, { type: 'image/jpeg' });
-          console.log('图片已压缩');
+          console.log('✅ 图片已压缩');
         } catch (e) {
-          console.warn('压缩失败，使用原图:', e.message);
+          console.warn('⚠️ 压缩失败，使用原图:', e.message);
         }
       } else if (file.size <= FILE_SIZE_LIMIT) {
         console.log(`📷 图片小于 200KB，跳过压缩: ${(file.size / 1024).toFixed(1)}KB`);
@@ -761,16 +908,16 @@ async function handleImageSelect(event) {
     // 🆕 文档上传：重新创建 File 对象，使用正确的 MIME 类型
     if (isDocument && mimeType && mimeType !== file.type) {
       fileToUpload = new File([file], file.name, { type: mimeType });
-      console.log(`文档 MIME 类型已修正: ${file.type || '(空)'} → ${mimeType}`);
+      console.log(`🔧 文档 MIME 类型已修正: ${file.type || '(空)'} → ${mimeType}`);
     }
     
-    // 用 FormData 上传
+    // ✅ 用 FormData 上传
     const formData = new FormData();
     formData.append('file', fileToUpload);
 
     console.log(`📤 开始上传${isDocument ? '文档' : '图片'}到服务器...`);
     
-    // 显示进度条（大文件）
+    // 🎯 显示进度条（大文件）
     const progressBar = document.getElementById('uploadProgressBar');
     const progressFill = document.getElementById('uploadProgressFill');
     if (progressBar && file.size > 500 * 1024) {  // 大于 500KB 显示进度
@@ -778,7 +925,7 @@ async function handleImageSelect(event) {
       if (progressFill) progressFill.style.width = '0%';
     }
 
-    // 使用 XMLHttpRequest 支持上传进度
+    // ✅ 使用 XMLHttpRequest 支持上传进度
     const xhr = new XMLHttpRequest();
     
     // 创建 Promise 包装 XHR
@@ -812,20 +959,15 @@ async function handleImageSelect(event) {
       });
 
       xhr.open('POST', `${API_BASE}/api/upload/image`);
-      // 携带认证 token
-      const token = localStorage.getItem('lingxi_token');
-      if (token) {
-        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-      }
       xhr.send(formData);
     });
 
     const data = await uploadPromise;
 
     if (data.success && data.url) {
-      console.log(`${isDocument ? '文档' : '图片'}上传成功:`, data.url);
+      console.log(`✅ ${isDocument ? '文档' : '图片'}上传成功:`, data.url);
       
-      // 隐藏进度条
+      // 🎉 隐藏进度条
       const progressBar = document.getElementById('uploadProgressBar');
       if (progressBar) {
         progressBar.style.display = 'none';
@@ -846,12 +988,12 @@ async function handleImageSelect(event) {
         const docCard = getDocumentPreviewCard(mimeType, file.name, file.size);
         previewImg.src = docCard;
         
-        // 显示文件信息提示
+        // 💡 显示文件信息提示
         const fileSize = formatFileSize(file.size);
         const fileName = file.name.length > 20 ? file.name.substring(0, 20) + '...' : file.name;
         console.log(`📄 文档预览: ${fileName} (${fileSize})`);
         
-        // 隐藏文件信息覆盖层（卡片已包含文件名和大小）
+        // 🔧 隐藏文件信息覆盖层（卡片已包含文件名和大小）
         const fileInfoOverlay = document.getElementById('fileInfoOverlay');
         if (fileInfoOverlay) {
           fileInfoOverlay.style.display = 'none';
@@ -870,13 +1012,13 @@ async function handleImageSelect(event) {
       previewImg.style.opacity = '1';
       previewContainer.classList.remove('uploading');
 
-      // 更新按钮显示状态（有附件了，显示发送按钮）
+      // 🔧 更新按钮显示状态（有附件了，显示发送按钮）
       updateInputButtons();
     } else {
       throw new Error(data.error || '上传失败');
     }
   } catch (e) {
-    console.error(`${isDocument ? '文档' : '图片'}上传失败:`, e);
+    console.error(`❌ ${isDocument ? '文档' : '图片'}上传失败:`, e);
     alert(`${isDocument ? '文档' : '图片'}上传失败: ` + e.message);
     removeSelectedImage();
   }
@@ -897,7 +1039,7 @@ function getDocumentPreviewCard(mimeType, filename, fileSize) {
     'text/plain': { type: 'TXT', icon: 'TXT', gradient: ['#757575', '#9E9E9E'], color: '#757575' }
   };
   
-  const config = typeConfig[mimeType] || { type: 'FILE', icon: 'FILE', gradient: [_accent(), '#764ba2'], color: _accent() };
+  const config = typeConfig[mimeType] || { type: 'FILE', icon: 'FILE', gradient: ['#667eea', '#764ba2'], color: '#667eea' };
   const displayName = filename.length > 20 ? filename.substring(0, 20) + '...' : filename;
   const displaySize = fileSize ? formatFileSize(fileSize) : '';
   
@@ -955,7 +1097,7 @@ function getDocumentPreviewCardHTML(mimeType, filename, fileSize) {
     'application/vnd.ms-powerpoint': { type: 'PPT', icon: 'P', gradient: 'linear-gradient(135deg, #FF9800 0%, #FFA726 100%)', color: '#E65100' }
   };
   
-  const config = typeConfig[mimeType] || { type: 'FILE', icon: 'FILE', gradient: `linear-gradient(135deg, ${_accent()} 0%, #764ba2 100%)`, color: _accent() };
+  const config = typeConfig[mimeType] || { type: 'FILE', icon: 'FILE', gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: '#667eea' };
   const displayName = filename.length > 20 ? filename.substring(0, 20) + '...' : filename;
   const displaySize = fileSize ? formatFileSize(fileSize) : '';
   
@@ -1063,15 +1205,15 @@ function formatRelativeTime(timestamp) {
   const now = Date.now();
   const diff = now - timestamp;
   
-  if (diff < 60000) return 'just now';
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-  if (diff < 172800000) return 'yesterday';
-  if (diff < 604800000) return `${Math.floor(diff / 86400000)}d ago`;
+  if (diff < 60000) return '刚刚';
+  if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`;
+  if (diff < 172800000) return '昨天';
+  if (diff < 604800000) return `${Math.floor(diff / 86400000)} 天前`;
   
   // 超过一周，显示绝对时间
   const date = new Date(timestamp);
-  return `${date.getMonth() + 1}/${date.getDate()}`;
+  return `${date.getMonth() + 1}月${date.getDate()}日`;
 }
 
 // 移除选中的图片
@@ -1082,8 +1224,6 @@ function removeSelectedImage() {
   const previewImg = document.getElementById('imagePreview');
   const imageBtn = document.getElementById('imageBtn');
   
-  if (!previewContainer) { updateInputButtons(); return; }
-
   // 隐藏文件信息覆盖层
   const fileInfoOverlay = document.getElementById('fileInfoOverlay');
   if (fileInfoOverlay) {
@@ -1091,10 +1231,11 @@ function removeSelectedImage() {
   }
 
   previewContainer.classList.remove('show', 'uploading');
-  if (previewImg) { previewImg.src = ''; previewImg.style.opacity = '1'; }
-  if (imageBtn) imageBtn.classList.remove('has-image');
+  previewImg.src = '';
+  previewImg.style.opacity = '1';
+  imageBtn.classList.remove('has-image');
 
-  // 更新按钮显示状态
+  // 🔧 更新按钮显示状态
   updateInputButtons();
 }
 
@@ -1119,7 +1260,7 @@ async function buildMessageParamsAsync(text, attachment) {
     deliver: false
   };
   
-  // 直接传 URL，后端代理会自动下载转 base64
+  // ✅ 直接传 URL，后端代理会自动下载转 base64
   if (attachment && attachment.url) {
     params.attachments = [{
       type: attachment.type || 'image',  // 'image' 或 'document'
@@ -1149,29 +1290,19 @@ async function sendMessage() {
   console.log('🔔 selectedImage:', selectedImage ? '有图片' : '无图片');
 
   if (!currentSessionKey) {
-    console.error('currentSessionKey 为空');
+    console.error('❌ currentSessionKey 为空');
     alert('会话未初始化，请刷新页面');
     return;
   }
 
   const input = document.getElementById('inputField');
-  let text = (input && input.value) ? String(input.value).trim() : '';
+  const text = (input && input.value) ? String(input.value).trim() : '';
   console.log('📝 输入文本:', text ? `"${text}"` : '(空)');
-
-  // Prepend skill tags to message
-  const skillTags = (typeof _getSkillTags === 'function') ? _getSkillTags() : [];
-  if (skillTags.length > 0) {
-    const tagText = skillTags.map(t => `[${t.name}]`).join(' ');
-    text = tagText + (text ? ' ' + text : '');
-    if (typeof _clearSkillTags === 'function') _clearSkillTags();
-  }
-
-  console.log('📝 最终文本:', text ? `"${text}"` : '(空)');
   console.log('📝 text 类型:', typeof text);
 
   // 允许发送图片或文本，至少要有一种
   if (!text && !selectedImage) {
-    console.log('文本和图片都为空，跳过发送');
+    console.log('⚠️ 文本和图片都为空，跳过发送');
     return;
   }
 
@@ -1190,19 +1321,73 @@ async function sendMessage() {
   const currentImage = selectedImage;  // 保存当前图片引用
   removeSelectedImage();
 
-  // 更新按钮显示状态（恢复到初始状态）
+  // 🔧 更新按钮显示状态（恢复到初始状态）
   updateInputButtons();
 
-  // Lume 优先发送（付费用户）
-  if (window.USE_LUME && typeof sendMessageViaLume === 'function') {
-    const sent = await sendMessageViaLume(text);
-    if (sent) return;
-  }
+  // 通过 WebSocket 发送
+  console.log('🔌 WebSocket 状态:', ws ? ws.readyState : 'null', '(OPEN=1)');
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    console.log('✅ 通过 WebSocket 发送消息');
+    console.log('📦 sessionKey:', currentSessionKey);
+    addTyping();
 
-  // Lume 不可用时使用 HTTP 代理降级
-  console.log('📡 Lume 不可用，使用 HTTP 代理');
-  const params = await buildMessageParamsAsync(text, currentImage);
-  sendViaHTTP(params.message);
+    const reqId = `req_${requestId++}`;
+    // ✅ 使用异步版本处理图片
+    const params = await buildMessageParamsAsync(text, currentImage);
+    const req = {
+      type: 'req',
+      id: reqId,
+      method: 'chat.send',
+      params: params
+    };
+
+    // 打印请求信息
+    console.log('📤 发送请求:');
+    console.log('  - sessionKey:', params.sessionKey);
+    console.log('  - message:', params.message?.substring(0, 50));
+    console.log('  - attachments:', params.attachments ? params.attachments.length + '个' : '无');
+    console.log('  - 请求总大小:', JSON.stringify(req).length, '字节');
+    
+    try {
+      ws.send(JSON.stringify(req));
+      console.log('✅ 消息已发送到 WebSocket');
+      
+      // 🆕 自动更新 session label（如果是第一条消息）
+      if (window.sessions) {
+        const currentSession = window.sessions.find(s => s.key === currentSessionKey);
+        if (currentSession && (!currentSession.label || currentSession.label === '灵犀' || currentSession.label.includes('agent:'))) {
+          // 使用消息文本作为新的 label
+          const newLabel = text.substring(0, 50);
+          console.log('📝 更新 session label:', currentSessionKey, '→', newLabel);
+          
+          // 发送更新请求
+          ws.send(JSON.stringify({
+            type: 'req',
+            id: `update-label-${Date.now()}`,
+            method: 'sessions.patch',
+            params: {
+              key: currentSessionKey,
+              label: newLabel
+            }
+          }));
+          
+          // 更新本地缓存
+          currentSession.label = newLabel;
+          currentSession.title = newLabel;
+          
+          // 重新渲染会话列表
+          renderSessionList();
+        }
+      }
+    } catch (sendError) {
+      console.error('❌ WebSocket 发送失败:', sendError);
+    }
+  } else {
+    // WebSocket 未连接，使用 HTTP 代理
+    console.log('📡 WebSocket 未连接，使用 HTTP 代理');
+    const params = await buildMessageParamsAsync(text, currentImage);
+    sendViaHTTP(params.message);
+  }
 }
 
 // 处理发送/停止按钮点击
@@ -1218,33 +1403,44 @@ function handleSendClick() {
 // 更新发送按钮状态
 function updateSendButton() {
   const btn = document.getElementById('sendBtn');
-  if (!btn) return;
   if (isGenerating) {
-    btn.innerHTML = `<svg class="stop-spin-ring" width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="40 20" stroke-linecap="round"/></svg><svg class="stop-icon" width="10" height="10" viewBox="0 0 10 10"><rect x="2" y="2" width="6" height="6" rx="1" fill="currentColor"/></svg>`;
+    btn.textContent = '■';
     btn.classList.add('stopping');
-    btn.classList.remove('hidden');
-    btn.title = 'Stop generating';
+    btn.title = '停止生成';
   } else {
-    btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>`;
+    btn.textContent = '➤';
     btn.classList.remove('stopping');
-    btn.title = 'Send';
-    // Re-check visibility
-    if (typeof _updateSendBtnVisibility === 'function') _updateSendBtnVisibility();
+    btn.title = '发送';
   }
 }
 
 // 中止对话
 function abortChat() {
-  // 尝试通过 Lume 中止
-  if (window.USE_LUME && typeof LumeRpc !== 'undefined' && LumeRpc.isConnected() && currentSessionKey) {
-    LumeRpc.pluginCall('chat.abort', { sessionKey: currentSessionKey, runId: currentRunId }).catch(() => {});
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    console.log('WebSocket 未连接');
+    return;
   }
+
+  if (!currentSessionKey) {
+    console.log('currentSessionKey 未设置');
+    return;
+  }
+
+  ws.send(JSON.stringify({
+    type: 'req',
+    id: `req_${requestId++}`,
+    method: 'chat.abort',
+    params: {
+      sessionKey: currentSessionKey,
+      runId: currentRunId
+    }
+  }));
 
   isGenerating = false;
   currentRunId = null;
   updateSendButton();
   removeTyping();
-  console.log('已发送中止请求');
+  console.log('✅ 已发送中止请求');
 }
 
 // 加载聊天历史
@@ -1252,94 +1448,86 @@ function abortChat() {
 // ═══════════════════════════════════════════════════════════════
 // 📝 会话模块
 // ═══════════════════════════════════════════════════════════════
-let _historyLoading = false;
-let _historyLoadSession = null; // 记录当前正在加载哪个 session
+async function loadChatHistory() {
+  console.log('📚 loadChatHistory 开始, currentSessionKey:', currentSessionKey);
 
-/**
- * 纯数据获取：通过 chat.history API 拉取消息（核心引擎已过滤心跳/NO_REPLY/tool痕迹）
- * @returns {Array|null} messages 数组或 null
- */
-async function fetchChatHistory(sessionKey, limit = 20) {
-  if (!window.USE_LUME || typeof LumeRpc === 'undefined' || !LumeRpc.isConnected() || !sessionKey) return null;
-
-  try {
-    const payload = await LumeRpc.pluginCall('chat.history', { sessionKey, limit });
-    if (payload?.messages) return payload.messages;
-    return null;
-  } catch (e) {
-    console.warn('fetchChatHistory failed:', e);
-    return null;
-  }
-}
-
-async function loadChatHistory(appendOnly = false) {
-  // 防重复：同一 session 不能并发加载
-  if (_historyLoading && _historyLoadSession === currentSessionKey) {
-    console.log('⏳ 历史正在加载中，跳过重复请求, session:', currentSessionKey);
-    return;
-  }
-  _historyLoading = true;
-  _historyLoadSession = currentSessionKey;
-  console.log('📚 loadChatHistory 开始, currentSessionKey:', currentSessionKey, '追加模式:', appendOnly);
-
-  const useLume = window.USE_LUME && typeof LumeRpc !== 'undefined' && LumeRpc.isConnected();
-
-  if (!useLume) {
-    console.log('Lume 未连接，无法加载历史');
-    _historyLoading = false;
-    if (!appendOnly) renderHistory([]);
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    console.log('⚠️ WebSocket 未连接，无法加载历史');
+    renderHistory([]);
     return;
   }
 
   if (!currentSessionKey) {
-    console.log('currentSessionKey 未设置，跳过加载历史');
-    _historyLoading = false;
-    if (!appendOnly) renderHistory([]);
+    console.log('⚠️ currentSessionKey 未设置，跳过加载历史');
+    renderHistory([]);
     return;
   }
 
-  console.log('📚 发送 chat.history 请求, sessionKey:', currentSessionKey, '(Lume)');
+  console.log('📚 发送 chat.history 请求, sessionKey:', currentSessionKey);
 
   try {
-    const payload = await LumeRpc.pluginCall('chat.history', {
-      sessionKey: currentSessionKey,
-      limit: 100,
+    const res = await new Promise((resolve, reject) => {
+      const id = `req_${requestId++}`;
+      const timeout = setTimeout(() => {
+        console.log('⏱️ chat.history 超时');
+        reject(new Error('timeout'));
+      }, 10000);
+
+      const handler = async (event) => {
+        try {
+          const text = typeof event.data === "string" ? event.data : await event.data.text();
+        const data = JSON.parse(text);
+          console.log('📚 收到 WebSocket 消息, id:', data.id, '期待:', id);
+          if (data.id === id) {
+            clearTimeout(timeout);
+            ws.removeEventListener('message', handler);
+            resolve(data);
+          }
+        } catch (e) {
+          console.error('📚 解析消息失败:', e);
+        }
+      };
+
+      ws.addEventListener('message', handler);
+
+      const req = {
+        type: 'req',
+        id,
+        method: 'chat.history',
+        params: {
+          sessionKey: currentSessionKey,
+          limit: 100
+        }
+      };
+      console.log('📚 发送请求:', JSON.stringify(req));
+      ws.send(JSON.stringify(req));
     });
-    const res = { ok: true, payload };
 
     console.log('📚 chat.history 完整响应:', JSON.stringify(res, null, 2));
 
     if (res.ok && res.payload?.messages) {
-      console.log('加载了', res.payload.messages.length, '条历史消息');
+      console.log('✅ 加载了', res.payload.messages.length, '条历史消息');
       renderHistory(res.payload.messages);
     } else if (res.ok && res.payload?.transcript) {
-      console.log('使用 transcript 字段, 长度:', res.payload.transcript.length);
+      // 尝试 transcript 字段
+      console.log('✅ 使用 transcript 字段, 长度:', res.payload.transcript.length);
       renderHistory(res.payload.transcript);
     } else {
-      console.log('无历史消息, res.ok:', res.ok, 'payload:', res.payload);
+      console.log('⚠️ 无历史消息, res.ok:', res.ok, 'payload:', res.payload);
       renderHistory([]);
     }
   } catch (e) {
-    console.error('加载历史失败:', e);
+    console.error('❌ 加载历史失败:', e);
     renderHistory([]);
-  } finally {
-    _historyLoading = false;
-    _historyLoadSession = null;
   }
 }
 
 // 渲染历史消息
-// 新增 appendOnly 参数：true=只追加（重连时使用），false=清空后重新渲染（默认）
-function renderHistory(messages, appendOnly = false) {
+function renderHistory(messages) {
   const container = document.getElementById('messages');
 
   // 如果没有消息，显示欢迎界面（带当前 Agent 的示例）
   if (!messages || messages.length === 0) {
-    // 如果是追加模式且已有消息，不清空
-    if (appendOnly && container.children.length > 0) {
-      return; // 保留现有消息
-    }
-    
     const agentInfo = AGENT_INFO[currentAgentId] || AGENT_INFO['lingxi'];
     const examplesHtml = (agentInfo?.examples || []).map(ex => `
       <div class="welcome-example" onclick="sendWelcomeExample('${ex.text.replace(/'/g, "\\'").replace(/\n/g, '\\n')}')">
@@ -1364,47 +1552,62 @@ function renderHistory(messages, appendOnly = false) {
     return;
   }
 
-  // 追加模式：只添加新消息，不清空现有内容
-  if (appendOnly) {
-    // 获取现有消息的 ID 集合，避免重复
-    const existingIds = new Set();
-    container.querySelectorAll('.message').forEach(el => {
-      const msgId = el.dataset?.messageId;
-      if (msgId) existingIds.add(msgId);
-    });
-    
-    // 只渲染新消息
-    const newMessages = messages.filter(msg => !existingIds.has(msg.id));
-    console.log(`📝 追加模式：收到${messages.length}条消息，其中${newMessages.length}条是新消息`);
-    
-    for (const msg of newMessages) {
-      renderSingleMessage(msg);
-    }
-    return;
-  }
-
-  // 默认模式：清空容器后重新渲染
+  // 清空容器
   container.innerHTML = '';
 
-  // 渲染历史消息（chat.history 已经过核心引擎过滤，这里只做基础校验）
+  // 渲染历史消息
   for (const msg of messages) {
     const role = msg.role || 'user';
     
-    // chat.history 已过滤非用户/助手角色，这里做兜底
-    if (role !== 'user' && role !== 'assistant') continue;
+    // 🚫 过滤掉工具调用结果和系统消息
+    if (role === 'toolResult' || role === 'system' || role === 'tool') {
+      console.log('⏭️ 跳过工具/系统消息:', role);
+      continue;
+    }
+    
+    // 🚫 过滤掉非用户/助手消息
+    if (role !== 'user' && role !== 'assistant') {
+      console.log('⏭️ 跳过非对话消息:', role);
+      continue;
+    }
     
     let content = extractText(msg);
-    if (!content || content.trim().length === 0) continue;
     
-    // 兜底：以防万一还有漏网的心跳消息
-    if (content.trim() === 'HEARTBEAT_OK' || content.trim() === 'NO_REPLY') continue;
+    // 🚫 过滤掉内容为空的消息
+    if (!content || content.trim().length === 0) {
+      console.log('⏭️ 跳过空消息');
+      continue;
+    }
     
-    // 提取附件（图片或文档）
+    // 🚫 过滤掉纯元数据消息（不包含附件标记，且主要是 JSON 格式）
+    const hasAttachmentMark = content.includes('[附件:');
+    const isMetadata = content.includes('<<<EXTERNAL_UNTRUSTED_CONTENT') && 
+                       content.includes('"url":') && 
+                       content.includes('"contentType":');
+    
+    if (!hasAttachmentMark && isMetadata) {
+      console.log('⏭️ 跳过纯元数据消息（长度:', content.length, '）');
+      continue;
+    }
+    
+    // 🔍 调试：打印历史消息结构
+    console.log('📜 历史消息结构:', {
+      id: msg.id,
+      role: role,
+      contentPreview: content ? content.substring(0, 100) + '...' : '(空)',
+      hasAttachmentMark: hasAttachmentMark,
+      hasAttachments: !!msg.attachments,
+      hasParts: !!msg.parts,
+      attachmentsCount: (msg.attachments || msg.parts || []).length,
+      messageKeys: Object.keys(msg)
+    });
+    
+    // ✅ 提取附件（图片或文档）
     let imageUrl = null;
     let documentInfo = null;
     const attachments = msg.attachments || msg.parts || [];
     
-    // 方案 A：从 attachments 字段提取
+    // 🔧 方案 A：从 attachments 字段提取
     if (Array.isArray(attachments) && attachments.length > 0) {
       console.log('📎 附件详情:', attachments);
       for (const att of attachments) {
@@ -1444,7 +1647,7 @@ function renderHistory(messages, appendOnly = false) {
       }
     }
     
-    // 方案 B：从消息文本中提取附件信息（双重保险）
+    // 🔧 方案 B：从消息文本中提取附件信息（双重保险）
     if (!imageUrl && !documentInfo && content) {
       // 格式1：前端发送格式 [附件:图片:filename:url]
       const attachmentRegex = /\[附件:(图片|文档):([^:]+):([^\]]+)\]/;
@@ -1461,7 +1664,7 @@ function renderHistory(messages, appendOnly = false) {
         const filename = match[2];
         const url = match[3];
         
-        console.log('从文本中提取附件信息(前端格式):', { type, filename, url });
+        console.log('🔧 从文本中提取附件信息(前端格式):', { type, filename, url });
         
         // 清理消息文本，移除附件标记
         const cleanContent = content.replace(attachmentRegex, '').trim();
@@ -1471,7 +1674,7 @@ function renderHistory(messages, appendOnly = false) {
           imageUrl = url;
           console.log('📷 提取到历史图片:', imageUrl);
         } else if (type === '文档') {
-          // 根据文件扩展名判断 MIME 类型（支持所有格式）
+          // 🎯 根据文件扩展名判断 MIME 类型（支持所有格式）
           const ext = filename.split('.').pop().toLowerCase();
           const mimeMap = {
             'pdf': 'application/pdf',
@@ -1509,19 +1712,19 @@ function renderHistory(messages, appendOnly = false) {
         // 从路径提取文件名
         const filename = path.split('/').pop();
         
-        console.log('从文本中提取附件信息(OpenClay格式):', { path, mimeType, url, filename });
+        console.log('🔧 从文本中提取附件信息(OpenClay格式):', { path, mimeType, url, filename });
         
         // 清理消息文本，移除附件标记
         const cleanContent = content.replace(mediaAttachedRegex, '').trim();
         content = cleanContent;  // 更新 content
         
-        // 将本地路径转换为代理 URL
+        // 🔧 将本地路径转换为代理 URL
         // /root/.openclaw/media/inbound/xxx.webp → /api/media/inbound/xxx.webp
         let proxyUrl = url;
         if (url.startsWith('/root/.openclaw/media/')) {
           const relativePath = url.replace('/root/.openclaw/media/', '');
           proxyUrl = `/api/media/${relativePath}?user_id=${currentUserId || ''}`;
-          console.log('转换本地路径为代理 URL:', proxyUrl);
+          console.log('🔧 转换本地路径为代理 URL:', proxyUrl);
         }
         
         // 判断是图片还是文档
@@ -1550,25 +1753,17 @@ function renderHistory(messages, appendOnly = false) {
 
     const name = role === 'user' ? (user?.nickname || '我') : '灵犀';
     
-    // 🆕 从历史消息中提取模型信息
-    const historyModelInfo = (role === 'assistant' && (msg.model || msg.usage)) ? {
-      model: msg.model || msg.modelProvider || 'auto',
-      provider: msg.provider,
-      inputTokens: msg.usage?.input || msg.usage?.inputTokens || null,
-      outputTokens: msg.usage?.output || msg.usage?.outputTokens || null,
-    } : null;
-    
-    // 根据附件类型传递不同格式
+    // ✅ 根据附件类型传递不同格式
     if (imageUrl) {
-      addMessage(role, { text: content || '', image: imageUrl }, name, historyModelInfo);
+      addMessage(role, { text: content || '', image: imageUrl }, name);
     } else if (documentInfo) {
-      addMessage(role, { text: content || '', document: documentInfo }, name, historyModelInfo);
+      addMessage(role, { text: content || '', document: documentInfo }, name);
     } else {
-      addMessage(role, content, name, historyModelInfo);
+      addMessage(role, content, name);
     }
   }
 
-  console.log('渲染了', messages.length, '条历史消息');
+  console.log('✅ 渲染了', messages.length, '条历史消息');
 
   // 强制滚动到底部（延迟确保DOM渲染完成）
   const scrollToBottom = () => {
@@ -1622,21 +1817,207 @@ function isSessionDeleted(key) {
   return getDeletedSessions().includes(key);
 }
 
-// 清除所有本地会话缓存（用于用户首次领取团队后）
-function clearAllSessions() {
-  window.sessions = [];
-  localStorage.removeItem(DELETED_SESSIONS_KEY);
-  localStorage.removeItem('lingxi_last_session_key');
-  console.log('已清除所有本地会话缓存');
-}
-
 // 加载会话列表
-// loadSessions: 会话列表由 chat-lume.js 的 loadLumeSessions() 通过 Lume RPC 加载
-// 此函数保留作为 loadLumeSessions 的回调，渲染已加载的 window.sessions
 async function loadSessions() {
-  renderSessionList();
-  if (typeof loadSidebarSessions === 'function') {
-    loadSidebarSessions();
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    console.log('⚠️ WebSocket 未连接，无法加载会话列表');
+    return;
+  }
+
+  console.log('📋 开始加载会话列表...');
+
+
+  try {
+    const res = await new Promise((resolve, reject) => {
+      const id = `req_${requestId++}`;
+      const timeout = setTimeout(() => reject(new Error('timeout')), 10000);
+
+      const handler = async (event) => {
+        try {
+          const text = typeof event.data === "string" ? event.data : await event.data.text();
+        const data = JSON.parse(text);
+          if (data.id === id) {
+            clearTimeout(timeout);
+            ws.removeEventListener('message', handler);
+            resolve(data);
+          }
+        } catch (e) {}
+      };
+
+      ws.addEventListener('message', handler);
+
+      ws.send(JSON.stringify({
+        type: 'req',
+        id,
+        method: 'sessions.list',
+        params: {}
+      }));
+    });
+
+      console.log('📋 sessions.list 响应:', res);
+
+    if (res.ok && res.payload?.sessions) {
+      // 过滤掉本地已删除的会话
+      const deletedSessions = getDeletedSessions();
+      let allSessions = res.payload.sessions.filter(s => !deletedSessions.includes(s.key));
+
+      // 过滤掉系统会话（心跳、健康检查等）
+      const systemPatterns = ['heartbeat', 'health', 'ping', 'pong', '_system', '_internal'];
+      allSessions = allSessions.filter(s => {
+        const key = s.key.toLowerCase();
+        return !systemPatterns.some(p => key.includes(p));
+      });
+
+      // 🔧 去重：基于 sessionKey 或 key
+      const seenKeys = new Set();
+      allSessions = allSessions.filter(session => {
+        const key = session.sessionKey || session.key || '';
+        if (seenKeys.has(key)) return false;
+        seenKeys.add(key);
+        return true;
+      });
+
+      // 🆕 为每个 session 添加标题和预览
+      // 对于没有 label 的 session，延迟加载第一条消息
+      const loadPromises = allSessions.slice(0, 10).map(async (session) => {
+        // 如果已经有 label 且不是默认值，直接使用
+        if (session.label && session.label !== '灵犀' && !session.label.includes('agent:')) {
+          session.title = session.label;
+          session.preview = session.label;
+        } else {
+          // 否则，加载第一条消息
+          try {
+            const history = await new Promise((resolve, reject) => {
+              const id = `load-history-${session.key}`;
+              const handler = (event) => {
+                try {
+                  const data = JSON.parse(event.data);
+                  if (data.id === id) {
+                    ws.removeEventListener('message', handler);
+                    resolve(data);
+                  }
+                } catch (e) {}
+              };
+              ws.addEventListener('message', handler);
+              
+              ws.send(JSON.stringify({
+                type: 'req',
+                id: id,
+                method: 'chat.history',
+                params: {
+                  sessionKey: session.key,
+                  limit: 1
+                }
+              }));
+              
+              // 超时处理
+              setTimeout(() => {
+                ws.removeEventListener('message', handler);
+                resolve({ ok: false });
+              }, 2000);
+            });
+            
+            if (history.ok && history.payload?.messages?.length > 0) {
+              const firstMessage = history.payload.messages[0];
+              const content = extractText(firstMessage);
+              // 移除附件标记
+              const cleanContent = content.replace(/\[附件:[^\]]+\]\s*/g, '').trim();
+              session.title = cleanContent.substring(0, 50);
+              session.preview = cleanContent.substring(0, 100);
+            } else {
+              // 没有消息，使用 session key 的最后一部分
+              const keyParts = (session.key || '').split(':');
+              session.title = keyParts[keyParts.length - 1] || '未命名会话';
+              session.preview = '暂无消息';
+            }
+          } catch (e) {
+            console.warn('⚠️ 加载会话历史失败:', session.key, e);
+            const keyParts = (session.key || '').split(':');
+            session.title = keyParts[keyParts.length - 1] || '未命名会话';
+            session.preview = '暂无消息';
+          }
+        }
+        
+        // 格式化时间
+        const timestamp = session.updatedAt ? new Date(session.updatedAt).getTime() : Date.now();
+        session.relativeTime = formatRelativeTime(timestamp);
+        session.timestamp = timestamp;
+        
+        return session;
+      });
+      
+      // 等待所有加载完成
+      allSessions = await Promise.all(loadPromises);
+      
+      // 对于没有加载的 session（超过前 10 个），使用默认标题
+      allSessions.slice(10).forEach(session => {
+        if (!session.title) {
+          const keyParts = (session.key || '').split(':');
+          session.title = session.label || keyParts[keyParts.length - 1] || '未命名会话';
+          session.preview = '暂无消息';
+        }
+        const timestamp = session.updatedAt ? new Date(session.updatedAt).getTime() : Date.now();
+        session.relativeTime = formatRelativeTime(timestamp);
+        session.timestamp = timestamp;
+      });
+
+      // 按更新时间排序（最新的在前）
+      allSessions.sort((a, b) => {
+        const timeA = a.timestamp || 0;
+        const timeB = b.timestamp || 0;
+        return timeB - timeA;
+      });
+
+      // 限制最多显示 50 个会话
+      const maxSessions = 50;
+      if (allSessions.length > maxSessions) {
+        console.log('📋 会话数量超过', maxSessions, '，只显示最近的', maxSessions, '个');
+        allSessions = allSessions.slice(0, maxSessions);
+      }
+
+      window.sessions = allSessions;
+      console.log('✅ 加载了', allSessions.length, '个会话（原始:', res.payload.sessions.length, '）');
+      
+      // 🆕 默认加载最新会话（按时间排序后的第一个）
+      if (allSessions.length > 0) {
+        const latestSession = allSessions[0];  // 已经按时间排序，第一个是最新的
+        currentSessionKey = latestSession.key;
+        console.log('📋 默认加载最新会话:', currentSessionKey);
+        // 加载该会话的历史消息
+        loadChatHistory();
+      } else {
+        // 没有会话，使用主会话
+        currentSessionKey = SESSION_KEY;
+        console.log('🔑 无历史会话，使用主会话:', currentSessionKey);
+      }
+      
+      renderSessionList();
+      // 更新侧边栏会话列表
+      console.log('🔍 检查 loadSidebarSessions:', typeof loadSidebarSessions);
+      if (typeof loadSidebarSessions === 'function') {
+        console.log('📞 调用 loadSidebarSessions()');
+        loadSidebarSessions();
+      } else {
+        console.log('⚠️ loadSidebarSessions 不是函数，尝试 window.loadSidebarSessions');
+        if (typeof window.loadSidebarSessions === 'function') {
+          window.loadSidebarSessions();
+        }
+      }
+    } else {
+      console.log('⚠️ 无会话数据');
+      window.sessions = [];
+      renderSessionList();
+      if (typeof loadSidebarSessions === 'function') {
+        loadSidebarSessions();
+      }
+    }
+  } catch (e) {
+    console.error('❌ 加载会话列表失败:', e);
+    window.sessions = [];
+    renderSessionList();
+    if (typeof loadSidebarSessions === 'function') {
+      loadSidebarSessions();
+    }
   }
 }
 
@@ -1646,12 +2027,12 @@ function renderSessionList() {
 
   // 如果 sessionList 容器不存在（新布局使用侧边栏），跳过
   if (!container) {
-    console.log('sessionList 容器不存在，跳过 renderSessionList');
+    console.log('📋 sessionList 容器不存在，跳过 renderSessionList');
     return;
   }
 
-  console.log('渲染会话列表, 总会话数:', window.sessions.length);
-  console.log('当前会话:', currentSessionKey);
+  console.log('📋 渲染会话列表, 总会话数:', window.sessions.length);
+  console.log('📋 当前会话:', currentSessionKey);
 
   // 添加"新会话"按钮
   let html = `
@@ -1669,15 +2050,15 @@ function renderSessionList() {
     const isActive = session.key === currentSessionKey;
     
     // 🆕 使用提取的标题、预览和时间
-    const displayName = session.title || session.derivedTitle || session.label || session.displayName || 'Untitled';
-    const preview = session.lastMessagePreview || session.preview || session.lastMessage || 'No messages';
-    const time = session.relativeTime || (session.updatedAt && typeof formatRelativeTime === 'function' ? formatRelativeTime(session.updatedAt) : '');
+    const displayName = session.title || session.label || '未命名会话';
+    const preview = session.preview || session.lastMessage || '暂无消息';
+    const time = session.relativeTime || '';
     
-    // 截断预览文本
+    // 🔧 截断预览文本
     const truncatedPreview = preview.substring(0, 50);
     const displayPreview = truncatedPreview + (preview.length > 50 ? '...' : '');
 
-    console.log('会话:', session.key, 'displayName:', displayName, 'isActive:', isActive);
+    console.log('📋 会话:', session.key, 'displayName:', displayName, 'isActive:', isActive);
 
     html += `
       <div class="session-item ${isActive ? 'active' : ''}" onclick="switchSession('${session.key}')">
@@ -1695,7 +2076,7 @@ function renderSessionList() {
   if (window.sessions.length === 0) {
     html += `
       <div style="text-align:center;padding:20px;color:rgba(255,255,255,0.5);font-size:13px;">
-        No history yet<br>点击"新会话"开始
+        暂无历史会话<br>点击"新会话"开始
       </div>
     `;
   }
@@ -1723,7 +2104,7 @@ async function createNewSession() {
   `;
 
   // 会话会在第一次发送消息时自动创建
-  console.log('新会话已准备就绪，等待发送第一条消息');
+  console.log('✅ 新会话已准备就绪，等待发送第一条消息');
 }
 
 // 切换会话
@@ -1783,7 +2164,7 @@ async function switchSession(sessionKey) {
     loadSidebarSessions();
   }
 
-  console.log('会话切换完成, currentSessionKey:', currentSessionKey);
+  console.log('✅ 会话切换完成, currentSessionKey:', currentSessionKey);
 }
 
 // 删除会话
@@ -1798,25 +2179,76 @@ async function deleteSession(sessionKey) {
   console.log('🗑️ 开始删除会话:', sessionKey);
 
   try {
-    // 通过 Lume RPC 删除会话
-    if (window.USE_LUME && typeof LumeRpc !== 'undefined' && LumeRpc.isConnected()) {
-      await LumeRpc.sendRequest('sessions.delete', { key: sessionKey });
-      console.log('删除会话成功:', sessionKey);
-    }
+    // 调用 WebSocket API 删除会话
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      console.log('📡 WebSocket 已连接，发送删除请求...');
 
-    // 记录到本地已删除列表
-    addDeletedSession(sessionKey);
+      const res = await new Promise((resolve, reject) => {
+        const id = `req_${requestId++}`;
+        const timeout = setTimeout(() => {
+          console.log('⏱️ 删除请求超时');
+          reject(new Error('timeout'));
+        }, 10000);
 
-    // 从本地列表中移除
-    window.sessions = window.sessions.filter(s => s.key !== sessionKey);
-    renderSessionList();
+        const handler = async (event) => {
+          try {
+            const text = typeof event.data === "string" ? event.data : await event.data.text();
+        const data = JSON.parse(text);
+            console.log('📥 收到响应:', data.id, '期待:', id);
+            if (data.id === id) {
+              clearTimeout(timeout);
+              ws.removeEventListener('message', handler);
+              resolve(data);
+            }
+          } catch (e) {}
+        };
 
-    // 刷新侧边栏
-    if (typeof loadSidebarSessions === 'function') {
-      loadSidebarSessions();
+        ws.addEventListener('message', handler);
+
+        const deleteReq = {
+          type: 'req',
+          id,
+          method: 'sessions.delete',
+          params: { key: sessionKey }
+        };
+        console.log('📤 发送删除请求:', deleteReq);
+        ws.send(JSON.stringify(deleteReq));
+      });
+
+      console.log('📋 sessions.delete 响应:', res);
+
+      if (res.ok) {
+        // 记录到本地已删除列表（防止刷新后重新出现）
+        addDeletedSession(sessionKey);
+
+        // 从本地列表中移除
+        window.sessions = window.sessions.filter(s => s.key !== sessionKey);
+        renderSessionList();
+        console.log('✅ 删除会话成功:', sessionKey);
+
+        // 刷新侧边栏
+        if (typeof loadSidebarSessions === 'function') {
+          loadSidebarSessions();
+        }
+      } else {
+        const errorMsg = res.error?.message || JSON.stringify(res.error) || '未知错误';
+        console.error('❌ 删除失败:', errorMsg);
+        alert('删除失败: ' + errorMsg);
+      }
+    } else {
+      console.log('⚠️ WebSocket 未连接，只删除本地');
+      // WebSocket 未连接，只删除本地
+      addDeletedSession(sessionKey);
+      window.sessions = window.sessions.filter(s => s.key !== sessionKey);
+      renderSessionList();
+
+      // 刷新侧边栏
+      if (typeof loadSidebarSessions === 'function') {
+        loadSidebarSessions();
+      }
     }
   } catch (e) {
-    console.error('删除会话异常:', e);
+    console.error('❌ 删除会话异常:', e);
     // 失败时也删除本地
     addDeletedSession(sessionKey);
     window.sessions = window.sessions.filter(s => s.key !== sessionKey);
@@ -1872,7 +2304,7 @@ function quickSend(text) {
 }
 
 // 添加消息
-function addMessage(role, content, name, modelInfo) {
+function addMessage(role, content, name) {
   const messages = document.getElementById('messages');
   const div = document.createElement('div');
   div.className = `message ${role}`;
@@ -1883,14 +2315,10 @@ function addMessage(role, content, name, modelInfo) {
     ? '<div class="avatar user-avatar"><i data-lucide="user" class="icon-sm"></i></div>'
     : `<div class="avatar">${agentIcon(currentAgent, 'sm')}</div>`;
 
-  // 处理消息内容（支持图片、文档、音频、文件和工作流）
+  // 处理消息内容（支持图片、文档、音频和文件）
   let bubbleContent = '';
   if (typeof content === 'object') {
-    // 工作流消息类型
-    if (content.workflow || content.type?.startsWith('workflow')) {
-      bubbleContent = renderWorkflowMessage(content);
-    }
-    else if (content.audio) {
+    if (content.audio) {
       // 🎵 音频消息
       bubbleContent = `
         <div class="audio-player" style="margin: 8px 0;">
@@ -1923,8 +2351,7 @@ function addMessage(role, content, name, modelInfo) {
       `;
     } else if (content.text) {
       // 普通对象消息
-      // 音频/文档/图片消息的附带文本也用 Markdown 渲染
-      bubbleContent = renderMarkdown(content.text);
+      bubbleContent = `<div>${escapeHtml(content.text)}</div>`;
     }
   } else {
     // 处理文本消息，提取 Markdown 图片和文件路径
@@ -1937,31 +2364,21 @@ function addMessage(role, content, name, modelInfo) {
       token: userServerInfo.fileServerToken // 添加文件服务 token
     } : {};
     
-    // 使用 processMessageFull 同时处理 Markdown 图片、音频和文件路径
+    // 🔧 使用 processMessageFull 同时处理 Markdown 图片、音频和文件路径
     const { text: cleanText, filesHtml, imagesHtml, audioHtml } = processMessageFull(text, fileOptions);
 
-    // 渲染文本（Markdown）、图片、音频和文件附件
-    const renderedText = cleanText ? renderMarkdown(cleanText) : '';
+    // 渲染文本、图片、音频和文件附件
     bubbleContent = `
-      ${renderedText}
+      ${cleanText ? `<div>${escapeHtml(cleanText)}</div>` : ''}
       ${audioHtml}
       ${imagesHtml}
       ${filesHtml}
     `;
   }
 
-  // 为助手消息添加复制按钮
-  const copyBtn = role === 'assistant'
-    ? `<button class="bubble-copy-btn" onclick="copyBubble(this)" title="复制"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>`
-    : '';
-
   div.innerHTML = `
     ${avatarHtml}
-    <div class="bubble">
-      ${bubbleContent}
-      ${copyBtn}
-      ${role === 'assistant' && modelInfo ? renderBubbleMeta(modelInfo) : ''}
-    </div>
+    <div class="bubble">${bubbleContent}</div>
   `;
 
   messages.appendChild(div);
@@ -1971,38 +2388,6 @@ function addMessage(role, content, name, modelInfo) {
   if (window.lucide) lucide.createIcons();
 
   return div;
-}
-
-// 🆕 渲染气泡底部模型信息标签
-function renderBubbleMeta(modelInfo) {
-  const modelName = formatModelName(modelInfo.model || 'auto');
-  const parts = [`<span class="meta-model">${escapeHtml(modelName)}</span>`];
-  if (modelInfo.inputTokens != null) {
-    parts.push(`<span class="meta-tokens">&uarr;${modelInfo.inputTokens} &darr;${modelInfo.outputTokens || 0}</span>`);
-  }
-  return `<div class="bubble-meta">${parts.join('<span class="meta-sep">&middot;</span>')}</div>`;
-}
-
-// 🆕 格式化模型名：auto → Auto, ocg/deepseek-v4-pro → DeepSeek V4 Pro
-function formatModelName(model) {
-  if (!model || model === 'auto') return 'Auto';
-  // 去掉 provider 前缀
-  const name = model.includes('/') ? model.split('/').pop() : model;
-  const displayMap = {
-    'deepseek-v4-pro': 'DeepSeek V4 Pro',
-    'glm-5.1': 'GLM-5.2',
-    'glm-5': 'GLM-5',
-    'glm-4': 'GLM-4',
-    'gpt-4o': 'GPT-4o',
-    'gpt-4o-mini': 'GPT-4o Mini',
-    'gpt-4.1': 'GPT-4.1',
-    'gpt-5-mini': 'GPT-5 Mini',
-    'kimi-k2.6': 'Kimi K2.6',
-    'kimi-k2.5': 'Kimi K2.5',
-    'qwen3-max-2026-01-23': 'Qwen3 Max',
-    'qwen3.5-plus': 'Qwen3.5 Plus',
-  };
-  return displayMap[name] || displayMap[model] || name;
 }
 
 // 添加打字动画
@@ -2028,154 +2413,6 @@ function addTyping() {
 function removeTyping() {
   const el = document.getElementById('typing-indicator');
   if (el) el.remove();
-}
-
-// 渲染工作流消息
-function renderWorkflowMessage(content) {
-  // 工作流数据结构
-  const workflow = content.workflow || content;
-  const type = content.type || 'workflow_start';
-  
-  // 根据类型渲染不同的卡片
-  if (type === 'workflow_start' || !type) {
-    return renderWorkflowStartCard(workflow);
-  } else if (type === 'workflow_progress') {
-    return renderWorkflowProgressCard(workflow);
-  } else if (type === 'workflow_complete') {
-    return renderWorkflowCompleteCard(workflow);
-  } else if (type === 'workflow_error') {
-    return renderWorkflowErrorCard(workflow);
-  }
-  
-  return renderWorkflowStartCard(workflow);
-}
-
-// 渲染工作流开始卡片 - 清爽简洁版
-function renderWorkflowStartCard(data) {
-  const modeLabels = {
-    'single-agent': '单 Agent',
-    'multi-agent': '多 Agent',
-    'hybrid': '混合'
-  };
-  
-  const stepsHtml = (data.steps || []).map((step, index) => `
-    <div style="display:flex;align-items:center;padding:8px 0;border-bottom:1px solid #f3f4f6;">
-      <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#f3f4f6;color:#6b7280;font-size:12px;font-weight:500;margin-right:12px;">${index + 1}</span>
-      <div style="flex:1;">
-        <div style="font-size:14px;color:#1f2937;margin-bottom:2px;">${step.name || `步骤${index + 1}`}</div>
-        ${step.agent ? `<div style="font-size:12px;color:#9ca3af;">🤖 ${step.agent}</div>` : ''}
-      </div>
-    </div>
-  `).join('');
-  
-  return `
-    <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin:12px 0;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-        <div style="display:flex;align-items:center;gap:8px;">
-          
-          <span style="font-size:15px;font-weight:600;color:#1f2937;">${data.workflowName || '工作流'}</span>
-        </div>
-        <span style="font-size:12px;color:#6b7280;background:#f3f4f6;padding:4px 10px;border-radius:12px;">${modeLabels[data.mode] || '执行中'}</span>
-      </div>
-      
-      ${data.task ? `<div style="font-size:13px;color:#6b7280;margin-bottom:12px;padding:10px;background:#f9fafb;border-radius:6px;">任务：${data.task}</div>` : ''}
-      
-      <div style="margin-bottom:12px;">
-        ${stepsHtml}
-      </div>
-      
-      <div style="display:flex;align-items:center;gap:6px;padding-top:12px;border-top:1px solid #f3f4f6;">
-        <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${_accent()};animation:pulse 1.5s infinite;"></span>
-        <span style="font-size:13px;color:#6b7280;">执行中...</span>
-      </div>
-    </div>
-    <style>
-      @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.4; }
-      }
-    </style>
-  `;
-}
-
-// 渲染工作流进度更新卡片 - 清爽简洁版
-function renderWorkflowProgressCard(data) {
-  const stepIndex = data.stepIndex || 0;
-  const stepName = data.stepName || `步骤${stepIndex + 1}`;
-  const agent = data.agent || '';
-  const isComplete = data.isComplete || false;
-  
-  return `
-    <div style="padding:10px 12px;margin:8px 0;background:#f9fafb;border-left:3px solid ${isComplete ? _accent() : '#3b82f6'};border-radius:4px;">
-      <div style="display:flex;align-items:center;gap:8px;">
-        <span style="font-size:14px;"></span>
-        <span style="font-size:13px;color:${isComplete ? _accent() : '#3b82f6'};font-weight:500;">
-          ${isComplete ? '完成：' : '执行中：'}${stepName}
-        </span>
-        ${agent ? `<span style="font-size:12px;color:#9ca3af;margin-left:auto;">🤖 ${agent}</span>` : ''}
-      </div>
-    </div>
-  `;
-}
-
-// 渲染工作流完成卡片 - 清爽简洁版
-function renderWorkflowCompleteCard(data) {
-  const deliverables = data.deliverables || [];
-  const duration = data.duration || '';
-  const steps = data.steps || [];
-  const completedSteps = steps.filter(s => s.completed).length;
-  
-  const deliverablesHtml = deliverables.length > 0 ? `
-    <div style="margin-top:12px;padding:10px;background:#f9fafb;border-radius:6px;">
-      <div style="font-size:13px;color:#6b7280;margin-bottom:8px;font-weight:500;">📦 交付物</div>
-      ${deliverables.map(d => `
-        <div style="font-size:12px;color:#374151;margin:4px 0;display:flex;align-items:center;gap:6px;">
-          <span>📄</span>
-          <span>${d}</span>
-        </div>
-      `).join('')}
-    </div>
-  ` : '';
-  
-  return `
-    <div style="background:#ffffff;border:1px solid ${_accent()};border-radius:8px;padding:16px;margin:12px 0;">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
-        
-        <div>
-          <div style="font-size:16px;font-weight:600;color:#1f2937;">完成！</div>
-          <div style="font-size:12px;color:#6b7280;">${data.workflowName || '工作流'} 执行成功</div>
-        </div>
-      </div>
-      
-      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px;">
-        <div style="background:#f9fafb;padding:10px;border-radius:6px;">
-          <div style="font-size:11px;color:#9ca3af;">步骤</div>
-          <div style="font-size:16px;font-weight:600;color:#1f2937;">${completedSteps}/${steps.length}</div>
-        </div>
-        <div style="background:#f9fafb;padding:10px;border-radius:6px;">
-          <div style="font-size:11px;color:#9ca3af;">耗时</div>
-          <div style="font-size:16px;font-weight:600;color:#1f2937;">${duration || '-'}</div>
-        </div>
-      </div>
-      
-      ${deliverablesHtml}
-    </div>
-  `;
-}
-
-// 渲染工作流错误卡片 - 清爽简洁版
-function renderWorkflowErrorCard(data) {
-  return `
-    <div style="background:#ffffff;border:1px solid #ef4444;border-radius:8px;padding:16px;margin:12px 0;">
-      <div style="display:flex;align-items:center;gap:10px;">
-        
-        <div>
-          <div style="font-size:15px;font-weight:600;color:#1f2937;margin-bottom:4px;">工作流执行失败</div>
-          <div style="font-size:13px;color:#6b7280;">${data.error || '未知错误'}</div>
-        </div>
-      </div>
-    </div>
-  `;
 }
 
 // 清空聊天
@@ -2225,19 +2462,20 @@ function logout() {
 // ═══════════════════════════════════════════════════════════════
 // 👥 Agent 模块
 // ═══════════════════════════════════════════════════════════════
-async function showMyTeam() {
+function showMyTeam() {
   const dropdown = document.getElementById('userDropdown');
   if (dropdown) dropdown.classList.remove('show');
   const userMenu = document.getElementById('sidebarUserMenu');
   if (userMenu) userMenu.classList.remove('show');
-  // 团队管理已迁移到办公区，直接跳转
-  if (typeof switchView === 'function') {
-    switchView('workspace');
-  }
+  renderMyTeam();
+  renderAvailableAgents();
+  document.getElementById('teamModal').classList.add('show');
 }
 
-// 关闭团队弹窗（已废弃，保留空函数避免调用报错）
-function closeTeamModal() {}
+// 关闭团队弹窗
+function closeTeamModal() {
+  document.getElementById('teamModal').classList.remove('show');
+}
 
 // 渲染我的团队
 function renderMyTeam() {
@@ -2287,7 +2525,7 @@ function renderMyTeam() {
   if (!user?.agents || user.agents.length === 0) {
     container.innerHTML += `
       <div style="text-align:center;padding:16px;color:#6b7280;font-size:13px;margin-top:12px;border-top:1px solid #e5e7eb;">
-        你还没有领取完整团队<br>邀请好友获得积分后即可领取
+        💡 你还没有领取完整团队<br>邀请好友获得积分后即可领取
       </div>
     `;
   }
@@ -2297,50 +2535,20 @@ function renderMyTeam() {
 }
 
 // 渲染可添加的成员
-async function renderAvailableAgents() {
+function renderAvailableAgents() {
   const container = document.getElementById('availableAgents');
   if (!container) return;
 
   // 获取当前团队成员 ID
   const myAgents = user?.team?.members ? user.team.members.map(m => m.id) : (user?.agents || ['lingxi']);
   
-  let available = [];
-  
-  // 如果有团队模板，从模板中获取可添加的成员
-  if (user?.team?.templateId) {
-    try {
-      const res = await fetch(`${API_BASE}/api/team/templates/${user.team.templateId}`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('lingxi_token')}` }
-      });
-      
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && data.template) {
-          // 从模板成员中过滤掉已添加的
-          available = data.template.members
-            .filter(m => !myAgents.includes(m.id))
-            .map(m => ({
-              id: m.id,
-              name: m.name,
-              icon: m.icon,
-              desc: m.desc
-            }));
-        }
-      }
-    } catch (e) {
-      console.error('获取模板成员失败:', e);
-    }
-  }
-  
-  // 如果没有模板或模板中没有可添加的，使用 AGENT_INFO 作为回退
-  if (available.length === 0) {
-    available = Object.keys(AGENT_INFO).filter(id => !myAgents.includes(id)).map(id => ({
-      id,
-      name: AGENT_INFO[id].name,
-      icon: AGENT_INFO[id].icon,
-      desc: AGENT_INFO[id].desc
-    }));
-  }
+  // 使用 AGENT_INFO 作为数据源，过滤掉已添加的成员
+  const available = Object.keys(AGENT_INFO).filter(id => !myAgents.includes(id)).map(id => ({
+    id,
+    name: AGENT_INFO[id].name,
+    icon: AGENT_INFO[id].icon,
+    desc: AGENT_INFO[id].desc
+  }));
 
   if (available.length === 0) {
     container.innerHTML = '<p style="color:rgba(255,255,255,0.4);font-size:13px;">已添加全部成员</p>';
@@ -2362,130 +2570,88 @@ async function renderAvailableAgents() {
 async function addAgent(agentId) {
   if (!user) return;
 
-  // 检查是否已存在
-  const currentMembers = user?.team?.members || [];
-  if (currentMembers.some(m => m.id === agentId)) {
-    console.log('成员已存在:', agentId);
-    return;
-  }
+  const myAgents = user.agents || ['lingxi'];
+  if (myAgents.includes(agentId)) return;
 
-  // 优先从当前团队模板获取成员信息，其次从 AGENT_INFO 获取
-  let memberInfo = null;
-  
-  // 1. 从当前团队模板中查找
-  if (user?.team?.templateId) {
-    try {
-      const res = await fetch(`${API_BASE}/api/team/templates/${user.team.templateId}`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('lingxi_token')}` }
-      });
-      
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && data.template) {
-          memberInfo = data.template.members.find(m => m.id === agentId);
-        }
-      }
-    } catch (e) {
-      console.error('获取模板信息失败:', e);
-    }
-  }
-  
-  // 2. 如果模板中没有，从 AGENT_INFO 获取
-  if (!memberInfo) {
-    memberInfo = AGENT_INFO[agentId];
-  }
-  
-  // 3. 如果都没有，使用默认值
-  if (!memberInfo) {
-    memberInfo = { id: agentId, name: agentId, icon: 'bot', desc: 'AI 助手' };
-  }
-  
-  const newMember = {
-    id: agentId,
-    name: memberInfo.name,
-    icon: memberInfo.icon,
-    role: memberInfo.desc || memberInfo.role,
-    desc: memberInfo.desc || memberInfo.role,
-    triggers: memberInfo.triggers || [agentId]
-  };
+  myAgents.push(agentId);
+  user.agents = myAgents;
 
+  // 保存到服务器
   try {
-    const res = await fetch(`${API_BASE}/api/team/${user.id}/members`, {
+    const res = await fetch(`${API_BASE}/api/agents/user/${user.id}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${localStorage.getItem('lingxi_token')}`
       },
-      body: JSON.stringify(newMember)
+      body: JSON.stringify({ agents: myAgents })
     });
 
     const data = await res.json();
 
     if (res.ok && data.success) {
-      // 更新本地 user 对象
-      user.team = data.team;
-      user.agents = data.team.members.map(m => m.id);
       localStorage.setItem('lingxi_user', JSON.stringify(user));
-      
       renderMyTeam();
-      await renderAvailableAgents();
+      renderAvailableAgents();
       renderTeamTags();
-      initAgentDropdown();
-      console.log('成员添加成功:', agentId);
+      initAgentDropdown();  // ✅ 刷新顶部 agent 下拉列表
+      console.log('✅ 成员添加成功:', agentId);
     } else {
-      alert('添加失败：' + (data.error || '未知错误'));
+      // 回滚
+      user.agents = user.agents.filter(id => id !== agentId);
+      alert('添加失败: ' + (data.error || '未知错误'));
     }
   } catch (e) {
-    console.error('添加成员失败:', e);
+    // 回滚
+    user.agents = user.agents.filter(id => id !== agentId);
     alert('网络错误：' + e.message);
   }
 }
 
-
 // 移除成员
 async function removeAgent(agentId) {
-  if (!user || !user?.team?.members) return;
+  if (!user) return;
+  if (agentId === 'lingxi') return; // 队长不能移除
 
-  // 不允许删除默认成员（灵犀）
-  const member = user.team.members.find(m => m.id === agentId);
-  if (!member) {
-    alert('成员不存在');
-    return;
-  }
-  
-  if (member.isDefault) {
-    alert('不能删除默认成员');
+  const myAgents = user.agents || ['lingxi'];
+  const newAgents = myAgents.filter(id => id !== agentId);
+
+  if (newAgents.length === 0) {
+    alert('至少保留一个团队成员');
     return;
   }
 
-  if (!confirm(`确定要移除 ${member.name} 吗？`)) return;
+  const oldAgents = [...user.agents];
+  user.agents = newAgents;
 
+  // 保存到服务器
   try {
-    const res = await fetch(`${API_BASE}/api/team/${user.id}/members/${agentId}`, {
-      method: 'DELETE',
+    const res = await fetch(`${API_BASE}/api/agents/user/${user.id}`, {
+      method: 'POST',
       headers: {
+        'Content-Type': 'application/json',
         'Authorization': `Bearer ${localStorage.getItem('lingxi_token')}`
-      }
+      },
+      body: JSON.stringify({ agents: newAgents })
     });
 
     const data = await res.json();
 
     if (res.ok && data.success) {
-      // 更新本地 user 对象
-      user.team = data.team;
-      user.agents = data.team.members.map(m => m.id);
       localStorage.setItem('lingxi_user', JSON.stringify(user));
-      
       renderMyTeam();
-      await renderAvailableAgents();
+      renderAvailableAgents();
       renderTeamTags();
-      initAgentDropdown();
-      console.log('成员移除成功:', agentId);
+      initAgentDropdown();  // ✅ 刷新顶部 agent 下拉列表
+      console.log('✅ 成员移除成功:', agentId);
     } else {
-      alert('移除失败：' + (data.error || '未知错误'));
+      // 回滚
+      user.agents = oldAgents;
+      alert('移除失败: ' + (data.error || '未知错误'));
     }
   } catch (e) {
-    console.error('移除成员失败:', e);
+    // 回滚
+    user.agents = oldAgents;
     alert('网络错误：' + e.message);
   }
 }
@@ -2680,14 +2846,14 @@ async function confirmApplyTemplate() {
       
       // 刷新界面
       renderMyTeam();
-      await renderAvailableAgents();
+      renderAvailableAgents();
       renderTeamTags();
-      initAgentDropdown();  // 刷新顶部 agent 下拉列表
+      initAgentDropdown();  // ✅ 刷新顶部 agent 下拉列表
       
       // 显示成功提示
-      showToast('success', `已应用模板：${templateName}`);
+      showToast('success', `✅ 已应用模板：${templateName}`);
       
-      console.log('模板应用成功:', templateId);
+      console.log('✅ 模板应用成功:', templateId);
     } else {
       alert('应用失败: ' + (data.error || '未知错误'));
     }
@@ -2720,7 +2886,7 @@ function showToast(type, message) {
   `;
   
   if (type === 'success') {
-    toast.style.background = _accent();
+    toast.style.background = '#10a37f';
   } else if (type === 'error') {
     toast.style.background = '#ef4444';
   }
@@ -2780,7 +2946,7 @@ async function loadFeishuStatus() {
     const data = await res.json();
 
     if (data.config?.feishu?.configured) {
-      statusEl.innerHTML = `<span style="color:#4ade80">已配置</span>`;
+      statusEl.innerHTML = `<span style="color:#4ade80">✅ 已配置</span>`;
       document.getElementById('feishuWebhook').style.display = 'block';
       document.getElementById('feishuWebhookUrl').value = data.config.feishu.webhookUrl || '';
     } else {
@@ -2821,7 +2987,7 @@ async function saveFeishuConfig(e) {
     const data = await res.json();
 
     if (data.success) {
-      alert(`飞书配置成功！\n\n请在飞书开放平台配置：\n1. 进入应用管理 → 事件订阅\n2. 选择 WebSocket 连接方式\n3. 订阅事件：im.message.receive_v1\n4. 点击"保存"\n\n配置完成后即可在飞书里与机器人对话！`);
+      alert(`✅ 飞书配置成功！\n\n请在飞书开放平台配置：\n1. 进入应用管理 → 事件订阅\n2. 选择 WebSocket 连接方式\n3. 订阅事件：im.message.receive_v1\n4. 点击"保存"\n\n配置完成后即可在飞书里与机器人对话！`);
 
       loadFeishuStatus();
       closeFeishuModal(); // 关闭弹窗
@@ -2872,7 +3038,7 @@ async function loadWecomStatus() {
     const data = await res.json();
 
     if (data.config?.wecom?.configured) {
-      statusEl.innerHTML = `<span style="color:#4ade80">已配置</span>`;
+      statusEl.innerHTML = `<span style="color:#4ade80">✅ 已配置</span>`;
       document.getElementById('wecomWebhook').style.display = 'block';
       document.getElementById('wecomWebhookUrl').value = data.config.wecom.callbackUrl || '';
     } else {
@@ -3003,66 +3169,6 @@ function updateNavUserName() {
   }
 }
 
-// Markdown 渲染（使用 marked.js）
-function renderMarkdown(text) {
-  if (!text || typeof text !== 'string') return '';
-  try {
-    // 检查是否有 Markdown 语法（避免纯文本走 Markdown）
-    const hasMarkdown = /[*_`~#>|\-]\S|\S[*_`~]|^\s*[-*+]\s|^-{3,}|^#{1,6}\s|\|.*\|/m.test(text);
-    if (!hasMarkdown) {
-      return `<div class="chat-text">${escapeHtmlBasic(text)}</div>`;
-    }
-    if (typeof marked !== 'undefined' && marked.parse) {
-      const html = marked.parse(text, {
-        breaks: true,
-        gfm: true,
-      });
-      return `<div class="chat-text">${html}</div>`;
-    }
-    // fallback：没有 marked 就纯文本
-    return `<div class="chat-text">${escapeHtmlBasic(text)}</div>`;
-  } catch (e) {
-    console.warn('Markdown 渲染失败:', e);
-    return `<div class="chat-text">${escapeHtmlBasic(text)}</div>`;
-  }
-}
-
-// 基础 HTML 转义（不处理换行，给 Markdown 用）
-function escapeHtmlBasic(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML.replace(/\n/g, '<br>');
-}
-
-// 复制气泡内容
-function copyBubble(btn) {
-  const bubble = btn.closest('.bubble');
-  if (!bubble) return;
-  // 提取纯文本（去掉 HTML 标签）
-  const clone = bubble.cloneNode(true);
-  // 移除不需要复制的元素
-  clone.querySelectorAll('.bubble-copy-btn, .bubble-meta').forEach(el => el.remove());
-  const text = clone.textContent || clone.innerText || '';
-  navigator.clipboard.writeText(text.trim()).then(() => {
-    btn.classList.add('copied');
-    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-    setTimeout(() => {
-      btn.classList.remove('copied');
-      btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
-    }, 2000);
-  }).catch(() => {
-    // fallback
-    const ta = document.createElement('textarea');
-    ta.value = text.trim();
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-    btn.classList.add('copied');
-    setTimeout(() => btn.classList.remove('copied'), 2000);
-  });
-}
-
 // HTML 转义
 function escapeHtml(text) {
   const div = document.createElement('div');
@@ -3074,9 +3180,9 @@ function escapeHtml(text) {
 try {
   init();
   updateNavUserName();
-  console.log('页面初始化完成');
+  console.log('✅ 页面初始化完成');
 } catch (e) {
-  console.error('页面初始化失败:', e);
+  console.error('❌ 页面初始化失败:', e);
   alert('页面初始化失败: ' + e.message);
 }
 
@@ -3101,21 +3207,24 @@ let recommendationData = null;
 // 检查并启动引导
 
 // ═══════════════════════════════════════════════════════════════
-// 引导模块
+// 🚀 引导模块
 // ═══════════════════════════════════════════════════════════════
 async function checkOnboarding() {
   try {
-    // 复用 init() 已获取的全局 user 对象，避免重复请求 /api/auth/me
-    const userData = user;
+    const res = await fetch(`${API_BASE}/api/auth/me`, {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('lingxi_token')}` }
+    });
 
-    if (!userData || !userData.id) {
-      console.warn('用户数据未加载，跳过引导检查');
-      return true;
-    }
+    if (!res.ok) return false;
+
+    const userData = await res.json();
+
+    // 更新全局 user 对象
+    user = { ...user, ...userData };
 
     // 检查是否完成引导
     if (userData.onboardingCompleted !== true) {
-      console.log('用户未完成引导，启动引导流程');
+      console.log('🎯 用户未完成引导，启动引导流程');
       startOnboarding();
       return false;
     }
@@ -3293,7 +3402,7 @@ function startChat() {
   renderTeamTags();
   initAgentDropdown();
 
-  console.log('引导完成，开始对话');
+  console.log('✅ 引导完成，开始对话');
 }
 
 function toggleAgentDropdown() {
@@ -3381,13 +3490,13 @@ async function switchAgent(agentId) {
   // 更新列表
   renderAgentDropdown();
 
-  // 每个 agent 有独立的会话
+  // 🎯 每个 agent 有独立的会话
   const targetAgentId = agent.agentId || agentId;
   const targetSessionKey = `${SESSION_PREFIX}:agent:${targetAgentId}`;
 
   console.log('🔄 切换到 agent:', agentId, 'agentId:', targetAgentId, '会话:', targetSessionKey);
 
-  // 检查是否需要创建新 session
+  // 🔧 检查是否需要创建新 session
   const existingSession = window.sessions?.find(s => s.key === targetSessionKey);
 
   if (!existingSession) {
@@ -3422,29 +3531,62 @@ async function switchAgent(agentId) {
 
 // 创建 agent 专属 session
 async function createAgentSession(sessionKey, agentName) {
-  try {
-    // 通过 Lume RPC 创建 session
-    if (window.USE_LUME && typeof LumeRpc !== 'undefined' && LumeRpc.isConnected()) {
-      await LumeRpc.sendRequest('sessions.create', {
-        key: sessionKey,
-        label: agentName,
-        mode: 'session'
-      });
-      console.log('Agent session 创建成功:', sessionKey);
-    }
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    console.warn('⚠️ WebSocket 未连接，无法创建 session');
+    return false;
+  }
 
-    // 添加到本地列表
-    if (!window.sessions) window.sessions = [];
-    if (!window.sessions.find(s => s.key === sessionKey)) {
-      window.sessions.push({
-        key: sessionKey,
-        label: agentName,
-        updatedAt: new Date().toISOString()
-      });
+  try {
+    const res = await new Promise((resolve, reject) => {
+      const id = `req_${requestId++}`;
+      const timeout = setTimeout(() => {
+        reject(new Error('timeout'));
+      }, 10000);
+
+      const handler = async (event) => {
+        try {
+          const text = typeof event.data === "string" ? event.data : await event.data.text();
+          const data = JSON.parse(text);
+          if (data.id === id) {
+            clearTimeout(timeout);
+            ws.removeEventListener('message', handler);
+            resolve(data);
+          }
+        } catch (e) {}
+      };
+
+      ws.addEventListener('message', handler);
+
+      ws.send(JSON.stringify({
+        type: 'req',
+        id,
+        method: 'sessions.create',
+        params: {
+          key: sessionKey,
+          label: agentName,  // 使用 agent 名称作为会话标题
+          mode: 'session'
+        }
+      }));
+    });
+
+    if (res.ok) {
+      console.log('✅ Agent session 创建成功:', sessionKey);
+      // 添加到本地列表
+      if (!window.sessions) window.sessions = [];
+      if (!window.sessions.find(s => s.key === sessionKey)) {
+        window.sessions.push({
+          key: sessionKey,
+          label: agentName,
+          updatedAt: new Date().toISOString()
+        });
+      }
+      return true;
+    } else {
+      console.error('❌ 创建 session 失败:', res.error);
+      return false;
     }
-    return true;
   } catch (e) {
-    console.error('创建 session 异常:', e);
+    console.error('❌ 创建 session 异常:', e);
     return false;
   }
 }
@@ -3520,13 +3662,13 @@ let localSkillsCache = [];
  */
 
 // ═══════════════════════════════════════════════════════════════
-// 技能库模块
+// 🎯 技能库模块
 // ═══════════════════════════════════════════════════════════════
 function showSkillLibrary() {
   // 关闭其他弹窗
   document.getElementById('userDropdown')?.classList.remove('show');
   document.getElementById('sidebarUserMenu')?.classList.remove('show');
-  // teamModal 已移除
+  document.getElementById('teamModal')?.classList.remove('show');
 
   // 加载技能数据
   loadSkillLibrary();
@@ -3555,9 +3697,9 @@ async function loadSkillLibrary() {
     if (res.ok) {
       const data = await res.json();
       localSkillsCache = data.skills || [];
-      console.log('已加载本地技能数量:', localSkillsCache.length);
+      console.log('📋 已加载本地技能数量:', localSkillsCache.length);
     } else {
-      console.error('加载本地技能失败:', res.statusText);
+      console.error('❌ 加载本地技能失败:', res.statusText);
       localSkillsCache = [];
     }
 
@@ -3704,7 +3846,15 @@ async function renderSkillGrid(agentId) {
         </div>
         <div class="skill-agent-tag">来自 ${agentName}</div>
         <div class="skill-actions">
-          ${installed ? `<span class="skill-badge installed" onclick="event.stopPropagation()"><i data-lucide="check-circle" class="icon-sm"></i> Installed</span><button class="skill-btn use" onclick="event.stopPropagation(); useSkill('${skill.id}')">Use</button>` : `<button class="skill-btn install" onclick="event.stopPropagation(); installAndUseSkill('${skill.id}', this)"><i data-lucide="download" class="icon-sm"></i> Install & Use</button>`}
+          ${installed
+            ? `<span class="skill-badge installed" onclick="event.stopPropagation();">
+                 <i data-lucide="check-circle" class="icon-sm"></i>
+                 已安装
+               </span>`
+            : `<button class="skill-btn install" onclick="event.stopPropagation(); installSkill('${skill.id}', this)">
+                 <i data-lucide="download" class="icon-sm"></i>
+                 安装
+               </button>`
           }
         </div>
       </div>
@@ -3774,7 +3924,7 @@ function handleSkillSearch() {
     return `
       <div class="skill-card" onclick="handleSkillClick('${skill.id}')">
         <div class="skill-header">
-          <div class="skill-icon" style="background:${_accent()}">
+          <div class="skill-icon" style="background:${agentInfo.icon === 'bot' ? '#10a37f' : '#10a37f'}">
             <i data-lucide="${agentInfo.icon || 'package'}" style="width:24px;height:24px;color:white;"></i>
           </div>
           <div class="skill-info">
@@ -3787,7 +3937,15 @@ function handleSkillSearch() {
           </div>
         </div>
         <div class="skill-actions">
-          ${installed ? `<span class="skill-badge installed" onclick="event.stopPropagation()"><i data-lucide="check-circle" class="icon-sm"></i> Installed</span><button class="skill-btn use" onclick="event.stopPropagation(); useSkill('${skill.id}')">Use</button>` : `<button class="skill-btn install" onclick="event.stopPropagation(); installAndUseSkill('${skill.id}', this)"><i data-lucide="download" class="icon-sm"></i> Install & Use</button>`}
+          ${installed
+            ? `<span class="skill-badge installed" onclick="event.stopPropagation();">
+                 <i data-lucide="check-circle" class="icon-sm"></i>
+                 已安装
+               </span>`
+            : `<button class="skill-btn install" onclick="event.stopPropagation(); installSkill('${skill.id}', this)">
+                 <i data-lucide="download" class="icon-sm"></i>
+                 安装
+               </button>`
           }
         </div>
       </div>
@@ -3925,17 +4083,17 @@ function renderSkills(skills, installedSet, source = 'local') {
   }
 
   const agentMap = {
-    coder: { name: '云溪', icon: 'code', color: _accent() },
+    coder: { name: '云溪', icon: 'code', color: '#10a37f' },
     ops: { name: '若曦', icon: 'bar-chart-2', color: '#f59e0b' },
     inventor: { name: '紫萱', icon: 'lightbulb', color: '#8b5cf6' },
     pm: { name: '梓萱', icon: 'target', color: '#06b6d4' },
     noter: { name: '晓琳', icon: 'file-text', color: '#ef4444' },
     media: { name: '音韵', icon: 'palette', color: '#ec4899' },
     smart: { name: '智家', icon: 'home', color: '#3b82f6' },
-    lingxi: { name: '灵犀', icon: 'zap', color: _accent() }
+    lingxi: { name: '灵犀', icon: 'zap', color: '#6366f1' }
   };
 
-  const getAgentColor = (agent) => agentMap[agent]?.color || _accent();
+  const getAgentColor = (agent) => agentMap[agent]?.color || '#10a37f';
 
   container.innerHTML = skills.map(skill => {
     const isInstalled = installedSet.has(skill.id);
@@ -3955,7 +4113,7 @@ function renderSkills(skills, installedSet, source = 'local') {
             <div style="display:flex;gap:8px;margin-top:6px;">
               <span class="skill-agent-tag"><i data-lucide="user" class="icon-sm"></i> ${skill.agent || '通用'}</span>
               ${source === 'local'
-                ? `<span class="skill-source-tag" style="background:${_accentSoft()};color:${_accent()};"><i data-lucide="database" class="icon-sm"></i> 本地</span>`
+                ? `<span class="skill-source-tag" style="background:rgba(16,163,127,0.1);color:#10a37f;"><i data-lucide="database" class="icon-sm"></i> 本地</span>`
                 : `<span class="skill-source-tag skill-source-hot"><i data-lucide="star" class="icon-sm"></i> 热门</span>`
               }
             </div>
@@ -3963,8 +4121,8 @@ function renderSkills(skills, installedSet, source = 'local') {
         </div>
         <div class="skill-actions">
           ${isInstalled
-            ? `<span class="skill-badge installed" onclick="event.stopPropagation();"><i data-lucide="check-circle" class="icon-sm"></i> Installed</span><button class="skill-btn use" onclick="event.stopPropagation(); useSkill('${skill.id}')">Use</button>`
-            : `<button class="skill-btn install" onclick="event.stopPropagation(); installAndUseSkill('${skill.id}', this)"><i data-lucide="download" class="icon-sm"></i> Install & Use</button>`
+            ? `<span class="skill-badge installed" onclick="event.stopPropagation();"><i data-lucide="check-circle" class="icon-sm"></i> 已安装</span>`
+            : `<button class="skill-btn install" onclick="event.stopPropagation(); installSkill('${skill.id}', this)"><i data-lucide="download" class="icon-sm"></i> 安装</button>`
           }
         </div>
       </div>
@@ -3986,17 +4144,17 @@ function renderPopularSkills(skills, installedSet) {
   }
 
   const agentMap = {
-    coder: { name: '云溪', icon: 'code', color: _accent() },
+    coder: { name: '云溪', icon: 'code', color: '#10a37f' },
     ops: { name: '若曦', icon: 'bar-chart-2', color: '#f59e0b' },
     inventor: { name: '紫萱', icon: 'lightbulb', color: '#8b5cf6' },
     pm: { name: '梓萱', icon: 'target', color: '#06b6d4' },
     noter: { name: '晓琳', icon: 'file-text', color: '#ef4444' },
     media: { name: '音韵', icon: 'palette', color: '#ec4899' },
     smart: { name: '智家', icon: 'home', color: '#3b82f6' },
-    lingxi: { name: '灵犀', icon: 'zap', color: _accent() }
+    lingxi: { name: '灵犀', icon: 'zap', color: '#6366f1' }
   };
 
-  const getAgentColor = (agent) => agentMap[agent]?.color || _accent();
+  const getAgentColor = (agent) => agentMap[agent]?.color || '#10a37f';
 
   container.innerHTML = skills.map(skill => {
     const isInstalled = installedSet.has(skill.id);
@@ -4021,8 +4179,8 @@ function renderPopularSkills(skills, installedSet) {
         </div>
         <div class="skill-actions">
           ${isInstalled
-            ? `<span class="skill-badge installed" onclick="event.stopPropagation();"><i data-lucide="check-circle" class="icon-sm"></i> Installed</span><button class="skill-btn use" onclick="event.stopPropagation(); useSkill('${skill.id}')">Use</button>`
-            : `<button class="skill-btn install" onclick="event.stopPropagation(); installAndUseSkill('${skill.id}', this)"><i data-lucide="download" class="icon-sm"></i> Install & Use</button>`
+            ? `<span class="skill-badge installed" onclick="event.stopPropagation();"><i data-lucide="check-circle" class="icon-sm"></i> 已安装</span>`
+            : `<button class="skill-btn install" onclick="event.stopPropagation(); installSkill('${skill.id}', this)"><i data-lucide="download" class="icon-sm"></i> 安装</button>`
           }
         </div>
       </div>
@@ -4033,150 +4191,36 @@ function renderPopularSkills(skills, installedSet) {
 }
 
 // ===== 安装本地技能 =====
-
-// ========== 技能安装 + 使用 ==========
-
-/**
- * 一键使用技能（已安装）
- * 跳转聊天 → 填入 @agent + 技能示例
- */
-function useSkill(skillId) {
-  // 从技能缓存中找到技能信息
-  const skill = findSkillById(skillId);
-  if (!skill) return;
-
-  // 关闭技能库面板
-  closeSkillLibrary();
-
-  // 切换到聊天输入
-  const input = document.getElementById('inputField');
-  if (!input) return;
-
-  // 构造使用消息
-  const exampleText = skill.example || skill.description || `使用技能 ${skill.name}`;
-  input.value = exampleText;
-  input.focus();
-  input.setSelectionRange(input.value.length, input.value.length);
-
-  // 触发输入框自动增高
-  input.dispatchEvent(new Event('input'));
-}
-
-/**
- * 一键安装并使用技能（未安装）
- * 1. 通过 chat.send RPC 让 Agent 执行 clawhub install
- * 2. 安装完成后跳转聊天填入示例
- */
-async function installAndUseSkill(skillId, btnElement) {
-  const skill = findSkillById(skillId);
-  if (!skill) return;
-
-  const btn = btnElement;
-  const originalHTML = btn?.innerHTML || '';
-  
-  // 更新按钮状态
-  if (btn) {
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:2px;margin-right:4px"></span> Installing...';
-  }
-
-  try {
-    const token = localStorage.getItem('lingxi_token');
-    
-    // 调用后端 API 安装技能（后端通过 chat.send RPC 让 Agent 执行 clawhub install）
-    const res = await fetch(`${API_BASE}/api/skills/install-and-use`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        skillId,
-        skillName: skill.name || skillId
-      })
-    });
-
-    const data = await res.json();
-    
-    if (data.success) {
-      // 更新本地安装状态
-      installedSkills.add(skillId);
-      
-      // 关闭技能库面板
-      closeSkillLibrary();
-
-      // 跳转聊天 → 填入使用示例
-      const input = document.getElementById('inputField');
-      if (input) {
-        const exampleText = skill.example || skill.description || `使用技能 ${skill.name}`;
-        input.value = exampleText;
-        input.focus();
-        input.dispatchEvent(new Event('input'));
-      }
-      
-      showToast('✅ Skill installed!');
-    } else {
-      // 安装失败 → 退而求其次，填入安装指令让用户自己发
-      closeSkillLibrary();
-      const input = document.getElementById('inputField');
-      if (input) {
-        input.value = `请使用 clawhub 安装技能 "${skill.name || skillId}"`;
-        input.focus();
-        input.dispatchEvent(new Event('input'));
-      }
-      showToast('⚠️ ' + (data.error || 'Install failed, please try manually'));
-    }
-  } catch (err) {
-    console.error('Install skill error:', err);
-    // 网络错误 → 填入手动安装指令
-    closeSkillLibrary();
-    const input = document.getElementById('inputField');
-    if (input) {
-      input.value = `请使用 clawhub 安装技能 "${skill.name || skillId}"`;
-      input.focus();
-      input.dispatchEvent(new Event('input'));
-    }
-    showToast('⚠️ Network error, please install manually');
-  } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = originalHTML;
-    }
-  }
-}
-
-/**
- * 在技能缓存中查找技能
- */
-function findSkillById(skillId) {
-  // 搜索所有缓存
-  const allCaches = [localSkillsCache, popularSkillsCache, clawHubSkillsCache];
-  for (const cache of allCaches) {
-    if (!cache) continue;
-    for (const skill of cache) {
-      if (skill.id === skillId) return skill;
-    }
-  }
-  return { id: skillId, name: skillId, description: `Use skill ${skillId}`, example: `Use skill ${skillId}` };
-}
-
-// 保留旧函数名兼容
 function installSkill(skillId, btnElement) {
-  return installAndUseSkill(skillId, btnElement);
+  // 获取技能名称（从父元素中找）
+  const card = btnElement?.closest('.skill-card');
+  const skillNameEl = card?.querySelector('.skill-name');
+  const skillName = skillNameEl?.textContent || skillId;
+
+  // 填入输入框（不自动发送，让用户确认）
+  const input = document.getElementById('inputField');
+  if (input) {
+    input.value = `安装技能 ${skillId}`;
+    input.focus();
+    // 将光标移到末尾
+    input.setSelectionRange(input.value.length, input.value.length);
+  }
+
+  // 关闭技能库弹窗
+  closeSkillLibrary();
 }
 
+// 暴露到全局作用域（供 onclick 调用）
 window.installSkill = installSkill;
-window.useSkill = useSkill;
-window.installAndUseSkill = installAndUseSkill;
+
 // 初始化时渲染 agent 下拉
 function initAgentDropdown() {
-  console.log('🎯 initAgentDropdown 调用，user:', user);
-  
-  // 优先使用 user.team.members
+  console.log('🎯 initAgentDropdown 调用, user:', user);
+  // 使用已加载的 user 变量
   if (user?.team?.members && user.team.members.length > 0) {
     userAgentList = user.team.members.map(m => m.id);
     currentAgentId = userAgentList.includes('lingxi') ? 'lingxi' : userAgentList[0];
-    
+  } else if (user?.agents && user.agents.length > 0) {
     const currentMember = user.team.members.find(m => m.id === currentAgentId);
     const agent = currentMember || ALL_AGENTS[currentAgentId] || AGENT_INFO[currentAgentId];
     if (agent) {
@@ -4186,10 +4230,11 @@ function initAgentDropdown() {
         if (window.lucide) lucide.createIcons();
       }
     }
-  } else if (user?.agents && user.agents.length > 0) {
     userAgentList = user.agents;
+    // 设置当前 agent 为用户的第一个（或 lingxi）
     currentAgentId = userAgentList.includes('lingxi') ? 'lingxi' : userAgentList[0];
-    
+
+    // 更新显示
     const agent = ALL_AGENTS[currentAgentId] || AGENT_INFO[currentAgentId];
     if (agent) {
       const iconEl = document.getElementById('currentAgentIcon');
@@ -4199,8 +4244,7 @@ function initAgentDropdown() {
       }
     }
   }
-  
-  console.log('🎯 userAgentList:', userAgentList);
+  console.log('🎯 userAgentList:', userAgentList, 'ALL_AGENTS:', Object.keys(ALL_AGENTS));
   renderAgentDropdown();
 }
 
@@ -4224,11 +4268,11 @@ async function refreshSidebarCredits() {
       const creditsEl = document.getElementById('sidebarUserCredits');
       if (creditsEl) {
         creditsEl.textContent = `💎 ${result.data.total}`;
-        console.log('侧边栏积分已更新:', result.data.total);
+        console.log('✅ 侧边栏积分已更新:', result.data.total);
       }
     }
   } catch (e) {
-    console.error('刷新积分失败:', e);
+    console.error('❌ 刷新积分失败:', e);
   }
 }
 
@@ -4595,7 +4639,7 @@ function stopRecording() {
 document.addEventListener('DOMContentLoaded', () => {
   initVoiceRecognition();
 
-  // 监听输入框文字变化，动态切换按钮显示（豆包风格）
+  // 🔧 监听输入框文字变化，动态切换按钮显示（豆包风格）
   const inputField = document.getElementById('inputField');
   if (inputField) {
     inputField.addEventListener('input', updateInputButtons);
@@ -4646,218 +4690,10 @@ async function handleCameraCapture() {
 
     input.click();
   } catch (error) {
-    console.error('打开摄像头失败:', error);
+    console.error('❌ 打开摄像头失败:', error);
     alert('无法打开摄像头，请检查权限设置');
   }
 }
-
-// ============ 通知模块 ============
-
-let _notificationUnreadCount = 0;
-
-/** 加载未读通知数量（页面初始化时调用） */
-async function loadNotificationUnreadCount() {
-  const token = localStorage.getItem('lingxi_token');
-  if (!token) return;
-  try {
-    const res = await fetch(`${API_BASE}/api/healthcheck/notifications/unread-count`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    const data = await res.json();
-    if (data.success) {
-      _notificationUnreadCount = data.count;
-      updateNotificationBadge();
-    }
-  } catch (e) {
-    console.error('[通知] 获取未读数失败:', e);
-  }
-}
-
-/** 更新铃铛上的 badge */
-function updateNotificationBadge() {
-  const badge = document.getElementById('notificationBadge');
-  if (!badge) return;
-  if (_notificationUnreadCount > 0) {
-    badge.textContent = _notificationUnreadCount > 9 ? '9+' : _notificationUnreadCount;
-    badge.style.display = '';
-  } else {
-    badge.style.display = 'none';
-  }
-}
-
-/** 切换通知面板显示/隐藏 */
-async function toggleNotificationPanel(event) {
-  if (event) event.stopPropagation();
-  const panel = document.getElementById('notificationPanel');
-  if (!panel) return;
-
-  const isVisible = panel.style.display !== 'none';
-  if (isVisible) {
-    panel.style.display = 'none';
-    return;
-  }
-
-  panel.style.display = 'flex';
-  await loadNotificationList();
-}
-
-/** 加载通知列表 */
-async function loadNotificationList() {
-  const token = localStorage.getItem('lingxi_token');
-  const body = document.getElementById('notificationPanelBody');
-  const markAllBtn = document.getElementById('notificationMarkAll');
-  if (!body || !token) return;
-
-  body.innerHTML = '<div class="notification-empty">加载中...</div>';
-
-  try {
-    const res = await fetch(`${API_BASE}/api/healthcheck/notifications`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    const data = await res.json();
-    if (!data.success) {
-      body.innerHTML = '<div class="notification-empty">加载失败</div>';
-      return;
-    }
-
-    const notifs = data.data || [];
-    if (notifs.length === 0) {
-      body.innerHTML = '<div class="notification-empty">暂无通知</div>';
-      if (markAllBtn) markAllBtn.style.display = 'none';
-      return;
-    }
-
-    const hasUnread = notifs.some(n => !n.read);
-    if (markAllBtn) markAllBtn.style.display = hasUnread ? '' : 'none';
-
-    body.innerHTML = notifs.map(n => {
-      // 根据 type 决定图标和 bar 颜色
-      let barClass = 'recovered';
-      let icon = '';
-      if (n.type === 'reminder') {
-        barClass = 'reminder';
-        icon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;flex-shrink:0;margin-right:4px;color:${_accent()}"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
-      } else if (n.type === 'server_offline') {
-        barClass = 'offline';
-        icon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;flex-shrink:0;margin-right:4px;color:#f5576c"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>';
-      } else if (n.type === 'server_recovered') {
-        barClass = 'recovered';
-        icon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;flex-shrink:0;margin-right:4px;color:#43e97b"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>';
-      }
-      const unreadClass = n.read ? '' : 'is-unread';
-      return `<div class="notification-item ${unreadClass}" onclick="markNotificationRead('${n.id}', this)">
-        <div class="notification-item-bar ${barClass}"></div>
-        <div class="notification-item-content">
-          <div class="notification-item-msg" style="display:flex;align-items:flex-start">${icon}${escapeHtml(n.message || '')}</div>
-          <div class="notification-item-time">${formatRelativeTime(n.createdAt)}</div>
-        </div>
-      </div>`;
-    }).join('');
-  } catch (e) {
-    console.error('[通知] 加载列表失败:', e);
-    body.innerHTML = '<div class="notification-empty">加载失败</div>';
-  }
-}
-
-/** 标记单条通知已读 */
-async function markNotificationRead(notifId, el) {
-  const token = localStorage.getItem('lingxi_token');
-  if (!token) return;
-
-  try {
-    const res = await fetch(`${API_BASE}/api/healthcheck/notifications/read`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ notificationId: notifId })
-    });
-    const data = await res.json();
-    if (data.success) {
-      if (el) el.classList.remove('is-unread');
-      _notificationUnreadCount = Math.max(0, _notificationUnreadCount - 1);
-      updateNotificationBadge();
-      // 检查是否还有未读
-      const markAllBtn = document.getElementById('notificationMarkAll');
-      const anyUnread = document.querySelector('.notification-item.is-unread');
-      if (markAllBtn && !anyUnread) markAllBtn.style.display = 'none';
-    }
-  } catch (e) {
-    console.error('[通知] 标记已读失败:', e);
-  }
-}
-
-/** 标记全部已读 */
-async function markAllNotificationsRead(event) {
-  if (event) event.stopPropagation();
-  const token = localStorage.getItem('lingxi_token');
-  if (!token) return;
-
-  try {
-    const res = await fetch(`${API_BASE}/api/healthcheck/notifications/read`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ all: true })
-    });
-    const data = await res.json();
-    if (data.success) {
-      document.querySelectorAll('.notification-item.is-unread').forEach(el => {
-        el.classList.remove('is-unread');
-      });
-      _notificationUnreadCount = 0;
-      updateNotificationBadge();
-      const markAllBtn = document.getElementById('notificationMarkAll');
-      if (markAllBtn) markAllBtn.style.display = 'none';
-    }
-  } catch (e) {
-    console.error('[通知] 全部已读失败:', e);
-  }
-}
-
-/** 相对时间格式化 */
-function formatRelativeTime(dateStr) {
-  if (!dateStr) return '';
-  const now = Date.now();
-  const then = new Date(dateStr).getTime();
-  if (isNaN(then)) return '';
-  const diff = now - then;
-  if (diff < 0) return 'just now';
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  if (days < 30) return `${Math.floor(days/7)}w ago`;
-  const d = new Date(then);
-  return `${d.getMonth()+1}/${d.getDate()}`;
-}
-
-/** HTML 转义 */
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
-
-// 点击页面其他区域关闭通知面板
-document.addEventListener('click', (e) => {
-  const panel = document.getElementById('notificationPanel');
-  const bell = document.getElementById('notificationBell');
-  if (panel && panel.style.display !== 'none' && !panel.contains(e.target) && !bell?.contains(e.target)) {
-    panel.style.display = 'none';
-  }
-});
-
-// 导出函数
-window.toggleNotificationPanel = toggleNotificationPanel;
-window.markAllNotificationsRead = markAllNotificationsRead;
-window.markNotificationRead = markNotificationRead;
 
 // 导出函数
 window.toggleVoiceInput = toggleVoiceInput;
@@ -4890,15 +4726,3 @@ function updateUserBadge() {
     nameEl.textContent = user.nickname;
   }
 }
-
-// 全局 ESC 键关闭弹窗
-document.addEventListener('keydown', (e) => {
-  if (e.key !== 'Escape') return;
-  const subModal = document.getElementById('subOnboardingModal');
-  const obModal = document.getElementById('onboardingModal');
-  if (subModal && subModal.style.display !== 'none') {
-    dismissSubOnboarding();
-  } else if (obModal && obModal.style.display !== 'none') {
-    startChat();
-  }
-});

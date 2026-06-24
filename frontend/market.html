@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-i18n-page-title="mk.title">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent Market — Lume</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23667eea'/><text x='16' y='22' text-anchor='middle' fill='white' font-size='16' font-weight='700'>L</text></svg>">
+  <link rel="stylesheet" href="assets/css/lume.css">
+  <style>
+    body {
+      font-family: var(--font-body);
+      background: var(--bg);
+      min-height: 100vh;
+      font-size: 14px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      color: var(--text-1);
+    }
+
+    /* ===== Top Bar ===== */
+    .top-bar {
+      position: fixed; top: 0; left: 0; right: 0; height: 44px;
+      background: rgba(255,255,255,0.94); backdrop-filter: blur(12px);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 16px; z-index: 200;
+      border-bottom: 1px solid var(--border-sub);
+    }
+    .top-bar-left { display: flex; align-items: center; gap: 8px; }
+    .back-link {
+      display: flex; align-items: center; gap: 3px; padding: 4px 10px;
+      border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-2);
+      font-size: 12px; text-decoration: none; transition: all var(--transition);
+    }
+    .back-link:hover { background: var(--bg-hover); color: var(--text-1); }
+    .page-title { font-size: 15px; font-weight: 700; color: var(--text-1); }
+    .top-bar-center { display: flex; align-items: center; gap: 6px; }
+    .search-input-inline {
+      padding: 5px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+      font-size: 12px; outline: none; width: 200px; transition: border-color var(--transition);
+      font-family: var(--font-display);
+    }
+    .search-input-inline:focus { border-color: var(--accent); }
+    .search-input-inline::placeholder { color: var(--text-3); }
+    .top-bar-right { display: flex; align-items: center; gap: 8px; }
+    .btn {
+      padding: 8px 16px; border: none; border-radius: var(--radius-sm);
+      font-size: 13px; cursor: pointer; font-weight: 500;
+      transition: all var(--transition); font-family: var(--font-display);
+    }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover { background: var(--accent-h); }
+    .btn-outline { background: white; color: var(--accent); border: 1px solid var(--accent); }
+    .btn-outline:hover { background: var(--accent-soft); }
+    .btn-danger { background: white; color: var(--danger); border: 1px solid var(--danger); }
+    .btn-danger:hover { background: var(--danger-soft); }
+    .btn-sm { padding: 4px 10px; font-size: 11px; }
+    .btn-ghost {
+      background: transparent; color: var(--text-2); border: none;
+      padding: 4px 8px; font-size: 12px; cursor: pointer; border-radius: var(--radius-sm);
+    }
+    .btn-ghost:hover { background: var(--bg-hover); }
+    .btn-ghost.active { color: var(--accent); font-weight: 600; }
+
+    /* ===== Main Content ===== */
+    .main-content {
+      max-width: 960px; margin: 0 auto;
+      padding: 60px 16px 32px;
+    }
+
+    /* ===== Category Tabs ===== */
+    .category-bar {
+      display: flex; align-items: center; gap: 6px;
+      padding: 12px 0; margin-bottom: 8px;
+      overflow-x: auto; scrollbar-width: none;
+    }
+    .category-bar::-webkit-scrollbar { display: none; }
+    .category-tab {
+      padding: 6px 14px; border-radius: var(--radius-sm); font-size: 13px;
+      white-space: nowrap; cursor: pointer; transition: all var(--transition);
+      background: var(--bg-card); color: var(--text-2); border: 1px solid var(--border);
+    }
+    .category-tab:hover { background: var(--accent-soft); color: var(--accent); border-color: #d0ccff; }
+    .category-tab.active {
+      background: var(--accent); color: #fff; border-color: var(--accent);
+      box-shadow: 0 2px 8px rgba(102,126,234,0.25);
+    }
+
+    .sort-bar {
+      display: flex; align-items: center; gap: 4px; margin-bottom: 16px;
+      font-size: 12px; color: var(--text-3);
+    }
+
+    /* ===== Agent Card Grid ===== */
+    .agent-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 14px;
+    }
+
+    .agent-card {
+      background: var(--bg-card); border-radius: var(--radius); padding: 18px;
+      box-shadow: var(--shadow-sm)(0,0,0,0.06);
+      border: 2px solid transparent;
+      transition: all var(--transition);
+      display: flex; flex-direction: column;
+      cursor: pointer;
+    }
+    .agent-card:hover {
+      box-shadow: var(--shadow-md)(0,0,0,0.08);
+      transform: translateY(-2px);
+    }
+
+    .agent-card-top {
+      display: flex; align-items: flex-start; gap: 12px; margin-bottom: 10px;
+    }
+    .agent-avatar {
+      width: 44px; height: 44px; border-radius: var(--radius);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; background: var(--accent-soft); color: var(--accent);
+    }
+    .agent-avatar svg { width: 22px; height: 22px; }
+    .agent-avatar.code { background: #e8f0fe; color: #4285f4; }
+    .agent-avatar.pen { background: #fff7e6; color: #fa8c16; }
+    .agent-avatar.chart { background: #f0fff4; color: #52c41a; }
+    .agent-avatar.user { background: #e6f7ff; color: #1890ff; }
+    .agent-avatar.globe { background: #f9f0ff; color: #722ed1; }
+    .agent-avatar.shield { background: #fff1f0; color: #f5222d; }
+    .agent-avatar.bot { background: #f0f0f0; color: var(--text-2); }
+
+    .agent-info { flex: 1; min-width: 0; }
+    .agent-name {
+      font-size: 15px; font-weight: 600; color: var(--text-1);
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 2px;
+    }
+    .agent-name-text {
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .official-badge {
+      font-size: 10px; font-weight: 600; padding: 1px 6px;
+      border-radius: var(--radius-sm); background: #e8f0fe; color: #4285f4;
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .agent-desc {
+      font-size: 12px; color: var(--text-2); line-height: 1.5;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      overflow: hidden; margin-bottom: 8px;
+    }
+    .agent-tags {
+      display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 12px;
+    }
+    .agent-tag {
+      font-size: 10px; padding: 2px 8px; border-radius: var(--radius-sm);
+      background: var(--bg); color: var(--text-2);
+    }
+    .agent-card-bottom {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-top: auto; padding-top: 10px;
+      border-top: 1px solid rgba(0,0,0,0.04);
+    }
+    .agent-stats {
+      display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--text-3);
+    }
+    .agent-stats span { display: flex; align-items: center; gap: 3px; }
+    .agent-stats svg { width: 13px; height: 13px; }
+    .agent-rating { color: #faad14; }
+    .btn-install {
+      padding: 5px 12px; border: 1px solid var(--accent); border-radius: var(--radius-sm);
+      background: white; color: var(--accent); font-size: 12px; cursor: pointer;
+      font-weight: 500; transition: all var(--transition); font-family: var(--font-display);
+    }
+    .btn-install:hover { background: var(--accent); color: white; }
+    .btn-install:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-install.installed { background: #f0f0f0; color: var(--text-3); border-color: #eee; cursor: default; }
+
+    /* ===== Empty State ===== */
+    .empty-state {
+      text-align: center; padding: 60px 20px; color: var(--text-3);
+    }
+    .empty-state svg { width: 48px; height: 48px; margin-bottom: 12px; opacity: 0.3; }
+    .empty-state p { font-size: 14px; }
+
+    /* ===== Modal Overlay ===== */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.4); z-index: 500;
+      align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal {
+      background: var(--bg-card); border-radius: var(--radius-lg); width: 100%;
+      max-width: 540px; max-height: 85vh; overflow-y: auto;
+      box-shadow: var(--shadow-lg)(0,0,0,0.15);
+    }
+    .modal-header {
+      padding: 18px 20px; border-bottom: 1px solid rgba(0,0,0,0.06);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .modal-title { font-size: 16px; font-weight: 700; color: var(--text-1); }
+    .modal-close {
+      width: 28px; height: 28px; border: none; border-radius: var(--radius-sm);
+      background: transparent; color: var(--text-3); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all var(--transition);
+    }
+    .modal-close:hover { background: var(--bg-hover); color: var(--text-1); }
+    .modal-close svg { width: 16px; height: 16px; }
+    .modal-body { padding: 20px; }
+
+    /* ===== Form ===== */
+    .form-group { margin-bottom: 16px; }
+    .form-label {
+      display: block; font-size: 13px; font-weight: 600;
+      color: var(--text-2); margin-bottom: 6px;
+    }
+    .form-label .required { color: var(--danger); margin-left: 2px; }
+    .form-input, .form-textarea, .form-select {
+      width: 100%; padding: 8px 12px; border: 1px solid var(--border);
+      border-radius: var(--radius-sm); font-size: 13px; font-family: var(--font-display);
+      outline: none; transition: border-color var(--transition); background: var(--bg-card);
+    }
+    .form-input:focus, .form-textarea:focus, .form-select:focus { border-color: var(--accent); }
+    .form-textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+    .form-hint { font-size: 11px; color: var(--text-3); margin-top: 4px; }
+    .form-actions {
+      display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;
+    }
+
+    /* ===== Detail Modal ===== */
+    .detail-header { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+    .detail-name { font-size: 18px; font-weight: 700; color: var(--text-1); }
+    .detail-desc { font-size: 13px; color: var(--text-2); margin-bottom: 16px; line-height: 1.6; }
+    .detail-section-title {
+      font-size: 13px; font-weight: 600; color: var(--text-2);
+      margin: 16px 0 8px; display: flex; align-items: center; gap: 6px;
+    }
+    .detail-section-title svg { width: 14px; height: 14px; }
+    .soul-preview {
+      width: 100%; padding: 10px 12px; border: 1px solid var(--border);
+      border-radius: var(--radius-sm); font-size: 12px; font-family: 'SF Mono', Menlo, monospace;
+      background: #fafaf8; color: var(--text-2); resize: none; min-height: 100px;
+      line-height: 1.5; white-space: pre-wrap;
+    }
+    .review-list { display: flex; flex-direction: column; gap: 10px; }
+    .review-item {
+      padding: 10px; border-radius: var(--radius-sm); background: #fafaf8;
+    }
+    .review-stars { color: #faad14; font-size: 12px; margin-bottom: 4px; }
+    .review-text { font-size: 12px; color: var(--text-2); }
+    .review-date { font-size: 11px; color: var(--text-3); margin-top: 4px; }
+    .no-reviews { font-size: 12px; color: #ccc; text-align: center; padding: 16px; }
+
+    /* ===== Rating Stars ===== */
+    .rating-stars { display: flex; gap: 4px; margin-bottom: 10px; }
+    .rating-star {
+      width: 28px; height: 28px; cursor: pointer; border: none; background: none;
+      padding: 0; color: #ddd; transition: color 0.15s;
+    }
+    .rating-star:hover, .rating-star.active { color: #faad14; }
+    .rating-star svg { width: 24px; height: 24px; }
+
+    /* ===== Toast ===== */
+    .toast-container {
+      position: fixed; top: 56px; right: 16px; z-index: 600;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .toast {
+      padding: 10px 16px; border-radius: var(--radius-sm); font-size: 13px;
+      box-shadow: var(--shadow-md)(0,0,0,0.1);
+      animation: toastIn 0.3s ease;
+      max-width: 320px;
+    }
+    .toast.success { background: #f0fff4; color: #389e0d; border: 1px solid #b7eb8f; }
+    .toast.error { background: #fff2f0; color: #cf1322; border: 1px solid #ffa39e; }
+    .toast.info { background: #e6f7ff; color: #096dd9; border: 1px solid #91d5ff; }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateX(40px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    /* ===== Loading ===== */
+    .loading-spinner {
+      display: flex; align-items: center; justify-content: center;
+      padding: 40px; color: var(--text-3); font-size: 13px; gap: 8px;
+    }
+    .loading-spinner svg {
+      animation: spin 1s linear infinite; width: 18px; height: 18px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ===== Device Bar ===== */
+    .device-bar {
+      position: fixed; top: 44px; left: 0; right: 0;
+      background: rgba(255,255,255,0.96); backdrop-filter: blur(12px);
+      padding: 8px 16px; border-bottom: 1px solid var(--border-sub); z-index: 199;
+    }
+    .device-tabs {
+      display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px;
+      -webkit-overflow-scrolling: touch; scrollbar-width: none;
+    }
+    .device-tabs::-webkit-scrollbar { display: none; }
+    .device-tab {
+      padding: 6px 14px; border-radius: var(--radius-sm); font-size: 13px;
+      white-space: nowrap; cursor: pointer; transition: all var(--transition);
+      background: var(--bg); color: var(--text-2); border: 1px solid transparent;
+    }
+    .device-tab:hover { background: var(--accent-soft); color: var(--accent); }
+    .device-tab.active {
+      background: var(--accent); color: #fff; border-color: var(--accent);
+      box-shadow: 0 2px 8px rgba(102,126,234,0.25);
+    }
+
+    /* ===== Responsive ===== */
+    @media (max-width: 640px) {
+      .top-bar-center { display: none; }
+      .agent-grid { grid-template-columns: 1fr; }
+      .search-input-inline { width: 140px; }
+    }
+    body.in-iframe .back-link { display: none !important; }
+
+    /* ===== Inline-extracted classes ===== */
+    .hint-label { color: var(--text-3); font-size: 12px; }
+    .modal-narrow { max-width: 380px; }
+    .confirm-text { margin-bottom: 16px; font-size: 13px; color: var(--text-2); }
+    .card-meta { font-size: 12px; color: var(--text-3); }
+    .tags-mb { margin-bottom: 12px; }
+    .actions-mt { margin-top: 20px; }
+    .btn-disabled { opacity: 0.5; cursor: default; }
+  </style>
+  <script src="assets/js/i18n.js?v=20260608"></script>
+  <script src="assets/libs/lucide.min.js"></script>
+</head>
+<body>
+  <!-- Toast 容器 -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- 顶部栏 -->
+  <div class="top-bar">
+    <div class="top-bar-left">
+      <a href="chat.html" class="back-link">
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        返回
+      </a>
+      <span class="page-title">Agent 市场</span>
+    </div>
+    <div class="top-bar-center">
+      <input type="text" class="search-input-inline" id="searchInput" placeholder="搜索 Agent..." />
+    </div>
+    <div class="top-bar-right">
+      <button class="btn btn-primary" onclick="showPublishModal()">发布 Agent</button>
+    </div>
+  </div>
+
+  <!-- 设备选择栏 -->
+  <div class="device-bar hidden" id="deviceBar">
+    <div class="device-tabs" id="deviceTabs"></div>
+  </div>
+
+  <!-- 主内容 -->
+  <div class="main-content" id="mainContent">
+    <!-- 分类 Tab -->
+    <div class="category-bar" id="categoryBar">
+      <button class="category-tab active" data-category="all">全部</button>
+      <button class="category-tab" data-category="dev">开发</button>
+      <button class="category-tab" data-category="content">内容</button>
+      <button class="category-tab" data-category="ops">运营</button>
+      <button class="category-tab" data-category="personal">个人助理</button>
+    </div>
+
+    <!-- 排序栏 -->
+    <div class="sort-bar">
+      <span>排序：</span>
+      <button class="btn-ghost active" data-sort="popular">热门</button>
+      <button class="btn-ghost" data-sort="newest">最新</button>
+    </div>
+
+    <!-- Agent 网格 -->
+    <div class="agent-grid" id="agentGrid"></div>
+
+    <!-- 空状态 -->
+    <div class="empty-state hidden" id="emptyState">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.3-4.3"/><circle cx="11" cy="11" r="8"/></svg>
+      <p>没有找到匹配的 Agent</p>
+    </div>
+
+    <!-- Loading -->
+    <div class="loading-spinner" id="loadingSpinner">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+      加载中...
+    </div>
+  </div>
+
+  <!-- ===== 详情弹窗 ===== -->
+  <div class="modal-overlay" id="detailModal">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">Agent 详情</span>
+        <button class="modal-close" onclick="closeModal('detailModal')">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="detailBody"></div>
+    </div>
+  </div>
+
+  <!-- ===== 发布弹窗 ===== -->
+  <div class="modal-overlay" id="publishModal">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">发布 Agent</span>
+        <button class="modal-close" onclick="closeModal('publishModal')">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">名称<span class="required">*</span></label>
+          <input type="text" class="form-input" id="pubName" maxlength="50" placeholder="给 Agent 起个名字" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">描述<span class="required">*</span></label>
+          <textarea class="form-textarea" id="pubDesc" maxlength="500" rows="2" placeholder="一句话描述 Agent 的能力"></textarea>
+          <div class="form-hint">最多 500 字</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">SOUL.md<span class="required">*</span></label>
+          <textarea class="form-textarea" id="pubSoul" maxlength="5000" rows="6" placeholder="定义 Agent 的身份、能力和行为风格..."></textarea>
+          <div class="form-hint">最多 5000 字</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">分类</label>
+          <select class="form-select" id="pubCategory">
+            <option value="dev">开发</option>
+            <option value="content">内容</option>
+            <option value="ops">运营</option>
+            <option value="personal" selected>个人助理</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">标签</label>
+          <input type="text" class="form-input" id="pubTags" placeholder="用逗号分隔，如：开发,编程,代码" />
+          <div class="form-hint">最多 10 个标签</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">推荐模型 <span class="hint-label">（可选，安装后用户可自行修改）</span></label>
+          <select class="form-select" id="pubModel">
+            <option value="">自动选择</option>
+            <option value="glm-5.1">GLM-5.2</option>
+            <option value="gpt-4o">GPT-4o</option>
+            <option value="claude-sonnet">Claude Sonnet</option>
+          </select>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-outline" onclick="closeModal('publishModal')">取消</button>
+          <button class="btn btn-primary" onclick="handlePublish()">发布</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 评价弹窗 ===== -->
+  <div class="modal-overlay" id="rateModal">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">评价 Agent</span>
+        <button class="modal-close" onclick="closeModal('rateModal')">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="rateItemId" />
+        <div class="form-group">
+          <label class="form-label">评分</label>
+          <div class="rating-stars" id="ratingStars"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">评价（可选）</label>
+          <textarea class="form-textarea" id="rateReview" maxlength="200" rows="3" placeholder="说说你的使用体验..."></textarea>
+          <div class="form-hint">最多 200 字</div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-outline" onclick="closeModal('rateModal')">取消</button>
+          <button class="btn btn-primary" onclick="handleRate()">提交评价</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 安装确认弹窗 ===== -->
+  <div class="modal-overlay" id="confirmModal">
+    <div class="modal modal-narrow">
+      <div class="modal-header">
+        <span class="modal-title">确认安装</span>
+        <button class="modal-close" onclick="closeModal('confirmModal')">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p id="confirmText" class="confirm-text"></p>
+        <div class="form-actions">
+          <button class="btn btn-outline" onclick="closeModal('confirmModal')">取消</button>
+          <button class="btn btn-primary" id="confirmInstallBtn" onclick="doInstall()">确认安装</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+var API_BASE = '';
+var currentCategory = 'all';
+var currentSort = 'popular';
+var currentSearch = '';
+var pendingInstallId = null;
+var selectedRating = 0;
+var currentServerId = null;
+
+// ===== 工具函数 =====
+
+function escapeHtml(str) {
+  if (typeof str !== 'string') return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function getToken() {
+  return localStorage.getItem('lingxi_token') || '';
+}
+
+function checkAuth() {
+  if (!getToken()) {
+    window.location.href = 'index.html';
+    return false;
+  }
+  return true;
+}
+
+// ===== Toast =====
+
+function showToast(message, type) {
+  type = type || 'info';
+  var container = document.getElementById('toastContainer');
+  var toast = document.createElement('div');
+  toast.className = 'toast ' + type;
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(function() {
+    toast.style.opacity = '0';
+    toast.style.transition = 'opacity 0.3s';
+    setTimeout(function() { toast.remove(); }, 300);
+  }, 3000);
+}
+
+// ===== API 调用 =====
+
+async function apiGet(path) {
+  var res = await fetch(API_BASE + '/api/market' + path, {
+    headers: { 'Authorization': 'Bearer ' + getToken() }
+  });
+  if (res.status === 401) { window.location.href = 'index.html'; return null; }
+  return res.json();
+}
+
+async function apiPost(path, body) {
+  var res = await fetch(API_BASE + '/api/market' + path, {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + getToken(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (res.status === 401) { window.location.href = 'index.html'; return null; }
+  return res.json();
+}
+
+// ===== SVG 图标 =====
+
+function getAvatarSvg(avatar) {
+  var icons = {
+    code: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>',
+    pen: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>',
+    chart: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>',
+    user: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+    globe: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>',
+    shield: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>',
+    bot: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>'
+  };
+  return icons[avatar] || icons.bot;
+}
+
+function getStarSvg(filled) {
+  if (filled) {
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
+  }
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
+}
+
+function renderStars(rating, count) {
+  var full = Math.floor(rating);
+  var html = '<span class="agent-rating">';
+  for (var i = 0; i < 5; i++) {
+    html += getStarSvg(i < full);
+  }
+  html += '</span>';
+  if (count > 0) {
+    html += ' <span>' + escapeHtml(String(count)) + '</span>';
+  }
+  return html;
+}
+
+// ===== 渲染 Agent 卡片 =====
+
+function renderAgentGrid(items) {
+  var grid = document.getElementById('agentGrid');
+  var empty = document.getElementById('emptyState');
+
+  if (!items || items.length === 0) {
+    grid.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+
+  empty.style.display = 'none';
+  var html = '';
+  for (var i = 0; i < items.length; i++) {
+    var item = items[i];
+    var desc = (item.description || '').slice(0, 100);
+    html += '<div class="agent-card" data-action="detail" data-id="' + escapeHtml(item.id) + '">';
+    html += '  <div class="agent-card-top">';
+    html += '    <div class="agent-avatar ' + escapeHtml(item.avatar || 'bot') + '">' + getAvatarSvg(item.avatar) + '</div>';
+    html += '    <div class="agent-info">';
+    html += '      <div class="agent-name">';
+    html += '        <span class="agent-name-text">' + escapeHtml(item.name) + '</span>';
+    if (item.isOfficial) {
+      html += '        <span class="official-badge">官方</span>';
+    }
+    html += '      </div>';
+    html += '      <div class="agent-desc">' + escapeHtml(desc) + '</div>';
+    html += '    </div>';
+    html += '  </div>';
+    // tags
+    if (item.tags && item.tags.length > 0) {
+      html += '  <div class="agent-tags">';
+      for (var j = 0; j < Math.min(item.tags.length, 4); j++) {
+        html += '<span class="agent-tag">' + escapeHtml(item.tags[j]) + '</span>';
+      }
+      html += '  </div>';
+    }
+    // bottom
+    html += '  <div class="agent-card-bottom">';
+    html += '    <div class="agent-stats">';
+    html += '      <span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>' + escapeHtml(String(item.installCount || 0)) + '</span>';
+    html += '      ' + renderStars(item.rating || 0, item.reviewCount || 0);
+    html += '    </div>';
+    html += '    <button class="btn-install' + (item.installed ? ' installed' : '') + '" data-action="' + (item.installed ? '' : 'install') + '" data-id="' + escapeHtml(item.id) + '"' + (item.installed ? ' disabled' : '') + '>' + (item.installed ? '已添加' : '添加到团队') + '</button>';
+    html += '  </div>';
+    html += '</div>';
+  }
+  grid.innerHTML = html;
+}
+
+// ===== 加载市场列表 =====
+
+async function loadMarket() {
+  var spinner = document.getElementById('loadingSpinner');
+  spinner.style.display = 'flex';
+
+  var params = '?category=' + encodeURIComponent(currentCategory)
+    + '&sort=' + encodeURIComponent(currentSort)
+    + '&search=' + encodeURIComponent(currentSearch);
+
+  var result = await apiGet('/list' + params);
+  spinner.style.display = 'none';
+
+  if (!result || !result.success) {
+    showToast(result ? result.error : '网络错误', 'error');
+    renderAgentGrid([]);
+    return;
+  }
+
+  renderAgentGrid(result.items || []);
+}
+
+// ===== 详情弹窗 =====
+
+async function showDetail(id) {
+  var result = await apiGet('/detail/' + encodeURIComponent(id));
+  if (!result || !result.success) {
+    showToast(result ? result.error : '网络错误', 'error');
+    return;
+  }
+
+  var item = result.item;
+  var body = document.getElementById('detailBody');
+  var html = '';
+
+  html += '<div class="detail-header">';
+  html += '  <div class="agent-avatar ' + escapeHtml(item.avatar || 'bot') + '">' + getAvatarSvg(item.avatar) + '</div>';
+  html += '  <div>';
+  html += '    <div class="detail-name">' + escapeHtml(item.name);
+  if (item.isOfficial) html += ' <span class="official-badge">官方</span>';
+  html += '</div>';
+  html += '    <div class="card-meta">' + escapeHtml(item.category || '') + ' &middot; ' + escapeHtml(String(item.installCount || 0)) + ' 次安装</div>';
+  html += '  </div>';
+  html += '</div>';
+
+  html += '<div class="detail-desc">' + escapeHtml(item.description) + '</div>';
+
+  // Tags
+  if (item.tags && item.tags.length > 0) {
+    html += '<div class="agent-tags tags-mb">';
+    for (var i = 0; i < item.tags.length; i++) {
+      html += '<span class="agent-tag">' + escapeHtml(item.tags[i]) + '</span>';
+    }
+    html += '</div>';
+  }
+
+  // SOUL.md 预览
+  html += '<div class="detail-section-title"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg> SOUL.md</div>';
+  html += '<textarea class="soul-preview" readonly>' + escapeHtml(item.soulMd || '') + '</textarea>';
+
+  // 评价列表
+  html += '<div class="detail-section-title"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg> 评价 (' + escapeHtml(String(item.reviewCount || 0)) + ')</div>';
+  if (item.reviews && item.reviews.length > 0) {
+    html += '<div class="review-list">';
+    for (var r = 0; r < item.reviews.length; r++) {
+      var rev = item.reviews[r];
+      html += '<div class="review-item">';
+      html += '  <div class="review-stars">' + renderStars(rev.score, 0) + '</div>';
+      if (rev.review) html += '  <div class="review-text">' + escapeHtml(rev.review) + '</div>';
+      html += '  <div class="review-date">' + escapeHtml(rev.createdAt ? new Date(rev.createdAt).toLocaleDateString() : '') + '</div>';
+      html += '</div>';
+    }
+    html += '</div>';
+  } else {
+    html += '<div class="no-reviews">暂无评价</div>';
+  }
+
+  // 操作按钮
+  html += '<div class="form-actions actions-mt">';
+  if (!item.isOfficial) {
+    html += '  <button class="btn btn-outline" data-action="rate" data-id="' + escapeHtml(item.id) + '">评价</button>';
+  }
+  html += '  <button class="btn btn-primary' + (item.installed ? ' btn-disabled' : '') + '" data-action="' + (item.installed ? '' : 'install') + '" data-id="' + escapeHtml(item.id) + '"' + (item.installed ? ' disabled' : '') + '>' + (item.installed ? '已添加到团队' : '添加到团队') + '</button>';
+  html += '</div>';
+
+  body.innerHTML = html;
+  openModal('detailModal');
+}
+
+// ===== 发布弹窗 =====
+
+function showPublishModal() {
+  document.getElementById('pubName').value = '';
+  document.getElementById('pubDesc').value = '';
+  document.getElementById('pubSoul').value = '';
+  document.getElementById('pubCategory').value = 'personal';
+  document.getElementById('pubTags').value = '';
+  document.getElementById('pubModel').value = 'glm-5.1';
+  openModal('publishModal');
+}
+
+async function handlePublish() {
+  var name = document.getElementById('pubName').value.trim();
+  var description = document.getElementById('pubDesc').value.trim();
+  var soulMd = document.getElementById('pubSoul').value.trim();
+  var category = document.getElementById('pubCategory').value;
+  var tagsStr = document.getElementById('pubTags').value.trim();
+  var model = document.getElementById('pubModel').value;
+
+  if (!name) { showToast('请输入 Agent 名称', 'error'); return; }
+  if (!description) { showToast('请输入 Agent 描述', 'error'); return; }
+  if (!soulMd) { showToast('请输入 SOUL.md 内容', 'error'); return; }
+
+  var tags = tagsStr ? tagsStr.split(/[,，]/).map(function(t) { return t.trim(); }).filter(Boolean) : [];
+
+  var result = await apiPost('/publish', {
+    name: name, description: description, soulMd: soulMd,
+    category: category, tags: tags, model: model
+  });
+
+  if (!result || !result.success) {
+    showToast(result ? result.error : '发布失败', 'error');
+    return;
+  }
+
+  showToast('发布成功！', 'success');
+  closeModal('publishModal');
+  loadMarket();
+}
+
+// ===== 评价弹窗 =====
+
+function showRateModal(itemId) {
+  selectedRating = 0;
+  document.getElementById('rateItemId').value = itemId;
+  document.getElementById('rateReview').value = '';
+  renderRatingStars();
+  closeModal('detailModal');
+  openModal('rateModal');
+}
+
+function renderRatingStars() {
+  var container = document.getElementById('ratingStars');
+  var html = '';
+  for (var i = 1; i <= 5; i++) {
+    html += '<button class="rating-star' + (i <= selectedRating ? ' active' : '') + '" data-action="set-rating" data-value="' + i + '">' + getStarSvg(i <= selectedRating) + '</button>';
+  }
+  container.innerHTML = html;
+}
+
+async function handleRate() {
+  var itemId = document.getElementById('rateItemId').value;
+  var review = document.getElementById('rateReview').value.trim();
+
+  if (selectedRating < 1) { showToast('请选择评分', 'error'); return; }
+
+  var result = await apiPost('/rate', {
+    itemId: itemId, score: selectedRating, review: review
+  });
+
+  if (!result || !result.success) {
+    showToast(result ? result.error : '评价失败', 'error');
+    return;
+  }
+
+  showToast('评价成功！', 'success');
+  closeModal('rateModal');
+}
+
+// ===== 安装流程 =====
+
+function confirmInstall(id) {
+  pendingInstallId = id;
+  document.getElementById('confirmText').textContent = '确定要将此 Agent 添加到你的团队吗？安装后会自动部署到你的设备。';
+  document.getElementById('confirmInstallBtn').disabled = false;
+  document.getElementById('confirmInstallBtn').textContent = '确认安装';
+  closeModal('detailModal');
+  openModal('confirmModal');
+}
+
+async function doInstall() {
+  if (!pendingInstallId) return;
+  var btn = document.getElementById('confirmInstallBtn');
+  btn.disabled = true;
+  btn.textContent = '安装中...';
+
+  var result = await apiPost('/install/' + encodeURIComponent(pendingInstallId), {
+    serverId: currentServerId || undefined
+  });
+
+  if (!result || !result.success) {
+    showToast(result ? result.error : '安装失败', 'error');
+    btn.disabled = false;
+    btn.textContent = '确认安装';
+    return;
+  }
+
+  showToast('安装成功！Agent 已添加到团队', 'success');
+  closeModal('confirmModal');
+  pendingInstallId = null;
+}
+
+// ===== Modal 管理 =====
+
+function openModal(id) {
+  document.getElementById(id).classList.add('show');
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('show');
+}
+
+// ===== 事件委托 =====
+
+document.addEventListener('click', async function(e) {
+  var target = e.target.closest('[data-action]');
+  if (!target) return;
+
+  var action = target.getAttribute('data-action');
+  var id = target.getAttribute('data-id');
+
+  if (action === 'detail') {
+    e.stopPropagation();
+    if (id) showDetail(id);
+  } else if (action === 'install') {
+    e.stopPropagation();
+    if (id) confirmInstall(id);
+  } else if (action === 'rate') {
+    e.stopPropagation();
+    if (id) showRateModal(id);
+  } else if (action === 'set-rating') {
+    e.stopPropagation();
+    selectedRating = parseInt(target.getAttribute('data-value')) || 0;
+    renderRatingStars();
+  }
+});
+
+// 分类 Tab 切换
+document.getElementById('categoryBar').addEventListener('click', function(e) {
+  var tab = e.target.closest('.category-tab');
+  if (!tab) return;
+  document.querySelectorAll('.category-tab').forEach(function(t) { t.classList.remove('active'); });
+  tab.classList.add('active');
+  currentCategory = tab.getAttribute('data-category');
+  loadMarket();
+});
+
+// 排序切换
+document.querySelector('.sort-bar').addEventListener('click', function(e) {
+  var btn = e.target.closest('[data-sort]');
+  if (!btn) return;
+  document.querySelectorAll('.sort-bar [data-sort]').forEach(function(b) { b.classList.remove('active'); });
+  btn.classList.add('active');
+  currentSort = btn.getAttribute('data-sort');
+  loadMarket();
+});
+
+// 搜索
+var searchTimer = null;
+document.getElementById('searchInput').addEventListener('input', function(e) {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(function() {
+    currentSearch = e.target.value.trim();
+    loadMarket();
+  }, 300);
+});
+
+// Modal 背景点击关闭
+document.querySelectorAll('.modal-overlay').forEach(function(overlay) {
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) {
+      overlay.classList.remove('show');
+    }
+  });
+});
+
+// ===== 设备管理 =====
+
+async function loadDevices() {
+  try {
+    var res = await fetch(API_BASE + '/api/cron/servers', {
+      headers: { 'Authorization': 'Bearer ' + getToken() }
+    });
+    var data = await res.json();
+    if (data.success && data.servers && data.servers.length > 0) {
+      var bar = document.getElementById('deviceBar');
+      var tabs = document.getElementById('deviceTabs');
+      bar.style.display = '';
+      tabs.innerHTML = '';
+      data.servers.forEach(function(s) {
+        var tab = document.createElement('div');
+        tab.className = 'device-tab' + (s.isActive ? ' active' : '');
+        tab.innerHTML = escapeHtml(s.name || s.ip);
+        tab.onclick = function() {
+          tabs.querySelectorAll('.device-tab').forEach(function(t) { t.classList.remove('active'); });
+          tab.classList.add('active');
+          currentServerId = s.id;
+        };
+        tabs.appendChild(tab);
+      });
+      currentServerId = data.activeServerId || (data.servers[0] && data.servers[0].id);
+    } else {
+      document.getElementById('deviceBar').style.display = 'none';
+    }
+  } catch (e) {
+    document.getElementById('deviceBar').style.display = 'none';
+  }
+}
+
+// ===== 初始化 =====
+
+async function init() {
+  if (!checkAuth()) return;
+  await loadDevices();
+  await loadMarket();
+}
+
+init();
+  if (window.parent !== window) document.body.classList.add("in-iframe");
+</script>
+<script>if(window.lucide)lucide.createIcons();</script>
+</body>
+</html>

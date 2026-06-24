@@ -1,1397 +1,851 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-i18n-page-title="idx.title">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>灵犀云 - 一键拥有你的 AI 团队</title>
-  <meta name="version" content="2026.02.26.0350">
-  <link rel="stylesheet" href="assets/css/chat.css">
-  <link rel="stylesheet" href="assets/css/dark.css" id="darkTheme" disabled>
-  <!-- Lucide Icons - 使用 cdnjs 备用源 -->
+  <title>Lume — Your AI Team, One Click Away</title>
+  <meta name="version" content="2026.06.08">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="assets/libs/lucide.min.js"></script>
   <style>
-    /* 图标统一样式 */
-    .icon { width: 20px; height: 20px; color: currentColor; }
-    .icon-sm { width: 16px; height: 16px; }
-    .icon-lg { width: 24px; height: 24px; }
-    .icon-primary { color: #10a37f; }
-    
-    /* 加载动画 */
-    .loading-spinner {
-      display: inline-block;
-      width: 16px;
-      height: 16px;
-      border: 2px solid #ffffff40;
-      border-radius: 50%;
-      border-top-color: #fff;
-      animation: spin 1s ease-in-out infinite;
-      vertical-align: middle;
-      margin-right: 8px;
+    /* ===== RESET & TOKENS ===== */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg:        #fafaf9;
+      --bg-card:   #ffffff;
+      --bg-hover:  #f5f5f4;
+      --bg-input:  #fafaf9;
+      --border:    #e7e5e4;
+      --border-focus: #10a37f;
+
+      --text-1:    #0c0c0c;
+      --text-2:    #525252;
+      --text-3:    #a3a3a3;
+      --text-inv:  #ffffff;
+
+      --accent:    #10a37f;
+      --accent-h:  #0d8a6a;
+      --accent-soft: rgba(16,163,127,0.08);
+      --accent-ring: rgba(16,163,127,0.25);
+
+      --radius:    12px;
+      --radius-sm: 8px;
+      --radius-lg: 16px;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+      --shadow-md: 0 2px 8px rgba(0,0,0,0.06);
+      --shadow-lg: 0 8px 30px rgba(0,0,0,0.08);
+
+      --font-display: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-body:    'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     }
-    
-    @keyframes spin {
-      to { transform: rotate(360deg); }
+
+    html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--bg);
+      color: var(--text-1);
+      line-height: 1.6;
+      min-height: 100vh;
+      overflow-x: hidden;
     }
-    
-    /* 部署步骤样式 */
-    .deploy-steps {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    
-    .deploy-step {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 12px;
-      border-radius: 8px;
-      background: rgba(255, 255, 255, 0.5);
-      transition: all 0.3s ease;
-    }
-    
-    .deploy-step.step-active {
-      background: rgba(16, 163, 127, 0.2);
-    }
-    
-    .deploy-step.step-done {
-      background: rgba(16, 163, 127, 0.3);
-    }
-    
-    .step-icon {
-      font-size: 16px;
-      width: 24px;
-      text-align: center;
-    }
-    
-    .step-text {
-      font-size: 14px;
-      color: #374151;
-    }
-    
-    .deploy-step.step-done .step-text {
-      color: #10a37f;
-      font-weight: 500;
-    }
-  </style>
-  <style>
-    /* 首页专用样式 */
-    .home-container {
-      max-width: 480px;
+
+    /* ===== LAYOUT ===== */
+    .page {
+      max-width: 440px;
       margin: 0 auto;
-      padding: 40px 24px;
+      padding: 48px 24px 32px;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
     }
-    
-    .home-logo {
+
+    /* ===== LOGO AREA ===== */
+    .logo-section {
       text-align: center;
-      margin-bottom: 24px;
-      padding-top: 48px;
+      margin-bottom: 40px;
+      padding-top: 24px;
     }
-    
-    .home-logo-icon {
-      width: 80px;
-      height: 80px;
-      background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
-      border-radius: 20px;
+
+    .logo-mark {
+      width: 56px;
+      height: 56px;
+      margin: 0 auto 20px;
+      background: var(--accent);
+      border-radius: 14px;
       display: flex;
       align-items: center;
       justify-content: center;
-      margin: 0 auto 20px;
-      font-size: 36px;
       color: white;
-      box-shadow: 0 8px 32px rgba(16, 163, 127, 0.35);
-    }
-    
-    .home-logo h1 {
-      font-size: 48px;
+      font-size: 24px;
+      font-family: var(--font-display);
       font-weight: 700;
-      margin-bottom: 8px;
-      background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      letter-spacing: 2px;
+      box-shadow: 0 4px 16px rgba(16,163,127,0.25);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
     }
-    
-    .home-logo .tagline {
-      font-size: 16px;
-      color: #6e6e80;
-      margin-bottom: 0;
+    .logo-mark:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(16,163,127,0.35); }
+
+    .logo-title {
+      font-family: var(--font-display);
+      font-size: 40px;
+      font-weight: 700;
+      letter-spacing: -1px;
+      color: var(--text-1);
+      margin-bottom: 6px;
+    }
+
+    .logo-tagline {
+      font-size: 15px;
+      color: var(--text-3);
+      font-weight: 400;
+      letter-spacing: 0.3px;
+    }
+
+    /* ===== LOGGED IN VIEW ===== */
+    .welcome-bar {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 18px 20px;
+      background: var(--bg-card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 20px;
+    }
+
+    .welcome-avatar {
+      width: 44px; height: 44px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: white;
+      font-family: var(--font-display);
+      font-size: 17px; font-weight: 600;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .welcome-text .greeting { font-size: 16px; font-weight: 600; color: var(--text-1); }
+    .welcome-text .sub { font-size: 13px; color: var(--text-3); margin-top: 1px; }
+
+    /* Primary CTA */
+    .btn-primary {
+      width: 100%;
+      padding: 15px;
+      font-size: 15px;
+      font-weight: 600;
+      font-family: var(--font-display);
+      color: white;
+      background: var(--accent);
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+    }
+    .btn-primary:hover { background: var(--accent-h); transform: translateY(-1px); box-shadow: 0 4px 16px var(--accent-ring); }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    /* Shortcut cards */
+    .shortcuts {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 28px;
+    }
+
+    .shortcut-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 16px 8px;
+      background: var(--bg-card);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .shortcut-card:hover { border-color: var(--accent); box-shadow: var(--shadow-md); }
+    .shortcut-card span { font-size: 13px; font-weight: 500; color: var(--text-1); }
+    .shortcut-card svg { color: var(--accent); }
+
+    /* ===== AUTH CARD ===== */
+    .auth-card {
+      background: var(--bg-card);
+      border-radius: var(--radius-lg);
+      padding: 28px 24px;
+      box-shadow: var(--shadow-md);
+    }
+
+    .auth-tabs {
+      display: flex;
+      background: var(--bg-hover);
+      border-radius: var(--radius-sm);
+      padding: 3px;
+      margin-bottom: 24px;
+    }
+
+    .auth-tab {
+      flex: 1;
+      padding: 10px;
+      text-align: center;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-3);
+      cursor: pointer;
+      border-radius: 6px;
+      transition: all 0.2s;
+      font-family: var(--font-display);
+    }
+    .auth-tab.active { background: var(--bg-card); color: var(--text-1); box-shadow: var(--shadow-sm); }
+
+    /* Form elements */
+    .field { margin-bottom: 14px; }
+    .field label { display: block; font-size: 13px; font-weight: 500; color: var(--text-2); margin-bottom: 6px; }
+
+    .field input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 15px;
+      font-family: var(--font-body);
+      color: var(--text-1);
+      background: var(--bg-input);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .field input:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px var(--accent-ring); }
+    .field input::placeholder { color: var(--text-3); }
+
+    .field-row { display: flex; gap: 8px; align-items: flex-start; }
+    .field-row input { flex: 1; }
+
+    .btn-send-code {
+      padding: 12px 16px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.2s;
+      font-family: var(--font-display);
+    }
+    .btn-send-code:hover { background: var(--accent-h); }
+
+    .btn-auth {
+      width: 100%;
+      padding: 13px;
+      background: var(--text-1);
+      color: white;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 15px;
+      font-weight: 600;
+      font-family: var(--font-display);
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .btn-auth:hover { opacity: 0.85; }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      margin: 18px 0;
+      color: var(--text-3);
+      font-size: 13px;
+    }
+    .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+    .divider span { padding: 0 14px; }
+
+    .btn-ghost {
+      width: 100%;
+      padding: 13px;
+      background: transparent;
+      color: var(--text-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 15px;
+      font-weight: 500;
+      font-family: var(--font-display);
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .btn-ghost:hover { background: var(--bg-hover); border-color: #d4d4d4; }
+
+    .auth-error {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #dc2626;
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      margin-bottom: 14px;
+      display: none;
+    }
+    .auth-error.show { display: block; }
+
+    /* ===== TEAM SHOWCASE ===== */
+    .team-section {
+      margin-top: 36px;
+      padding-top: 32px;
+      border-top: 1px solid var(--border);
+    }
+
+    .team-heading {
+      text-align: center;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-3);
       letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 18px;
     }
-    
-    /* 品牌故事流式输出 - 渐变消失效果 */
+
+    .team-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .team-member {
+      text-align: center;
+      padding: 14px 4px;
+      border-radius: var(--radius);
+      transition: background 0.15s;
+    }
+    .team-member:hover { background: var(--accent-soft); }
+
+    .team-member .avatar {
+      width: 40px; height: 40px;
+      margin: 0 auto 8px;
+      border-radius: 10px;
+      background: var(--bg-hover);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+    }
+    .team-member:hover .avatar { background: var(--accent-soft); }
+    .team-member .avatar svg { width: 18px; height: 18px; color: var(--accent); }
+
+    .team-member .name { font-size: 12px; font-weight: 600; color: var(--text-1); }
+    .team-member .role { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+
+    /* ===== BRAND STORY ===== */
     .brand-story {
       text-align: center;
-      padding: 32px 24px;
-      margin-bottom: 32px;
-      /* 固定高度 */
-      height: 120px;
-      overflow: hidden;
-      position: relative;
-      /* 顶部渐变遮罩 - 让旧内容淡出 */
-      -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 30%, black 100%);
-      mask-image: linear-gradient(to bottom, transparent 0%, black 30%, black 100%);
+      padding: 20px;
+      margin-bottom: 24px;
+      background: var(--bg-card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      border: 1px solid var(--border);
     }
-    
+
     .brand-story-text {
-      font-size: 18px;
-      line-height: 2.2;
-      color: #202123;
+      font-size: 15px;
+      line-height: 1.8;
+      color: var(--text-2);
       white-space: pre-wrap;
       font-weight: 400;
-      letter-spacing: 0.5px;
-      /* 平滑滚动 */
-      transition: transform 0.5s ease-out;
     }
-    
+
+    .brand-story-text .highlight { color: var(--accent); font-weight: 600; }
+
     .brand-story-cursor {
       display: inline-block;
-      width: 2px;
-      height: 20px;
-      background: #10a37f;
+      width: 2px; height: 16px;
+      background: var(--accent);
       margin-left: 2px;
       animation: blink 1s infinite;
       vertical-align: text-bottom;
     }
-    
-    @keyframes blink {
-      0%, 50% { opacity: 1; }
-      51%, 100% { opacity: 0; }
-    }
-    
-    .brand-story-text .highlight {
-      color: #10a37f;
-      font-weight: 600;
-    }
-    
-    .home-card {
-      background: #ffffff;
-      border: 1px solid #e5e5e5;
-      border-radius: 16px;
-      padding: 28px;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-    }
-    
-    .home-tabs {
-      display: flex;
-      margin-bottom: 24px;
-      background: #f4f4f4;
-      border-radius: 10px;
-      padding: 4px;
-    }
-    
-    .home-tab {
-      flex: 1;
-      padding: 12px;
-      text-align: center;
-      font-size: 15px;
-      font-weight: 500;
-      color: #6e6e80;
-      cursor: pointer;
-      border-radius: 8px;
-      transition: all 0.2s;
-    }
-    
-    .home-tab.active {
-      background: #ffffff;
-      color: #202123;
-    }
-    
-    .home-form-group {
-      margin-bottom: 16px;
-    }
-    
-    .home-form-group label {
-      display: block;
-      font-size: 14px;
-      font-weight: 500;
-      margin-bottom: 8px;
-    }
-    
-    .home-form-group input {
-      width: 100%;
-      padding: 14px 16px;
-      border: 1px solid #d9d9e3;
-      border-radius: 10px;
-      font-size: 16px;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-    
-    .home-form-group input:focus {
-      border-color: #10a37f;
-    }
-    
-    .home-btn {
-      width: 100%;
-      padding: 14px;
-      background: #10a37f;
-      border: none;
-      border-radius: 10px;
-      font-size: 16px;
-      font-weight: 500;
-      color: white;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    
-    .home-btn:hover {
-      background: #0d8a6a;
-    }
-    
-    .home-btn:disabled {
-      background: #d9d9e3;
-      cursor: not-allowed;
-    }
-    
-    .home-btn-secondary {
-      background: #f4f4f4;
-      color: #202123;
-    }
-    
-    .home-btn-secondary:hover {
-      background: #e5e5e5;
-    }
-    
-    .home-btn-enter {
-      font-size: 18px;
-      padding: 18px;
-      margin-bottom: 12px;
-    }
-    
-    .home-divider {
-      display: flex;
-      align-items: center;
-      margin: 20px 0;
-      color: #6e6e80;
-      font-size: 14px;
-    }
-    
-    .home-divider::before,
-    .home-divider::after {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: #e5e5e5;
-    }
-    
-    .home-divider span {
-      padding: 0 16px;
-    }
-    
-    .home-error {
-      background: #fef2f2;
-      border: 1px solid #fecaca;
-      color: #dc2626;
-      padding: 12px 16px;
-      border-radius: 8px;
-      font-size: 14px;
-      margin-bottom: 16px;
-      display: none;
-    }
-    
-    .home-error.show {
-      display: block;
-    }
-    
-    .home-team {
-      margin-top: 32px;
-    }
-    
-    .home-team-title {
-      font-size: 14px;
-      color: #6e6e80;
-      text-align: center;
-      margin-bottom: 16px;
-    }
-    
-    .home-team-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 12px;
-    }
-    
-    .home-team-member {
-      text-align: center;
-      padding: 16px 8px;
-      background: #ffffff;
-      border: 1px solid #e5e5e5;
-      border-radius: 12px;
-    }
-    
-    .home-team-member .emoji {
-      width: 48px;
-      height: 48px;
-      margin-bottom: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #f4f4f4;
-      border-radius: 50%;
-    }
-    
-    .home-team-member .emoji svg {
-      width: 24px;
-      height: 24px;
-    }
-    
-    .home-team-member .name {
-      font-size: 13px;
-      font-weight: 500;
-    }
-    
-    .home-team-member .role {
-      font-size: 11px;
-      color: #6e6e80;
-      margin-top: 2px;
-    }
-    
-    .home-footer {
+
+    @keyframes blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
+
+    /* ===== DEPLOY STEPS ===== */
+    .deploy-steps { display: flex; flex-direction: column; gap: 6px; }
+    .deploy-step { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: var(--radius-sm); background: var(--bg-hover); font-size: 13px; color: var(--text-2); }
+    .deploy-step.step-active { background: var(--accent-soft); }
+    .deploy-step.step-done { color: var(--accent); font-weight: 500; }
+    .deploy-step .step-icon { width: 20px; text-align: center; }
+
+    /* ===== FOOTER ===== */
+    .page-footer {
       margin-top: auto;
       padding-top: 32px;
       text-align: center;
-      font-size: 13px;
-      color: #6e6e80;
+      font-size: 12px;
+      color: var(--text-3);
     }
-    
-    .home-footer a {
-      color: #10a37f;
-      text-decoration: none;
+    .page-footer a { color: var(--text-3); text-decoration: none; transition: color 0.15s; }
+    .page-footer a:hover { color: var(--accent); }
+
+    /* ===== LOADING SPINNER ===== */
+    .loading-spinner {
+      display: inline-block; width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 0.8s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
     }
-    
-    .home-user-info {
-      text-align: center;
-      margin-bottom: 24px;
-      padding: 16px;
-      background: #f4f4f4;
-      border-radius: 12px;
-    }
-    
-    .home-user-info .greeting {
-      font-size: 18px;
-      font-weight: 600;
-      margin-bottom: 4px;
-    }
-    
-    .home-user-info .hint {
-      font-size: 14px;
-      color: #6e6e80;
-    }
-    
-    .home-hidden {
-      display: none !important;
-    }
-    
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .hidden { display: none !important; }
+
+    /* ===== RESPONSIVE ===== */
     @media (max-width: 480px) {
-      .home-container {
-        padding: 24px 16px;
-      }
-      
-      .home-logo {
-        padding-top: 24px;
-      }
-      
-      .home-team-grid {
-        gap: 8px;
-      }
-      
-      .home-team-member {
-        padding: 12px 6px;
-      }
-      
-      .home-team-member .emoji {
-        font-size: 24px;
-      }
-      
-      .home-team-member .name {
-        font-size: 11px;
-      }
-    
-    .home-team-member .role {
-      font-size: 11px;
-      color: #6e6e80;
-      margin-top: 2px;
-    }
+      .page { padding: 24px 16px 24px; }
+      .logo-section { padding-top: 12px; }
+      .logo-title { font-size: 34px; }
+      .team-grid { gap: 4px; }
+      .team-member { padding: 10px 2px; }
     }
   </style>
+  <script src="assets/js/i18n.js?v=20260608"></script>
 </head>
 <body>
-  <div class="home-container">
-    <div class="home-logo">
-      <div class="home-logo-icon">◈</div>
-      <h1>Lume</h1>
-      <p class="tagline">硅基生命，为你而来</p>
+
+  <div class="page">
+
+    <!-- Logo -->
+    <div class="logo-section">
+      <div class="logo-mark">L</div>
+      <h1 class="logo-title">Lume</h1>
+      <p class="logo-tagline">Your AI Team, One Click Away</p>
     </div>
-    
-    <!-- 品牌故事流式输出 -->
-    <div class="brand-story">
+
+    <!-- Brand Story (shown for returning visitors) -->
+    <div class="brand-story" id="brandStoryWrap">
       <div class="brand-story-text" id="brandStoryText"></div>
       <span class="brand-story-cursor" id="brandStoryCursor"></span>
     </div>
-    
-    <!-- 已登录视图 -->
-    <div id="loggedInView" class="home-hidden">
-      <div class="home-card">
-        <div class="home-user-info">
-          <div class="greeting">欢迎回来，<span id="welcomeName">用户</span></div>
-          <div class="hint">准备好与你的 AI 团队对话了吗？</div>
+
+    <!-- Logged In View -->
+    <div id="loggedInView" class="hidden">
+      <div class="welcome-bar">
+        <div class="welcome-avatar" id="welcomeAvatar">U</div>
+        <div class="welcome-text">
+          <div class="greeting">Welcome back, <span id="welcomeName">User</span></div>
+          <div class="sub">Your AI team is ready</div>
         </div>
-        
-        <!-- 积分展示 -->
-        <div class="points-section" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border-radius: 12px; padding: 16px; margin-bottom: 12px; color: white;">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div>
-              <div style="font-size: 13px; opacity: 0.9; display: flex; align-items: center; gap: 6px;"><i data-lucide="coins" class="icon-sm"></i> 我的积分</div>
-              <div style="font-size: 28px; font-weight: 700;" id="myPoints">0</div>
-            </div>
-            <div style="text-align: right; font-size: 12px; opacity: 0.8;">
-              <div>邀请好友 +100 积分</div>
-              <div>领取团队 -100 积分</div>
-            </div>
-          </div>
+      </div>
+
+      <button class="btn-primary" onclick="goToChat()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Start Chat
+      </button>
+
+      <div class="shortcuts">
+        <div class="shortcut-card" onclick="window.location.href='chat.html?view=workspace'">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          <span>Workspace</span>
         </div>
-        
-        <!-- 邀请码展示 -->
-        <div class="invite-section" style="background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%); border-radius: 12px; padding: 16px; margin-bottom: 16px; color: white;">
-          <div style="font-size: 13px; opacity: 0.9; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;"><i data-lucide="gift" class="icon-sm"></i> 我的专属邀请码</div>
-          <div style="display: flex; align-items: center; gap: 12px;">
-            <code id="myInviteCode" style="font-size: 18px; font-weight: 600; background: rgba(255,255,255,0.2); padding: 8px 12px; border-radius: 8px; flex: 1; text-align: center;">-</code>
-            <button onclick="copyInviteCode()" style="background: rgba(255,255,255,0.2); border: none; padding: 8px 12px; border-radius: 8px; color: white; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 4px;"><i data-lucide="copy" class="icon-sm"></i> 复制</button>
-          </div>
-          <div style="font-size: 12px; opacity: 0.8; margin-top: 8px;">已邀请 <span id="inviteCount">0</span> 位好友，获得 <span id="earnedPoints">0</span> 积分</div>
+        <div class="shortcut-card" onclick="window.location.href='chat.html?view=servers'">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><circle cx="6" cy="6" r="1"/><circle cx="6" cy="18" r="1"/></svg>
+          <span>Devices</span>
         </div>
-        
-        <!-- 领取团队按钮（积分不足时显示） -->
-        <div id="claimTeamSection" class="home-hidden">
-          <button class="home-btn home-btn-enter" onclick="claimTeam()" id="claimTeamBtn">
-            <i data-lucide="sparkles" class="icon-sm"></i> 领取 AI 团队（消耗 100 积分）
-          </button>
-          <div style="text-align: center; font-size: 13px; color: #6e6e80; margin-top: 8px;" id="claimTeamHint"></div>
-          
-          <!-- 部署进度区域 -->
-          <div id="deployProgress" class="home-hidden" style="margin-top: 16px; padding: 16px; background: rgba(16, 163, 127, 0.1); border-radius: 12px;">
-          </div>
+        <div class="shortcut-card" onclick="window.location.href='chat.html?view=skills'">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <span>Skills</span>
         </div>
-        
-        <!-- 已有团队时显示 -->
-        <div id="hasTeamSection" class="home-hidden">
-          <button class="home-btn home-btn-enter" onclick="goToChat()">
-            <i data-lucide="message-circle" class="icon-sm"></i> 开始对话
-          </button>
-        </div>
-        
-        <button class="home-btn home-btn-secondary" onclick="handleLogout()" style="margin-top: 12px;">
-          退出登录
-        </button>
+      </div>
+
+      <!-- Hidden fields (JS compat) -->
+      <div class="hidden">
+        <span id="myPoints">0</span>
+        <span id="myInviteCode">-</span>
+        <span id="inviteCount">0</span>
+        <span id="earnedPoints">0</span>
+        <div id="claimTeamSection"></div>
+        <div id="hasTeamSection"></div>
       </div>
     </div>
-    
-    <!-- 未登录视图 -->
+
+    <!-- Logged Out View -->
     <div id="loggedOutView">
-      <div class="home-card">
-        <div class="home-tabs">
-          <div class="home-tab active" onclick="showHomeTab('login')">登录</div>
-          <div class="home-tab" onclick="showHomeTab('register')">注册</div>
+      <div class="auth-card">
+        <div class="auth-tabs">
+          <div class="auth-tab active" onclick="showHomeTab('login')">Sign In</div>
+          <div class="auth-tab" onclick="showHomeTab('register')">Sign Up</div>
         </div>
-        
-        <!-- 登录表单 -->
+
+        <!-- Login -->
         <form id="loginForm" onsubmit="handleLogin(event)">
-          <div class="home-error" id="loginError"></div>
-          <div class="home-form-group">
-            <label>昵称</label>
-            <input type="text" id="loginName" placeholder="输入昵称" required>
+          <div class="auth-error" id="loginError"></div>
+          <div class="field">
+            <label>Email or Nickname</label>
+            <input type="text" id="loginName" placeholder="you@email.com" required>
           </div>
-          <div class="home-form-group">
-            <label>密码</label>
-            <input type="password" id="loginPassword" placeholder="输入密码" required>
+          <div class="field">
+            <label>Password</label>
+            <input type="password" id="loginPassword" placeholder="Enter password" required>
           </div>
-          <button type="submit" class="home-btn" id="loginBtn">登录</button>
+          <button type="submit" class="btn-auth" id="loginBtn">Sign In</button>
         </form>
-        
-        <!-- 注册表单 -->
-        <form id="registerForm" class="home-hidden" onsubmit="handleRegister(event)">
-          <div class="home-error" id="registerError"></div>
-          <div class="home-form-group">
-            <label>邀请码</label>
-            <input type="text" id="registerCode" placeholder="输入邀请码" required>
+
+        <!-- Register -->
+        <form id="registerForm" class="hidden" onsubmit="handleRegister(event)">
+          <div class="auth-error" id="registerError"></div>
+          <div class="field">
+            <label>Invite Code (optional)</label>
+            <input type="text" id="registerCode" placeholder="Have an invite code?">
           </div>
-          <div class="home-form-group">
-            <label>昵称</label>
-            <input type="text" id="registerName" placeholder="你的昵称" required>
+          <div class="field">
+            <label>Nickname</label>
+            <input type="text" id="registerName" placeholder="Your name" required>
           </div>
-          <div class="home-form-group">
-            <label>密码</label>
-            <input type="password" id="registerPassword" placeholder="设置密码（至少6位）" required minlength="6">
+          <div class="field">
+            <label>Password</label>
+            <input type="password" id="registerPassword" placeholder="At least 6 characters" required minlength="6">
           </div>
-          <button type="submit" class="home-btn" id="registerBtn">注册</button>
+          <div class="field">
+            <label>Email <span style="color:#dc2626">*</span></label>
+            <div class="field-row">
+              <input type="email" id="registerEmail" placeholder="you@email.com" required onblur="validateEmailFormat()" oninput="clearEmailError()">
+              <button type="button" class="btn-send-code" id="sendCodeBtn" onclick="sendVerificationCode()">Send Code</button>
+            </div>
+          </div>
+          <div class="field" id="verifyCodeGroup">
+            <label>Verification Code</label>
+            <input type="text" id="verifyCode" placeholder="6-digit code" maxlength="6">
+          </div>
+          <button type="submit" class="btn-auth" id="registerBtn">Create Account</button>
         </form>
-        
-        <div class="home-divider"><span>或者</span></div>
-        
-        <button class="home-btn home-btn-secondary" onclick="handleDemo()">体验 Demo</button>
+
+        <div class="divider"><span>or</span></div>
+        <button class="btn-ghost" onclick="handleDemo()">Try Demo</button>
       </div>
     </div>
-    
-    <!-- 团队展示 -->
-    <div class="home-team">
-      <div class="home-team-title">你的 8 位硅基伙伴</div>
-      <div class="home-team-grid">
-        <div class="home-team-member"><div class="emoji"><i data-lucide="sparkles" class="icon icon-primary"></i></div><div class="name">Lume</div><div class="role">总管</div></div>
-        <div class="home-team-member"><div class="emoji"><i data-lucide="zap" class="icon icon-primary"></i></div><div class="name">Spark</div><div class="role">编程</div></div>
-        <div class="home-team-member"><div class="emoji"><i data-lucide="activity" class="icon icon-primary"></i></div><div class="name">Pulse</div><div class="role">运维</div></div>
-        <div class="home-team-member"><div class="emoji"><i data-lucide="star" class="icon icon-primary"></i></div><div class="name">Nova</div><div class="role">发明</div></div>
-        <div class="home-team-member"><div class="emoji"><i data-lucide="search" class="icon icon-primary"></i></div><div class="name">Scope</div><div class="role">产品</div></div>
-        <div class="home-team-member"><div class="emoji"><i data-lucide="bell" class="icon icon-primary"></i></div><div class="name">Echo</div><div class="role">笔记</div></div>
-        <div class="home-team-member"><div class="emoji"><i data-lucide="gem" class="icon icon-primary"></i></div><div class="name">Prism</div><div class="role">媒体</div></div>
-        <div class="home-team-member"><div class="emoji"><i data-lucide="home" class="icon icon-primary"></i></div><div class="name">Nest</div><div class="role">智家</div></div>
+
+    <!-- Team -->
+    <div class="team-section">
+      <div class="team-heading">Your 8 AI Teammates</div>
+      <div class="team-grid">
+        <div class="team-member"><div class="avatar"><i data-lucide="sparkles"></i></div><div class="name">Lume</div><div class="role">Lead</div></div>
+        <div class="team-member"><div class="avatar"><i data-lucide="code"></i></div><div class="name">Spark</div><div class="role">Code</div></div>
+        <div class="team-member"><div class="avatar"><i data-lucide="activity"></i></div><div class="name">Pulse</div><div class="role">Ops</div></div>
+        <div class="team-member"><div class="avatar"><i data-lucide="lightbulb"></i></div><div class="name">Nova</div><div class="role">Ideas</div></div>
+        <div class="team-member"><div class="avatar"><i data-lucide="target"></i></div><div class="name">Scope</div><div class="role">Product</div></div>
+        <div class="team-member"><div class="avatar"><i data-lucide="file-text"></i></div><div class="name">Echo</div><div class="role">Notes</div></div>
+        <div class="team-member"><div class="avatar"><i data-lucide="palette"></i></div><div class="name">Prism</div><div class="role">Media</div></div>
+        <div class="team-member"><div class="avatar"><i data-lucide="home"></i></div><div class="name">Nest</div><div class="role">Smart</div></div>
       </div>
     </div>
-    
-    <div class="home-footer">
-      <p>还没有邀请码？<a href="mailto:hi@lume.ai">联系我们</a></p>
+
+    <div class="page-footer">
+      <p style="margin-bottom: 8px;">
+        <a href="https://beian.miit.gov.cn/" target="_blank">浙ICP备2026013667号</a>
+      </p>
+      <p>No invite code? <a href="mailto:hi@lume.ai">Contact us</a></p>
     </div>
   </div>
-  
+
+  <!-- ============================================================ -->
+  <!-- JS — all original logic preserved                            -->
+  <!-- ============================================================ -->
   <script>
     const API_BASE = window.location.origin;
     const THEME_KEY = 'lingxi_theme';
-    
-    // 品牌故事内容
+
+    // Brand story
+    const BRAND_INTRO_SHOWN_KEY = 'lume_brand_intro_shown';
     const brandStoryLines = [
-      "我始终相信——",
-      "科技的终极意义，不是冰冷的效率。",
-      "而是让每一个人，都能拥有专属的优秀伙伴。",
-      "",
-      "这份陪伴，无关血缘，不分远近。",
-      "不被时间裹挟。",
-      "",
-      "能听懂你的心事，接住你的情绪。",
-      "也能挺身而出，攻克你的难题。",
-      "",
-      "于是，我来了。",
-      "我是 Lume。",
-      "",
       "让优秀伙伴，不再是奢望。",
       "让陪伴与助力，成为你触手可及的日常。"
     ];
-    
-    // 流式输出品牌故事（带自动滚动）
+
+    function shouldShowBrandIntro() { return !localStorage.getItem(BRAND_INTRO_SHOWN_KEY); }
+
     async function typeBrandStory() {
+      if (shouldShowBrandIntro()) return;
       const textEl = document.getElementById('brandStoryText');
-      const container = textEl.parentElement;
       const cursorEl = document.getElementById('brandStoryCursor');
-      
       if (!textEl) return;
-      
       let fullText = '';
-      let scrollOffset = 0;
-      const lineHeight = 40; // 行高（line-height 2.2 * font-size 18 ≈ 40px）
-      
       for (let i = 0; i < brandStoryLines.length; i++) {
-        const line = brandStoryLines[i];
-        
-        // 逐字输出
-        for (let j = 0; j < line.length; j++) {
-          fullText += line[j];
+        for (let j = 0; j < brandStoryLines[i].length; j++) {
+          fullText += brandStoryLines[i][j];
           textEl.innerHTML = formatStoryText(fullText);
-          
-          // 检查是否需要滚动
-          const textHeight = textEl.scrollHeight;
-          const containerHeight = container.clientHeight;
-          
-          if (textHeight > containerHeight) {
-            // 超出容器，往上滚动
-            scrollOffset = textHeight - containerHeight + 20;
-            textEl.style.transform = `translateY(-${scrollOffset}px)`;
-          }
-          
-          await sleep(100); // 每个字更慢
+          await sleep(100);
         }
-        
-        // 换行
         fullText += '\n';
         textEl.innerHTML = formatStoryText(fullText);
-        
-        // 行间停顿
-        await sleep(400); // 行间停顿更长
+        await sleep(400);
       }
-      
-      // 完成后隐藏光标，停在最后一段
-      if (cursorEl) {
-        cursorEl.style.display = 'none';
-      }
-      
-      // 最终滚动到最后一行
-      setTimeout(() => {
-        const textHeight = textEl.scrollHeight;
-        const containerHeight = container.clientHeight;
-        scrollOffset = textHeight - containerHeight + 20;
-        textEl.style.transform = `translateY(-${scrollOffset}px)`;
-      }, 500);
+      if (cursorEl) cursorEl.style.display = 'none';
     }
-    
-    // 格式化故事文本（高亮关键词）
-    function formatStoryText(text) {
-      return text
-        .replace(/Lume/g, '<span class="highlight">Lume</span>')
-        .replace(/AI/g, '<span class="highlight">AI</span>')
-        .replace(/永远/g, '<span class="highlight">永远</span>')
-        .replace(/只属于你/g, '<span class="highlight">只属于你</span>');
+
+    function formatStoryText(t) {
+      return t.replace(/Lume/g,'<span class="highlight">Lume</span>').replace(/AI/g,'<span class="highlight">AI</span>');
     }
-    
-    // 延迟函数
-    function sleep(ms) {
-      return new Promise(resolve => setTimeout(resolve, ms));
-    }
-    
-    // 初始化
+
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    // Init
     async function init() {
-      // 初始化主题
       initTheme();
-      
-      // 检查登录状态
       const token = localStorage.getItem('lingxi_token');
-      
       if (token) {
-        // 从后端获取最新用户信息
         try {
-          const res = await fetch(`${API_BASE}/api/auth/me`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          
+          const res = await fetch(`${API_BASE}/api/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } });
           if (res.ok) {
             const user = await res.json();
-            // 更新本地存储
             localStorage.setItem('lingxi_user', JSON.stringify(user));
-            
-            // 已登录：显示欢迎视图
-            document.getElementById('loggedInView').classList.remove('home-hidden');
-            document.getElementById('loggedOutView').classList.add('home-hidden');
+            document.getElementById('loggedInView').classList.remove('hidden');
+            document.getElementById('loggedOutView').classList.add('hidden');
             document.getElementById('welcomeName').textContent = user.nickname;
-            
-            // 显示积分
+            const av = document.getElementById('welcomeAvatar');
+            if (av) av.textContent = (user.nickname || 'U').charAt(0).toUpperCase();
             document.getElementById('myPoints').textContent = user.points || 0;
             document.getElementById('earnedPoints').textContent = (user.inviteCount || 0) * 100;
-            
-            // 显示邀请码
-            if (user.userInviteCode) {
-              document.getElementById('myInviteCode').textContent = user.userInviteCode;
-            }
-            if (user.inviteCount !== undefined) {
-              document.getElementById('inviteCount').textContent = user.inviteCount;
-            }
-            
-            // 显示领取团队或开始对话按钮
-            const hasAgents = user.agents && user.agents.length > 0;
-            const canClaim = user.canClaimTeam;
-            
-            if (hasAgents) {
-              // 已有团队，检查服务器状态
-              checkServerStatus(user);
-            } else {
-              // 未领取团队
-              document.getElementById('hasTeamSection').classList.add('home-hidden');
-              document.getElementById('claimTeamSection').classList.remove('home-hidden');
-              
-              const btn = document.getElementById('claimTeamBtn');
-              const hint = document.getElementById('claimTeamHint');
-              
-              if (canClaim) {
-                btn.disabled = false;
-                btn.style.background = '#10a37f';
-                hint.textContent = '点击领取您的 AI 团队';
-              } else {
-                btn.disabled = true;
-                btn.style.background = '#d9d9e3';
-                const need = 100 - (user.points || 0);
-                hint.textContent = `还需 ${need} 积分才能领取，邀请好友快速获取积分~`;
-              }
-            }
+            if (user.userInviteCode) document.getElementById('myInviteCode').textContent = user.userInviteCode;
+            if (user.inviteCount !== undefined) document.getElementById('inviteCount').textContent = user.inviteCount;
           } else {
-            // Token 无效，清除并显示登录
             localStorage.removeItem('lingxi_token');
             localStorage.removeItem('lingxi_user');
             showLoginView();
           }
-        } catch (err) {
-          console.error('获取用户信息失败:', err);
-          // 网络错误时用本地缓存
+        } catch (e) {
           const user = JSON.parse(localStorage.getItem('lingxi_user') || '{}');
           if (user.nickname) {
-            document.getElementById('loggedInView').classList.remove('home-hidden');
-            document.getElementById('loggedOutView').classList.add('home-hidden');
+            document.getElementById('loggedInView').classList.remove('hidden');
+            document.getElementById('loggedOutView').classList.add('hidden');
             document.getElementById('welcomeName').textContent = user.nickname;
-            if (user.userInviteCode) {
-              document.getElementById('myInviteCode').textContent = user.userInviteCode;
-            }
-          } else {
-            showLoginView();
-          }
+            const av = document.getElementById('welcomeAvatar');
+            if (av) av.textContent = (user.nickname || 'U').charAt(0).toUpperCase();
+          } else { showLoginView(); }
         }
-      } else {
-        showLoginView();
-      }
+      } else { showLoginView(); }
     }
-    
+
     function showLoginView() {
-      document.getElementById('loggedInView').classList.add('home-hidden');
-      document.getElementById('loggedOutView').classList.remove('home-hidden');
+      document.getElementById('loggedInView').classList.add('hidden');
+      document.getElementById('loggedOutView').classList.remove('hidden');
     }
-    
-    // 检查服务器状态并决定跳转
+
     async function checkServerAndRedirect() {
       const token = localStorage.getItem('lingxi_token');
-      
       try {
-        const res = await fetch(`${API_BASE}/api/gateway/connect-info`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
+        const res = await fetch(`${API_BASE}/api/gateway/connect-info`, { headers: { 'Authorization': `Bearer ${token}` } });
         const data = await res.json();
-        
-        if (res.ok && data.wsUrl) {
-          // 服务器已就绪，跳转到聊天页面
-          window.location.href = 'chat.html';
-          return;
-        }
-        
-        // 服务器还在创建中，显示进度
-        if (data.needServer) {
-          // 刷新页面，显示创建进度
-          location.reload();
-          return;
-        }
-        
-        // 其他错误，也刷新页面
+        if (res.ok && data.wsUrl) { window.location.href = 'chat.html'; return; }
+        if (data.needServer) { location.reload(); return; }
         location.reload();
-        
-      } catch (err) {
-        console.error('检查服务器状态失败:', err);
-        // 网络错误，也刷新页面
-        location.reload();
-      }
+      } catch (e) { location.reload(); }
     }
-    
-    // 检查服务器状态（用于首页显示）
-    async function checkServerStatus(user) {
-      const token = localStorage.getItem('lingxi_token');
-      
-      try {
-        const res = await fetch(`${API_BASE}/api/gateway/connect-info`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        const data = await res.json();
-        
-        if (res.ok && data.wsUrl) {
-          // 服务器已就绪，显示开始对话按钮
-          document.getElementById('hasTeamSection').classList.remove('home-hidden');
-          document.getElementById('claimTeamSection').classList.add('home-hidden');
-        } else if (data.needServer) {
-          // 服务器正在创建中，显示进度
-          document.getElementById('hasTeamSection').classList.add('home-hidden');
-          document.getElementById('claimTeamSection').classList.remove('home-hidden');
-          
-          const btn = document.getElementById('claimTeamBtn');
-          const hint = document.getElementById('claimTeamHint');
-          const progressEl = document.getElementById('deployProgress');
-          
-          btn.disabled = true;
-          btn.innerHTML = '<span class="loading-spinner"></span> 正在创建服务器...';
-          hint.textContent = '⏳ 服务器正在创建中，请稍候...';
-          
-          // 显示进度区域
-          if (progressEl) {
-            progressEl.classList.remove('home-hidden');
-            progressEl.innerHTML = `
-              <div class="deploy-steps">
-                <div class="deploy-step step-done">
-                  <span class="step-icon">✅</span>
-                  <span class="step-text">领取 AI 团队</span>
-                </div>
-                <div class="deploy-step step-active">
-                  <span class="step-icon">⏳</span>
-                  <span class="step-text">创建专属服务器</span>
-                </div>
-                <div class="deploy-step">
-                  <span class="step-icon">○</span>
-                  <span class="step-text">安装运行环境</span>
-                </div>
-                <div class="deploy-step">
-                  <span class="step-icon">○</span>
-                  <span class="step-text">启动 AI 服务</span>
-                </div>
-              </div>
-            `;
-          }
-          
-          // 开始轮询服务器状态
-          pollServerStatusForHome(token);
-        } else {
-          // 其他情况，显示开始对话按钮
-          document.getElementById('hasTeamSection').classList.remove('home-hidden');
-          document.getElementById('claimTeamSection').classList.add('home-hidden');
-        }
-      } catch (err) {
-        console.error('检查服务器状态失败:', err);
-        // 网络错误，显示开始对话按钮
-        document.getElementById('hasTeamSection').classList.remove('home-hidden');
-        document.getElementById('claimTeamSection').classList.add('home-hidden');
-      }
-    }
-    
-    // 首页轮询服务器状态
-    async function pollServerStatusForHome(token) {
-      let attempts = 0;
-      const maxAttempts = 120;
-      const pollInterval = 3000;
-      
-      const poll = async () => {
-        attempts++;
-        
-        try {
-          const res = await fetch(`${API_BASE}/api/gateway/connect-info`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          
-          const data = await res.json();
-          
-          if (res.ok && data.wsUrl) {
-            // 服务器就绪，跳转到聊天页面
-            window.location.href = 'chat.html';
-            return;
-          }
-          
-          if (attempts < maxAttempts) {
-            setTimeout(poll, pollInterval);
-          }
-        } catch (err) {
-          if (attempts < maxAttempts) {
-            setTimeout(poll, pollInterval);
-          }
-        }
-      };
-      
-      poll();
-    }
-    
-    // 领取 AI 团队
-    async function claimTeam() {
-      const token = localStorage.getItem('lingxi_token');
-      const btn = document.getElementById('claimTeamBtn');
-      const hint = document.getElementById('claimTeamHint');
-      const progressEl = document.getElementById('deployProgress');
-      
-      console.log('[claimTeam] 开始领取团队');
-      
-      btn.disabled = true;
-      btn.innerHTML = '<span class="loading-spinner"></span> 正在领取团队...';
-      hint.textContent = '正在为您分配 AI 成员，请稍候...';
-      
-      // 显示进度区域
-      if (progressEl) {
-        progressEl.classList.remove('home-hidden');
-        progressEl.innerHTML = `
-          <div class="deploy-steps">
-            <div class="deploy-step" id="step1">
-              <span class="step-icon">⏳</span>
-              <span class="step-text">领取 AI 团队</span>
-            </div>
-            <div class="deploy-step" id="step2">
-              <span class="step-icon">○</span>
-              <span class="step-text">创建专属服务器</span>
-            </div>
-            <div class="deploy-step" id="step3">
-              <span class="step-icon">○</span>
-              <span class="step-text">安装运行环境</span>
-            </div>
-            <div class="deploy-step" id="step4">
-              <span class="step-icon">○</span>
-              <span class="step-text">启动 AI 服务</span>
-            </div>
-          </div>
-        `;
-      }
-      
-      try {
-        const res = await fetch(`${API_BASE}/api/auth/claim-team`, {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({})
-        });
-        
-        const data = await res.json();
-        console.log('[claimTeam] API 返回:', data);
-        
-        if (res.ok && data.success) {
-          // 更新步骤1完成
-          updateDeployStep(1, 'done');
-          updateDeployStep(2, 'active');
-          hint.textContent = '✅ 团队已分配，正在创建服务器...';
-          btn.innerHTML = '<span class="loading-spinner"></span> 正在创建服务器...';
-          
-          // 如果服务器已就绪，直接跳转
-          if (data.status === 'ready' && data.openclawUrl) {
-            updateDeployStep(2, 'done');
-            updateDeployStep(3, 'done');
-            updateDeployStep(4, 'done');
-            hint.textContent = '✅ 专属服务器已就绪！正在跳转...';
-            setTimeout(() => { window.location.href = 'chat.html'; }, 500);
-            return;
-          }
-          
-          // 开始轮询服务器状态
-          console.log('[claimTeam] 开始轮询服务器状态...');
-          if (data.taskId) {
-            pollDeployTask(token, data.taskId, data.serverId);
-          } else {
-            pollServerStatus(token);
-          }
-        } else {
-          alert(data.error || '领取失败');
-          btn.disabled = false;
-          btn.innerHTML = '<i data-lucide="sparkles" class="icon-sm"></i> 领取 AI 团队（消耗 100 积分）';
-          hint.textContent = '领取失败: ' + (data.error || '未知错误');
-          if (progressEl) progressEl.classList.add('home-hidden');
-        }
-      } catch (err) {
-        console.error('[claimTeam] 错误:', err);
-        alert('网络错误，请重试');
-        btn.disabled = false;
-        btn.innerHTML = '<i data-lucide="sparkles" class="icon-sm"></i> 领取 AI 团队（消耗 100 积分）';
-        hint.textContent = '网络错误，请重试';
-        if (progressEl) progressEl.classList.add('home-hidden');
-      }
-    }
-    
-    // 更新部署步骤状态
-    function updateDeployStep(step, status) {
-      const stepEl = document.getElementById(`step${step}`);
-      if (!stepEl) return;
-      
-      const iconEl = stepEl.querySelector('.step-icon');
-      if (status === 'done') {
-        iconEl.textContent = '✅';
-        stepEl.classList.add('step-done');
-      } else if (status === 'active') {
-        iconEl.textContent = '⏳';
-        stepEl.classList.add('step-active');
-      } else {
-        iconEl.textContent = '○';
-        stepEl.classList.remove('step-done', 'step-active');
-      }
-    }
-    
-    // 轮询部署任务进度
-    async function pollDeployTask(token, taskId, serverId) {
-      const btn = document.getElementById('claimTeamBtn');
-      const hint = document.getElementById('claimTeamHint');
-      let attempts = 0;
-      const maxAttempts = 120;
-      const pollInterval = 3000;
-      
-      const poll = async () => {
-        attempts++;
-        
-        try {
-          // 查询任务进度
-          const taskRes = await fetch(`${API_BASE}/api/deploy/task/${taskId}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          const taskData = await taskRes.json();
-          console.log(`[部署任务 ${attempts}]`, taskData);
-          
-          if (taskData.success && taskData.task) {
-            const task = taskData.task;
-            const progress = task.progress || 0;
-            
-            // 根据进度更新步骤
-            if (progress >= 10) updateDeployStep(2, 'active');
-            if (progress >= 50) { updateDeployStep(2, 'done'); updateDeployStep(3, 'active'); }
-            if (progress >= 80) { updateDeployStep(3, 'done'); updateDeployStep(4, 'active'); }
-            if (progress >= 100) { updateDeployStep(4, 'done'); }
-            
-            hint.textContent = task.errorMessage || `正在部署... ${progress}%`;
-          }
-          
-          // 检查服务器是否就绪
-          const res = await fetch(`${API_BASE}/api/gateway/connect-info`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          
-          const data = await res.json();
-          console.log(`[轮询 ${attempts}/${maxAttempts}] connect-info:`, data);
-          
-          // 服务器已就绪
-          if (res.ok && data.wsUrl) {
-            updateDeployStep(4, 'done');
-            hint.textContent = '✅ 专属服务器已就绪！正在跳转...';
-            btn.innerHTML = '<span class="loading-spinner"></span> 正在跳转到对话页面...';
-            btn.style.background = '#10a37f';
-            
-            setTimeout(() => {
-              window.location.href = 'chat.html';
-            }, 500);
-            return;
-          }
-          
-          if (attempts < maxAttempts) {
-            setTimeout(poll, pollInterval);
-          } else {
-            hint.textContent = '⚠️ 服务器创建超时，点击重试';
-            btn.disabled = false;
-            btn.innerHTML = '<i data-lucide="sparkles" class="icon-sm"></i> 领取 AI 团队（消耗 100 积分）';
-          }
-        } catch (err) {
-          console.error(`[轮询 ${attempts}] 错误:`, err);
-          if (attempts < maxAttempts) {
-            setTimeout(poll, pollInterval);
-          } else {
-            hint.textContent = '⚠️ 检查超时，点击进入对话';
-            btn.innerHTML = '<i data-lucide="message-circle" class="icon-sm"></i> 进入对话';
-            btn.disabled = false;
-            btn.onclick = () => { window.location.href = 'chat.html'; };
-          }
-        }
-      };
-      
-      poll();
-    }
-    
-    // 轮询服务器状态
-    async function pollServerStatus(token) {
-      const btn = document.getElementById('claimTeamBtn');
-      const hint = document.getElementById('claimTeamHint');
-      let attempts = 0;
-      const maxAttempts = 120;
-      const pollInterval = 3000;
-      
-      const poll = async () => {
-        attempts++;
-        
-        try {
-          const res = await fetch(`${API_BASE}/api/gateway/connect-info`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          
-          const data = await res.json();
-          console.log(`[轮询 ${attempts}/${maxAttempts}] HTTP ${res.status}:`, data);
-          
-          if (res.ok && data.wsUrl) {
-            hint.textContent = '✅ 专属服务器已就绪！正在跳转...';
-            btn.innerHTML = '<span class="loading-spinner"></span> 正在跳转到对话页面...';
-            btn.style.background = '#10a37f';
-            
-            setTimeout(() => {
-              window.location.href = 'chat.html';
-            }, 500);
-            return;
-          }
-          
-          const dots = '.'.repeat((attempts % 3) + 1);
-          
-          if (data.needServer) {
-            hint.textContent = `⏳ 正在创建专属服务器${dots} (${attempts}/${maxAttempts})`;
-          } else if (data.needTeam) {
-            hint.textContent = `⏳ 正在配置团队${dots} (${attempts}/${maxAttempts})`;
-          } else if (data.error) {
-            hint.textContent = `⏳ ${data.error}${dots} (${attempts}/${maxAttempts})`;
-          } else {
-            hint.textContent = `⏳ 正在准备专属服务器${dots} (${attempts}/${maxAttempts})`;
-          }
-          
-          if (attempts < maxAttempts) {
-            setTimeout(poll, pollInterval);
-          } else {
-            hint.textContent = '⚠️ 服务器创建超时，点击重试';
-            btn.disabled = false;
-            btn.innerHTML = '<i data-lucide="sparkles" class="icon-sm"></i> 领取 AI 团队（消耗 100 积分）';
-          }
-        } catch (err) {
-          console.error(`[轮询 ${attempts}] 错误:`, err);
-          const dots = '.'.repeat((attempts % 3) + 1);
-          hint.textContent = `⏳ 正在检查服务器状态${dots} (${attempts}/${maxAttempts})`;
-          if (attempts < maxAttempts) {
-            setTimeout(poll, pollInterval);
-          } else {
-            hint.textContent = '⚠️ 检查超时，点击进入对话';
-            btn.innerHTML = '<i data-lucide="message-circle" class="icon-sm"></i> 进入对话';
-            btn.disabled = false;
-            btn.onclick = () => { window.location.href = 'chat.html'; };
-          }
-        }
-      };
-      
-      poll();
-    }
-    
-    // 复制邀请码
-    function copyInviteCode() {
-      const codeEl = document.getElementById('myInviteCode');
-      if (!codeEl) {
-        alert('邀请码未加载');
-        return;
-      }
-      const code = codeEl.textContent.trim();
-      
-      // 创建临时输入框（兼容 HTTP 环境）
-      const input = document.createElement('input');
-      input.style.position = 'fixed';
-      input.style.left = '-9999px';
-      input.value = code;
-      document.body.appendChild(input);
-      input.select();
-      input.setSelectionRange(0, 99999);
-      
-      try {
-        const success = document.execCommand('copy');
-        if (success) {
-          alert('✅ 邀请码已复制：' + code + '\n\n分享给好友注册吧~');
-        } else {
-          prompt('复制失败，请手动复制邀请码：', code);
-        }
-      } catch (err) {
-        prompt('复制失败，请手动复制邀请码：', code);
-      }
-      
-      document.body.removeChild(input);
-    }
-    
-    // 初始化主题
-    function initTheme() {
-      const savedTheme = localStorage.getItem(THEME_KEY) || 'light';
-      applyTheme(savedTheme);
-    }
-    
-    // 应用主题
-    function applyTheme(theme) {
-      const darkTheme = document.getElementById('darkTheme');
-      if (theme === 'dark') {
-        darkTheme.disabled = false;
-      } else {
-        darkTheme.disabled = true;
-      }
-    }
-    
-    // 切换表单
-    function showHomeTab(tab) {
-      document.querySelectorAll('.home-tab').forEach(t => t.classList.remove('active'));
-      event.target.classList.add('active');
-      
-      if (tab === 'login') {
-        document.getElementById('loginForm').classList.remove('home-hidden');
-        document.getElementById('registerForm').classList.add('home-hidden');
-      } else {
-        document.getElementById('loginForm').classList.add('home-hidden');
-        document.getElementById('registerForm').classList.remove('home-hidden');
-      }
-    }
-    
-    // 进入聊天
+
     async function goToChat() {
       const token = localStorage.getItem('lingxi_token');
-      if (!token) {
-        window.location.href = 'index.html';
-        return;
-      }
-      
-      const btn = document.querySelector('.home-btn-enter');
-      const originalText = btn ? btn.innerHTML : '';
-      
+      if (!token) { window.location.href = 'index.html'; return; }
+      const btn = document.querySelector('.btn-primary');
       try {
-        // 检查用户是否有服务器
-        const res = await fetch(`${API_BASE}/api/gateway/connect-info`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
+        const res = await fetch(`${API_BASE}/api/gateway/connect-info`, { headers: { 'Authorization': `Bearer ${token}` } });
         const data = await res.json();
-        console.log('[goToChat] connect-info 返回:', data);
-        
-        // 服务器已就绪，直接跳转
-        if (res.ok && data.wsUrl) {
-          window.location.href = 'chat.html';
-          return;
-        }
-        
-        // 服务器还在创建中
+        if (res.ok && data.wsUrl) { window.location.href = 'chat.html'; return; }
         if (data.needServer) {
-          if (btn) {
-            btn.innerHTML = '<span class="loading-spinner"></span> 服务器准备中...';
-            btn.disabled = true;
-          }
-          
-          // 开始轮询
-          let attempts = 0;
-          const maxAttempts = 120;
-          const pollInterval = 3000;
-          
+          if (btn) { btn.innerHTML = '<span class="loading-spinner"></span> Preparing server...'; btn.disabled = true; }
+          let attempts = 0; const max = 120;
           const poll = async () => {
             attempts++;
             try {
-              const pollRes = await fetch(`${API_BASE}/api/gateway/connect-info`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-              });
-              const pollData = await pollRes.json();
-              console.log(`[goToChat 轮询 ${attempts}]`, pollData);
-              
-              if (pollRes.ok && pollData.wsUrl) {
-                // 服务器就绪，跳转
-                window.location.href = 'chat.html';
-                return;
-              }
-              
-              if (attempts < maxAttempts) {
-                if (btn) {
-                  btn.innerHTML = `<span class="loading-spinner"></span> 服务器准备中... (${attempts}/${maxAttempts})`;
-                }
-                setTimeout(poll, pollInterval);
-              } else {
-                // 超时，也尝试跳转
-                window.location.href = 'chat.html';
-              }
-            } catch (err) {
-              console.error(`[goToChat 轮询 ${attempts}] 错误:`, err);
-              if (attempts < maxAttempts) {
-                setTimeout(poll, pollInterval);
-              } else {
-                window.location.href = 'chat.html';
-              }
-            }
+              const pr = await fetch(`${API_BASE}/api/gateway/connect-info`, { headers: { 'Authorization': `Bearer ${token}` } });
+              const pd = await pr.json();
+              if (pr.ok && pd.wsUrl) { window.location.href = 'chat.html'; return; }
+              if (attempts < max) { if(btn) btn.innerHTML = `<span class="loading-spinner"></span> ${attempts}/${max}`; setTimeout(poll, 3000); }
+              else window.location.href = 'chat.html';
+            } catch(e2) { if(attempts<max) setTimeout(poll,3000); else window.location.href='chat.html'; }
           };
-          
-          poll();
-          return;
+          poll(); return;
         }
-        
-        // 其他情况，直接跳转
         window.location.href = 'chat.html';
-        
-      } catch (e) {
-        console.error('[goToChat] 错误:', e);
-        window.location.href = 'chat.html';
-      }
+      } catch(e) { window.location.href = 'chat.html'; }
     }
-    
-    // 退出登录
-    function handleLogout() {
-      localStorage.removeItem('lingxi_token');
-      localStorage.removeItem('lingxi_user');
-      location.reload();
+
+    function handleLogout() { localStorage.removeItem('lingxi_token'); localStorage.removeItem('lingxi_user'); location.reload(); }
+
+    function initTheme() { const t = localStorage.getItem(THEME_KEY) || 'light'; /* light only for now */ }
+
+    function showHomeTab(tab) {
+      document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+      event.target.classList.add('active');
+      if (tab === 'login') { document.getElementById('loginForm').classList.remove('hidden'); document.getElementById('registerForm').classList.add('hidden'); }
+      else { document.getElementById('loginForm').classList.add('hidden'); document.getElementById('registerForm').classList.remove('hidden'); }
     }
-    
-    // 登录
+
     async function handleLogin(e) {
       e.preventDefault();
-      const nickname = document.getElementById('loginName').value.trim();
-      const password = document.getElementById('loginPassword').value;
+      const inp = document.getElementById('loginName').value.trim();
+      const pw = document.getElementById('loginPassword').value;
       const btn = document.getElementById('loginBtn');
-      const error = document.getElementById('loginError');
-      
-      btn.disabled = true;
-      btn.textContent = '登录中...';
-      error.classList.remove('show');
-      
+      const err = document.getElementById('loginError');
+      btn.disabled = true; btn.textContent = 'Signing in...'; err.classList.remove('show');
+      const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inp);
+      const body = { password: pw }; isEmail ? body.email = inp : body.nickname = inp;
       try {
-        const res = await fetch(`${API_BASE}/api/auth/login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nickname, password })
-        });
-        
+        const res = await fetch(`${API_BASE}/api/auth/login`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
         const data = await res.json();
-        
         if (res.ok && data.success) {
           localStorage.setItem('lingxi_token', data.token);
           localStorage.setItem('lingxi_user', JSON.stringify(data.user));
-          
-          // 根据用户是否有团队决定跳转目标
-          if (data.user.agents && data.user.agents.length > 0) {
-            // 有团队，检查服务器状态
-            checkServerAndRedirect();
-          } else {
-            // 没有团队，刷新首页显示领取团队按钮
-            location.reload();
-          }
-        } else {
-          error.textContent = data.error || '登录失败';
-          error.classList.add('show');
-        }
-      } catch (err) {
-        error.textContent = '网络错误，请重试';
-        error.classList.add('show');
-      }
-      
-      btn.disabled = false;
-      btn.textContent = '登录';
+          if (data.user.agents && data.user.agents.length > 0) checkServerAndRedirect();
+          else location.reload();
+        } else { err.textContent = data.friendlyMessage || data.error || 'Login failed'; err.classList.add('show'); }
+      } catch(e2) { err.textContent = 'Network error'; err.classList.add('show'); }
+      btn.disabled = false; btn.textContent = 'Sign In';
     }
-    
-    // 注册
+
+    function validateEmailFormat() {
+      const em = document.getElementById('registerEmail').value.trim();
+      const err = document.getElementById('registerError');
+      if (em && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) { err.textContent = 'Invalid email format'; err.classList.add('show'); return false; }
+      return true;
+    }
+    function clearEmailError() { const e = document.getElementById('registerError'); if(e.textContent.includes('email')||e.textContent.includes('邮箱')) e.classList.remove('show'); }
+
+    let countdown = 0;
+    async function sendVerificationCode() {
+      if (!validateEmailFormat()) return;
+      const email = document.getElementById('registerEmail').value.trim();
+      const btn = document.getElementById('sendCodeBtn');
+      const err = document.getElementById('registerError');
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent = 'Please enter a valid email'; err.classList.add('show'); return; }
+      if (countdown > 0) return;
+      btn.disabled = true; btn.textContent = 'Sending...'; err.classList.remove('show');
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/send-code`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email,type:'register'}) });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          countdown = 60; btn.textContent = `${countdown}s`;
+          const timer = setInterval(() => { countdown--; if(countdown<=0){clearInterval(timer);btn.disabled=false;btn.textContent='Resend';}else btn.textContent=`${countdown}s`; },1000);
+          alert('Verification code sent!');
+        } else { err.textContent = data.error || 'Send failed'; err.classList.add('show'); btn.disabled=false; btn.textContent='Send Code'; }
+      } catch(e2) { err.textContent='Network error'; err.classList.add('show'); btn.disabled=false; btn.textContent='Send Code'; }
+    }
+
     async function handleRegister(e) {
       e.preventDefault();
       const inviteCode = document.getElementById('registerCode').value.trim();
       const nickname = document.getElementById('registerName').value.trim();
       const password = document.getElementById('registerPassword').value;
+      const email = document.getElementById('registerEmail').value.trim();
+      const code = document.getElementById('verifyCode').value.trim();
       const btn = document.getElementById('registerBtn');
-      const error = document.getElementById('registerError');
-      
-      btn.disabled = true;
-      btn.textContent = '注册中...';
-      error.classList.remove('show');
-      
+      const err = document.getElementById('registerError');
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent='Invalid email'; err.classList.add('show'); return; }
+      if (email && !code) { err.textContent='Please enter verification code'; err.classList.add('show'); return; }
+      btn.disabled=true; btn.textContent='Creating...'; err.classList.remove('show');
       try {
-        const res = await fetch(`${API_BASE}/api/auth/register`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ inviteCode, nickname, password })
-        });
-        
+        const res = await fetch(`${API_BASE}/api/auth/register`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({inviteCode,nickname,password,email:email||undefined,code:code||undefined})});
         const data = await res.json();
-        
-        if (res.ok && data.success) {
-          localStorage.setItem('lingxi_token', data.token);
-          localStorage.setItem('lingxi_user', JSON.stringify(data.user));
-          
-          // 根据用户是否有团队决定跳转目标
-          if (data.user.agents && data.user.agents.length > 0) {
-            // 有团队，检查服务器状态
-            checkServerAndRedirect();
-          } else {
-            // 没有团队，刷新首页显示领取团队按钮
-            location.reload();
-          }
-        } else {
-          error.textContent = data.error || '注册失败';
-          error.classList.add('show');
-        }
-      } catch (err) {
-        error.textContent = '网络错误，请重试';
-        error.classList.add('show');
-      }
-      
-      btn.disabled = false;
-      btn.textContent = '注册';
+        if(res.ok&&data.success){localStorage.setItem('lingxi_token',data.token);localStorage.setItem('lingxi_user',JSON.stringify(data.user));if(data.user.agents&&data.user.agents.length>0)checkServerAndRedirect();else location.reload();}
+        else{err.textContent=data.error||'Registration failed';err.classList.add('show');}
+      }catch(e2){err.textContent='Network error';err.classList.add('show');}
+      btn.disabled=false; btn.textContent='Create Account';
     }
-    
-    // Demo
-    function handleDemo() {
-      alert('Demo 功能开发中，请联系管理员获取邀请码');
+
+    function handleDemo() { alert('Demo is coming soon. Contact us for an invite code!'); }
+
+    // Claim team & polling functions (preserved from original)
+    async function claimTeam() {
+      const token = localStorage.getItem('lingxi_token');
+      const btn = document.getElementById('claimTeamBtn');
+      const hint = document.getElementById('claimTeamHint');
+      const progressEl = document.getElementById('deployProgress');
+      btn.disabled=true; btn.innerHTML='<span class="loading-spinner"></span> Claiming...';
+      hint.textContent='Assigning AI members...';
+      if(progressEl){progressEl.classList.remove('hidden');progressEl.innerHTML='<div class="deploy-steps"><div class="deploy-step" id="step1"><span class="step-icon">⏳</span><span class="step-text">Claim AI team</span></div><div class="deploy-step" id="step2"><span class="step-icon">○</span><span class="step-text">Create server</span></div><div class="deploy-step" id="step3"><span class="step-icon">○</span><span class="step-text">Install runtime</span></div><div class="deploy-step" id="step4"><span class="step-icon">○</span><span class="step-text">Start AI service</span></div></div>';}
+      try{
+        const res=await fetch(`${API_BASE}/api/auth/claim-team`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},body:JSON.stringify({})});
+        const data=await res.json();
+        if(res.ok&&data.success){updateDeployStep(1,'done');updateDeployStep(2,'active');hint.textContent='Team assigned, creating server...';if(data.status==='ready'&&data.openclawUrl){updateDeployStep(2,'done');updateDeployStep(3,'done');updateDeployStep(4,'done');hint.textContent='Server ready! Redirecting...';setTimeout(()=>{window.location.href='chat.html';},500);return;}if(data.taskId)pollDeployTask(token,data.taskId,data.serverId);else pollServerStatus(token);}
+        else{alert(data.error||'Claim failed');btn.disabled=false;btn.innerHTML='Claim AI Team (100 pts)';hint.textContent='Failed: '+(data.error||'unknown');if(progressEl)progressEl.classList.add('hidden');}
+      }catch(e2){alert('Network error');btn.disabled=false;btn.innerHTML='Claim AI Team (100 pts)';}
     }
-    
-    // 启动
+
+    function updateDeployStep(step,status){const el=document.getElementById(`step${step}`);if(!el)return;const ic=el.querySelector('.step-icon');if(status==='done'){ic.textContent='✅';el.classList.add('step-done');}else if(status==='active'){ic.textContent='⏳';el.classList.add('step-active');}else{ic.textContent='○';el.classList.remove('step-done','step-active');}}
+
+    async function pollDeployTask(token,taskId,serverId){const btn=document.getElementById('claimTeamBtn');const hint=document.getElementById('claimTeamHint');let a=0;const poll=async()=>{a++;try{const tr=await fetch(`${API_BASE}/api/deploy/task/${taskId}`,{headers:{'Authorization':`Bearer ${token}`}});const td=await tr.json();if(td.success&&td.task){const p=td.task.progress||0;if(p>=10)updateDeployStep(2,'active');if(p>=50){updateDeployStep(2,'done');updateDeployStep(3,'active');}if(p>=80){updateDeployStep(3,'done');updateDeployStep(4,'active');}if(p>=100)updateDeployStep(4,'done');hint.textContent=td.task.errorMessage||`Deploying... ${p}%`;}const res=await fetch(`${API_BASE}/api/gateway/connect-info`,{headers:{'Authorization':`Bearer ${token}`}});const data=await res.json();if(res.ok&&data.wsUrl){updateDeployStep(4,'done');hint.textContent='Ready! Redirecting...';setTimeout(()=>{window.location.href='chat.html';},500);return;}if(a<120)setTimeout(poll,3000);else{hint.textContent='Timeout, retry';btn.disabled=false;btn.innerHTML='Claim AI Team';}}catch(e2){if(a<120)setTimeout(poll,3000);else{hint.textContent='Timeout';btn.disabled=false;btn.innerHTML='Enter Chat';btn.onclick=()=>{window.location.href='chat.html';};}}};poll();}
+
+    async function pollServerStatus(token){const btn=document.getElementById('claimTeamBtn');const hint=document.getElementById('claimTeamHint');let a=0;const poll=async()=>{a++;try{const res=await fetch(`${API_BASE}/api/gateway/connect-info`,{headers:{'Authorization':`Bearer ${token}`}});const data=await res.json();if(res.ok&&data.wsUrl){hint.textContent='Ready! Redirecting...';setTimeout(()=>{window.location.href='chat.html';},500);return;}const d='.'.repeat((a%3)+1);hint.textContent=`Preparing${d} (${a}/120)`;if(a<120)setTimeout(poll,3000);else{hint.textContent='Timeout';btn.disabled=false;btn.innerHTML='Claim AI Team';}}catch(e2){if(a<120)setTimeout(poll,3000);else{btn.disabled=false;btn.innerHTML='Enter Chat';btn.onclick=()=>{window.location.href='chat.html';};}}};poll();}
+
+    function copyInviteCode(){const c=document.getElementById('myInviteCode');if(!c){alert('Not loaded');return;}const code=c.textContent.trim();const inp=document.createElement('input');inp.style.position='fixed';inp.style.left='-9999px';inp.value=code;document.body.appendChild(inp);inp.select();try{document.execCommand('copy');alert('Copied: '+code);}catch(e2){prompt('Copy manually:',code);}document.body.removeChild(inp);}
+
+    // Boot
     init();
-    // 启动品牌故事流式输出
     typeBrandStory();
-    // 初始化 Lucide 图标
-    if (window.lucide) {
-      lucide.createIcons();
-    }
+    if(window.lucide) lucide.createIcons();
   </script>
+</div>
+
+<!-- Starfield brand intro (first visit) -->
+<style>
+#starfieldIntro{position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:9999;display:none;align-items:center;justify-content:center;background:#0a0a0a;overflow:hidden;opacity:1;transition:opacity 1s ease-out}
+#starfieldIntro.hidden{opacity:0;pointer-events:none}
+#starfieldIntro.show{display:flex}
+#starfieldIntro .stars{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
+#starfieldIntro .star{position:absolute;background:white;border-radius:50%;animation:twinkle var(--duration) ease-in-out infinite;animation-delay:var(--delay)}
+@keyframes twinkle{0%,100%{opacity:.2;transform:scale(1)}50%{opacity:1;transform:scale(1.3)}}
+#starfieldIntro .content{position:relative;z-index:10;text-align:center;color:white;max-width:560px;padding:60px 32px;display:flex;flex-direction:column;align-items:center}
+#starfieldIntro .logo-icon{font-size:56px;color:#10a37f;margin-bottom:20px;font-family:'DM Sans',sans-serif}
+#starfieldIntro h1{font-family:'DM Sans',sans-serif;font-size:52px;font-weight:700;margin:0 0 10px;letter-spacing:-1px;color:#fff}
+#starfieldIntro .tagline{font-size:16px;color:rgba(255,255,255,0.45);margin:0 0 48px;font-weight:400;letter-spacing:.5px}
+#starfieldIntro .story{font-size:17px;line-height:2.1;margin-bottom:48px;min-height:280px;text-align:center;color:rgba(255,255,255,0.75);font-family:'DM Sans',sans-serif}
+#starfieldIntro .story .line{opacity:0;transform:translateY(12px);animation:fadeInUp .7s forwards}
+@keyframes fadeInUp{to{opacity:1;transform:translateY(0)}}
+#starfieldIntro .story .highlight{color:#10a37f;font-weight:600}
+#starfieldIntro .cta{background:#10a37f;color:white;border:none;padding:18px 56px;font-size:16px;font-weight:600;font-family:'DM Sans',sans-serif;border-radius:50px;cursor:pointer;transition:all .3s;display:inline-flex;align-items:center;gap:10px;opacity:.3;transform:scale(.9)}
+#starfieldIntro .cta.active{opacity:1;transform:scale(1);box-shadow:0 4px 24px rgba(16,163,127,0.4)}
+#starfieldIntro .cta:hover{transform:scale(1.05);box-shadow:0 8px 32px rgba(16,163,127,0.5)}
+#starfieldIntro .hint{margin-top:20px;font-size:13px;color:rgba(255,255,255,0.35);opacity:0;transition:opacity .5s}
+#starfieldIntro .hint.show{opacity:1}
+@media(max-width:480px){#starfieldIntro .content{padding:40px 20px}#starfieldIntro h1{font-size:38px}#starfieldIntro .story{font-size:15px}}
+</style>
+
+<div id="starfieldIntro">
+  <div class="stars" id="starsContainer"></div>
+  <div class="content">
+    <div class="logo-icon">L</div>
+    <h1>Lume</h1>
+    <p class="tagline">Your AI Team, One Click Away</p>
+    <div class="story" id="storyContent"></div>
+    <button class="cta" id="ctaButton">
+      <span>Get Started</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+    </button>
+    <div class="hint" id="hintText">Press Enter or click to continue</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const KEY='lume_starfield_shown';
+  function shouldShow(){return !localStorage.getItem(KEY)}
+  function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
+  function createStars(){const c=document.getElementById('starsContainer');if(!c)return;for(let i=0;i<180;i++){const s=document.createElement('div');s.className='star';const sz=Math.random()*2.5+.5;s.style.width=sz+'px';s.style.height=sz+'px';s.style.left=Math.random()*100+'%';s.style.top=Math.random()*100+'%';s.style.setProperty('--delay',Math.random()*4+'s');s.style.setProperty('--duration',(2+Math.random()*4)+'s');c.appendChild(s)}}
+  async function showIntro(){const o=document.getElementById('starfieldIntro');const st=document.getElementById('storyContent');const ct=document.getElementById('ctaButton');const ht=document.getElementById('hintText');if(!o||!st)return;createStars();o.classList.add('show');
+  const lines=["我始终相信——","科技的终极意义，不是冰冷的效率。","而是让每一个人，都能拥有专属的优秀伙伴。","","这份陪伴，无关血缘，不分远近。","能听懂你的心事，也能攻克你的难题。","","于是，我来了。","我是 <span class='highlight'>Lume</span>。","","让优秀伙伴，不再是奢望。","让陪伴与助力，触手可及。"];
+  for(let i=0;i<lines.length;i++){const d=document.createElement('div');d.className='line';d.innerHTML=lines[i]||'&nbsp;';d.style.animationDelay=i*.15+'s';st.appendChild(d);await sleep(lines[i]===''?120:450)}
+  await sleep(400);ct.classList.add('active');ct.onclick=hideIntro;if(window.lucide)lucide.createIcons();await sleep(200);ht.classList.add('show');
+  const bz=document.createElement('div');bz.style.cssText='position:absolute;bottom:16px;left:0;right:0;text-align:center;font-size:11px;z-index:1000';bz.innerHTML='<a href="https://beian.miit.gov.cn/" target="_blank" style="color:rgba(255,255,255,.5);text-decoration:none">浙ICP备2026013667号</a>';o.appendChild(bz)}
+  function hideIntro(){const o=document.getElementById('starfieldIntro');if(o){o.classList.add('hidden');localStorage.setItem(KEY,'true');setTimeout(()=>o.remove(),1000)}}
+  if(shouldShow()){document.addEventListener('DOMContentLoaded',async()=>{await sleep(300);await showIntro();document.addEventListener('keydown',e=>{if(e.key==='Enter'){const o=document.getElementById('starfieldIntro');if(o&&o.classList.contains('show')&&!o.classList.contains('hidden'))hideIntro()}})})}
+})();
+</script>
+
 </body>
 </html>

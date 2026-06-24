@@ -27,23 +27,19 @@ async function loadChatComponents() {
     loadUserInfo();
   }
   
+  // 检查 LumeClaw 权限（侧边栏加载完成后）
+  if (typeof checkLumeclawAccess === 'function') {
+    checkLumeclawAccess();
+  }
+  
   console.log('✅ 聊天组件加载完成');
 }
 
-// 立即执行初始化（不依赖 DOMContentLoaded）
-function initComponents() {
+document.addEventListener('DOMContentLoaded', function() {
   const pageType = document.body.getAttribute('data-page');
   console.log('📄 Page type:', pageType);
   
   if (pageType === 'chat') {
     loadChatComponents();
   }
-}
-
-// 如果 DOM 已经加载完成，直接初始化；否则等待事件
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initComponents);
-} else {
-  // DOM 已就绪，直接执行
-  initComponents();
-}
+});

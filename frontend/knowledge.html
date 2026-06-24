@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-i18n-page-title="kn.title">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Knowledge — Lume</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23667eea'/><text x='16' y='22' text-anchor='middle' fill='white' font-size='16' font-weight='700'>L</text></svg>">
+  <link rel="stylesheet" href="assets/css/lume.css">
+  <style>
+    body {
+      font-family: var(--font-body);
+      background: var(--bg);
+      min-height: 100vh;
+      font-size: 14px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      color: var(--text-1);
+    }
+
+    /* ===== Top Bar ===== */
+    .top-bar {
+      position: fixed; top: 0; left: 0; right: 0; height: 44px;
+      background: rgba(255,255,255,0.94); backdrop-filter: blur(12px);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 16px; z-index: 200;
+      border-bottom: 1px solid var(--border-sub);
+    }
+    .top-bar-left { display: flex; align-items: center; gap: 8px; }
+    .back-link {
+      display: flex; align-items: center; gap: 3px; padding: 4px 10px;
+      border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-2);
+      font-size: 12px; text-decoration: none; transition: all var(--transition);
+    }
+    .back-link:hover { background: var(--bg-hover); color: var(--text-1); }
+    .page-title { font-size: 15px; font-weight: 700; color: var(--text-1); }
+    .top-bar-search {
+      display: flex; align-items: center; gap: 6px;
+    }
+    .search-input-inline {
+      padding: 5px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+      font-size: 12px; outline: none; width: 180px; transition: border-color var(--transition);
+      font-family: var(--font-display);
+    }
+    .search-input-inline:focus { border-color: var(--accent); }
+    .search-input-inline::placeholder { color: var(--text-3); }
+    .btn {
+      padding: 8px 16px; border: none; border-radius: var(--radius-sm);
+      font-size: 13px; cursor: pointer; font-weight: 500;
+      transition: all var(--transition); font-family: var(--font-display);
+    }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover { background: var(--accent-h); }
+    .btn-outline { background: white; color: var(--accent); border: 1px solid var(--accent); }
+    .btn-outline:hover { background: var(--accent-soft); }
+    .btn-danger { background: white; color: var(--danger); border: 1px solid var(--danger); }
+    .btn-danger:hover { background: var(--bg-card)f5; }
+    .btn-sm { padding: 4px 10px; font-size: 11px; }
+    .btn-icon {
+      width: 32px; height: 32px; border: none; border-radius: var(--radius-sm);
+      background: transparent; color: var(--text-2);
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: all var(--transition);
+    }
+    .btn-icon:hover { background: var(--bg-hover); color: var(--text-1); }
+    .btn-icon.danger:hover { background: var(--bg-card)f5; color: var(--danger); }
+    .btn-icon svg { width: 16px; height: 16px; }
+
+    /* ===== Main Content ===== */
+    .main-content {
+      max-width: 900px; margin: 0 auto;
+      padding: 60px 16px 32px;
+    }
+
+    /* ===== Stats Bar ===== */
+    .stats-bar {
+      display: flex; align-items: center; gap: 16px;
+      padding: 12px 16px; margin-bottom: 20px;
+      background: var(--bg-card) border: 1px solid var(--border-sub);
+      border-radius: var(--radius); font-size: 13px; color: var(--text-2);
+      box-shadow: var(--shadow-sm)(0,0,0,0.05);
+    }
+    .stats-item { display: flex; align-items: center; gap: 6px; }
+    .stats-item svg { width: 16px; height: 16px; opacity: 0.5; }
+    .stats-item strong { color: var(--text-1); }
+
+    /* ===== Document Card ===== */
+    .doc-list { display: flex; flex-direction: column; gap: 10px; }
+
+    .doc-card {
+      background: var(--bg-card) border-radius: var(--radius); padding: 16px 18px;
+      box-shadow: var(--shadow-sm)(0,0,0,0.06);
+      border: 2px solid transparent;
+      transition: all var(--transition);
+    }
+    .doc-card:hover { box-shadow: var(--shadow-md)(0,0,0,0.08); transform: translateY(-1px); }
+
+    .doc-header { display: flex; align-items: flex-start; gap: 12px; }
+    .doc-type-icon {
+      width: 40px; height: 40px; border-radius: var(--radius);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .doc-type-icon svg { width: 20px; height: 20px; }
+    .doc-type-icon.pdf { background: var(--bg-card)f0; color: var(--danger); }
+    .doc-type-icon.word { background: #e8f4fd; color: #1890ff; }
+    .doc-type-icon.txt { background: #f0f0f0; color: var(--text-2); }
+    .doc-type-icon.markdown { background: var(--accent-soft); color: var(--accent); }
+    .doc-type-icon.csv { background: #f0fff4; color: #52c41a; }
+    .doc-type-icon.unknown { background: #f0f0f0; color: var(--text-3); }
+
+    .doc-info { flex: 1; min-width: 0; }
+    .doc-filename {
+      font-size: 15px; font-weight: 600; color: var(--text-1);
+      margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .doc-summary {
+      font-size: 12px; color: var(--text-2); line-height: 1.5;
+      margin-bottom: 6px;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .doc-meta {
+      font-size: 12px; color: var(--text-3); display: flex; align-items: center; gap: 12px;
+    }
+    .doc-meta-item { display: flex; align-items: center; gap: 3px; }
+    .doc-meta-item svg { width: 12px; height: 12px; }
+
+    .doc-actions {
+      display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+    }
+
+    /* ===== Search Results ===== */
+    .search-results { margin-top: 12px; }
+    .search-result {
+      background: var(--bg-card) border-radius: var(--radius); padding: 14px 16px;
+      margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      cursor: pointer; transition: all var(--transition);
+    }
+    .search-result:hover { box-shadow: 0 3px 10px rgba(0,0,0,0.08); }
+    .search-result-filename {
+      font-size: 14px; font-weight: 600; color: var(--text-1);
+      margin-bottom: 6px; display: flex; align-items: center; gap: 6px;
+    }
+    .search-result-filename svg { width: 14px; height: 14px; color: var(--accent); }
+    .search-result-snippet {
+      font-size: 12px; color: var(--text-2); line-height: 1.6;
+    }
+    .search-result-snippet mark {
+      background: rgba(102,126,234,0.15); color: var(--accent); padding: 0 2px;
+      border-radius: 2px;
+    }
+    .search-result-score {
+      font-size: 11px; color: var(--text-3); margin-top: 4px;
+    }
+    .search-empty {
+      text-align: center; padding: 40px 20px; color: var(--text-3);
+    }
+    .search-empty svg { width: 40px; height: 40px; margin-bottom: 12px; opacity: 0.3; }
+
+    /* ===== Empty State ===== */
+    .empty-state {
+      text-align: center; padding: 60px 24px;
+      color: var(--text-3);
+    }
+    .empty-state svg { width: 48px; height: 48px; margin-bottom: 16px; opacity: 0.4; }
+    .empty-state p { font-size: 14px; margin-bottom: 4px; color: var(--text-2); }
+    .empty-state small { font-size: 12px; }
+
+    /* ===== Loading Skeleton ===== */
+    .skeleton-card {
+      background: var(--bg-card) border-radius: var(--radius); padding: 16px 18px; margin-bottom: 10px;
+      box-shadow: var(--shadow-sm)(0,0,0,0.05);
+      animation: shimmer 1.5s infinite;
+    }
+    .skeleton {
+      background: #eee; border-radius: var(--radius-sm);
+      animation: shimmer 1.5s infinite;
+    }
+    @keyframes shimmer {
+      0%,100% { opacity: 1; } 50% { opacity: 0.5; }
+    }
+
+    /* ===== Upload Modal ===== */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);
+      z-index: 500; justify-content: center; align-items: center;
+      padding: 16px;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: white; border-radius: var(--radius-lg);
+      width: 100%; max-width: 520px;
+      max-height: 90vh; overflow-y: auto;
+      box-shadow: var(--shadow-lg)(0,0,0,0.15);
+      animation: modal-in 0.25s ease-out;
+    }
+    @keyframes modal-in { from{opacity:0;transform:scale(0.95) translateY(10px)} to{opacity:1;transform:scale(1) translateY(0)} }
+    .modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 20px 0; margin-bottom: 16px;
+    }
+    .modal-header h3 { font-size: 18px; font-weight: 700; color: var(--text-1); }
+    .modal-close {
+      width: 32px; height: 32px; border: none; border-radius: var(--radius-sm);
+      background: var(--bg-hover); color: var(--text-2); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all var(--transition); font-size: 14px;
+    }
+    .modal-close:hover { background: #eee; }
+    .modal-close svg { width: 18px; height: 18px; }
+    .modal-body { padding: 0 20px 20px; }
+
+    /* Upload Drop Zone */
+    .drop-zone {
+      border: 2px dashed #ddd; border-radius: var(--radius);
+      padding: 32px 20px; text-align: center;
+      transition: all var(--transition); cursor: pointer;
+      margin-bottom: 16px;
+    }
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: var(--accent); background: rgba(102,126,234,0.04);
+    }
+    .drop-zone svg { width: 36px; height: 36px; margin-bottom: 8px; color: var(--text-3); }
+    .drop-zone p { font-size: 13px; color: var(--text-2); margin-bottom: 4px; }
+    .drop-zone small { font-size: 11px; color: var(--text-3); }
+
+    /* File List in Upload Modal */
+    .upload-file-list { margin-bottom: 12px; }
+    .upload-file-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 12px; background: var(--bg); border-radius: var(--radius-sm);
+      margin-bottom: 6px; font-size: 12px;
+    }
+    .upload-file-item svg { width: 14px; height: 14px; color: var(--accent); flex-shrink: 0; }
+    .upload-file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .upload-file-size { color: var(--text-3); flex-shrink: 0; }
+    .upload-file-remove {
+      width: 20px; height: 20px; border: none; background: transparent;
+      color: #ccc; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      border-radius: var(--radius-sm); transition: all var(--transition);
+    }
+    .upload-file-remove:hover { background: var(--bg-card) color: var(--danger); }
+    .upload-file-remove svg { width: 12px; height: 12px; color: inherit; }
+
+    /* Upload Progress */
+    .upload-progress {
+      height: 4px; background: #f0f0f0; border-radius: 2px;
+      overflow: hidden; margin-bottom: 12px; display: none;
+    }
+    .upload-progress.active { display: block; }
+    .upload-progress-bar {
+      height: 100%; background: var(--accent); border-radius: 2px;
+      transition: width 0.3s; width: 0%;
+    }
+
+    .upload-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+    /* ===== Content Modal ===== */
+    .content-modal-body {
+      max-height: 60vh; overflow-y: auto;
+      padding: 16px; background: var(--bg); border-radius: var(--radius-sm);
+      font-size: 13px; line-height: 1.8; white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* Markdown rendered content */
+    .markdown-content h1 { font-size: 20px; font-weight: 700; margin: 16px 0 8px; color: var(--text-1); }
+    .markdown-content h2 { font-size: 17px; font-weight: 700; margin: 14px 0 6px; color: var(--text-1); }
+    .markdown-content h3 { font-size: 15px; font-weight: 600; margin: 12px 0 4px; color: var(--text-1); }
+    .markdown-content p { margin-bottom: 8px; }
+    .markdown-content code { background: rgba(0,0,0,0.06); padding: 1px 4px; border-radius: 3px; font-size: 12px; }
+    .markdown-content pre { background: rgba(0,0,0,0.06); padding: 10px; border-radius: var(--radius-sm); overflow-x: auto; margin-bottom: 8px; }
+    .markdown-content pre code { background: none; padding: 0; }
+    .markdown-content blockquote { border-left: 3px solid var(--accent); padding-left: 12px; color: var(--text-2); margin-bottom: 8px; }
+    .markdown-content ul, .markdown-content ol { padding-left: 20px; margin-bottom: 8px; }
+    .markdown-content strong { font-weight: 600; }
+    .markdown-content em { font-style: italic; }
+
+    /* ===== Confirm Modal ===== */
+    .confirm-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);
+      z-index: 600; justify-content: center; align-items: center;
+      padding: 16px;
+    }
+    .confirm-overlay.open { display: flex; }
+    .confirm-box {
+      background: white; border-radius: var(--radius-lg); padding: 24px;
+      max-width: 360px; width: 100%; text-align: center;
+      box-shadow: var(--shadow-lg)(0,0,0,0.15);
+      animation: modal-in 0.2s ease-out;
+    }
+    .confirm-box p { margin-bottom: 20px; font-size: 14px; color: var(--text-1); }
+    .confirm-actions { display: flex; gap: 8px; justify-content: center; }
+
+    /* ===== Toast ===== */
+    .toast-box {
+      position: fixed; top: 56px; right: 16px; z-index: 1000;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .toast {
+      padding: 10px 16px; border-radius: var(--radius-sm);
+      font-size: 13px; color: #fff;
+      background: #333; box-shadow: var(--shadow-md)(0,0,0,0.15);
+      animation: toast-in 0.3s ease-out;
+      max-width: 320px;
+    }
+    .toast.success { background: #43e97b; color: #fff; }
+    .toast.error { background: #f5576c; color: #fff; }
+    .toast.out { animation: toast-out 0.3s ease-in forwards; }
+    @keyframes toast-in { from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:translateX(0)} }
+    @keyframes toast-out { to{opacity:0;transform:translateX(20px)} }
+
+    /* ===== Responsive ===== */
+    @media (max-width: 600px) {
+      .top-bar-search { display: none; }
+      .search-input-inline { width: 120px; }
+      .doc-header { flex-wrap: wrap; }
+      .doc-actions { width: 100%; justify-content: flex-end; margin-top: 8px; }
+      .stats-bar { flex-wrap: wrap; gap: 8px; }
+    }
+    body.in-iframe .back-link { display: none !important; }
+
+    /* ===== Inline-extracted classes ===== */
+    .icon-14 { width: 14px; height: 14px; }
+    .icon-14-middle { width: 14px; height: 14px; vertical-align: middle; }
+    .skeleton-h60 { height: 60px; }
+    .skeleton-h200 { height: 200px; border-radius: var(--radius-sm); }
+    .modal-wide { max-width: 640px; }
+    .empty-kb-icon { width: 64px; height: 64px; border-radius: 16px; background: var(--accent-soft); margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; }
+    .empty-kb-title { color: var(--text-1); margin: 0 0 8px; font-size: 16px; font-weight: 600; }
+    .empty-kb-desc { color: var(--text-3); font-size: 14px; margin: 0 0 4px; }
+    .empty-kb-hint { color: var(--text-3); font-size: 13px; margin: 0 0 20px; }
+    .btn-upload-first { background: var(--accent); color: #fff; border: none; padding: 10px 24px; border-radius: var(--radius-sm); cursor: pointer; font-size: 14px; font-family: inherit; }
+    .btn-upload-first:hover { background: var(--accent-h); }
+    .msg-center { text-align: center; }
+    .msg-muted { color: var(--text-3); padding: 20px; }
+    .msg-error { color: var(--danger); padding: 20px; text-align: center; }
+  </style>
+  <script src="assets/js/i18n.js?v=20260608"></script>
+  <script src="assets/libs/lucide.min.js"></script>
+</head>
+<body>
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <div class="top-bar-left">
+      <a href="chat.html" class="back-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-14"><polyline points="15 18 9 12 15 6"/></svg>
+        返回
+      </a>
+      <span class="page-title">知识库</span>
+    </div>
+    <div class="top-bar-search">
+      <input type="text" class="search-input-inline" id="globalSearchInput" placeholder="搜索知识库..." maxlength="200">
+      <button class="btn btn-outline btn-sm" onclick="doSearch()">搜索</button>
+      <button class="btn btn-primary btn-sm" onclick="openUploadModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-14-middle"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        上传文档
+      </button>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main-content" id="mainContent">
+    <!-- Stats Bar -->
+    <div class="stats-bar" id="statsBar">
+      <div class="stats-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <span>共 <strong id="docCount">0</strong> 个文档</span>
+      </div>
+      <div class="stats-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <span>支持 PDF/Word/TXT/MD/CSV，最大 20MB</span>
+      </div>
+    </div>
+
+    <!-- Document List -->
+    <div id="docList">
+      <div class="skeleton-card"><div class="skeleton skeleton-h60"></div></div>
+      <div class="skeleton-card"><div class="skeleton skeleton-h60"></div></div>
+      <div class="skeleton-card"><div class="skeleton skeleton-h60"></div></div>
+    </div>
+
+    <!-- Search Results (hidden by default) -->
+    <div id="searchResults" class="hidden"></div>
+  </div>
+
+  <!-- Upload Modal -->
+  <div class="modal-overlay" id="uploadModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>上传文档</h3>
+        <button class="modal-close" onclick="closeUploadModal()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="drop-zone" id="dropZone" data-action="trigger-upload">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <p>拖拽文件到此处，或点击选择</p>
+          <small>支持 PDF / Word (.docx) / TXT / Markdown / CSV，单个文件最大 20MB</small>
+        </div>
+        <input type="file" id="fileInput" multiple accept=".pdf,.docx,.doc,.txt,.md,.csv" class="hidden">
+        <div class="upload-file-list" id="uploadFileList"></div>
+        <div class="upload-progress" id="uploadProgress">
+          <div class="upload-progress-bar" id="uploadProgressBar"></div>
+        </div>
+        <div class="upload-actions">
+          <button class="btn btn-outline btn-sm" onclick="closeUploadModal()">取消</button>
+          <button class="btn btn-primary btn-sm" id="uploadSubmitBtn" onclick="doUpload()" disabled>上传</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Content View Modal -->
+  <div class="modal-overlay" id="contentModal">
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <h3 id="contentTitle">文档内容</h3>
+        <button class="modal-close" onclick="closeContentModal()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="content-modal-body markdown-content" id="contentBody">加载中...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm Modal -->
+  <div class="confirm-overlay" id="confirmOverlay">
+    <div class="confirm-box">
+      <p id="confirmText">确定要删除吗？</p>
+      <div class="confirm-actions">
+        <button class="btn btn-outline btn-sm" onclick="closeConfirm()">取消</button>
+        <button class="btn btn-danger btn-sm" id="confirmBtn">确认</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast-box" id="toastBox"></div>
+
+<script>
+// ===== State =====
+var docItems = [];
+var pendingFiles = [];
+var confirmCallback = null;
+var searchTimer = null;
+var isSearchMode = false;
+
+// ===== Auth =====
+function getToken() {
+  return localStorage.getItem('lingxi_token');
+}
+
+function checkAuth() {
+  var token = getToken();
+  if (!token) {
+    window.location.href = 'index.html';
+    return false;
+  }
+  return true;
+}
+
+function authHeaders() {
+  var token = getToken();
+  return token ? { 'Authorization': 'Bearer ' + token }
+               : {};
+}
+
+// ===== Toast =====
+function showToast(msg, type) {
+  var box = document.getElementById('toastBox');
+  var t = document.createElement('div');
+  t.className = 'toast' + (type ? ' ' + type : '');
+  t.textContent = msg;
+  box.appendChild(t);
+  setTimeout(function() { t.classList.add('out'); setTimeout(function() { t.remove(); }, 300); }, 3000);
+}
+
+// ===== XSS Escape =====
+function escapeHtml(s) {
+  if (!s) return '';
+  var div = document.createElement('div');
+  div.textContent = s;
+  return div.innerHTML;
+}
+
+// ===== Relative Time =====
+function relativeTime(isoStr) {
+  if (!isoStr) return '';
+  var now = Date.now();
+  var then = new Date(isoStr).getTime();
+  if (isNaN(then)) return '';
+  var diff = now - then;
+  if (diff < 60000) return '刚刚';
+  if (diff < 3600000) return Math.floor(diff / 60000) + ' 分钟前';
+  if (diff < 86400000) return Math.floor(diff / 3600000) + ' 小时前';
+  if (diff < 604800000) return Math.floor(diff / 86400000) + ' 天前';
+  var d = new Date(isoStr);
+  return (d.getMonth()+1) + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+}
+
+// ===== File Size Format =====
+function formatSize(bytes) {
+  if (!bytes || bytes === 0) return '0 B';
+  var units = ['B', 'KB', 'MB', 'GB'];
+  var i = Math.floor(Math.log(bytes) / Math.log(1024));
+  i = Math.min(i, units.length - 1);
+  return (bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1) + ' ' + units[i];
+}
+
+// ===== Confirm =====
+function showConfirm(text, btnText, callback) {
+  document.getElementById('confirmText').textContent = text;
+  document.getElementById('confirmBtn').textContent = btnText || '确认';
+  confirmCallback = callback;
+  document.getElementById('confirmOverlay').classList.add('open');
+}
+function closeConfirm() {
+  document.getElementById('confirmOverlay').classList.remove('open');
+  confirmCallback = null;
+}
+document.getElementById('confirmBtn').onclick = function() {
+  if (confirmCallback) confirmCallback();
+  closeConfirm();
+};
+
+// ===== Type Icon SVG =====
+function getTypeIconSVG(type) {
+  var icons = {
+    pdf: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+    word: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 13h6"/><path d="M9 17h6"/></svg>',
+    txt: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+    markdown: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 15l2-4 2 4"/><path d="M7 11v4"/></svg>',
+    csv: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><rect x="8" y="12" width="8" height="6" rx="1"/><line x1="12" y1="12" x2="12" y2="18"/><line x1="8" y1="15" x2="16" y2="15"/></svg>',
+    unknown: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
+  };
+  return icons[type] || icons.unknown;
+}
+
+// ===== Simple Markdown to HTML =====
+function simpleMarkdown(text) {
+  if (!text) return '';
+  var html = escapeHtml(text);
+  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+  html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  html = html.replace(/```[\s\S]*?```/g, function(m) {
+    return '<pre><code>' + m.slice(3, -3).trim() + '</code></pre>';
+  });
+  html = html.replace(/`(.+?)`/g, '<code>$1</code>');
+  html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+  html = html.replace(/^[\-\*] (.+)$/gm, '<li>$1</li>');
+  html = html.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
+  html = html.replace(/\n\n/g, '</p><p>');
+  html = html.replace(/\n/g, '<br>');
+  return '<p>' + html + '</p>';
+}
+
+// ===== API =====
+async function api(method, path, body) {
+  var opts = { method: method, headers: authHeaders() };
+  var url = '/api/knowledge' + path;
+  if (body && method !== 'GET') {
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(body);
+  }
+  var res = await fetch(url, opts);
+  if (res.status === 401) {
+    localStorage.removeItem('lingxi_token');
+    window.location.href = 'index.html';
+    throw new Error('认证已失效，请重新登录');
+  }
+  var data = await res.json();
+  if (!res.ok) throw new Error(data.error || '请求失败');
+  if (data.success === false) throw new Error(data.error || '请求失败');
+  return data;
+}
+
+// ===== Load Documents =====
+async function loadDocs() {
+  var listEl = document.getElementById('docList');
+  listEl.innerHTML = '<div class="skeleton-card"><div class="skeleton skeleton-h60"></div></div><div class="skeleton-card"><div class="skeleton skeleton-h60"></div></div>';
+
+  try {
+    var data = await api('GET', '/list');
+    docItems = data.items || [];
+    document.getElementById('docCount').textContent = docItems.length;
+    renderDocList();
+  } catch (e) {
+    listEl.innerHTML = '<div class="empty-state"><p>加载失败: ' + escapeHtml(e.message) + '</p></div>';
+  }
+}
+
+function renderDocList() {
+  var listEl = document.getElementById('docList');
+
+  if (docItems.length === 0) {
+    listEl.innerHTML = '<div class="empty-state" >' +
+      '<div class="empty-kb-icon">' +
+        '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>' +
+      '</div>' +
+      '<h3 class="empty-kb-title">知识库是空的</h3>' +
+      '<p class="empty-kb-desc">上传文档到知识库，Agent 可以自动检索和使用</p>' +
+      '<p class="empty-kb-hint">支持 PDF、Word、TXT、Markdown、CSV 文件</p>' +
+      '<button onclick="openUploadModal()" class="btn-upload-first">上传第一个文档</button>' +
+      '</div>';
+    return;
+  }
+
+  var html = '<div class="doc-list">';
+  for (var i = 0; i < docItems.length; i++) {
+    var doc = docItems[i];
+    var typeClass = doc.type || 'unknown';
+    html += '<div class="doc-card">';
+    html += '<div class="doc-header">';
+    html += '<div class="doc-type-icon ' + escapeHtml(typeClass) + '">' + getTypeIconSVG(typeClass) + '</div>';
+    html += '<div class="doc-info">';
+    html += '<div class="doc-filename">' + escapeHtml(doc.filename) + '</div>';
+    if (doc.summary) {
+      html += '<div class="doc-summary">' + escapeHtml(doc.summary) + '</div>';
+    }
+    html += '<div class="doc-meta">';
+    html += '<span class="doc-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>' + escapeHtml(formatSize(doc.size)) + '</span>';
+    html += '<span class="doc-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' + escapeHtml(relativeTime(doc.uploadedAt)) + '</span>';
+    html += '</div></div>';
+    html += '<div class="doc-actions">';
+    html += '<button class="btn-icon" data-action="view-doc" data-id="' + escapeHtml(doc.id) + '" title="查看内容"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>';
+    html += '<button class="btn-icon danger" data-action="delete-doc" data-id="' + escapeHtml(doc.id) + '" data-name="' + escapeHtml(doc.filename).replace(/"/g, '&quot;') + '" title="删除"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>';
+    html += '</div></div></div>';
+  }
+  html += '</div>';
+  listEl.innerHTML = html;
+}
+
+// ===== Search =====
+async function doSearch() {
+  var q = document.getElementById('globalSearchInput').value.trim();
+  if (!q) {
+    // Exit search mode
+    if (isSearchMode) {
+      isSearchMode = false;
+      document.getElementById('searchResults').style.display = 'none';
+      document.getElementById('docList').style.display = 'block';
+      document.getElementById('statsBar').style.display = 'flex';
+    }
+    return;
+  }
+
+  isSearchMode = true;
+  document.getElementById('docList').style.display = 'none';
+  document.getElementById('statsBar').style.display = 'none';
+  var resultsEl = document.getElementById('searchResults');
+  resultsEl.style.display = 'block';
+  resultsEl.innerHTML = '<div class="skeleton-card"><div class="skeleton skeleton-h60"></div></div>';
+
+  try {
+    var data = await api('GET', '/search?q=' + encodeURIComponent(q));
+    var results = data.results || [];
+
+    if (results.length === 0) {
+      resultsEl.innerHTML = '<div class="search-empty">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>' +
+        '<p>没有找到相关文档</p></div>';
+      return;
+    }
+
+    var safeQ = escapeHtml(q);
+    var html = '<div class="search-results">';
+    for (var i = 0; i < results.length; i++) {
+      var r = results[i];
+      var snippet = escapeHtml(r.snippet || '');
+      var highlighted = snippet.replace(new RegExp('(' + safeQ.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi'), '<mark>$1</mark>');
+
+      html += '<div class="search-result" data-action="view-search-doc" data-id="' + escapeHtml(r.id) + '">';
+      html += '<div class="search-result-filename"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' + escapeHtml(r.filename) + '</div>';
+      if (snippet) {
+        html += '<div class="search-result-snippet">' + highlighted + '</div>';
+      }
+      html += '</div>';
+    }
+    html += '</div>';
+    resultsEl.innerHTML = html;
+  } catch (e) {
+    resultsEl.innerHTML = '<div class="search-empty"><p>搜索失败: ' + escapeHtml(e.message) + '</p></div>';
+  }
+}
+
+// Debounce search
+document.getElementById('globalSearchInput').addEventListener('input', function() {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(function() {
+    var q = document.getElementById('globalSearchInput').value.trim();
+    if (q.length >= 2) {
+      doSearch();
+    } else if (q.length === 0) {
+      isSearchMode = false;
+      document.getElementById('searchResults').style.display = 'none';
+      document.getElementById('docList').style.display = 'block';
+      document.getElementById('statsBar').style.display = 'flex';
+    }
+  }, 500);
+});
+
+document.getElementById('globalSearchInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    clearTimeout(searchTimer);
+    doSearch();
+  }
+});
+
+// ===== View Content =====
+async function viewDoc(id) {
+  var modal = document.getElementById('contentModal');
+  var titleEl = document.getElementById('contentTitle');
+  var bodyEl = document.getElementById('contentBody');
+
+  // Find doc name from list
+  var docName = '文档内容';
+  for (var i = 0; i < docItems.length; i++) {
+    if (docItems[i].id === id) {
+      docName = docItems[i].filename;
+      break;
+    }
+  }
+  titleEl.textContent = docName;
+  bodyEl.innerHTML = '<div class="skeleton skeleton-h200"></div>';
+  modal.classList.add('open');
+
+  try {
+    var data = await api('GET', '/content/' + encodeURIComponent(id));
+    var content = data.content || '';
+    var type = data.type || '';
+    var rendered;
+    if (type === 'markdown' || (docName && docName.endsWith('.md'))) {
+      rendered = simpleMarkdown(content);
+    } else {
+      rendered = escapeHtml(content);
+    }
+    bodyEl.innerHTML = rendered || '<div class="msg-center msg-muted">文档内容为空</div>';
+  } catch (e) {
+    bodyEl.innerHTML = '<div class="msg-error">加载失败: ' + escapeHtml(e.message) + '</div>';
+  }
+}
+
+function closeContentModal() {
+  document.getElementById('contentModal').classList.remove('open');
+}
+
+// ===== Delete =====
+async function deleteDoc(id, name) {
+  showConfirm('确定删除文档「' + name + '」？此操作不可恢复。', '删除', async function() {
+    try {
+      await api('POST', '/delete', { id: id });
+      showToast('文档已删除', 'success');
+      loadDocs();
+    } catch (e) {
+      showToast('删除失败: ' + e.message, 'error');
+    }
+  });
+}
+
+// ===== Upload =====
+function openUploadModal() {
+  pendingFiles = [];
+  renderUploadFileList();
+  document.getElementById('uploadModal').classList.add('open');
+  document.getElementById('uploadProgress').classList.remove('active');
+  document.getElementById('uploadProgressBar').style.width = '0%';
+}
+
+function closeUploadModal() {
+  document.getElementById('uploadModal').classList.remove('open');
+  pendingFiles = [];
+}
+
+function renderUploadFileList() {
+  var listEl = document.getElementById('uploadFileList');
+  var submitBtn = document.getElementById('uploadSubmitBtn');
+
+  if (pendingFiles.length === 0) {
+    listEl.innerHTML = '';
+    submitBtn.disabled = true;
+    return;
+  }
+
+  submitBtn.disabled = false;
+  var html = '';
+  for (var i = 0; i < pendingFiles.length; i++) {
+    var f = pendingFiles[i];
+    html += '<div class="upload-file-item">';
+    html += '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+    html += '<span class="upload-file-name">' + escapeHtml(f.name) + '</span>';
+    html += '<span class="upload-file-size">' + formatSize(f.size) + '</span>';
+    html += '<button class="upload-file-remove" data-action="remove-pending" data-index="' + i + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>';
+    html += '</div>';
+  }
+  listEl.innerHTML = html;
+}
+
+async function doUpload() {
+  if (pendingFiles.length === 0) {
+    showToast('请选择文件', 'error');
+    return;
+  }
+
+  var btn = document.getElementById('uploadSubmitBtn');
+  btn.disabled = true;
+  btn.textContent = '上传中...';
+  document.getElementById('uploadProgress').classList.add('active');
+  document.getElementById('uploadProgressBar').style.width = '30%';
+
+  try {
+    var formData = new FormData();
+    for (var i = 0; i < pendingFiles.length; i++) {
+      formData.append('files', pendingFiles[i]);
+    }
+
+    var res = await fetch('/api/knowledge/upload', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: formData,
+    });
+
+    if (res.status === 401) {
+      localStorage.removeItem('lingxi_token');
+      window.location.href = 'index.html';
+      return;
+    }
+
+    document.getElementById('uploadProgressBar').style.width = '100%';
+
+    var data = await res.json();
+    if (!data.success) throw new Error(data.error || '上传失败');
+
+    showToast('上传成功: ' + (data.items || []).length + ' 个文件', 'success');
+    closeUploadModal();
+    loadDocs();
+  } catch (e) {
+    showToast('上传失败: ' + e.message, 'error');
+    document.getElementById('uploadProgress').classList.remove('active');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '上传';
+  }
+}
+
+// Drop zone events
+var dropZone = document.getElementById('dropZone');
+var fileInput = document.getElementById('fileInput');
+
+dropZone.addEventListener('click', function() {
+  fileInput.click();
+});
+
+dropZone.addEventListener('dragover', function(e) {
+  e.preventDefault();
+  dropZone.classList.add('dragover');
+});
+
+dropZone.addEventListener('dragleave', function(e) {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+});
+
+dropZone.addEventListener('drop', function(e) {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  var files = e.dataTransfer.files;
+  addPendingFiles(files);
+});
+
+fileInput.addEventListener('change', function() {
+  addPendingFiles(fileInput.files);
+  fileInput.value = '';
+});
+
+function addPendingFiles(fileList) {
+  var allowedExts = ['.pdf', '.docx', '.doc', '.txt', '.md', '.csv'];
+  for (var i = 0; i < fileList.length; i++) {
+    var f = fileList[i];
+    var name = f.name.toLowerCase();
+    var ext = name.substring(name.lastIndexOf('.'));
+    if (allowedExts.indexOf(ext) === -1) {
+      showToast('不支持的文件类型: ' + f.name, 'error');
+      continue;
+    }
+    if (f.size > 20 * 1024 * 1024) {
+      showToast('文件过大: ' + f.name + ' (最大 20MB)', 'error');
+      continue;
+    }
+    pendingFiles.push(f);
+  }
+  renderUploadFileList();
+}
+
+// ===== Event Delegation =====
+document.addEventListener('click', function(e) {
+  // View doc
+  var viewBtn = e.target.closest('[data-action="view-doc"]');
+  if (viewBtn) {
+    viewDoc(viewBtn.dataset.id);
+    return;
+  }
+
+  // View search result doc
+  var searchDoc = e.target.closest('[data-action="view-search-doc"]');
+  if (searchDoc) {
+    viewDoc(searchDoc.dataset.id);
+    return;
+  }
+
+  // Delete doc
+  var deleteBtn = e.target.closest('[data-action="delete-doc"]');
+  if (deleteBtn) {
+    e.stopPropagation();
+    deleteDoc(deleteBtn.dataset.id, deleteBtn.dataset.name);
+    return;
+  }
+
+  // Remove pending file
+  var removeBtn = e.target.closest('[data-action="remove-pending"]');
+  if (removeBtn) {
+    var idx = parseInt(removeBtn.dataset.index, 10);
+    pendingFiles.splice(idx, 1);
+    renderUploadFileList();
+    return;
+  }
+});
+
+// ===== Modal Close on Overlay =====
+document.getElementById('uploadModal').addEventListener('click', function(e) {
+  if (e.target === this) closeUploadModal();
+});
+document.getElementById('contentModal').addEventListener('click', function(e) {
+  if (e.target === this) closeContentModal();
+});
+document.getElementById('confirmOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeConfirm();
+});
+
+// ===== Keyboard =====
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    closeUploadModal();
+    closeContentModal();
+    closeConfirm();
+  }
+});
+
+// ===== Init =====
+(function init() {
+  if (!checkAuth()) return;
+  loadDocs();
+})();
+  if (window.parent !== window) document.body.classList.add("in-iframe");
+</script>
+<script>if(window.lucide)lucide.createIcons();</script>
+</body>
+</html>

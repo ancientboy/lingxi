@@ -1,0 +1,1886 @@
+/**
+ * Office Engine — Canvas 2D office scene renderer
+ * initOffice(canvas, opts) → { updateTeam(members), destroy() }
+ */
+function initOffice(canvas, opts) {
+  opts = opts || {};
+  if (!canvas || !canvas.getContext) { console.error('[office] no canvas'); return null; }
+// ==================== CONFIG ====================
+let CW = canvas.clientWidth || window.innerWidth, CH = canvas.clientHeight || window.innerHeight;
+// canvas provided by caller
+const ctx = canvas.getContext("2d");
+
+const STATES = { IDLE: 'idle', TYPING: 'typing', WALKING: 'walking', SLEEPING: 'sleeping', SITTING: 'sitting', RUNNING: 'running', DRINKING: 'drinking' };
+const STATE_COLORS = { idle: '#F1C40F', typing: '#2ECC71', walking: '#3498DB', sleeping: '#9B59B6', sitting: '#E67E22', running: '#E74C3C', drinking: '#3498DB' };
+const STATE_LABELS = { idle: 'Idle', typing: 'Typing', walking: 'Walking', sleeping: 'Sleeping', sitting: 'Sitting', running: 'Running', drinking: 'Coffee' };
+
+// Default agents (used when not embedded, or before receiving team data)
+const DEFAULT_AGENTS = [
+  { id:'lingxi', name:'Lingxi',  scarf:'#6366f1' },
+  { id:'spark',  name:'Spark',   scarf:'#10a37f' },
+  { id:'pulse',  name:'Pulse',   scarf:'#f59e0b' },
+  { id:'nova',   name:'Nova',    scarf:'#8b5cf6' },
+  { id:'scope',  name:'Scope',   scarf:'#06b6d4' },
+  { id:'echo',   name:'Echo',    scarf:'#ef4444' },
+  { id:'prism',  name:'Prism',   scarf:'#ec4899' },
+  { id:'nest',   name:'Nest',    scarf:'#3b82f6' },
+];
+
+// Agent color palette for auto-assignment
+const AGENT_COLORS = ['#6366f1','#10a37f','#f59e0b','#8b5cf6','#06b6d4','#ef4444','#ec4899','#3b82f6','#e67e22','#9b59b6','#1abc9c','#e74c3c'];
+
+let AGENTS = [...DEFAULT_AGENTS];
+let chars = [];
+
+// Scale factor — fit the ~850×850 world content to fill the screen
+// Content spans roughly x:45-780, y:30-830 → ~735 wide, ~800 tall
+// Add padding so edges aren't clipped
+const WORLD_W = 820, WORLD_H = 870;
+let S = Math.min(CW / WORLD_W, CH / WORLD_H) * 0.95;
+
+// ==================== CAMERA ====================
+// Center the world on screen
+const cam = { ox: CW/2 - (WORLD_W/2)*S, oy: CH/2 - (WORLD_H/2)*S, scale: 1 };
+
+// World → screen (top-down, with camera pan)
+function W(wx, wy) {
+  return { x: cam.ox + wx * S * cam.scale, y: cam.oy + wy * S * cam.scale };
+}
+function WS(v) { return v * S * cam.scale; }
+
+// 6 workstations (like Marvis: 2 rows × 3 columns)
+// 8 workstations (4 rows × 2 columns)
+// Spaced wider apart so aisles are clear
+let DESKS = [];
+// DESKS will be populated by rebuildTeam() or the default init below
+
+// Desk dimensions: 150w × 100h, side depth 8px
+// Desk visual bottom = desk.y + 50 + 8 = desk.y + 58
+// Row 1 visual: y=60~168, Row 2: y=260~368, Row 3: y=460~568, Row 4: y=660~768
+
+// CHAIR_Y = desk.y + 75 (well below desk visual bottom +58, 17px gap)
+const CHAIR_OFFSET = 75;
+// Between-row aisle Y (midpoint between one row's chair and next row's desk top)
+// Row1 chair y=185, Row2 desk top y=260 → aisle y=222
+// Row2 chair y=385, Row3 desk top y=460 → aisle y=422
+// Row3 chair y=585, Row4 desk top y=660 → aisle y=622
+
+// Special locations — character stands IN FRONT of furniture
+// Break area: bx=60, by=145, bh=55, depth=12 → front at y=212, stand at y=218
+// Treadmill: belt at ty+14 to ty+th-10 → belt y=401~432, center y=416
+// Sofa: cushion center at sx+sw/2=130, sy+sh/2 → y=657
+const LOC = {
+  coffee:    { x:150, y:218 },
+  sofa:      { x:130, y:657 },
+  treadmill: { x:140, y:398 },
+};
+
+// ==================== HELPERS ====================
+function lerp(a,b,t) { return a+(b-a)*t; }
+function dist(x1,y1,x2,y2) { return Math.hypot(x2-x1,y2-y1); }
+function rand(a,b) { return Math.random()*(b-a)+a; }
+
+function rrect(x,y,w,h,r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.lineTo(x+w-r,y); ctx.arcTo(x+w,y,x+w,y+r,r);
+  ctx.lineTo(x+w,y+h-r); ctx.arcTo(x+w,y+h,x+w-r,y+h,r);
+  ctx.lineTo(x+r,y+h); ctx.arcTo(x,y+h,x,y+h-r,r);
+  ctx.lineTo(x,y+r); ctx.arcTo(x,y,x+r,y,r);
+  ctx.closePath();
+}
+
+function shadow(x,y,w,h,a=0.1) {
+  ctx.fillStyle = `rgba(0,0,0,${a})`;
+  ctx.beginPath();
+  ctx.ellipse(x, y+2, w/2, h/3, 0, 0, Math.PI*2);
+  ctx.fill();
+}
+
+// ==================== DRAW FUNCTIONS ====================
+
+function drawZones() {
+  // Background zone highlights — centered around furniture + character standing space
+  // Break Area: furniture(60,145,180x55) bottom=200, character at y=218
+  ctx.fillStyle = 'rgba(139,105,20,0.06)';
+  rrect(35,135,225,100,14); ctx.fill();
+  // Wellness: furniture(70,387,140x55) bottom=442, character at y=398
+  ctx.fillStyle = 'rgba(100,180,100,0.06)';
+  rrect(35,375,225,90,14); ctx.fill();
+  // Relax: furniture(70,630,120x55) bottom=685, character at y=657
+  ctx.fillStyle = 'rgba(155,89,182,0.06)';
+  rrect(35,618,225,90,14); ctx.fill();
+  // Work zone (encompasses all desks)
+  ctx.fillStyle = 'rgba(66,133,244,0.03)';
+  rrect(290,20,500,830,16); ctx.fill();
+}
+
+function drawLabels() {
+  ctx.fillStyle = 'rgba(0,0,0,0.18)';
+  ctx.font = `${WS(11)}px -apple-system, sans-serif`;
+  ctx.textAlign = 'center';
+  const p = (x,y) => W(x,y);
+  ctx.fillText('Break Area', p(150,195).x, p(150,195).y);
+  ctx.fillText('Wellness Zone', p(140,435).x, p(140,435).y);
+  ctx.fillText('Relax Zone', p(130,675).x, p(130,675).y);
+  ctx.fillText('Work Zone', p(530,420).x, p(530,420).y);
+}
+
+function drawDesk(dx, dy) {
+  const p = W(dx, dy);
+  const dw = WS(150), dh = WS(100), r = WS(10);
+  const sideH = WS(8); // visible desk thickness from above
+
+  shadow(p.x, p.y+sideH/2, dw, dh, 0.1);
+
+  // Right side (depth)
+  ctx.fillStyle = '#e2e2e2';
+  ctx.beginPath();
+  ctx.moveTo(p.x+dw/2, p.y-dh/2);
+  ctx.lineTo(p.x+dw/2, p.y+dh/2);
+  ctx.lineTo(p.x+dw/2, p.y+dh/2+sideH);
+  ctx.lineTo(p.x-dw/2, p.y+dh/2+sideH);
+  ctx.lineTo(p.x-dw/2, p.y+dh/2);
+  ctx.closePath();
+  ctx.fill();
+
+  // Bottom side (depth)
+  ctx.fillStyle = '#ebebeb';
+  ctx.beginPath();
+  ctx.moveTo(p.x-dw/2, p.y+dh/2);
+  ctx.lineTo(p.x+dw/2, p.y+dh/2);
+  ctx.lineTo(p.x+dw/2, p.y+dh/2+sideH);
+  ctx.lineTo(p.x-dw/2, p.y+dh/2+sideH);
+  ctx.closePath();
+  ctx.fill();
+
+  // Desk surface (top)
+  ctx.fillStyle = '#fafafa';
+  rrect(p.x-dw/2, p.y-dh/2, dw, dh, r);
+  ctx.fill();
+  ctx.strokeStyle = '#e0e0e0';
+  ctx.lineWidth = WS(1.2);
+  ctx.stroke();
+
+  // Highlight
+  ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+  ctx.lineWidth = WS(1);
+  ctx.beginPath();
+  ctx.moveTo(p.x-dw/2+r, p.y-dh/2+1);
+  ctx.lineTo(p.x+dw/2-r, p.y-dh/2+1);
+  ctx.stroke();
+
+  // === Desk items (small decorative objects) ===
+  // Seed by desk position for variety
+  const seed = Math.round(dx * 7 + dy * 13) % 6;
+
+  // Coffee mug (left side of desk)
+  const mugX = p.x - dw*0.35, mugY = p.y + dh*0.15;
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.ellipse(mugX, mugY, WS(6), WS(5), 0, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#d0d0d0'; ctx.lineWidth = WS(0.6); ctx.stroke();
+  // Mug handle
+  ctx.beginPath(); ctx.arc(mugX+WS(6), mugY, WS(3), -Math.PI*0.4, Math.PI*0.4); ctx.stroke();
+  // Coffee liquid
+  ctx.fillStyle = '#8B6914';
+  ctx.beginPath(); ctx.ellipse(mugX, mugY-WS(0.5), WS(4.5), WS(3.5), 0, 0, Math.PI*2); ctx.fill();
+  // Steam (tiny wisp)
+  ctx.strokeStyle = 'rgba(180,180,180,0.4)'; ctx.lineWidth = WS(0.6); ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(mugX, mugY-WS(6));
+  ctx.quadraticCurveTo(mugX+WS(2), mugY-WS(9), mugX-WS(1), mugY-WS(11)); ctx.stroke();
+
+  // Notebook (right side)
+  if (seed % 2 === 0) {
+    const nbX = p.x + dw*0.3, nbY = p.y + dh*0.2;
+    ctx.fillStyle = '#f5f0e8';
+    rrect(nbX-WS(10), nbY-WS(7), WS(20), WS(14), WS(1.5)); ctx.fill();
+    ctx.strokeStyle = '#d4c9b8'; ctx.lineWidth = WS(0.5); ctx.stroke();
+    // Lines on notebook
+    ctx.strokeStyle = '#c8bfb0'; ctx.lineWidth = WS(0.3);
+    for (let i=0; i<4; i++) {
+      const ly = nbY-WS(4)+WS(3)*i;
+      ctx.beginPath(); ctx.moveTo(nbX-WS(7), ly); ctx.lineTo(nbX+WS(7), ly); ctx.stroke();
+    }
+  }
+
+  // Small plant (corner)
+  if (seed % 3 === 0) {
+    const plX = p.x - dw*0.38, plY = p.y - dh*0.3;
+    // Pot
+    ctx.fillStyle = '#d4956a';
+    ctx.beginPath(); ctx.ellipse(plX, plY+WS(3), WS(5), WS(3.5), 0, 0, Math.PI*2); ctx.fill();
+    // Leaves (small green circles)
+    ctx.fillStyle = '#5a9e5a';
+    ctx.beginPath(); ctx.arc(plX, plY-WS(2), WS(4), 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#4a8e4a';
+    ctx.beginPath(); ctx.arc(plX-WS(2), plY-WS(4), WS(3), 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(plX+WS(3), plY-WS(3), WS(2.5), 0, Math.PI*2); ctx.fill();
+  }
+
+  // Sticky note (random desk)
+  if (seed % 2 === 1) {
+    const snX = p.x + dw*0.32, snY = p.y - dh*0.22;
+    const noteColors = ['#fff9a5','#a5d8ff','#ffa5a5','#a5ffa5'];
+    ctx.fillStyle = noteColors[seed % noteColors.length];
+    ctx.save();
+    ctx.translate(snX, snY);
+    ctx.rotate(0.1);
+    ctx.fillRect(-WS(6), -WS(5), WS(12), WS(10));
+    ctx.restore();
+  }
+
+  // Pen/pencil
+  ctx.strokeStyle = '#555'; ctx.lineWidth = WS(1.2); ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(p.x + dw*0.15, p.y + dh*0.25);
+  ctx.lineTo(p.x + dw*0.35, p.y + dh*0.35);
+  ctx.stroke();
+  // Pencil tip
+  ctx.fillStyle = '#e8b84a';
+  ctx.beginPath();
+  ctx.moveTo(p.x + dw*0.35, p.y + dh*0.35);
+  ctx.lineTo(p.x + dw*0.37, p.y + dh*0.33);
+  ctx.lineTo(p.x + dw*0.36, p.y + dh*0.37);
+  ctx.closePath(); ctx.fill();
+}
+
+function drawMonitor(mx, my, active) {
+  const p = W(mx, my);
+  const mw = WS(50), mh = WS(32), mr = WS(4);
+  const depth = WS(4); // monitor thickness
+
+  // Stand
+  ctx.fillStyle = '#c8c8c8';
+  rrect(p.x-WS(14), p.y+mh/2-WS(2)+depth, WS(28), WS(8), WS(3)); ctx.fill();
+
+  // Pole
+  ctx.fillStyle = '#b0b0b0';
+  ctx.fillRect(p.x-WS(2), p.y+mh/2, WS(4), depth);
+
+  // Monitor back (visible top edge — slightly lighter)
+  ctx.fillStyle = '#333';
+  rrect(p.x-mw/2, p.y-mh/2, mw, depth, mr); ctx.fill();
+
+  // Monitor body (front face)
+  ctx.fillStyle = '#2a2a2a';
+  rrect(p.x-mw/2, p.y-mh/2+depth, mw, mh, mr); ctx.fill();
+
+  // Screen
+  if (active) {
+    ctx.save();
+    ctx.shadowColor = 'rgba(66,133,244,0.5)';
+    ctx.shadowBlur = WS(8);
+    ctx.fillStyle = '#4285F4';
+    rrect(p.x-mw/2+WS(3), p.y-mh/2+depth+WS(3), mw-WS(6), mh-WS(6), mr-WS(1)); ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    for (let i=0;i<3;i++) ctx.fillRect(p.x-mw/2+WS(8), p.y-mh/2+depth+WS(8)+i*WS(7), WS(15), WS(2));
+  } else {
+    ctx.fillStyle = '#1a1a1a';
+    rrect(p.x-mw/2+WS(3), p.y-mh/2+depth+WS(3), mw-WS(6), mh-WS(6), mr-WS(1)); ctx.fill();
+  }
+}
+
+function drawChair(cx, cy) {
+  const p = W(cx, cy);
+  const cr = WS(18);
+
+  shadow(p.x, p.y+WS(3), cr*2, cr*2, 0.1);
+
+  // 5-star base
+  ctx.strokeStyle = '#b8b8b8'; ctx.lineWidth = WS(1.5);
+  for (let i=0;i<5;i++) {
+    const a = (i/5)*Math.PI*2;
+    ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x+Math.cos(a)*cr*1.2, p.y+Math.sin(a)*cr*1.2); ctx.stroke();
+  }
+  ctx.fillStyle = '#999'; ctx.beginPath(); ctx.arc(p.x, p.y, WS(4), 0, Math.PI*2); ctx.fill();
+
+  // Seat cushion (top view)
+  ctx.fillStyle = '#e8e8e8';
+  ctx.beginPath(); ctx.ellipse(p.x, p.y, cr, cr*0.8, 0, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#d0d0d0'; ctx.lineWidth = WS(0.8); ctx.stroke();
+
+  // Backrest — faces toward us (bottom), normal size (character draws overlay when sitting)
+  ctx.fillStyle = '#dcdcdc';
+  ctx.beginPath(); ctx.arc(p.x, p.y+cr*0.65, cr*0.7, 0, Math.PI); ctx.fill();
+  ctx.strokeStyle = '#c8c8c8'; ctx.lineWidth = WS(0.6); ctx.stroke();
+}
+
+function drawBreakArea() {
+  const bx=60, by=145, bw=180, bh=55;
+  const p = W(bx+bw/2, by+bh/2);
+  const pw = WS(bw), ph = WS(bh);
+  const sx = W(bx, by);
+  const depth = WS(12); // cabinet height visible from top
+
+  shadow(p.x, p.y+depth/2, pw, ph, 0.08);
+
+  // Cabinet right side (depth)
+  ctx.fillStyle = '#ddd';
+  ctx.beginPath();
+  ctx.moveTo(sx.x+pw, sx.y);
+  ctx.lineTo(sx.x+pw, sx.y+ph);
+  ctx.lineTo(sx.x+pw, sx.y+ph+depth);
+  ctx.lineTo(sx.x, sx.y+ph+depth);
+  ctx.lineTo(sx.x, sx.y+ph);
+  ctx.closePath(); ctx.fill();
+
+  // Cabinet front side (depth)
+  ctx.fillStyle = '#e8e8e8';
+  ctx.beginPath();
+  ctx.moveTo(sx.x, sx.y+ph);
+  ctx.lineTo(sx.x+pw, sx.y+ph);
+  ctx.lineTo(sx.x+pw, sx.y+ph+depth);
+  ctx.lineTo(sx.x, sx.y+ph+depth);
+  ctx.closePath(); ctx.fill();
+
+  // Cabinet top surface
+  ctx.fillStyle = '#f8f8f8';
+  rrect(sx.x, sx.y, pw, ph, WS(8)); ctx.fill();
+  ctx.strokeStyle = '#e2e2e2'; ctx.lineWidth = WS(1); ctx.stroke();
+
+  // Drawers (front face details)
+  ctx.strokeStyle = '#d0d0d0'; ctx.lineWidth = WS(0.5);
+  ctx.beginPath(); ctx.moveTo(sx.x+WS(10), sx.y+ph+depth*0.5); ctx.lineTo(sx.x+pw-WS(10), sx.y+ph+depth*0.5); ctx.stroke();
+  // Drawer knobs
+  ctx.fillStyle = '#bbb';
+  ctx.beginPath(); ctx.arc(sx.x+pw/2-WS(15), sx.y+ph+depth*0.5, WS(2), 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(sx.x+pw/2+WS(15), sx.y+ph+depth*0.5, WS(2), 0, Math.PI*2); ctx.fill();
+
+  // Coffee machine (3D box on top)
+  const cmx = W(bx+bw-40, by+bh/2);
+  const cmw = WS(28), cmh = WS(32), cmd = WS(10);
+  // Coffee machine side
+  ctx.fillStyle = '#aaa';
+  ctx.fillRect(cmx.x-cmw/2+cmw, cmx.y-cmh/2, cmd, cmh);
+  // Coffee machine front
+  ctx.fillStyle = '#c8c8c8';
+  ctx.fillRect(cmx.x-cmw/2, cmx.y-cmh/2+cmd, cmw, cmh-cmd);
+  // Coffee machine top
+  rrect(cmx.x-cmw/2, cmx.y-cmh/2, cmw, cmd, WS(4)); ctx.fill();
+  ctx.strokeStyle = '#aaa'; ctx.lineWidth = WS(0.8); ctx.stroke();
+  // Details
+  ctx.fillStyle = '#999'; ctx.fillRect(cmx.x-WS(3), cmx.y-cmh/2+cmd+WS(2), WS(6), WS(5));
+  ctx.fillStyle = '#E74C3C'; ctx.beginPath(); ctx.arc(cmx.x, cmx.y-cmh/2+cmd+WS(18), WS(3), 0, Math.PI*2); ctx.fill();
+
+  // Cups (3D trapezoids with depth)
+  for (let row=0;row<2;row++) for (let col=0;col<4;col++) {
+    const cx = W(bx+28+col*28, by+16+row*24);
+    const cupD = WS(4);
+    // Cup side
+    ctx.fillStyle = '#6B4F12';
+    ctx.beginPath();
+    ctx.moveTo(cx.x+WS(3), cx.y+WS(8));
+    ctx.lineTo(cx.x+WS(3), cx.y+WS(8)+cupD);
+    ctx.lineTo(cx.x-WS(3), cx.y+WS(8)+cupD);
+    ctx.lineTo(cx.x-WS(3), cx.y+WS(8));
+    ctx.closePath(); ctx.fill();
+    // Cup top
+    ctx.fillStyle = '#8B6914';
+    ctx.beginPath();
+    ctx.moveTo(cx.x-WS(5), cx.y-WS(2));
+    ctx.lineTo(cx.x+WS(5), cx.y-WS(2));
+    ctx.lineTo(cx.x+WS(3), cx.y+WS(8));
+    ctx.lineTo(cx.x-WS(3), cx.y+WS(8));
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#6B4F12'; ctx.lineWidth = WS(0.6); ctx.stroke();
+  }
+}
+
+function drawTreadmill() {
+  const tx=70, ty=387, tw=140, th=55;
+  const sx = W(tx, ty);
+  const pw = WS(tw), ph = WS(th);
+  const cx = W(tx+tw/2, ty+th/2);
+  const depth = WS(10);
+
+  shadow(cx.x, cx.y+depth/2, pw, ph, 0.08);
+
+  // Base right side
+  ctx.fillStyle = '#ddd';
+  ctx.beginPath();
+  ctx.moveTo(sx.x+pw, sx.y+WS(8));
+  ctx.lineTo(sx.x+pw, sx.y+ph-WS(12));
+  ctx.lineTo(sx.x+pw, sx.y+ph-WS(12)+depth);
+  ctx.lineTo(sx.x, sx.y+ph-WS(12)+depth);
+  ctx.lineTo(sx.x, sx.y+ph-WS(12));
+  ctx.closePath(); ctx.fill();
+
+  // Base front side
+  ctx.fillStyle = '#e5e5e5';
+  ctx.beginPath();
+  ctx.moveTo(sx.x, sx.y+ph-WS(12));
+  ctx.lineTo(sx.x+pw, sx.y+ph-WS(12));
+  ctx.lineTo(sx.x+pw, sx.y+ph-WS(12)+depth);
+  ctx.lineTo(sx.x, sx.y+ph-WS(12)+depth);
+  ctx.closePath(); ctx.fill();
+
+  // Base top
+  ctx.fillStyle = '#fafafa';
+  rrect(sx.x, sx.y+WS(8), pw, ph-WS(12), WS(6)); ctx.fill();
+  ctx.strokeStyle = '#e5e5e5'; ctx.lineWidth = WS(1); ctx.stroke();
+
+  // Belt (dark inset on top)
+  ctx.fillStyle = '#555';
+  rrect(sx.x+WS(8), sx.y+WS(14), pw-WS(16), ph-WS(24), WS(3)); ctx.fill();
+
+  // Belt lines
+  ctx.strokeStyle = '#444'; ctx.lineWidth = WS(0.5);
+  for (let i=tx+16;i<tx+tw-16;i+=10) {
+    const lp = W(i, ty);
+    ctx.beginPath(); ctx.moveTo(lp.x, sx.y+WS(16)); ctx.lineTo(lp.x, sx.y+ph-WS(16)); ctx.stroke();
+  }
+
+  // Handlebar posts (vertical, 3D)
+  ctx.strokeStyle = '#bbb'; ctx.lineWidth = WS(3); ctx.lineCap = 'round';
+  const posts = [
+    { x: tx+15, y1: ty+8, y2: ty-15 },
+    { x: tx+tw-15, y1: ty+8, y2: ty-15 },
+  ];
+  posts.forEach(post => {
+    const bot = W(post.x, post.y1);
+    const top = W(post.x, post.y2);
+    ctx.beginPath(); ctx.moveTo(bot.x, bot.y); ctx.lineTo(top.x, top.y); ctx.stroke();
+  });
+
+  // Handlebar (horizontal bar connecting posts at top)
+  const hl = W(tx+15, ty-15);
+  const hr = W(tx+tw-15, ty-15);
+  ctx.strokeStyle = '#bbb'; ctx.lineWidth = WS(3);
+  ctx.beginPath(); ctx.moveTo(hl.x, hl.y); ctx.lineTo(hr.x, hr.y); ctx.stroke();
+
+  // Control panel (3D box on handlebar center)
+  const pc = W(tx+tw/2, ty-10);
+  ctx.fillStyle = '#555';
+  rrect(pc.x-WS(10), pc.y-WS(4), WS(20), WS(8), WS(3)); ctx.fill();
+  ctx.fillStyle = '#444';
+  rrect(pc.x-WS(10), pc.y-WS(4), WS(20), WS(4), WS(3)); ctx.fill();
+  ctx.fillStyle = '#2ECC71'; ctx.beginPath(); ctx.arc(pc.x, pc.y-WS(1), WS(2), 0, Math.PI*2); ctx.fill();
+}
+
+function drawSofa() {
+  const sx=70, sy=630, sw=120, sh=55;
+  const p = W(sx+sw/2, sy+sh/2);
+  const pw = WS(sw), ph = WS(sh);
+  const start = W(sx, sy);
+  const depth = WS(14);
+
+  shadow(p.x, p.y+depth/2, pw, ph, 0.1);
+
+  // Sofa right side (depth)
+  ctx.fillStyle = '#d5d5d5';
+  ctx.beginPath();
+  ctx.moveTo(start.x+pw, start.y);
+  ctx.lineTo(start.x+pw, start.y+ph);
+  ctx.lineTo(start.x+pw, start.y+ph+depth);
+  ctx.lineTo(start.x, start.y+ph+depth);
+  ctx.lineTo(start.x, start.y+ph);
+  ctx.closePath(); ctx.fill();
+
+  // Sofa front side (depth)
+  ctx.fillStyle = '#ddd';
+  ctx.beginPath();
+  ctx.moveTo(start.x, start.y+ph);
+  ctx.lineTo(start.x+pw, start.y+ph);
+  ctx.lineTo(start.x+pw, start.y+ph+depth);
+  ctx.lineTo(start.x, start.y+ph+depth);
+  ctx.closePath(); ctx.fill();
+
+  // Sofa top surface
+  ctx.fillStyle = '#f5f5f5';
+  rrect(start.x, start.y, pw, ph, WS(10)); ctx.fill();
+  ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = WS(1); ctx.stroke();
+
+  // Backrest (raised cushion on top)
+  const bkH = WS(18);
+  ctx.fillStyle = '#ebebeb';
+  rrect(start.x+WS(5), start.y-WS(2), pw-WS(10), bkH, WS(6)); ctx.fill();
+  ctx.strokeStyle = '#d8d8d8'; ctx.lineWidth = WS(0.8); ctx.stroke();
+
+  // Backrest depth (right side)
+  ctx.fillStyle = '#ccc';
+  ctx.beginPath();
+  ctx.moveTo(start.x+pw-WS(5), start.y-WS(2));
+  ctx.lineTo(start.x+pw-WS(5), start.y-WS(2)+bkH);
+  ctx.lineTo(start.x+pw-WS(5)+WS(4), start.y-WS(2)+bkH+WS(3));
+  ctx.lineTo(start.x+pw-WS(5)+WS(4), start.y-WS(2)+WS(3));
+  ctx.closePath(); ctx.fill();
+
+  // Arms (raised sides with depth)
+  ctx.fillStyle = '#eaeaea';
+  rrect(start.x-WS(5), start.y+WS(8), WS(12), ph-WS(20), WS(5)); ctx.fill();
+  rrect(start.x+pw-WS(7), start.y+WS(8), WS(12), ph-WS(20), WS(5)); ctx.fill();
+
+  // Cushion line
+  ctx.strokeStyle = '#e5e5e5'; ctx.lineWidth = WS(0.5);
+  ctx.beginPath(); ctx.moveTo(start.x+pw/2, start.y+WS(15)); ctx.lineTo(start.x+pw/2, start.y+ph-WS(10)); ctx.stroke();
+
+  // Side table (3D)
+  const tp = W(sx+sw+18, sy+sh/2);
+  const tDepth = WS(8);
+  // Table side
+  ctx.fillStyle = '#ddd';
+  ctx.fillRect(tp.x-WS(12), tp.y-WS(12)+tDepth, WS(24)+WS(3), tDepth);
+  // Table top
+  ctx.fillStyle = '#f8f8f8';
+  rrect(tp.x-WS(12), tp.y-WS(12), WS(24), WS(24), WS(5)); ctx.fill();
+  ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = WS(0.8); ctx.stroke();
+}
+
+// ==================== PATHFINDING ====================
+// Road network based on actual furniture boundaries.
+// Desk visual: center y, height 100, side 8px → bottom = y+58
+// Row 1 desk y=110 → visual 60~168,  Row 2 y=310 → 260~368
+// Row 3 desk y=510 → visual 460~568, Row 4 y=710 → 660~768
+// Chairs at desk.y+75 = 185, 385, 585, 785 (17px below desk visual bottom)
+// Desk col1 x=420 → visual 345~495,  Col2 x=620 → visual 545~695
+// Corridors: x=260 (left of desks), x=520 (between cols, gap 495~545), x=740 (right of desks)
+
+const _W = [];
+const _E = {};
+function wp(id, x, y) { _W.push({ id, x, y }); _E[id] = []; }
+function edge(a, b) { _E[a].push(b); _E[b].push(a); }
+
+// === Main corridor x=260 (left of desk col1 at x=345) ===
+wp('c0', 260, 80);
+wp('c1', 260, 185);  // row 1 chair level
+wp('c2', 260, 214);  // between row 1-2
+wp('c3', 260, 385);  // row 2 chair level
+wp('c4', 260, 414);  // between row 2-3
+wp('c5', 260, 585);  // row 3 chair level
+wp('c6', 260, 614);  // between row 3-4
+wp('c7', 260, 785);  // row 4 chair level
+wp('c8', 260, 820);
+edge('c0','c1'); edge('c1','c2'); edge('c2','c3'); edge('c3','c4');
+edge('c4','c5'); edge('c5','c6'); edge('c6','c7'); edge('c7','c8');
+
+// === Inner aisle x=520 (between col1 x=495 and col2 x=545) ===
+wp('i1', 520, 185);
+wp('i2', 520, 214);
+wp('i3', 520, 385);
+wp('i4', 520, 414);
+wp('i5', 520, 585);
+wp('i6', 520, 614);
+wp('i7', 520, 785);
+edge('i1','i2'); edge('i2','i3'); edge('i3','i4');
+edge('i4','i5'); edge('i5','i6'); edge('i6','i7');
+
+// === Right edge x=740 (right of col2 at x=695) ===
+wp('r1', 740, 185);
+wp('r2', 740, 385);
+wp('r3', 740, 585);
+wp('r4', 740, 785);
+edge('r1','r2'); edge('r2','r3'); edge('r3','r4');
+
+// === Chair positions (y = desk.y + 75) ===
+wp('d0', 420, 185); wp('d1', 620, 185);
+wp('d2', 420, 385); wp('d3', 620, 385);
+wp('d4', 420, 585); wp('d5', 620, 585);
+wp('d6', 420, 785); wp('d7', 620, 785);
+
+// === Horizontal: chair row aisles (same y, along chair level) ===
+// d0→c1→...→i1→...→d1→r1  (row 1 at y=185)
+edge('d0','c1'); edge('c1','i1'); edge('i1','d1'); edge('d1','r1');
+edge('d2','c3'); edge('c3','i3'); edge('i3','d3'); edge('d3','r2');
+edge('d4','c5'); edge('c5','i5'); edge('i5','d5'); edge('d5','r3');
+edge('d6','c7'); edge('c7','i7'); edge('i7','d7'); edge('d7','r4');
+
+// === Between-row aisles (to change rows, must go through these) ===
+edge('c2','i2');  // y=214
+edge('c4','i4');  // y=414
+edge('c6','i6');  // y=614
+
+// === Left area connections ===
+// Break area: furniture at (60,145)-(240,200), character stands at (150,218)
+wp('bk', 150, 218);
+edge('c0','bk'); edge('bk','c1');
+
+// Treadmill: furniture at (70,387)-(210,442), belt center ~(140,410)
+wp('tm', 140, 398);
+edge('c4','tm'); edge('tm','c5');
+
+// Sofa: furniture at (70,630)-(190,685), cushion center ~(130,657)
+wp('sf', 130, 657);
+edge('c6','sf'); edge('sf','c7');
+
+// Bottom loop
+edge('c8','r4');
+
+// Build lookup maps
+const WP_BY_ID = {};
+_W.forEach(w => WP_BY_ID[w.id] = w);
+
+function nearestWP(x, y) {
+  let best = null, bestD = Infinity;
+  _W.forEach(w => {
+    const d = dist(x, y, w.x, w.y);
+    if (d < bestD) { bestD = d; best = w; }
+  });
+  return best;
+}
+
+// BFS shortest path
+function findPath(fromId, toId) {
+  if (fromId === toId) return [];
+  const visited = new Set([fromId]);
+  const queue = [[fromId]];
+  while (queue.length > 0) {
+    const path = queue.shift();
+    const cur = path[path.length - 1];
+    for (const nb of (_E[cur] || [])) {
+      if (nb === toId) return [...path.slice(1), nb];
+      if (visited.has(nb)) continue;
+      visited.add(nb);
+      queue.push([...path, nb]);
+    }
+  }
+  return [];
+}
+
+// Build route from pos to target
+function buildRoute(x1, y1, x2, y2) {
+  if (dist(x1, y1, x2, y2) < 40) return [{ x: x2, y: y2 }];
+  const from = nearestWP(x1, y1);
+  const to = nearestWP(x2, y2);
+  if (!from || !to) return [{ x: x2, y: y2 }];
+  const wpPath = findPath(from.id, to.id);
+  const route = [];
+  wpPath.forEach(id => {
+    const w = WP_BY_ID[id];
+    if (w) route.push({ x: w.x, y: w.y });
+  });
+  route.push({ x: x2, y: y2 });
+  return route;
+}
+
+// ==================== CHARACTER ====================
+// ==================== CHARACTER ====================
+class Char {
+  constructor(agent, initState) {
+    this.agent = agent;
+    this.scarf = agent.scarf;
+    this.state = initState;
+    const d = DESKS[agent.deskIdx % DESKS.length];
+    this.x = d.x; this.y = d.y + CHAIR_OFFSET;
+    this.tx = this.x; this.ty = this.y;
+    this.anim = 0;
+    this.stateTimer = rand(5,15);
+    this.taskTimer = 0;
+    this.speed = 2.8;
+    this.angle = 0;
+    this._next = null;
+    this.route = []; // waypoint path for current walk
+  }
+
+  get homeDesk() {
+    const d = DESKS[this.agent.deskIdx % DESKS.length];
+    return { x: d.x, y: d.y + CHAIR_OFFSET };
+  }
+
+  update(dt) {
+    this.anim += dt;
+
+    if (this.taskTimer > 0) {
+      this.taskTimer -= dt;
+      if (this.taskTimer <= 0 && this.state === STATES.TYPING) this.setState(STATES.IDLE);
+    }
+
+    if (this.state === STATES.WALKING) {
+      const d = dist(this.x, this.y, this.tx, this.ty);
+      if (d < 3) {
+        // Reached current target waypoint
+        if (this.route.length > 0) {
+          // Move to next waypoint in route
+          const next = this.route.shift();
+          this.tx = next.x; this.ty = next.y;
+        } else {
+          // Final destination reached
+          this.x = this.tx; this.y = this.ty;
+          if (this._next) { this.setState(this._next); this._next = null; }
+        }
+      } else {
+        const dx = this.tx-this.x, dy = this.ty-this.y;
+        const len = Math.hypot(dx,dy);
+        this.x += dx/len * Math.min(this.speed, len);
+        this.y += dy/len * Math.min(this.speed, len);
+        this.angle = Math.atan2(dy, dx);
+      }
+    }
+
+    if (this.state !== STATES.WALKING && this.taskTimer <= 0) {
+      this.stateTimer -= dt;
+      if (this.stateTimer <= 0) { this.autoSwitch(); this.stateTimer = rand(5,15); }
+    }
+  }
+
+  setState(s) {
+    this.state = s; this.anim = 0; this.updateUI();
+    if (s===STATES.TYPING) this.stateTimer = rand(10,20);
+    else if (s===STATES.IDLE) this.stateTimer = rand(8,15);
+    else if (s===STATES.SLEEPING || s===STATES.SITTING || s===STATES.RUNNING || s===STATES.DRINKING) this.stateTimer = rand(12,25);
+  }
+
+  walkTo(tx,ty,next) {
+    // Build route through waypoints instead of walking through furniture
+    this.route = buildRoute(this.x, this.y, tx, ty);
+    if (this.route.length > 0) {
+      const first = this.route.shift();
+      this.tx = first.x; this.ty = first.y;
+    } else {
+      this.tx = tx; this.ty = ty;
+    }
+    this._next = next;
+    this.setState(STATES.WALKING);
+  }
+
+  // Try to go to a left-side area; returns true if full
+  tryGoToArea(areaLoc, targetState, maxOccupants) {
+    maxOccupants = maxOccupants || 1;
+    let occupants = 0;
+    for (const other of chars) {
+      if (other === this) continue;
+      if (dist(other.x, other.y, areaLoc.x, areaLoc.y) < 55 && other.state !== STATES.WALKING) occupants++;
+      if (other.state === STATES.WALKING) {
+        const dest = other.route.length > 0 ? other.route[other.route.length - 1] : { x: other.tx, y: other.ty };
+        if (dist(dest.x, dest.y, areaLoc.x, areaLoc.y) < 55) occupants++;
+      }
+    }
+    if (occupants >= maxOccupants) return true;
+    // Offset based on occupant index to avoid overlap
+    const offsets = [
+      { x: 0, y: 0 },
+      { x: 28, y: 12 },
+      { x: -25, y: 15 },
+    ];
+    const o = offsets[Math.min(occupants, offsets.length - 1)];
+    this.walkTo(areaLoc.x + o.x, areaLoc.y + o.y, targetState);
+    return false;
+  }
+
+  autoSwitch() {
+    const r = Math.random();
+    switch(this.state) {
+      case STATES.IDLE:
+        // Idle → mostly back to typing (70%), sometimes go to area (30%)
+        if (r<0.7) this.setState(STATES.TYPING);
+        else {
+          const choices = [
+            { loc: LOC.coffee, state: STATES.DRINKING, max: 3 },
+            { loc: LOC.sofa, state: STATES.SITTING, max: 1 },
+            { loc: LOC.treadmill, state: STATES.RUNNING, max: 1 },
+          ];
+          for (let i=choices.length-1; i>0; i--) {
+            const j = Math.floor(Math.random()*(i+1));
+            [choices[i], choices[j]] = [choices[j], choices[i]];
+          }
+          let went = false;
+          for (const c of choices) {
+            if (!this.tryGoToArea(c.loc, c.state, c.max)) { went = true; break; }
+          }
+          if (!went) this.setState(STATES.TYPING);
+        }
+        break;
+      case STATES.TYPING:
+        // Typing → mostly keep typing (70%), sometimes take a break (30%)
+        if (r<0.7) { this.stateTimer = rand(10,20); }
+        else {
+          const choices = [
+            { loc: LOC.coffee, state: STATES.DRINKING, max: 3 },
+            { loc: LOC.sofa, state: STATES.SITTING, max: 1 },
+            { loc: LOC.treadmill, state: STATES.RUNNING, max: 1 },
+          ];
+          for (let i=choices.length-1; i>0; i--) {
+            const j = Math.floor(Math.random()*(i+1));
+            [choices[i], choices[j]] = [choices[j], choices[i]];
+          }
+          let went = false;
+          for (const c of choices) {
+            if (!this.tryGoToArea(c.loc, c.state, c.max)) { went = true; break; }
+          }
+          if (!went) { this.stateTimer = rand(10,20); }
+        }
+        break;
+      case STATES.SLEEPING:
+      case STATES.SITTING:
+      case STATES.RUNNING:
+      case STATES.DRINKING:
+        // Done resting → always go back to desk and type
+        { const h=this.homeDesk; this.walkTo(h.x,h.y,STATES.TYPING); }
+        break;
+    }
+  }
+
+  updateUI() {
+    const el = document.getElementById('st-'+this.agent.id);
+    if (!el) return;
+    const dot = el.querySelector('.status-dot');
+    const chip = el.querySelector('.status-chip');
+    const c = STATE_COLORS[this.state];
+    dot.style.background = c; dot.style.color = c;
+    chip.textContent = STATE_LABELS[this.state];
+  }
+}
+// Create characters — all start typing at desk (max 1 in left area)
+const usedAreas = new Set();
+// Initialize with default agents (non-embedded mode)
+// Add deskIdx to default agents
+DEFAULT_AGENTS.forEach((a, i) => a.deskIdx = i);
+AGENTS = [...DEFAULT_AGENTS];
+// Set up DESKS for default 8 agents
+for (let r = 0; r < 4; r++) {
+  for (let c = 0; c < 2; c++) {
+    DESKS.push({ x: 420 + c * 200, y: 110 + r * 200 });
+  }
+}
+// Build initial characters
+const _initAreas = new Set();
+chars = AGENTS.map((a, i) => {
+  let state = STATES.TYPING;
+  if (i === 3 && !_initAreas.has('coffee')) { state = STATES.DRINKING; _initAreas.add('coffee'); }
+  else if (i === 6 && !_initAreas.has('sofa')) { state = STATES.SITTING; _initAreas.add('sofa'); }
+  const ch = new Char(a, state);
+  if (state === STATES.DRINKING) { ch.x = LOC.coffee.x; ch.y = LOC.coffee.y; }
+  if (state === STATES.SITTING) { ch.x = LOC.sofa.x; ch.y = LOC.sofa.y; }
+  return ch;
+});
+
+// ==================== DRAW CHARACTER ====================
+// Pre-defined poses for each state
+const POSES = {
+  idle:     { bodySY:1,    oxBase:0,   oyBase:0,   footMode:'normal',  facing:'front' },
+  typing:   { bodySY:0.92, oxBase:0,   oyBase:-2,  footMode:'tucked',  facing:'back' },
+  walking:  { bodySY:1,    oxBase:0,   oyBase:0,   footMode:'walk',    facing:'front' },
+  sitting:  { bodySY:0.55, oxBase:4,   oyBase:8,   footMode:'forward', facing:'front' },
+  sleeping: { bodySY:0.55, oxBase:-6,  oyBase:0,   footMode:'tucked',  facing:'front' },
+  running:  { bodySY:0.9,  oxBase:0,   oyBase:0,   footMode:'run',     facing:'front' },
+  drinking: { bodySY:0.95, oxBase:0,   oyBase:0,   footMode:'normal',  facing:'front' },
+};
+
+function drawChar(ch) {
+  const p = W(ch.x, ch.y);
+  const pose = POSES[ch.state] || POSES.idle;
+  let facing = pose.facing || 'front';
+  // Walking: show back when moving up (away from viewer), front when moving down
+  if (ch.state === STATES.WALKING) {
+    const dy = ch.ty - ch.y;
+    if (dy < -1) facing = 'back';  // walking up = show back
+  }
+  let { bodySY, oxBase, oyBase } = pose;
+  let ox = oxBase * S;
+  let oy = oyBase * S;
+
+  // Per-state animation offsets
+  if (ch.state===STATES.IDLE) {
+    oy += Math.sin(ch.anim*3)*2*S;
+    ox += Math.sin(ch.anim*2)*1*S;
+  } else if (ch.state===STATES.WALKING) {
+    oy += Math.abs(Math.sin(ch.anim*10))*2.5*S;
+  } else if (ch.state===STATES.SLEEPING) {
+    oy += Math.sin(ch.anim*1.5)*1.5*S;
+  } else if (ch.state===STATES.RUNNING) {
+    // Running bounce (faster, higher)
+    oy += Math.abs(Math.sin(ch.anim*14))*4*S;
+  } else if (ch.state===STATES.DRINKING) {
+    // Gentle sway, holding cup
+    oy += Math.sin(ch.anim*2)*1*S;
+  }
+
+  ctx.save();
+  ctx.translate(p.x+ox, p.y+oy);
+
+  const s = S * 1.5;
+  const footMode = pose.footMode;
+
+  // === Feet ===
+  const walkCycle = ch.anim*10;
+  const runCycle = footMode==='run' ? ch.anim*14 : 0;
+  // Direction: vertical (y-step) or horizontal (x-step)
+  const dx = ch.tx - ch.x, dy = ch.ty - ch.y;
+  const isVertical = Math.abs(dy) > Math.abs(dx);
+  const legStepY = (footMode==='walk' && isVertical) ? Math.sin(walkCycle)*5*s : 0;
+  const legStepX = (footMode==='walk' && !isVertical) ? Math.sin(walkCycle)*5*s : 0;
+  const legBounce = footMode==='walk' ? Math.abs(Math.sin(walkCycle))*1.5*s : 0;
+  const runStepY = (footMode==='run' && isVertical) ? Math.sin(runCycle)*7*s : 0;
+  const runStepX = (footMode==='run' && !isVertical) ? Math.sin(runCycle)*7*s : 0;
+  const runBounce = footMode==='run' ? Math.abs(Math.sin(runCycle))*3*s : 0;
+
+  ctx.fillStyle = '#1a1a1a';
+  if (footMode === 'forward') {
+    ctx.beginPath(); ctx.ellipse(10*s, 10*s, 6*s, 3.5*s, 0.3, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(14*s, 15*s, 6*s, 3.5*s, 0.2, 0, Math.PI*2); ctx.fill();
+  } else if (footMode === 'tucked') {
+    ctx.beginPath(); ctx.ellipse(-4*s, 14*s, 4*s, 2.5*s, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(4*s, 14*s, 4*s, 2.5*s, 0, 0, Math.PI*2); ctx.fill();
+  } else if (footMode === 'walk') {
+    // Vertical: y-step, Horizontal: x-step
+    ctx.beginPath(); ctx.ellipse(-5*s+legStepX, 15*s+legStepY-legBounce, 5*s, 3.5*s, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(5*s-legStepX, 15*s-legStepY-legBounce, 5*s, 3.5*s, 0, 0, Math.PI*2); ctx.fill();
+  } else if (footMode === 'run') {
+    ctx.beginPath(); ctx.ellipse(-5*s+runStepX, 15*s+runStepY-runBounce, 5.5*s, 3.5*s, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(5*s-runStepX, 15*s-runStepY-runBounce, 5.5*s, 3.5*s, 0, 0, Math.PI*2); ctx.fill();
+  } else {
+    // Normal (idle/drinking): side by side
+    ctx.beginPath(); ctx.ellipse(-5*s, 15*s, 5*s, 3*s, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(5*s, 15*s, 5*s, 3*s, 0, 0, Math.PI*2); ctx.fill();
+  }
+
+  // Main body (large teardrop/egg shape, pure black)
+  ctx.fillStyle = '#1a1a1a';
+  ctx.beginPath();
+  ctx.moveTo(0, -20*s);
+  // Left curve (head to body)
+  ctx.bezierCurveTo(-16*s, -20*s, -16*s, -4*s, -14*s, 8*s*bodySY);
+  // Bottom curve
+  ctx.quadraticCurveTo(0, 20*s*bodySY, 14*s, 8*s*bodySY);
+  // Right curve (body to head)
+  ctx.bezierCurveTo(16*s, -4*s, 16*s, -20*s, 0, -20*s);
+  ctx.closePath();
+  ctx.fill();
+
+  // Colored ribbon — horizontal band around neck for all views
+  ctx.fillStyle = ch.scarf;
+  ctx.beginPath();
+  ctx.ellipse(0, -4*s, 13*s, 3.5*s, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  if (facing !== 'back') {
+    // Front view: dangling tail
+    ctx.beginPath();
+    ctx.moveTo(-8*s, -2*s);
+    ctx.quadraticCurveTo(-12*s, 4*s, -10*s, 8*s);
+    ctx.lineTo(-7*s, 6*s);
+    ctx.quadraticCurveTo(-9*s, 2*s, -5*s, -1*s);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Arms/flippers — different pose per state
+  ctx.fillStyle = '#1a1a1a';
+  if (facing === 'back') {
+    // Back view: arms barely visible on sides (just bumps)
+    ctx.beginPath(); ctx.ellipse(-13*s, 2*s, 4*s, 3*s, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(13*s, 2*s, 4*s, 3*s, 0, 0, Math.PI*2); ctx.fill();
+  } else if (footMode === 'forward') {
+    // Sitting: arms resting on "knees"
+    ctx.beginPath();
+    ctx.ellipse(8*s, 4*s, 5*s, 3.5*s, 0.4, 0, Math.PI*2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(10*s, 8*s, 5*s, 3.5*s, 0.3, 0, Math.PI*2);
+    ctx.fill();
+  } else if (footMode === 'run') {
+    // Running: arms pumping (bigger swing than walking)
+    ctx.beginPath();
+    ctx.ellipse(-13*s, -2*s-runStepX*0.5, 5*s, 4*s, -0.3, 0, Math.PI*2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(13*s, -2*s+runStepX*0.5, 5*s, 4*s, 0.3, 0, Math.PI*2);
+    ctx.fill();
+  } else if (footMode === 'walk') {
+    // Walking: arms swing opposite to legs
+    ctx.beginPath();
+    ctx.ellipse(-14*s, -2*s-legStepX*0.4, 5*s, 4*s, -0.2, 0, Math.PI*2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(14*s, -2*s+legStepX*0.4, 5*s, 4*s, 0.2, 0, Math.PI*2);
+    ctx.fill();
+  } else if (ch.state===STATES.TYPING) {
+    // Typing: arms reaching forward, alternating
+    const tOff = Math.sin(ch.anim*18)*4*s;
+    ctx.beginPath();
+    ctx.ellipse(-14*s, -2*s+tOff, 5*s, 4*s, -0.3, 0, Math.PI*2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(14*s, -2*s-tOff, 5*s, 4*s, 0.3, 0, Math.PI*2);
+    ctx.fill();
+  } else if (ch.state===STATES.SLEEPING) {
+    // Sleeping: arms tucked close
+    ctx.beginPath();
+    ctx.ellipse(-12*s, 2*s, 4*s, 3*s, -0.4, 0, Math.PI*2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(12*s, 2*s, 4*s, 3*s, 0.4, 0, Math.PI*2);
+    ctx.fill();
+  } else if (ch.state===STATES.DRINKING) {
+    // Drinking: right arm raised holding cup near face
+    // Gentle bob animation
+    const dBob = Math.sin(ch.anim*4)*1.5*s;
+    ctx.beginPath();
+    ctx.ellipse(-13*s, -2*s, 5*s, 4*s, -0.3, 0, Math.PI*2);
+    ctx.fill();
+    // Right arm reaching up to face
+    ctx.beginPath();
+    ctx.ellipse(8*s, -10*s+dBob, 4.5*s, 3.5*s, 0.6, 0, Math.PI*2);
+    ctx.fill();
+    // Cup near face
+    ctx.fillStyle = '#fff';
+    ctx.strokeStyle = '#bbb'; ctx.lineWidth = WS(0.8);
+    rrect(5*s, -17*s+dBob, 8*s, 7*s, 1.5*s); ctx.fill(); ctx.stroke();
+    // Coffee inside
+    ctx.fillStyle = '#8B6914';
+    ctx.beginPath(); ctx.ellipse(9*s, -15*s+dBob, 3*s, 2*s, 0, 0, Math.PI*2); ctx.fill();
+    // Steam
+    ctx.strokeStyle = 'rgba(180,180,180,0.4)';
+    ctx.lineWidth = 0.8*s; ctx.lineCap = 'round';
+    const steamOff = Math.sin(ch.anim*3)*1.5*s;
+    ctx.beginPath();
+    ctx.moveTo(8*s, -18*s+dBob);
+    ctx.quadraticCurveTo(10*s, -21*s+dBob+steamOff, 8*s, -23*s+dBob+steamOff);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(12*s, -18*s+dBob);
+    ctx.quadraticCurveTo(14*s, -20*s+dBob-steamOff, 12*s, -22*s+dBob-steamOff);
+    ctx.stroke();
+  } else {
+    // Idle: arms at sides, gentle sway
+    const iOff = Math.sin(ch.anim*3)*1.5*s;
+    ctx.beginPath();
+    ctx.ellipse(-14*s, -2*s+iOff, 5*s, 4*s, -0.3, 0, Math.PI*2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(14*s, -2*s-iOff, 5*s, 4*s, 0.3, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  // Eyes & blush — only for front-facing states
+  if (facing !== 'back') {
+  // Eyes — different style per state
+  const eyeY = -12*s;
+
+  if (ch.state===STATES.SLEEPING) {
+    // Closed eyes (^_^)
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath(); ctx.arc(-5.5*s, eyeY, 5.2*s, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(5.5*s, eyeY, 5.2*s, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.8*s; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.arc(-5.5*s, eyeY+1*s, 3*s, Math.PI+0.3, -0.3); ctx.stroke();
+    ctx.beginPath(); ctx.arc(5.5*s, eyeY+1*s, 3*s, Math.PI+0.3, -0.3); ctx.stroke();
+    // Zzz
+    ctx.fillStyle = '#888';
+    ctx.font = `bold ${6*s}px -apple-system, sans-serif`;
+    ctx.textAlign = 'left';
+    ctx.fillText('z', 12*s, -18*s);
+    ctx.font = `bold ${4.5*s}px -apple-system, sans-serif`;
+    ctx.fillText('z', 16*s, -24*s);
+  } else if (ch.state===STATES.SITTING) {
+    // Happy relaxed eyes
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(-5.5*s, eyeY, 5*s, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(5.5*s, eyeY, 5*s, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#111';
+    ctx.beginPath(); ctx.arc(-5*s, eyeY+0.5*s, 2.5*s, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(6*s, eyeY+0.5*s, 2.5*s, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(-4*s, eyeY-0.5*s, 1*s, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(7*s, eyeY-0.5*s, 1*s, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,150,150,0.35)';
+    ctx.beginPath(); ctx.arc(-9*s, -7*s, 3.5*s, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(9*s, -7*s, 3.5*s, 0, Math.PI*2); ctx.fill();
+  } else if (ch.state===STATES.RUNNING) {
+    // Determined eyes — slightly squinted, pupils forward
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(-5.5*s, eyeY, 4.5*s, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(5.5*s, eyeY, 4.5*s, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#111';
+    ctx.beginPath(); ctx.arc(-4*s, eyeY, 2.2*s, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(7*s, eyeY, 2.2*s, 0, Math.PI*2); ctx.fill();
+  } else if (ch.state===STATES.DRINKING) {
+    // Happy closed-smile eyes (^_^) — enjoying coffee
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath(); ctx.arc(-5.5*s, eyeY, 5.2*s, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(5.5*s, eyeY, 5.2*s, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.8*s; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.arc(-5.5*s, eyeY+1*s, 3*s, Math.PI+0.3, -0.3); ctx.stroke();
+    ctx.beginPath(); ctx.arc(5.5*s, eyeY+1*s, 3*s, Math.PI+0.3, -0.3); ctx.stroke();
+    // Extra blush
+    ctx.fillStyle = 'rgba(255,150,150,0.4)';
+    ctx.beginPath(); ctx.arc(-10*s, -6*s, 3*s, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(10*s, -6*s, 3*s, 0, Math.PI*2); ctx.fill();
+  } else if (ch.state===STATES.TYPING) {
+    // Focused eyes — pupils look down (at screen)
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(-5.5*s, eyeY, 5*s, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(5.5*s, eyeY, 5*s, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#111';
+    ctx.beginPath(); ctx.arc(-5*s, eyeY+2*s, 2.5*s, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(6*s, eyeY+2*s, 2.5*s, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(-4*s, eyeY+0.5*s, 0.8*s, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(7*s, eyeY+0.5*s, 0.8*s, 0, Math.PI*2); ctx.fill();
+  } else {
+    // Default (idle/walking): cute round eyes looking forward
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(-5.5*s, eyeY, 5*s, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(5.5*s, eyeY, 5*s, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#111';
+    ctx.beginPath(); ctx.arc(-4.5*s, eyeY+1*s, 2.5*s, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(6.5*s, eyeY+1*s, 2.5*s, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(-3.5*s, eyeY-0.5*s, 1*s, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(7.5*s, eyeY-0.5*s, 1*s, 0, Math.PI*2); ctx.fill();
+  }
+
+  // Blush (skip if state has custom blush)
+  if (![STATES.SLEEPING, STATES.SITTING, STATES.DRINKING].includes(ch.state)) {
+    ctx.fillStyle = 'rgba(255,150,150,0.25)';
+    ctx.beginPath(); ctx.arc(-9*s, -7*s, 3*s, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(9*s, -7*s, 3*s, 0, Math.PI*2); ctx.fill();
+  }
+
+  } // end facing !== 'back'
+
+  // Restore transform before drawing overlays
+  ctx.restore();
+
+  // Chair backrest overlay — only when actually sitting at desk (TYPING)
+  if (facing === 'back' && ch.state === STATES.TYPING) {
+    const bp = W(ch.x, ch.y);
+    const bcr = WS(18);
+    ctx.fillStyle = '#dcdcdc';
+    ctx.beginPath();
+    ctx.arc(bp.x, bp.y + bcr*0.9, bcr*0.85, 0, Math.PI);
+    ctx.fill();
+    ctx.strokeStyle = '#c8c8c8'; ctx.lineWidth = WS(0.6);
+    ctx.stroke();
+  }
+
+  // Floating name — only show when character is NOT at their desk
+  const hd = DESKS[ch.agent.deskIdx % DESKS.length];
+  const atDesk = dist(ch.x, ch.y, hd.x, hd.y + CHAIR_OFFSET) < 30;
+  if (!atDesk) {
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.font = `600 ${WS(9)}px -apple-system, sans-serif`;
+    ctx.textAlign = 'center';
+    const fp = W(ch.x, ch.y + 28);
+    ctx.fillText(ch.agent.name, fp.x, fp.y);
+  }
+}
+
+// ==================== EVENTS & EFFECTS ====================
+// Monitor screen content — draws different screen types per desk
+const SCREEN_TYPES = ['code','terminal','chart','design','chat','review','deploy','docs'];
+let globalTime = 0;
+
+function drawScreenContent(mx, my, active, deskIdx) {
+  if (!active) return;
+  const p = W(mx, my);
+  const mw = WS(50), mh = WS(32);
+  const sx = p.x - mw/2 + WS(5), sy = p.y - mh/2 + WS(9);
+  const sw = mw - WS(10), sh = mh - WS(12);
+  const type = SCREEN_TYPES[deskIdx % SCREEN_TYPES.length];
+  ctx.save();
+  ctx.beginPath(); ctx.rect(sx, sy, sw, sh); ctx.clip();
+
+  if (type === 'code' || type === 'terminal') {
+    const lines = type === 'code' ? ['const app = express()','app.listen(3000)','// TODO: fix bug','npm run build'] :
+                                   ['~/project $ git push','Everything up-to-date','~/project $ npm test','✓ 42 tests passed'];
+    ctx.font = `${WS(5)}px monospace`;
+    const scrollOff = Math.floor(globalTime * 0.5) % 2;
+    lines.forEach((line, i) => {
+      const ly = sy + WS(6) + (i + scrollOff) * WS(6.5);
+      if (ly > sy && ly < sy + sh) {
+        ctx.fillStyle = type === 'code' ? '#8f8' : '#0f0';
+        ctx.fillText(line, sx + WS(2), ly);
+      }
+    });
+  } else if (type === 'chart') {
+    // Bar chart
+    const bars = [0.6, 0.8, 0.4, 0.9, 0.7, 0.5, 0.85];
+    const barW = sw / (bars.length * 2);
+    bars.forEach((h, i) => {
+      const anim = Math.min(1, (globalTime * 0.3 - i * 0.1) % 2);
+      const bh = sh * h * anim * 0.8;
+      ctx.fillStyle = `hsl(${140 + i*20}, 70%, 55%)`;
+      ctx.fillRect(sx + barW + i * barW * 2, sy + sh - bh, barW, bh);
+    });
+  } else if (type === 'design') {
+    // Colored rectangles (wireframe)
+    ctx.fillStyle = '#4a9';
+    ctx.fillRect(sx + WS(2), sy + WS(2), sw * 0.4, sh * 0.3);
+    ctx.fillStyle = '#48f';
+    ctx.fillRect(sx + sw * 0.45, sy + WS(2), sw * 0.5, sh * 0.3);
+    ctx.fillStyle = '#f84';
+    ctx.fillRect(sx + WS(2), sy + sh * 0.4, sw - WS(4), sh * 0.55);
+  } else if (type === 'chat') {
+    // Chat bubbles
+    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+    rrect(sx + WS(2), sy + WS(3), sw * 0.6, WS(8), WS(2)); ctx.fill();
+    rrect(sx + sw * 0.3, sy + WS(14), sw * 0.65, WS(8), WS(2)); ctx.fill();
+  } else if (type === 'review') {
+    // Code review: red/green diff lines
+    ctx.font = `${WS(4.5)}px monospace`;
+    const diffLines = ['- return null;','+ return data;','+ // fixed!','  ✓ tests pass'];
+    diffLines.forEach((line, i) => {
+      const ly = sy + WS(6) + i * WS(6);
+      ctx.fillStyle = line.startsWith('-') ? 'rgba(255,100,100,0.3)' : line.startsWith('+') ? 'rgba(100,255,100,0.3)' : 'transparent';
+      ctx.fillRect(sx, ly - WS(4), sw, WS(6));
+      ctx.fillStyle = line.startsWith('-') ? '#faa' : line.startsWith('+') ? '#afa' : '#aaa';
+      ctx.fillText(line, sx + WS(2), ly);
+    });
+  } else if (type === 'deploy') {
+    // Deployment pipeline
+    const stages = ['Build','Test','Deploy'];
+    const prog = (globalTime * 0.15) % 3;
+    stages.forEach((name, i) => {
+      const bx = sx + WS(2) + i * (sw / 3);
+      const bw = sw / 3 - WS(4);
+      ctx.fillStyle = i < Math.floor(prog) ? '#4a4' : i === Math.floor(prog) ? '#aa4' : '#555';
+      rrect(bx, sy + WS(4), bw, sh * 0.4, WS(2)); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.font = `bold ${WS(4)}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText(name, bx + bw/2, sy + WS(4) + sh * 0.25);
+      if (i === Math.floor(prog)) {
+        // Spinning
+        const spin = globalTime * 5;
+        ctx.strokeStyle = '#ff0'; ctx.lineWidth = WS(1);
+        ctx.beginPath(); ctx.arc(bx + bw/2, sy + sh * 0.7, WS(4), spin, spin + Math.PI*1.5); ctx.stroke();
+      } else if (i < Math.floor(prog)) {
+        ctx.fillStyle = '#fff';
+        ctx.fillText('✓', bx + bw/2, sy + sh * 0.75);
+      }
+    });
+    ctx.textAlign = 'left';
+  } else if (type === 'docs') {
+    // Documentation: paragraphs + heading
+    ctx.fillStyle = '#ddd';
+    ctx.font = `bold ${WS(5)}px sans-serif`;
+    ctx.fillText('API Docs', sx + WS(2), sy + WS(7));
+    ctx.font = `${WS(4)}px sans-serif`;
+    ctx.fillStyle = '#aaa';
+    for (let i = 0; i < 4; i++) {
+      const w = sw * (0.5 + Math.random() * 0.4);
+      ctx.fillRect(sx + WS(2), sy + WS(12) + i * WS(5), w, WS(2));
+    }
+  }
+  ctx.restore();
+}
+
+// Coffee machine steam animation
+let coffeeSteamAnim = 0;
+function drawCoffeeMachineSteam() {
+  coffeeSteamAnim += 0.02;
+  // Coffee machine: bx=60, by=145, bw=180, bh=55 → top-center at (150, 145)
+  const top = W(150, 140);
+  const sx = top.x, sy = top.y;
+  ctx.fillStyle = 'rgba(200,200,200,0.18)';
+  for (let i = 0; i < 4; i++) {
+    const t = (coffeeSteamAnim + i * 0.6) % 2.5;
+    const px = sx + Math.sin(t * 2.5 + i * 1.2) * WS(8);
+    const py = sy - t * WS(18);
+    const r = WS(3 + t * 5);
+    if (t < 2) {
+      ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI*2); ctx.fill();
+    }
+  }
+}
+
+// Celebration particles
+const particles = [];
+function spawnCelebration(x, y) {
+  for (let i = 0; i < 12; i++) {
+    const angle = (i / 12) * Math.PI * 2;
+    const speed = 2 + Math.random() * 3;
+    particles.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 2,
+      life: 1,
+      color: `hsl(${Math.random()*360}, 80%, 60%)`,
+      size: WS(2 + Math.random() * 2),
+    });
+  }
+}
+
+function updateParticles(dt) {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx; p.y += p.vy;
+    p.vy += 0.15; // gravity
+    p.life -= dt * 0.8;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+}
+
+function drawParticles() {
+  particles.forEach(p => {
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.fillStyle = p.color;
+    const sp = W(p.x, p.y);
+    ctx.beginPath(); ctx.arc(sp.x, sp.y, p.size * p.life, 0, Math.PI*2); ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+}
+
+// Delivery event — all characters rush to coffee area
+let deliveryEvent = null;
+function triggerDelivery() {
+  if (deliveryEvent) return;
+  deliveryEvent = { timer: 15, phase: 'rush' };
+  showToast('🍕 Delivery arrived!');
+  // All non-typing characters rush to coffee
+  chars.forEach(ch => {
+    if (ch.state !== STATES.TYPING) return;
+    ch.walkTo(LOC.coffee.x + (Math.random()-0.5)*30, LOC.coffee.y + (Math.random()-0.5)*20, STATES.DRINKING);
+  });
+}
+
+function updateDelivery(dt) {
+  if (!deliveryEvent) return;
+  deliveryEvent.timer -= dt;
+  if (deliveryEvent.timer <= 0) {
+    deliveryEvent = null;
+    // Everyone goes back to typing
+    chars.forEach(ch => {
+      if (ch.state === STATES.DRINKING && dist(ch.x, ch.y, LOC.coffee.x, LOC.coffee.y) < 60) {
+        const h = ch.homeDesk;
+        ch.walkTo(h.x, h.y, STATES.TYPING);
+      }
+    });
+  }
+}
+
+// Cat petting interaction
+let catPetEffect = null;
+function petCat() {
+  const cat = officeCat;
+  catPetEffect = { timer: 2, purrPhase: 0 };
+  // Cat stops and purrs
+  cat.state = CAT_STATES.WANDER;
+  cat.tx = cat.x; cat.ty = cat.y;
+  cat.route = [];
+  showToast('🐱 Mochi purrs: purrrr~');
+}
+
+function drawCatPetEffect() {
+  if (!catPetEffect) return;
+  const cat = officeCat;
+  const p = W(cat.x, cat.y - 20 * S);
+  catPetEffect.purrPhase += 0.15;
+  // Musical notes floating up
+  const notes = ['♪','♫','♩','♬'];
+  for (let i = 0; i < 3; i++) {
+    const t = (catPetEffect.purrPhase + i * 0.8) % 2.5;
+    if (t > 2) continue;
+    const nx = p.x + Math.sin(t * 2 + i) * WS(10);
+    const ny = p.y - t * WS(15);
+    ctx.globalAlpha = Math.max(0, 1 - t / 2.5);
+    ctx.fillStyle = '#e8922a';
+    ctx.font = `${WS(10)}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText(notes[i], nx, ny);
+  }
+  ctx.globalAlpha = 1;
+  // Purr text
+  ctx.fillStyle = 'rgba(232,146,42,0.7)';
+  ctx.font = `italic ${WS(9)}px sans-serif`;
+  ctx.fillText('purrrr~', p.x, p.y + WS(5));
+}
+
+// Random events timer
+let eventTimer = rand(30, 60);
+let celebrationTimer = rand(20, 45);
+function checkRandomEvents(dt) {
+  // Delivery event
+  eventTimer -= dt;
+  if (eventTimer <= 0) {
+    triggerDelivery();
+    eventTimer = rand(60, 120);
+  }
+  // Random celebration (a character celebrates)
+  celebrationTimer -= dt;
+  if (celebrationTimer <= 0) {
+    const typer = chars.find(c => c.state === STATES.TYPING);
+    if (typer) spawnCelebration(typer.x, typer.y);
+    celebrationTimer = rand(30, 60);
+  }
+}
+
+// ==================== OFFICE CAT ====================
+// Orange tabby cat that wanders corridors and naps
+const CAT_STATES = { WANDER: 'wander', NAP: 'nap' };
+
+const officeCat = {
+  x: 260, y: 214,
+  tx: 260, ty: 214,
+  state: CAT_STATES.WANDER,
+  anim: Math.random() * 100,
+  speed: 1.8,
+  baseSpeed: 1.8,
+  timer: rand(3, 8),
+  facingX: 1, // 1=right, -1=left
+  facingY: 1, // 1=down(front), -1=up(back)
+  dreamBubble: null,
+  route: [],
+  targets: [
+    { x:260, y:80 }, { x:260, y:214 }, { x:260, y:414 },
+    { x:260, y:614 }, { x:260, y:820 },
+    { x:520, y:185 }, { x:520, y:414 }, { x:520, y:735 },
+    { x:740, y:185 }, { x:740, y:555 }, { x:740, y:785 },
+    { x:150, y:218 },
+    { x:130, y:657 },
+  ],
+
+  pickTarget() {
+    const t = this.targets[Math.floor(Math.random() * this.targets.length)];
+    this.route = buildRoute(this.x, this.y, t.x, t.y);
+    if (this.route.length > 0) {
+      const first = this.route.shift();
+      this.tx = first.x; this.ty = first.y;
+    } else {
+      this.tx = t.x; this.ty = t.y;
+    }
+    // Random speed: slow saunter or fast trot
+    this.speed = Math.random() < 0.3 ? this.baseSpeed * 2.2 : this.baseSpeed;
+  },
+
+  update(dt) {
+    this.anim += dt;
+
+    if (this.state === CAT_STATES.WANDER) {
+      const d = dist(this.x, this.y, this.tx, this.ty);
+      if (d < 3) {
+        if (this.route.length > 0) {
+          const next = this.route.shift();
+          this.tx = next.x; this.ty = next.y;
+        } else {
+          this.timer -= dt;
+          if (this.timer <= 0) {
+            if (Math.random() < 0.35) {
+              this.state = CAT_STATES.NAP;
+              this.timer = rand(8, 20);
+              const dreams = ['🐟','🧶','🐱','🐾','★','♥','🐾','🐭','💤','🐟'];
+              this.dreamBubble = { text: dreams[Math.floor(Math.random()*dreams.length)], timer: 0 };
+            } else {
+              this.pickTarget();
+              this.timer = rand(2, 6);
+            }
+          }
+        }
+      } else {
+        const dx = this.tx-this.x, dy = this.ty-this.y;
+        const len = Math.hypot(dx,dy);
+        this.x += dx/len * Math.min(this.speed, len);
+        this.y += dy/len * Math.min(this.speed, len);
+        // Update facing direction
+        if (Math.abs(dx) > 0.5) this.facingX = dx > 0 ? 1 : -1;
+        if (Math.abs(dy) > 0.5) this.facingY = dy > 0 ? 1 : -1;
+      }
+    } else if (this.state === CAT_STATES.NAP) {
+      this.timer -= dt;
+      if (this.dreamBubble) this.dreamBubble.timer += dt;
+      if (this.timer <= 0) {
+        this.state = CAT_STATES.WANDER;
+        this.dreamBubble = null;
+        this.pickTarget();
+        this.timer = rand(3, 8);
+      }
+    }
+  }
+};
+
+function drawCat() {
+  const cat = officeCat;
+  const p = W(cat.x, cat.y);
+  const s = S * 1.2;
+  const isRunning = cat.speed > cat.baseSpeed * 1.5;
+
+  ctx.save();
+  ctx.translate(p.x, p.y);
+  // Flip horizontally based on facing direction
+  ctx.scale(cat.facingX, 1);
+
+  if (cat.state === CAT_STATES.NAP) {
+    // Sleeping cat: curled up oval
+    // Body (curled)
+    ctx.fillStyle = '#e8922a';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 10*s, 7*s, 0, 0, Math.PI*2);
+    ctx.fill();
+    // Darker stripes
+    ctx.fillStyle = '#c47818';
+    ctx.beginPath(); ctx.ellipse(-3*s, -2*s, 2*s, 5*s, 0.2, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(4*s, -1*s, 1.8*s, 4*s, -0.1, 0, Math.PI*2); ctx.fill();
+    // Head tucked
+    ctx.fillStyle = '#e8922a';
+    ctx.beginPath(); ctx.arc(8*s, -2*s, 4.5*s, 0, Math.PI*2); ctx.fill();
+    // Ears
+    ctx.beginPath(); ctx.moveTo(6*s, -6*s); ctx.lineTo(4*s, -10*s); ctx.lineTo(9*s, -7*s); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(10*s, -6*s); ctx.lineTo(12*s, -10*s); ctx.lineTo(13*s, -6*s); ctx.fill();
+    // Inner ears
+    ctx.fillStyle = '#f5b87a';
+    ctx.beginPath(); ctx.moveTo(6.5*s, -6.5*s); ctx.lineTo(5*s, -9*s); ctx.lineTo(8.5*s, -7*s); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(10.5*s, -6.5*s); ctx.lineTo(11.5*s, -9*s); ctx.lineTo(12.5*s, -6.5*s); ctx.fill();
+    // Closed eyes
+    ctx.strokeStyle = '#555'; ctx.lineWidth = 0.8*s; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.arc(7*s, -2.5*s, 1.5*s, Math.PI+0.3, -0.3); ctx.stroke();
+    ctx.beginPath(); ctx.arc(11*s, -2.5*s, 1.5*s, Math.PI+0.3, -0.3); ctx.stroke();
+    // Nose
+    ctx.fillStyle = '#d4726a';
+    ctx.beginPath(); ctx.arc(9.5*s, -0.5*s, 0.8*s, 0, Math.PI*2); ctx.fill();
+    // Tail (curled around)
+    ctx.strokeStyle = '#e8922a'; ctx.lineWidth = 2.5*s; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-8*s, 2*s);
+    ctx.quadraticCurveTo(-12*s, -5*s, -6*s, -8*s);
+    ctx.stroke();
+    // Tail tip (darker)
+    ctx.strokeStyle = '#c47818'; ctx.lineWidth = 2*s;
+    ctx.beginPath();
+    ctx.moveTo(-7*s, -6*s);
+    ctx.quadraticCurveTo(-6*s, -8*s, -4*s, -7*s);
+    ctx.stroke();
+
+    // Dream bubble
+    if (cat.dreamBubble && cat.dreamBubble.timer > 1) {
+      const by = -16*s - Math.sin(cat.anim*2)*2*s;
+      // Bubble circles
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.beginPath(); ctx.arc(14*s, by+6*s, 2*s, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(16*s, by+2*s, 3*s, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(18*s, by-4*s, 6*s, 0, Math.PI*2); ctx.fill();
+      // Dream text
+      ctx.fillStyle = '#555';
+      ctx.font = `${5*s}px sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(cat.dreamBubble.text, 18*s, by-4*s);
+    }
+  } else {
+    // Walking/running cat
+    const moveSpeed = isRunning ? 14 : 10;
+    const bobY = Math.abs(Math.sin(cat.anim*moveSpeed))*(isRunning?2.5:1.5)*s;
+    ctx.translate(0, -bobY);
+
+    // Body
+    ctx.fillStyle = '#e8922a';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 10*s, 6*s, 0, 0, Math.PI*2);
+    ctx.fill();
+    // Stripes
+    ctx.fillStyle = '#c47818';
+    ctx.beginPath(); ctx.ellipse(-3*s, -1*s, 1.8*s, 4*s, 0.2, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(3*s, -0.5*s, 1.5*s, 3.5*s, -0.1, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(7*s, 0, 1.3*s, 3*s, 0, 0, Math.PI*2); ctx.fill();
+
+    // Legs (4 small stubs)
+    const legOff = Math.sin(cat.anim*moveSpeed)*(isRunning?3:2)*s;
+    ctx.fillStyle = '#e8922a';
+    ctx.beginPath(); ctx.ellipse(-5*s, 6*s+legOff, 2.5*s, 1.8*s, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-1*s, 6*s-legOff, 2.5*s, 1.8*s, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(4*s, 6*s-legOff, 2.5*s, 1.8*s, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(8*s, 6*s+legOff, 2.5*s, 1.8*s, 0, 0, Math.PI*2); ctx.fill();
+    // Paws (white tips)
+    ctx.fillStyle = '#f5deb3';
+    ctx.beginPath(); ctx.ellipse(-5*s, 7*s+legOff, 1.5*s, 1*s, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-1*s, 7*s-legOff, 1.5*s, 1*s, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(4*s, 7*s-legOff, 1.5*s, 1*s, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(8*s, 7*s+legOff, 1.5*s, 1*s, 0, 0, Math.PI*2); ctx.fill();
+
+    // Tail (up, curved)
+    ctx.strokeStyle = '#e8922a'; ctx.lineWidth = 2.5*s; ctx.lineCap = 'round';
+    const tailWag = Math.sin(cat.anim*(isRunning?10:6))*(isRunning?5:3)*s;
+    ctx.beginPath();
+    ctx.moveTo(-8*s, 0);
+    ctx.quadraticCurveTo(-14*s+tailWag, -8*s, -10*s+tailWag, -14*s);
+    ctx.stroke();
+    ctx.strokeStyle = '#c47818'; ctx.lineWidth = 2*s;
+    ctx.beginPath();
+    ctx.moveTo(-11*s+tailWag, -12*s);
+    ctx.quadraticCurveTo(-10*s+tailWag, -15*s, -8*s+tailWag, -13*s);
+    ctx.stroke();
+
+    // Head
+    ctx.fillStyle = '#e8922a';
+    ctx.beginPath(); ctx.arc(10*s, -4*s, 5.5*s, 0, Math.PI*2); ctx.fill();
+    // Ears
+    ctx.beginPath(); ctx.moveTo(6*s, -7*s); ctx.lineTo(4*s, -13*s); ctx.lineTo(10*s, -8*s); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(13*s, -7*s); ctx.lineTo(16*s, -13*s); ctx.lineTo(16*s, -7*s); ctx.fill();
+    // Inner ears
+    ctx.fillStyle = '#f5b87a';
+    ctx.beginPath(); ctx.moveTo(6.5*s, -8*s); ctx.lineTo(5*s, -12*s); ctx.lineTo(9.5*s, -8.5*s); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(13.5*s, -7.5*s); ctx.lineTo(15*s, -12*s); ctx.lineTo(15.5*s, -7.5*s); ctx.fill();
+    // Eyes (big green eyes)
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(8*s, -4.5*s, 2.5*s, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(14*s, -4.5*s, 2.5*s, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#4a8';
+    ctx.beginPath(); ctx.arc(8.5*s, -4*s, 1.8*s, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(14.5*s, -4*s, 1.8*s, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#111';
+    ctx.beginPath(); ctx.ellipse(9*s, -3.8*s, 0.8*s, 1.2*s, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(15*s, -3.8*s, 0.8*s, 1.2*s, 0, 0, Math.PI*2); ctx.fill();
+    // Highlight
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(8*s, -5*s, 0.6*s, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(14*s, -5*s, 0.6*s, 0, Math.PI*2); ctx.fill();
+    // Nose
+    ctx.fillStyle = '#d4726a';
+    ctx.beginPath();
+    ctx.moveTo(11*s, -2.5*s); ctx.lineTo(10.5*s, -1.5*s); ctx.lineTo(11.5*s, -1.5*s);
+    ctx.fill();
+    // Mouth
+    ctx.strokeStyle = '#c4685a'; ctx.lineWidth = 0.5*s;
+    ctx.beginPath(); ctx.moveTo(11*s, -1.5*s); ctx.lineTo(10*s, -0.5*s); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(11*s, -1.5*s); ctx.lineTo(12*s, -0.5*s); ctx.stroke();
+    // Whiskers
+    ctx.strokeStyle = '#aaa'; ctx.lineWidth = 0.4*s;
+    ctx.beginPath(); ctx.moveTo(7*s, -1.5*s); ctx.lineTo(2*s, -2.5*s); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(7*s, -1*s); ctx.lineTo(2*s, -0.5*s); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(15*s, -1.5*s); ctx.lineTo(20*s, -2.5*s); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(15*s, -1*s); ctx.lineTo(20*s, -0.5*s); ctx.stroke();
+  }
+
+  ctx.restore();
+
+  // "Mochi" name tag
+  ctx.fillStyle = 'rgba(232,146,42,0.6)';
+  ctx.font = `600 ${WS(8)}px -apple-system, sans-serif`;
+  ctx.textAlign = 'center';
+  const np = W(cat.x, cat.y + 22);
+  ctx.fillText('Mochi', np.x, np.y);
+}
+
+// ==================== DYNAMIC TEAM ====================
+// Receive team members from parent page and rebuild characters
+function rebuildTeam(members) {
+  if (!members || !members.length) return;
+
+  // Assign desk indices and colors
+  AGENTS = members.map((m, i) => ({
+    id: m.id,
+    name: m.name || m.id,
+    scarf: m.color || AGENT_COLORS[i % AGENT_COLORS.length],
+    deskIdx: i,
+  }));
+
+  // Rebuild DESKS array to match agent count
+  // Layout: 2 columns, N rows
+  const cols = 2;
+  const rows = Math.ceil(AGENTS.length / cols);
+  DESKS.length = 0;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const idx = r * cols + c;
+      if (idx >= AGENTS.length) break;
+      DESKS.push({ x: 420 + c * 200, y: 110 + r * 200 });
+    }
+  }
+
+  // Recreate characters
+  const usedAreas = new Set();
+  chars = AGENTS.map((a, i) => {
+    let state = STATES.TYPING;
+    // First 2 non-typing agents go to left areas
+    if (i === Math.min(3, AGENTS.length - 1) && !usedAreas.has('coffee')) {
+      state = STATES.DRINKING; usedAreas.add('coffee');
+    } else if (i === Math.min(6, AGENTS.length - 1) && !usedAreas.has('sofa')) {
+      state = STATES.SITTING; usedAreas.add('sofa');
+    }
+    const ch = new Char(a, state);
+    if (state === STATES.DRINKING) { ch.x = LOC.coffee.x; ch.y = LOC.coffee.y; }
+    if (state === STATES.SITTING) { ch.x = LOC.sofa.x; ch.y = LOC.sofa.y; }
+    return ch;
+  });
+
+  // Update cat targets for new desk layout
+  const catTargets = [
+    { x:260, y:80 }, { x:260, y:214 }, { x:260, y:414 },
+    { x:260, y:614 }, { x:260, y:820 },
+    { x:520, y:185 }, { x:520, y:414 }, { x:520, y:735 },
+  ];
+  // Add desk aisle waypoints for new rows
+  officeCat.targets = catTargets;
+
+  // Update status bar
+  updateStatusBar();
+}
+
+function updateStatusBar() {
+  const bar = document.getElementById('status-bar');
+  if (!bar) return;
+  bar.innerHTML = '';
+  chars.forEach(ch => {
+    const div = document.createElement('div');
+    div.className = 'status-item';
+    div.id = 'st-'+ch.agent.id;
+    div.innerHTML = `<span style="font-weight:600">${ch.agent.name}</span>
+      <span class="status-dot" style="background:${STATE_COLORS[ch.state]};color:${STATE_COLORS[ch.state]}"></span>
+      <span class="status-chip">${STATE_LABELS[ch.state]}</span>
+      <span class="status-scarf" style="background:${ch.scarf}"></span>`;
+    bar.appendChild(div);
+    ch.updateUI();
+  });
+}
+
+// Listen for team data from parent
+window.addEventListener('message', (e) => {
+  if (e.data && e.data.type === 'teamUpdate' && e.data.members) {
+    rebuildTeam(e.data.members);
+  }
+});
+
+// ==================== STATUS BAR ====================
+// Build initial status bar
+function initStatusBar() {
+  const bar = document.getElementById('status-bar');
+  if (!bar) return;
+  chars.forEach(ch => {
+    const div = document.createElement('div');
+    div.className = 'status-item';
+    div.id = 'st-'+ch.agent.id;
+    div.innerHTML = `<span style="font-weight:600">${ch.agent.name}</span>
+      <span class="status-dot" style="background:${STATE_COLORS[ch.state]};color:${STATE_COLORS[ch.state]}"></span>
+      <span class="status-chip">${STATE_LABELS[ch.state]}</span>
+      <span class="status-scarf" style="background:${ch.scarf}"></span>`;
+    bar.appendChild(div);
+    ch.updateUI();
+  });
+}
+initStatusBar();
+
+// ==================== TOAST ====================
+let toastT = null;
+function showToast(msg) {
+  if (opts.showToast) { opts.showToast(msg); return; }
+  const el = document.getElementById('toast');
+  if (!el) return;
+  el.textContent = msg; el.classList.add('show');
+  if (toastT) clearTimeout(toastT);
+  toastT = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+// ==================== RESIZE ====================
+function onResize() {
+  // Use getBoundingClientRect for accurate dimensions including CSS calc()
+  const rect = canvas.parentElement ? canvas.parentElement.getBoundingClientRect() : null;
+  CW = rect ? Math.max(rect.width, 100) : window.innerWidth;
+  CH = rect ? Math.max(rect.height, 100) : window.innerHeight;
+  canvas.width = CW; canvas.height = CH;
+  S = Math.min(CW / WORLD_W, CH / WORLD_H) * 0.95;
+  cam.ox = CW/2 - (WORLD_W/2)*S;
+  cam.oy = CH/2 - (WORLD_H/2)*S;
+}
+window.addEventListener('resize', onResize);
+window.addEventListener('orientationchange', () => setTimeout(onResize, 200));
+
+// ==================== MAIN LOOP ====================
+let lastT = 0;
+function loop(ts) {
+  const dt = lastT ? Math.min((ts-lastT)/1000, 0.1) : 0.016;
+  lastT = ts;
+
+  // Smooth zoom
+
+  chars.forEach(c => c.update(dt));
+
+  // Background
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, CW, CH);
+
+  drawZones();
+  drawLabels();
+
+  // Desks, monitors, chairs
+  DESKS.forEach((d, i) => {
+    let active = false;
+    chars.forEach(ch => {
+      if (ch.state===STATES.TYPING && dist(ch.x,ch.y,d.x,d.y+CHAIR_OFFSET)<10) active=true;
+    });
+    drawDesk(d.x, d.y);
+    drawMonitor(d.x, d.y-45, active);
+    drawScreenContent(d.x, d.y-45, active, i);
+    drawChair(d.x, d.y+CHAIR_OFFSET);
+    // Nameplate on desk (工牌) — top-right corner
+    const agent = AGENTS.find(a => a.deskIdx === i);
+    if (agent) {
+      const deskP = W(d.x, d.y);
+      const dw = WS(150), dh = WS(100);
+      const npW = WS(36), npH = WS(12);
+      const npX = deskP.x + dw/2 - WS(6) - npW/2;
+      const npY = deskP.y - dh/2 + WS(6) + npH/2;
+      // Card
+      ctx.fillStyle = '#fff';
+      rrect(npX-npW/2, npY-npH/2, npW, npH, WS(2.5)); ctx.fill();
+      ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = WS(0.5); ctx.stroke();
+      // Color accent bar on right side (use rrect helper for compatibility)
+      ctx.fillStyle = agent.scarf;
+      const barX = npX+npW/2-WS(2.5), barY = npY-npH/2, barW = WS(2.5), barH = npH;
+      ctx.fillRect(barX, barY, barW, barH);
+      // Name
+      ctx.fillStyle = '#333';
+      ctx.font = `600 ${WS(7)}px -apple-system, sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(agent.name, npX-WS(1), npY);
+    }
+  });
+
+  drawBreakArea();
+  drawTreadmill();
+  drawSofa();
+
+  // Update cat
+  globalTime += dt;
+  officeCat.update(dt);
+  updateParticles(dt);
+  updateDelivery(dt);
+  checkRandomEvents(dt);
+  if (catPetEffect) {
+    catPetEffect.timer -= dt;
+    if (catPetEffect.timer <= 0) catPetEffect = null;
+  }
+
+  // Characters sorted by y (back to front for isometric)
+  [...chars].sort((a,b)=>a.y-b.y).forEach(c => drawChar(c));
+
+  // Draw cat (on top of everything, cute priority)
+  drawCat();
+  drawCatPetEffect();
+  drawCoffeeMachineSteam();
+  drawParticles();
+
+  requestAnimationFrame(loop);
+}
+
+// ==================== INTERACTION ====================
+// Click interactions
+// ==================== INTERACTION ====================
+canvas.addEventListener('click', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
+  // Check if clicked on cat
+  const catP = W(officeCat.x, officeCat.y);
+  if (dist(cx, cy, catP.x, catP.y) < WS(25)) {
+    petCat();
+    return;
+  }
+  // Check if clicked on a character
+  for (const ch of chars) {
+    const cp = W(ch.x, ch.y);
+    const hitRadius = Math.max(WS(30), 25);
+    if (dist(cx, cy, cp.x, cp.y) < hitRadius) {
+      if (opts.onAgentClick) {
+        // Integrated mode: call the provided callback
+        opts.onAgentClick(ch.agent.id);
+      } else {
+        // Standalone mode: celebration + toast
+        spawnCelebration(ch.x, ch.y);
+        const msgs = ['Keep going! 💪','Almost done!','Nice code!','Focus time!','Loading...','💡 Idea!','Bug fixed!','Ship it! 🚀'];
+        showToast(`${ch.agent.name}: ${msgs[Math.floor(Math.random()*msgs.length)]}`);
+      }
+      return;
+    }
+  }
+});
+
+canvas.addEventListener('dblclick', () => { onResize(); _showToast('View reset'); });
+
+// ==================== INIT ====================
+onResize();  // Initial size calculation
+requestAnimationFrame(loop);
+
+  return {
+    updateTeam(m) { if (m && m.length) rebuildTeam(m); },
+    destroy() { _destroyed = true; },
+  };
+}

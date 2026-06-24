@@ -1,13 +1,16 @@
-// 技能库标签页逻辑
+/**
+ * Lume Skills Library — Redesigned
+ * Unified with lume.css design system, no emoji, lucide icons
+ */
 
 const SKILLS_AGENT_CONFIG = {
-  coder: { name: '云溪', icon: '💻', color: 'linear-gradient(135deg, #10a37f, #14b8a6)' },
-  ops: { name: '若曦', icon: '📊', color: 'linear-gradient(135deg, #f093fb, #f5576c)' },
-  inventor: { name: '紫萱', icon: '💡', color: 'linear-gradient(135deg, #4facfe, #00f2fe)' },
-  pm: { name: '梓萱', icon: '🎯', color: 'linear-gradient(135deg, #43e97b, #38f9d7)' },
-  noter: { name: '晓琳', icon: '📝', color: 'linear-gradient(135deg, #fa709a, #fee140)' },
-  media: { name: '音韵', icon: '🎨', color: 'linear-gradient(135deg, #30cfd0, #330867)' },
-  smart: { name: '智家', icon: '🏠', color: 'linear-gradient(135deg, #a8edea, #fed6e3)' }
+  coder: { name: 'Spark', icon: 'code', color: 'var(--accent)' },
+  ops: { name: 'Pulse', icon: 'bar-chart-2', color: '#f59e0b' },
+  inventor: { name: 'Nova', icon: 'lightbulb', color: '#8b5cf6' },
+  pm: { name: 'Scope', icon: 'target', color: '#06b6d4' },
+  noter: { name: 'Echo', icon: 'file-text', color: '#ef4444' },
+  media: { name: 'Prism', icon: 'palette', color: '#ec4899' },
+  smart: { name: 'Nest', icon: 'home', color: '#3b82f6' }
 };
 
 let skillsState = {
@@ -21,196 +24,151 @@ let skillsState = {
   builtinLoaded: false
 };
 
+// ===== View Switching =====
 function switchView(view) {
   const chatContainer = document.querySelector('.chat-container');
   const skillsView = document.getElementById('skillsView');
-  
+  const serversView = document.getElementById('serversView');
+  const workspaceView = document.getElementById('workspaceView');
+
+  if (chatContainer) chatContainer.classList.remove('hidden');
+  if (chatContainer) chatContainer.style.display = '';
+  if (skillsView) skillsView.classList.remove('active');
+  if (serversView) serversView.classList.remove('active');
+  if (workspaceView) workspaceView.classList.remove('active');
+
   if (view === 'chat') {
-    if (chatContainer) chatContainer.classList.remove('hidden');
-    if (skillsView) skillsView.classList.remove('active');
+    // default
   } else if (view === 'skills') {
     if (chatContainer) chatContainer.classList.add('hidden');
     if (skillsView) skillsView.classList.add('active');
-    
-    if (!skillsState.loaded) {
-      loadSkillsLibrary();
-    }
+    if (!skillsState.loaded) loadSkillsLibrary();
+  } else if (view === 'servers') {
+    if (chatContainer) chatContainer.classList.add('hidden');
+    if (serversView) serversView.classList.add('active');
+    loadServersView();
+  } else if (view === 'workspace') {
+    if (chatContainer) chatContainer.classList.add('hidden');
+    if (workspaceView) workspaceView.classList.add('active');
+  } else if (view === 'cron') {
+    if (chatContainer) chatContainer.classList.add('hidden');
+    const cronView = document.getElementById('cronView');
+    if (cronView) cronView.classList.add('active');
   }
 }
 
+// ===== Load Skills =====
 async function loadSkillsLibrary() {
   const token = localStorage.getItem('lingxi_token');
-  if (!token) {
-    showToast('请先登录', 'error');
-    return;
-  }
-  
+  if (!token) { _showToast('Please sign in', 'error'); return; }
+
   try {
-    const res = await fetch('/api/skills/library', {
-      headers: { 'Authorization': 'Bearer ' + token }
-    });
-    if (res.ok) {
-      const data = await res.json();
-      skillsState.allSkills = data.skills || [];
-    }
-    
-    const res2 = await fetch('/api/skills/installed', {
-      headers: { 'Authorization': 'Bearer ' + token }
-    });
+    const res = await fetch('/api/skills/library', { headers: { 'Authorization': 'Bearer ' + token } });
+    if (res.ok) { const data = await res.json(); skillsState.allSkills = data.skills || []; }
+
+    const res2 = await fetch('/api/skills/installed', { headers: { 'Authorization': 'Bearer ' + token } });
     if (res2.ok) {
       const data2 = await res2.json();
       skillsState.installedSkillsData = data2.skills || [];
-      const installedIds = skillsState.installedSkillsData.map(s => s.id || s);
-      skillsState.installedSkills = new Set(installedIds);
+      skillsState.installedSkills = new Set(skillsState.installedSkillsData.map(s => s.id || s));
     }
-    
+
     renderCategories();
     renderSkills();
     bindSkillsEvents();
     skillsState.loaded = true;
   } catch (e) {
-    console.error('加载失败:', e);
-    showToast('加载失败: ' + e.message, 'error');
+    console.error('Load skills failed:', e);
+    _showToast('Failed to load skills', 'error');
   }
 }
 
 async function loadBuiltinSkills() {
   const token = localStorage.getItem('lingxi_token');
-  
   try {
-    const res = await fetch('/api/skills/builtin', {
-      headers: { 'Authorization': 'Bearer ' + token }
-    });
-    
-    if (res.ok) {
-      const data = await res.json();
-      skillsState.builtinSkills = data.skills || [];
-      renderCategories();
-      renderSkills();
-    }
-  } catch (e) {
-    console.error('加载官方技能失败:', e);
-  }
+    const res = await fetch('/api/skills/builtin', { headers: { 'Authorization': 'Bearer ' + token } });
+    if (res.ok) { const data = await res.json(); skillsState.builtinSkills = data.skills || []; renderCategories(); renderSkills(); }
+  } catch (e) { console.error('Load builtin failed:', e); }
 }
 
+// ===== Render Categories =====
 function renderCategories() {
   const container = document.getElementById('skillsCategories');
   if (!container) return;
-  
+
   const categories = [
-    { id: 'all', name: '热门技能', icon: '🔥' },
-    { id: 'builtin', name: '官方技能', icon: '⭐' },
+    { id: 'all', name: 'Popular', icon: 'flame' },
+    { id: 'builtin', name: 'Official', icon: 'badge-check' },
     ...Object.entries(SKILLS_AGENT_CONFIG).map(([id, c]) => ({ id, name: c.name, icon: c.icon }))
   ];
-  
+
   container.innerHTML = categories.map(cat => {
     let count = 0;
-    if (cat.id === 'all') {
-      count = skillsState.allSkills.length;
-    } else if (cat.id === 'builtin') {
-      count = skillsState.builtinSkills.length || 52;
-    } else {
-      count = skillsState.allSkills.filter(s => s.agent === cat.id).length;
-    }
-    
+    if (cat.id === 'all') count = skillsState.allSkills.length;
+    else if (cat.id === 'builtin') count = skillsState.builtinSkills.length || 52;
+    else count = skillsState.allSkills.filter(s => s.agent === cat.id).length;
+
     const active = skillsState.currentCategory === cat.id ? 'active' : '';
     return '<button class="category-chip ' + active + '" data-category="' + cat.id + '">' +
-      '<span class="category-icon">' + cat.icon + '</span>' +
+      '<i data-lucide="' + cat.icon + '" style="width:14px;height:14px"></i>' +
       '<span>' + cat.name + '</span>' +
       '<span class="category-count">(' + count + ')</span>' +
     '</button>';
   }).join('');
+
+  if (window.lucide) lucide.createIcons();
 }
 
+// ===== Render Skills =====
 function renderSkills() {
   const container = document.getElementById('skillsGrid');
   if (!container) return;
-  
+
   let skills = [];
-  
-  if (skillsState.currentCategory === 'builtin') {
-    skills = [...skillsState.builtinSkills];
-  } else if (skillsState.currentCategory === 'all') {
-    skills = [...skillsState.allSkills];
-  } else {
-    skills = skillsState.allSkills.filter(s => s.agent === skillsState.currentCategory);
-  }
-  
-  if (skillsState.currentFilter === 'installed') {
-    skills = skills.filter(s => skillsState.installedSkills.has(s.id));
-  } else if (skillsState.currentFilter === 'new') {
-    skills = skills.sort((a, b) => (b.version || '').localeCompare(a.version || ''));
-  }
-  
+  if (skillsState.currentCategory === 'builtin') skills = [...skillsState.builtinSkills];
+  else if (skillsState.currentCategory === 'all') skills = [...skillsState.allSkills];
+  else skills = skillsState.allSkills.filter(s => s.agent === skillsState.currentCategory);
+
+  if (skillsState.currentFilter === 'installed') skills = skills.filter(s => skillsState.installedSkills.has(s.id));
+  else if (skillsState.currentFilter === 'new') skills = skills.sort((a, b) => (b.version || '').localeCompare(a.version || ''));
+
   const search = document.getElementById('skillsSearch')?.value?.toLowerCase() || '';
-  if (search) {
-    skills = skills.filter(s => 
-      (s.name || '').toLowerCase().includes(search) ||
-      (s.shortDesc || '').toLowerCase().includes(search)
-    );
-  }
-  
+  if (search) skills = skills.filter(s => (s.name || '').toLowerCase().includes(search) || (s.shortDesc || '').toLowerCase().includes(search));
+
   if (skills.length === 0) {
-    const emptyMsg = skillsState.currentFilter === 'installed' 
-      ? '该分类下暂无已安装的技能' 
-      : '暂无技能';
-    
-    container.innerHTML = '<div class="skills-empty">' +
-      '<div class="skills-empty-icon">📦</div>' +
-      '<div>' + emptyMsg + '</div>' +
-    '</div>';
+    container.innerHTML = '<div class="skills-empty"><i data-lucide="package-open" style="width:40px;height:40px;color:var(--text-3)"></i><div>No skills found</div></div>';
+    if (window.lucide) lucide.createIcons();
     return;
   }
-  
+
   container.innerHTML = skills.map(s => {
-    const bg = SKILLS_AGENT_CONFIG[s.agent]?.color || '#10a37f';
+    const agentConfig = SKILLS_AGENT_CONFIG[s.agent];
+    const agentColor = agentConfig?.color || 'var(--accent)';
     const cmd = s.installCommand || 'clawhub install ' + s.id;
     const installed = skillsState.installedSkills.has(s.id);
     const isBuiltin = s.builtin || skillsState.currentCategory === 'builtin';
-    
-    // 按钮文字和样式
+
+    // Button
     let btnHtml = '';
     if (isBuiltin) {
-      btnHtml = '<span class="builtin-status">已安装 ✓</span>';
+      btnHtml = '<span class="skill-status-badge builtin"><i data-lucide="check" style="width:12px;height:12px"></i> Built-in</span>';
     } else if (installed) {
-      btnHtml = '<span class="installed-status">已安装 ✓</span>';
+      btnHtml = '<span class="skill-status-badge installed"><i data-lucide="check-circle" style="width:12px;height:12px"></i> Installed</span>' +
+        '<button class="skill-use-btn" data-skill-id="' + s.id + '">Use</button>';
     } else {
-      btnHtml = '<button class="skill-install-btn" onclick="event.stopPropagation(); copySkillCmd(\'' + cmd + '\')">复制命令</button>';
+      btnHtml = '<button class="skill-install-btn" data-skill-id="' + s.id + '" data-skill-name="' + _escAttr(s.name || s.id) + '"><i data-lucide="download" style="width:12px;height:12px"></i> Install & Use</button>';
     }
-    
-    // 详细内容
+
+    // Detail sections
     let detailHtml = '';
-    
-    // 完整描述
-    if (s.fullDesc && s.fullDesc !== s.shortDesc) {
-      detailHtml += '<div class="skill-section"><div class="skill-section-title">📋 详细说明</div><div class="skill-section-content">' + s.fullDesc + '</div></div>';
-    }
-    
-    // 功能特性
-    if (s.features && s.features.length > 0) {
-      detailHtml += '<div class="skill-section"><div class="skill-section-title">✨ 功能特性</div><div class="skill-features-list">' + 
-        s.features.map(f => '<span class="feature-item">' + f + '</span>').join('') + 
-      '</div></div>';
-    }
-    
-    // 使用示例
-    if (s.example) {
-      detailHtml += '<div class="skill-section"><div class="skill-section-title">💡 使用示例</div><div class="skill-example">"' + s.example + '"</div></div>';
-    }
-    
-    // 安装命令
-    if (!isBuiltin) {
-      detailHtml += '<div class="skill-section"><div class="skill-section-title">🔧 安装命令</div><div class="skill-cmd-box" onclick="copySkillCmd(\'' + cmd + '\')"><code>' + cmd + '</code><span class="copy-hint">点击复制</span></div></div>';
-    }
-    
-    // 如果没有任何详细内容，显示简短描述
-    if (!detailHtml) {
-      detailHtml = '<div class="skill-section"><div class="skill-section-content">' + (s.shortDesc || '暂无详细说明') + '</div></div>';
-    }
-    
+    if (s.fullDesc && s.fullDesc !== s.shortDesc) detailHtml += '<div class="skill-section"><div class="skill-section-title">Details</div><div class="skill-section-content">' + s.fullDesc + '</div></div>';
+    if (s.features && s.features.length > 0) detailHtml += '<div class="skill-section"><div class="skill-section-title">Features</div><div class="skill-features-list">' + s.features.map(f => '<span class="feature-item">' + f + '</span>').join('') + '</div></div>';
+    if (s.example) detailHtml += '<div class="skill-section"><div class="skill-section-title">Example</div><div class="skill-example">"' + s.example + '"</div></div>';
+    if (!detailHtml) detailHtml = '<div class="skill-section"><div class="skill-section-content">' + (s.shortDesc || 'No description') + '</div></div>';
+
     return '<div class="skill-card' + (installed ? ' installed' : '') + '" data-skill="' + s.id + '">' +
       '<div class="skill-header">' +
-        '<div class="skill-icon" style="background:' + bg + '">' + (s.icon || '📦') + '</div>' +
+        '<div class="skill-icon" style="background:' + agentColor + '"><i data-lucide="' + (agentConfig?.icon || 'package') + '" style="width:20px;height:20px;color:white"></i></div>' +
         '<div class="skill-info">' +
           '<div class="skill-name">' + (s.name || s.id) + '</div>' +
           '<div class="skill-desc">' + (s.shortDesc || '') + '</div>' +
@@ -218,103 +176,295 @@ function renderSkills() {
       '</div>' +
       '<div class="skill-detail">' + detailHtml + '</div>' +
       '<div class="skill-footer">' +
-        '<div class="skill-meta">' + 
-          (isBuiltin ? '<span class="builtin-badge">⭐ 官方</span> ' : '') +
-          'v' + (s.version || '1.0') + 
-          (s.author ? ' · ' + s.author : '') +
+        '<div class="skill-meta">' +
+          (isBuiltin ? '<span class="builtin-badge"><i data-lucide="badge-check" style="width:12px;height:12px"></i> Official</span> ' : '') +
+          'v' + (s.version || '1.0') + (s.author ? ' &middot; ' + s.author : '') +
         '</div>' +
         btnHtml +
       '</div>' +
     '</div>';
   }).join('');
+
+  if (window.lucide) lucide.createIcons();
 }
 
-function bindSkillsEvents() {
-  const categoriesContainer = document.getElementById('skillsCategories');
-  if (categoriesContainer) {
-    categoriesContainer.addEventListener('click', e => {
-      const chip = e.target.closest('.category-chip');
-      if (chip) {
-        skillsState.currentCategory = chip.dataset.category;
-        
-        document.querySelectorAll('.category-chip').forEach(c => c.classList.remove('active'));
-        chip.classList.add('active');
-        
-        if (skillsState.currentCategory === 'builtin' && !skillsState.builtinLoaded) {
-          loadBuiltinSkills();
-          skillsState.builtinLoaded = true;
-        }
-        
-        renderSkills();
-      }
-    });
-  }
+// ===== Skill Actions =====
+function _escAttr(str) { return String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
+
+function _useSkill(skillId) {
+  const allSkills = [...skillsState.allSkills, ...skillsState.builtinSkills];
+  const skill = allSkills.find(s => s.id === skillId);
+  const skillName = skill?.name || skillId;
+  const example = skill?.example || '';
+  const agentConfig = skill?.agent ? SKILLS_AGENT_CONFIG[skill.agent] : null;
+  const icon = agentConfig?.icon || 'package';
+
+  // Switch to chat view
+  switchView('chat');
+
+  setTimeout(() => {
+    // Add skill tag to input area
+    _addSkillTag(skillId, skillName, icon);
+
+    // Fill example text into input
+    const input = document.getElementById('inputField');
+    if (input && example) {
+      input.value = example;
+      input.style.height = 'auto';
+      input.style.height = Math.min(input.scrollHeight, 150) + 'px';
+    }
+    if (input) input.focus();
+  }, 150);
+}
+
+// ===== Skill Tag Management =====
+function _addSkillTag(skillId, skillName, icon) {
+  const area = document.getElementById('skillTagsArea');
+  if (!area) return;
+
+  // Remove existing tag with same skillId
+  const existing = area.querySelector(`[data-skill-id="${skillId}"]`);
+  if (existing) existing.remove();
+
+  const tag = document.createElement('span');
+  tag.className = 'skill-tag';
+  tag.dataset.skillId = skillId;
+  tag.innerHTML = `<i data-lucide="${icon}"></i>${skillName}<button class="skill-tag-close" onclick="_removeSkillTag('${skillId}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>`;
+
+  area.appendChild(tag);
+  if (window.lucide) lucide.createIcons();
+
+  // Show send button (tags count as content)
+  _updateSendBtnVisibility();
+}
+
+function _removeSkillTag(skillId) {
+  const area = document.getElementById('skillTagsArea');
+  if (!area) return;
+  const tag = area.querySelector(`[data-skill-id="${skillId}"]`);
+  if (tag) tag.remove();
+  _updateSendBtnVisibility();
+}
+
+function _updateSendBtnVisibility() {
+  const input = document.getElementById('inputField');
+  const area = document.getElementById('skillTagsArea');
+  const sendBtn = document.getElementById('sendBtn');
+  if (!sendBtn) return;
   
-  document.querySelectorAll('.filter-chip').forEach(chip => {
-    chip.addEventListener('click', () => {
-      skillsState.currentFilter = chip.dataset.filter;
-      document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
-      chip.classList.add('active');
+  const hasText = input && input.value.trim().length > 0;
+  const hasTags = area && area.children.length > 0;
+  
+  if (hasText || hasTags) {
+    sendBtn.classList.remove('hidden');
+  } else {
+    sendBtn.classList.add('hidden');
+  }
+}
+
+function _getSkillTags() {
+  const area = document.getElementById('skillTagsArea');
+  if (!area) return [];
+  return Array.from(area.querySelectorAll('.skill-tag')).map(tag => ({
+    id: tag.dataset.skillId,
+    name: tag.textContent.replace('×', '').trim()
+  }));
+}
+
+function _clearSkillTags() {
+  const area = document.getElementById('skillTagsArea');
+  if (area) area.innerHTML = '';
+}
+
+window._addSkillTag = _addSkillTag;
+window._removeSkillTag = _removeSkillTag;
+window._getSkillTags = _getSkillTags;
+window._clearSkillTags = _clearSkillTags;
+
+async function _installAndUse(skillId, skillName, btn) {
+  const originalHTML = btn?.innerHTML || '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:2px"></span> Installing...'; }
+
+  try {
+    const token = localStorage.getItem('lingxi_token');
+    const res = await fetch('/api/skills/install-and-use', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ skillId, skillName })
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      skillsState.installedSkills.add(skillId);
       renderSkills();
-    });
-  });
-  
-  const searchInput = document.getElementById('skillsSearch');
-  if (searchInput) {
-    searchInput.addEventListener('input', renderSkills);
-  }
-  
-  const grid = document.getElementById('skillsGrid');
-  if (grid) {
-    grid.addEventListener('click', e => {
-      const card = e.target.closest('.skill-card');
-      if (card && !e.target.closest('.skill-install-btn') && !e.target.closest('.skill-cmd-box')) {
-        card.classList.toggle('expanded');
+      _showToast('Skill installed!', 'success');
+
+      // Find example and fill chat
+      const allSkills = [...skillsState.allSkills, ...skillsState.builtinSkills];
+      const skill = allSkills.find(s => s.id === skillId);
+      const example = skill?.example || skill?.shortDesc || '';
+      setTimeout(() => { _useSkill(skillId, example); }, 300);
+    } else {
+      // Fallback: fill install command in chat
+      switchView('chat');
+      const input = document.getElementById('inputField');
+      if (input) {
+        input.value = 'clawhub install ' + skillId;
+        input.focus();
+        input.dispatchEvent(new Event('input'));
       }
-    });
+      _showToast('Install via chat command', 'success');
+    }
+  } catch (e) {
+    switchView('chat');
+    const input = document.getElementById('inputField');
+    if (input) {
+      input.value = 'clawhub install ' + skillId;
+      input.focus();
+      input.dispatchEvent(new Event('input'));
+    }
+    _showToast('Network error', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = originalHTML; }
   }
 }
 
 function copySkillCmd(cmd) {
   if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(cmd).then(() => {
-      showToast('已复制: ' + cmd, 'success');
-    }).catch(() => {
-      fallbackCopy(cmd);
-    });
-  } else {
-    fallbackCopy(cmd);
-  }
+    navigator.clipboard.writeText(cmd).then(() => _showToast('Copied: ' + cmd, 'success')).catch(() => _fallbackCopy(cmd));
+  } else _fallbackCopy(cmd);
 }
 
-function fallbackCopy(text) {
-  const textarea = document.createElement('textarea');
-  textarea.value = text;
-  textarea.style.position = 'fixed';
-  textarea.style.opacity = '0';
-  document.body.appendChild(textarea);
-  textarea.select();
-  
-  try {
-    const success = document.execCommand('copy');
-    showToast(success ? '已复制: ' + text : '复制失败', success ? 'success' : 'error');
-  } catch (e) {
-    showToast('复制失败', 'error');
-  }
-  
-  document.body.removeChild(textarea);
+function _fallbackCopy(text) {
+  const ta = document.createElement('textarea'); ta.value = text; ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select();
+  try { _showToast(document.execCommand('copy') ? 'Copied' : 'Copy failed', 'success'); } catch(e) { _showToast('Copy failed', 'error'); }
+  document.body.removeChild(ta);
 }
 
-function showToast(msg, type) {
+function _showToast(msg, type) {
   const t = document.createElement('div');
-  t.style.cssText = 'position:fixed;bottom:20px;right:20px;padding:12px 20px;background:' + 
-    (type === 'success' ? '#10b981' : '#ef4444') + ';color:#fff;border-radius:8px;font-size:14px;z-index:9999;';
+  t.className = 'toast';
+  t.style.background = type === 'success' ? 'var(--accent)' : '#ef4444';
   t.textContent = msg;
   document.body.appendChild(t);
   setTimeout(() => t.remove(), 2500);
 }
 
+// ===== Events =====
+function bindSkillsEvents() {
+  const cc = document.getElementById('skillsCategories');
+  if (cc) cc.addEventListener('click', e => {
+    const chip = e.target.closest('.category-chip');
+    if (chip) {
+      skillsState.currentCategory = chip.dataset.category;
+      document.querySelectorAll('.category-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      if (skillsState.currentCategory === 'builtin' && !skillsState.builtinLoaded) { loadBuiltinSkills(); skillsState.builtinLoaded = true; }
+      renderSkills();
+    }
+  });
+
+  document.querySelectorAll('.filter-chip').forEach(chip => chip.addEventListener('click', () => {
+    skillsState.currentFilter = chip.dataset.filter;
+    document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    renderSkills();
+  }));
+
+  const si = document.getElementById('skillsSearch');
+  if (si) si.addEventListener('input', renderSkills);
+
+  const grid = document.getElementById('skillsGrid');
+  if (grid) grid.addEventListener('click', e => {
+    // Use button
+    const useBtn = e.target.closest('.skill-use-btn');
+    if (useBtn) { e.stopPropagation(); _useSkill(useBtn.dataset.skillId); return; }
+    // Install button
+    const installBtn = e.target.closest('.skill-install-btn');
+    if (installBtn) { e.stopPropagation(); _installAndUse(installBtn.dataset.skillId, installBtn.dataset.skillName, installBtn); return; }
+    // Card expand
+    const card = e.target.closest('.skill-card');
+    if (card && !e.target.closest('.skill-install-btn') && !e.target.closest('.skill-use-btn') && !e.target.closest('.skill-cmd-box')) card.classList.toggle('expanded');
+  });
+}
+
+// ===== Server Management (kept inline for now) =====
+let _serversCache = { servers: [], activeServerId: null, userId: null };
+
+function _getUserId() {
+  if (_serversCache.userId) return _serversCache.userId;
+  try { const u = JSON.parse(localStorage.getItem('lingxi_user') || '{}'); _serversCache.userId = u.id || u.user?.id || ''; } catch(e) { _serversCache.userId = ''; }
+  return _serversCache.userId;
+}
+
+async function loadServersView() {
+  const container = document.getElementById('serversGridContainer');
+  if (!container) return;
+  container.innerHTML = '<div class="empty-state"><div class="spinner" style="width:24px;height:24px"></div><div>Loading...</div></div>';
+  const token = localStorage.getItem('lingxi_token');
+  const userId = _getUserId();
+  if (!token || !userId) { container.innerHTML = '<div class="empty-state"><div class="title">Please sign in</div></div>'; return; }
+
+  try {
+    const res = await fetch(`${API_BASE}/api/servers/${userId}`, { headers: { 'Authorization': `Bearer ${token}` } });
+    const data = await res.json();
+    _serversCache.servers = data.servers || [];
+    _serversCache.activeServerId = data.activeServerId || null;
+
+    if (!_serversCache.servers.length) {
+      container.innerHTML = '<div class="empty-state"><i data-lucide="monitor" style="width:40px;height:40px;color:var(--text-3)"></i><div class="title">No devices yet</div><div class="desc">Add your OpenClaw server to get started</div></div>';
+      if (window.lucide) lucide.createIcons();
+      return;
+    }
+
+    container.innerHTML = '<div style="display:grid;gap:12px">' + _serversCache.servers.map(s => {
+      const isActive = s.id == _serversCache.activeServerId;
+      const status = s.status || 'pending';
+      const statusMap = { running: { text: 'Online', color: '#43e97b' }, offline: { text: 'Offline', color: '#999' }, pending: { text: 'Checking', color: '#fbbf24' }, unhealthy: { text: 'Unhealthy', color: '#fb923c' } };
+      const si = statusMap[status] || statusMap.pending;
+      return '<div class="card' + (isActive ? ' active' : '') + '" style="' + (isActive ? 'border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-ring);' : '') + '"><div class="flex items-center gap-3 mb-2"><div style="width:10px;height:10px;border-radius:50%;background:' + si.color + ';' + (status === 'running' ? 'box-shadow:0 0 6px ' + si.color + ';' : '') + '"></div><span class="font-semibold">' + (s.name || 'Unnamed') + '</span>' + (isActive ? ' <span class="badge badge-green" style="font-size:10px">Active</span>' : '') + '<span class="text-xs" style="color:var(--text-3);margin-left:auto">' + si.text + '</span></div><div class="text-xs" style="color:var(--text-3);font-family:monospace">' + s.ip + ':' + (s.openclawPort || 18789) + '</div>' + (s.description ? '<div class="text-xs mt-1" style="color:var(--text-3)">' + s.description + '</div>' : '') + '<div style="border-top:1px solid var(--border-sub);margin-top:10px;padding-top:10px;display:flex;flex-wrap:wrap;gap:6px"><button class="btn btn-sm btn-ghost" onclick="checkServer(\'' + s.id + '\')">Check</button>' + (!isActive ? '<button class="btn btn-sm btn-primary" onclick="activateServer(\'' + s.id + '\')">Switch</button>' : '') + '<button class="btn btn-sm btn-ghost" onclick="showEditServerModal(\'' + s.id + '\')">Edit</button><button class="btn btn-sm btn-danger" onclick="deleteServer(\'' + s.id + '\')">Delete</button></div></div>';
+    }).join('') + '</div>';
+    if (window.lucide) lucide.createIcons();
+  } catch(e) { container.innerHTML = '<div class="empty-state"><div class="title" style="color:#ef4444">Load failed: ' + e.message + '</div></div>'; }
+}
+
+// Server form functions
+let _editingServerId = null;
+function showAddServerModal() { _editingServerId = null; const m = document.getElementById('serverFormModal'); if(!m)return; document.getElementById('serverFormTitle').textContent='Add Device'; document.getElementById('serverFormSubmitBtn').textContent='Add'; ['sf_name','sf_ip','sf_token','sf_session','sf_desc'].forEach(id=>document.getElementById(id).value=''); document.getElementById('sf_port').value='18789'; m.style.display='flex'; }
+function showEditServerModal(id) { const s = _serversCache.servers.find(x=>x.id==id); if(!s)return; _editingServerId=id; document.getElementById('serverFormTitle').textContent='Edit Device'; document.getElementById('serverFormSubmitBtn').textContent='Update'; document.getElementById('sf_name').value=s.name||''; document.getElementById('sf_ip').value=s.ip||''; document.getElementById('sf_port').value=s.openclawPort||18789; document.getElementById('sf_token').value=s.openclawToken||''; document.getElementById('sf_session').value=s.openclawSession||''; document.getElementById('sf_desc').value=s.description||''; document.getElementById('serverFormModal').style.display='flex'; }
+function closeServerFormModal() { const m=document.getElementById('serverFormModal'); if(m)m.style.display='none'; }
+
+async function submitServerForm() {
+  const ip=document.getElementById('sf_ip').value.trim(); if(!ip){alert('IP required');return;}
+  const body={name:document.getElementById('sf_name').value.trim(),ip,openclawPort:parseInt(document.getElementById('sf_port').value.trim())||18789,openclawToken:document.getElementById('sf_token').value.trim(),openclawSession:document.getElementById('sf_session').value.trim(),description:document.getElementById('sf_desc').value.trim()};
+  const token=localStorage.getItem('lingxi_token'), userId=_getUserId();
+  try{ const res=_editingServerId?await fetch(`${API_BASE}/api/servers/${userId}/${_editingServerId}`,{method:'PUT',headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},body:JSON.stringify(body)}):await fetch(`${API_BASE}/api/servers/${userId}`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},body:JSON.stringify(body)}); closeServerFormModal(); loadServersView(); }catch(e){alert('Save failed: '+e.message);}
+}
+
+async function checkServer(id) { const token=localStorage.getItem('lingxi_token'),userId=_getUserId(); try{ const res=await fetch(`${API_BASE}/api/servers/${userId}/${id}/check`,{method:'POST',headers:{'Authorization':`Bearer ${token}`}}); const data=await res.json(); alert(data.status==='running'?'Online':'Offline'); loadServersView(); }catch(e){alert('Check failed');} }
+async function activateServer(id) { const token=localStorage.getItem('lingxi_token'),userId=_getUserId(); try{ await fetch(`${API_BASE}/api/servers/${userId}/${id}/activate`,{method:'POST',headers:{'Authorization':`Bearer ${token}`}}); await loadServersView(); if(typeof reconnectAfterDeviceSwitch==='function')await reconnectAfterDeviceSwitch(); else location.reload(); }catch(e){alert('Switch failed');} }
+async function deleteServer(id) { if(!confirm('Delete this device?'))return; const token=localStorage.getItem('lingxi_token'),userId=_getUserId(); try{ await fetch(`${API_BASE}/api/servers/${userId}/${id}`,{method:'DELETE',headers:{'Authorization':`Bearer ${token}`}}); loadServersView(); }catch(e){alert('Delete failed');} }
+
+// Init
+function initSkillsView() {
+  if (sessionStorage.getItem('autoSwitchView')) return;
+  const cc = document.querySelector('.chat-container'), sv = document.getElementById('skillsView');
+  if (cc) cc.classList.remove('hidden');
+  if (sv) sv.classList.remove('active');
+}
+setTimeout(initSkillsView, 200);
+
+// Expose to window
 window.switchView = switchView;
 window.copySkillCmd = copySkillCmd;
-
-console.log('✅ skills-tab.js 已加载');
+window.initSkillsView = initSkillsView;
+window.loadServersView = loadServersView;
+window.showAddServerModal = showAddServerModal;
+window.showEditServerModal = showEditServerModal;
+window.closeServerFormModal = closeServerFormModal;
+window.submitServerForm = submitServerForm;
+window.checkServer = checkServer;
+window.activateServer = activateServer;
+window.deleteServer = deleteServer;
+window._useSkill = _useSkill;
+window._installAndUse = _installAndUse;

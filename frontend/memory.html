@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Memory — Lume</title>
+  <link rel="stylesheet" href="assets/css/lume.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23667eea'/><text x='16' y='22' text-anchor='middle' fill='white' font-size='16' font-weight='700'>L</text></svg>">
+  <style>
+    /* ===== Top Bar ===== */
+    .top-bar {
+      position: fixed; top: 0; left: 0; right: 0; height: 44px;
+      background: rgba(255,255,255,0.94); backdrop-filter: blur(12px);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 16px; z-index: 200; border-bottom: 1px solid var(--border-sub);
+    }
+    .top-bar-left { display: flex; align-items: center; gap: 8px; }
+    .back-link {
+      display: flex; align-items: center; gap: 3px; padding: 4px 10px;
+      border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-2);
+      font-size: 12px; text-decoration: none; transition: all var(--transition);
+    }
+    .back-link:hover { background: var(--bg-hover); color: var(--text-1); }
+    .page-title { font-size: 15px; font-weight: 700; color: var(--text-1); font-family: var(--font-display); }
+    .top-bar-search { display: flex; align-items: center; gap: 6px; }
+    .search-input-inline {
+      padding: 5px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+      font-size: 12px; outline: none; width: 160px; transition: border-color var(--transition); font-family: inherit;
+    }
+    .search-input-inline:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+    .search-input-inline::placeholder { color: var(--text-3); }
+
+    /* ===== Main Content ===== */
+    .main-content { max-width: 900px; margin: 0 auto; padding: 56px 16px 32px; }
+    .main-content.has-device-bar { padding-top: 100px; }
+
+    /* ===== Device Bar ===== */
+    .device-bar {
+      position: fixed; top: 44px; left: 0; right: 0;
+      background: rgba(255,255,255,0.96); backdrop-filter: blur(12px);
+      padding: 8px 16px; border-bottom: 1px solid var(--border-sub); z-index: 199;
+    }
+    .device-tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .device-tabs::-webkit-scrollbar { display: none; }
+    .device-tab {
+      padding: 6px 14px; border-radius: var(--radius-sm); font-size: 13px; white-space: nowrap;
+      cursor: pointer; transition: all var(--transition); background: var(--bg); color: var(--text-2); border: 1px solid transparent;
+    }
+    .device-tab:hover { background: var(--accent-soft); color: var(--accent); }
+    .device-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); box-shadow: var(--shadow-sm); }
+    .device-tab .tab-status { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+    .device-tab .tab-status.online { background: #43e97b; }
+    .device-tab .tab-status.offline { background: var(--border); }
+
+    /* ===== Tabs ===== */
+    .tab-nav {
+      display: flex; gap: 0; background: var(--bg-card); border-radius: var(--radius); padding: 4px; margin-bottom: 20px; box-shadow: var(--shadow-xs);
+    }
+    .tab-btn {
+      flex: 1; padding: 10px 0; text-align: center; font-size: 13px; font-weight: 500; color: var(--text-2);
+      border: none; background: transparent; border-radius: var(--radius-sm); cursor: pointer; transition: all var(--transition); font-family: inherit;
+    }
+    .tab-btn.active { background: var(--accent); color: #fff; font-weight: 600; box-shadow: var(--shadow-sm); }
+    .tab-btn:hover:not(.active) { color: var(--text-1); background: var(--bg-hover); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ===== File Explorer ===== */
+    .file-layout { display: flex; gap: 16px; min-height: 400px; }
+    .file-sidebar { width: 220px; flex-shrink: 0; background: var(--bg-card); border-radius: var(--radius); box-shadow: var(--shadow-xs); overflow: hidden; }
+    .file-sidebar-header {
+      padding: 14px 16px 10px; font-size: 12px; font-weight: 600; color: var(--text-2);
+      border-bottom: 1px solid var(--border-sub); display: flex; align-items: center; gap: 6px;
+    }
+    .file-sidebar-header svg { width: 14px; height: 14px; }
+    .file-list { padding: 6px 0; }
+    .file-item {
+      padding: 8px 16px; font-size: 13px; cursor: pointer; transition: all var(--transition); color: var(--text-2);
+      display: flex; align-items: center; gap: 8px; border-left: 3px solid transparent;
+    }
+    .file-item:hover { background: var(--bg-hover); color: var(--text-1); }
+    .file-item.active { background: var(--accent-soft); color: var(--accent); border-left-color: var(--accent); font-weight: 500; }
+    .file-item svg { width: 14px; height: 14px; flex-shrink: 0; opacity: 0.5; }
+    .file-item.active svg { opacity: 1; }
+    .file-item .file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .file-content-area { flex: 1; min-width: 0; background: var(--bg-card); border-radius: var(--radius); box-shadow: var(--shadow-xs); overflow: hidden; }
+    .file-content-header {
+      padding: 14px 18px 10px; font-size: 12px; font-weight: 600; color: var(--text-2);
+      border-bottom: 1px solid var(--border-sub); display: flex; align-items: center; gap: 6px;
+    }
+    .file-content-header svg { width: 14px; height: 14px; }
+    .file-content-header .file-path { color: var(--accent); font-weight: 500; }
+    .file-content-body { padding: 18px; font-size: 13px; line-height: 1.8; color: var(--text-1); white-space: pre-wrap; word-break: break-word; max-height: 500px; overflow-y: auto; }
+    .file-content-body.markdown-content h1 { font-size: 20px; font-weight: 700; margin: 16px 0 8px; }
+    .file-content-body.markdown-content h2 { font-size: 17px; font-weight: 600; margin: 14px 0 6px; }
+    .file-content-body.markdown-content h3 { font-size: 15px; font-weight: 600; margin: 12px 0 4px; }
+    .file-content-body.markdown-content p { margin: 6px 0; }
+    .file-content-body.markdown-content code { background: var(--bg); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+    .file-content-body.markdown-content pre { background: var(--bg); padding: 12px; border-radius: var(--radius-sm); overflow-x: auto; margin: 8px 0; }
+    .file-content-body.markdown-content ul, .file-content-body.markdown-content ol { margin: 6px 0; padding-left: 20px; }
+    .file-content-body.markdown-content li { margin: 3px 0; }
+    .file-content-body.markdown-content blockquote { border-left: 3px solid var(--accent); padding-left: 12px; color: var(--text-2); margin: 8px 0; }
+    .content-empty { text-align: center; padding: 80px 24px; color: var(--text-3); }
+    .content-empty svg { width: 40px; height: 40px; margin-bottom: 12px; opacity: 0.4; }
+    .content-empty p { font-size: 13px; color: var(--text-2); }
+
+    /* ===== Team Memory ===== */
+    .tm-category { margin-bottom: 16px; }
+    .tm-category-header {
+      display: flex; align-items: center; gap: 8px; padding: 12px 16px; cursor: pointer; user-select: none;
+      background: var(--bg-card); border-radius: var(--radius); box-shadow: var(--shadow-xs);
+      transition: all var(--transition); margin-bottom: 2px;
+    }
+    .tm-category-header:hover { box-shadow: var(--shadow-md); }
+    .tm-category-header.open { border-radius: var(--radius) var(--radius) 0 0; }
+    .tm-category-chevron { transition: transform 0.2s; flex-shrink: 0; }
+    .tm-category-header.open .tm-category-chevron { transform: rotate(90deg); }
+    .tm-category-name { font-size: 14px; font-weight: 600; color: var(--text-1); flex: 1; }
+    .tm-category-count { background: var(--bg); padding: 2px 10px; border-radius: 10px; font-size: 11px; color: var(--text-2); }
+    .tm-category-body { display: none; background: var(--bg-card); border-radius: 0 0 var(--radius) var(--radius); box-shadow: var(--shadow-xs); padding: 4px 16px 12px; }
+    .tm-category-body.open { display: block; }
+    .tm-item { display: flex; align-items: flex-start; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border-sub); position: relative; }
+    .tm-item:last-child { border-bottom: none; }
+    .tm-item-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex-shrink: 0; margin-top: 7px; }
+    .tm-item-text { flex: 1; font-size: 13px; line-height: 1.7; color: var(--text-1); min-width: 0; word-break: break-word; }
+    .tm-item-delete { opacity: 0; border: none; background: transparent; color: var(--text-3); cursor: pointer; padding: 2px 4px; border-radius: 4px; transition: all 0.15s; flex-shrink: 0; }
+    .tm-item:hover .tm-item-delete { opacity: 1; }
+    .tm-item-delete:hover { color: var(--danger); background: var(--danger-soft); }
+    .tm-item-delete svg { width: 14px; height: 14px; }
+    .team-empty { text-align: center; padding: 60px 24px; color: var(--text-3); }
+    .team-empty svg { width: 40px; height: 40px; margin-bottom: 12px; opacity: 0.4; }
+    .team-empty p { font-size: 13px; color: var(--text-2); margin-bottom: 4px; }
+    .add-team-btn {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      width: 100%; padding: 12px; border: 2px dashed var(--border); border-radius: var(--radius);
+      background: transparent; color: var(--text-2); font-size: 13px; cursor: pointer;
+      transition: all var(--transition); font-family: inherit; margin-top: 16px;
+    }
+    .add-team-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+    .add-team-btn svg { width: 16px; height: 16px; }
+    .new-category-row { display: none; margin-top: 8px; }
+    .new-category-row.show { display: block; }
+
+    /* ===== Search Tab ===== */
+    .search-bar { display: flex; gap: 8px; margin-bottom: 20px; }
+    .search-bar .form-input { flex: 1; }
+    .search-result {
+      background: var(--bg-card); border-radius: var(--radius); padding: 12px 16px;
+      box-shadow: var(--shadow-xs); margin-bottom: 8px; cursor: pointer; transition: all var(--transition);
+    }
+    .search-result:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+    .search-result-path { font-size: 11px; color: var(--accent); font-weight: 500; margin-bottom: 4px; display: flex; align-items: center; gap: 4px; }
+    .search-result-path svg { width: 12px; height: 12px; }
+    .search-result-text { font-size: 13px; line-height: 1.6; color: var(--text-2); }
+    .search-result-text mark { background: #fff3cd; color: var(--text-1); padding: 0 2px; border-radius: 2px; }
+    .search-result-score { font-size: 11px; color: var(--text-3); margin-top: 4px; }
+    .search-empty { text-align: center; padding: 60px 24px; color: var(--text-3); }
+    .search-empty svg { width: 40px; height: 40px; margin-bottom: 12px; opacity: 0.4; }
+    .search-empty p { font-size: 13px; color: var(--text-2); }
+
+    /* ===== Form Elements ===== */
+    .form-input, .form-textarea, .form-select {
+      width: 100%; padding: 8px 12px; background: var(--bg-input); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); color: var(--text-1); font-size: 13px; font-family: inherit;
+      transition: border-color var(--transition); outline: none;
+    }
+    .form-input:focus, .form-textarea:focus, .form-select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+    .form-input::placeholder, .form-textarea::placeholder { color: var(--text-3); }
+    .form-textarea { resize: vertical; min-height: 80px; }
+    .form-select {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px;
+    }
+
+    /* ===== Modal display overrides ===== */
+    .modal-overlay { display: none; }
+    .modal-overlay.open { display: flex; }
+    .modal-header h3 { font-size: 18px; font-weight: 700; color: var(--text-1); }
+    .modal-body { padding: 0 20px 20px; }
+    .form-group { margin-bottom: 14px; }
+    .form-label { display: block; font-size: 12px; font-weight: 600; color: var(--text-2); margin-bottom: 6px; }
+    .modal-actions { display: flex; gap: 8px; margin-top: 20px; }
+    .modal-actions .btn { flex: 1; }
+
+    /* ===== Toast ===== */
+    .toast-box { position: fixed; top: 52px; right: 12px; z-index: 600; display: flex; flex-direction: column; gap: 6px; }
+    .toast {
+      padding: 8px 16px; background: var(--bg-card); border: 1px solid var(--border-sub);
+      border-radius: var(--radius-sm); font-size: 13px; color: var(--text-1);
+      box-shadow: var(--shadow-md); animation: t-in 0.3s ease-out; max-width: 300px;
+    }
+    .toast.error { border-color: var(--danger); color: var(--danger); }
+    .toast.success { border-color: #43e97b; color: var(--accent-h); }
+    .toast.out { animation: t-out 0.3s ease-in forwards; }
+    @keyframes t-in { from{transform:translateX(40px);opacity:0} to{transform:translateX(0);opacity:1} }
+    @keyframes t-out { from{transform:translateX(0);opacity:1} to{transform:translateX(40px);opacity:0} }
+
+    /* ===== Loading ===== */
+    .skeleton { background: var(--bg-card); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow-xs); animation: shimmer 1.5s infinite; margin-bottom: 8px; }
+    @keyframes shimmer { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+    /* ===== Confirm ===== */
+    .confirm-overlay { display: none; }
+    .confirm-overlay.open { display: flex; }
+    .confirm-box {
+      background: var(--bg-card); border-radius: var(--radius-lg); padding: 24px;
+      max-width: 360px; width: 100%; text-align: center; box-shadow: var(--shadow-lg);
+    }
+    .confirm-box p { margin-bottom: 20px; font-size: 14px; line-height: 1.6; color: var(--text-1); }
+    .confirm-box .modal-actions { justify-content: center; }
+
+    /* ===== Responsive ===== */
+    @media (max-width: 640px) {
+      .file-layout { flex-direction: column; }
+      .file-sidebar { width: 100%; }
+      .file-content-body { max-height: 350px; }
+      .top-bar-search { display: none; }
+      .search-input-inline { width: 120px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <div class="top-bar-left">
+      <a href="chat.html" class="back-link">&larr; 返回</a>
+      <span class="page-title">记忆管理</span>
+    </div>
+  </div>
+
+  <!-- Device Tabs -->
+  <div class="device-bar" id="deviceBar" style="display:none;">
+    <div class="device-tabs" id="deviceTabs"></div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast-box" id="toastBox"></div>
+
+  <!-- Confirm Dialog -->
+  <div class="confirm-overlay" id="confirmOverlay">
+    <div class="confirm-box">
+      <p id="confirmText"></p>
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="closeConfirm()">取消</button>
+        <button class="btn btn-danger" id="confirmBtn">删除</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Team Memory Modal -->
+  <div class="modal-overlay" id="teamModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>新增团队记忆</h3>
+        <button class="modal-close" onclick="closeTeamModal()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">分类</label>
+          <select class="form-select" id="teamCategory" onchange="onCategoryChange()">
+            <!-- 动态填充 -->
+          </select>
+        </div>
+        <div class="form-group new-category-row" id="newCategoryRow">
+          <label class="form-label">新分类名称</label>
+          <input type="text" class="form-input" id="newCategoryInput" placeholder="输入新分类名..." maxlength="20">
+        </div>
+        <div class="form-group">
+          <label class="form-label">记忆内容</label>
+          <textarea class="form-textarea" id="teamContentInput" placeholder="记录重要信息..." maxlength="5000"></textarea>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-outline" onclick="closeTeamModal()">取消</button>
+          <button class="btn btn-primary" id="teamSubmitBtn" onclick="addTeamMemory()">保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main-content" id="mainContent">
+
+    <!-- Tab Navigation -->
+    <div class="tab-nav">
+      <button class="tab-btn active" data-tab="my" onclick="switchTab('my')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;vertical-align:middle;margin-right:4px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        我的记忆
+      </button>
+      <button class="tab-btn" data-tab="team" onclick="switchTab('team')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;vertical-align:middle;margin-right:4px"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        团队记忆
+      </button>
+      <button class="tab-btn" data-tab="search" onclick="switchTab('search')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;vertical-align:middle;margin-right:4px"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        搜索
+      </button>
+    </div>
+
+    <!-- My Memory Tab -->
+    <div class="tab-panel active" id="panelMy">
+      <div class="file-layout">
+        <div class="file-sidebar">
+          <div class="file-sidebar-header">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            记忆文件
+          </div>
+          <div class="file-list" id="fileList">
+            <div class="skeleton" style="height:36px;margin:6px 8px;border-radius:8px;"></div>
+            <div class="skeleton" style="height:36px;margin:6px 8px;border-radius:8px;"></div>
+          </div>
+        </div>
+        <div class="file-content-area">
+          <div class="file-content-header" id="contentHeader" style="display:none;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <span class="file-path" id="contentPath"></span>
+          </div>
+          <div id="contentBody">
+            <div class="content-empty">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+              <p>选择左侧文件查看内容</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Team Memory Tab -->
+    <div class="tab-panel" id="panelTeam">
+      <div id="teamContentList">
+        <div class="skeleton" style="height:80px;"></div>
+        <div class="skeleton" style="height:80px;"></div>
+      </div>
+      <button class="add-team-btn" onclick="openTeamModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        添加记忆
+      </button>
+    </div>
+
+    <!-- Search Tab -->
+    <div class="tab-panel" id="panelSearch">
+      <div class="search-bar">
+        <input type="text" class="form-input" id="searchInput" placeholder="搜索记忆内容..." maxlength="200">
+        <button class="btn btn-primary" onclick="doSearch()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;vertical-align:middle;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          搜索
+        </button>
+      </div>
+      <div id="searchResults">
+        <div class="search-empty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <p>输入关键词搜索记忆</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+// ===== State =====
+var currentServerId = null;
+var memoryFiles = [];
+var teamCategories = [];
+var currentTab = 'my';
+var confirmCallback = null;
+var teamLoaded = false;
+
+// ===== Auth =====
+function getToken() {
+  return localStorage.getItem('lingxi_token');
+}
+
+function checkAuth() {
+  var token = getToken();
+  if (!token) {
+    window.location.href = 'index.html';
+    return false;
+  }
+  return true;
+}
+
+function authHeaders() {
+  var token = getToken();
+  return token ? { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
+               : { 'Content-Type': 'application/json' };
+}
+
+// ===== Toast =====
+function showToast(msg, type) {
+  var box = document.getElementById('toastBox');
+  var t = document.createElement('div');
+  t.className = 'toast' + (type ? ' ' + type : '');
+  t.textContent = msg;
+  box.appendChild(t);
+  setTimeout(function() { t.classList.add('out'); setTimeout(function() { t.remove(); }, 300); }, 3000);
+}
+
+// ===== XSS Escape =====
+function escapeHtml(s) {
+  if (!s) return '';
+  var div = document.createElement('div');
+  div.textContent = s;
+  return div.innerHTML;
+}
+
+// ===== API =====
+async function api(method, path, body) {
+  var opts = { method: method, headers: authHeaders() };
+  var url = '/api/memory' + path;
+  if (currentServerId) {
+    var sep = url.indexOf('?') === -1 ? '?' : '&';
+    url += sep + 'serverId=' + encodeURIComponent(currentServerId);
+  }
+  if (body && method !== 'GET') {
+    opts.body = JSON.stringify(body);
+  }
+  var res = await fetch(url, opts);
+  if (res.status === 401) {
+    localStorage.removeItem('lingxi_token');
+    window.location.href = 'index.html';
+    throw new Error('认证已失效，请重新登录');
+  }
+  var data = await res.json();
+  if (!res.ok) throw new Error(data.error || '请求失败');
+  if (data.success === false) throw new Error(data.error || '请求失败');
+  return data;
+}
+
+// ===== Confirm =====
+function showConfirm(text, btnText, callback) {
+  document.getElementById('confirmText').textContent = text;
+  document.getElementById('confirmBtn').textContent = btnText || '确认';
+  confirmCallback = callback;
+  document.getElementById('confirmOverlay').classList.add('open');
+}
+function closeConfirm() {
+  document.getElementById('confirmOverlay').classList.remove('open');
+  confirmCallback = null;
+}
+document.getElementById('confirmBtn').onclick = function() {
+  if (confirmCallback) confirmCallback();
+  closeConfirm();
+};
+
+// ===== Relative Time =====
+function relativeTime(isoStr) {
+  if (!isoStr) return '';
+  var now = Date.now();
+  var then = new Date(isoStr).getTime();
+  if (isNaN(then)) return '';
+  var diff = now - then;
+  if (diff < 60000) return '刚刚';
+  if (diff < 3600000) return Math.floor(diff / 60000) + ' 分钟前';
+  if (diff < 86400000) return Math.floor(diff / 3600000) + ' 小时前';
+  if (diff < 604800000) return Math.floor(diff / 86400000) + ' 天前';
+  var d = new Date(isoStr);
+  return (d.getMonth()+1) + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+}
+
+// ===== Device Management =====
+async function loadDevices() {
+  try {
+    var token = getToken();
+    var res = await fetch('/api/cron/servers', { headers: authHeaders() });
+    var data = await res.json();
+    if (data.success && data.servers && data.servers.length > 1) {
+      var tabs = document.getElementById('deviceTabs');
+      var bar = document.getElementById('deviceBar');
+      tabs.innerHTML = '';
+      data.servers.forEach(function(s) {
+        var tab = document.createElement('div');
+        tab.className = 'device-tab' + (s.isActive ? ' active' : '');
+        tab.setAttribute('data-server-id', s.id);
+        tab.innerHTML = '<span class="tab-status online"></span>' + escapeHtml(s.name || s.ip);
+        tab.onclick = function() {
+          tabs.querySelectorAll('.device-tab').forEach(function(t) { t.classList.remove('active'); });
+          tab.classList.add('active');
+          onDeviceChange(s.id);
+        };
+        tabs.appendChild(tab);
+      });
+      currentServerId = data.activeServerId || (data.servers[0] && data.servers[0].id);
+      bar.style.display = 'block';
+      document.getElementById('mainContent').classList.add('has-device-bar');
+    } else {
+      document.getElementById('deviceBar').style.display = 'none';
+      currentServerId = null;
+    }
+  } catch (e) {
+    console.warn('加载设备列表失败:', e);
+    document.getElementById('deviceBar').style.display = 'none';
+  }
+}
+
+function onDeviceChange(serverId) {
+  currentServerId = serverId;
+  loadMemoryFiles();
+  if (currentTab === 'team') { teamLoaded = false; loadTeamMemory(); }
+}
+
+// ===== Tab Switch =====
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(function(b) {
+    b.classList.toggle('active', b.dataset.tab === tab);
+  });
+  document.querySelectorAll('.tab-panel').forEach(function(p) {
+    p.classList.toggle('active', p.id === 'panel' + tab.charAt(0).toUpperCase() + tab.slice(1));
+  });
+  if (tab === 'team' && !teamLoaded) loadTeamMemory();
+}
+
+// ===== My Memory: Load Files =====
+async function loadMemoryFiles() {
+  var listEl = document.getElementById('fileList');
+  listEl.innerHTML = '<div class="skeleton" style="height:36px;margin:6px 8px;border-radius:8px;"></div>';
+
+  try {
+    var data = await api('GET', '/files');
+    memoryFiles = data.files || [];
+    renderFileList();
+  } catch (e) {
+    var errMsg = e.message || '';
+    if (errMsg.indexOf('未配置') !== -1) {
+      listEl.innerHTML = '<div class="content-empty" style="padding:30px 12px;"><p>未配置设备</p></div>';
+    } else {
+      listEl.innerHTML = '<div class="content-empty" style="padding:30px 12px;"><p>加载失败</p></div>';
+      showToast('加载文件列表失败: ' + errMsg, 'error');
+    }
+  }
+}
+
+function renderFileList() {
+  var listEl = document.getElementById('fileList');
+
+  if (memoryFiles.length === 0) {
+    listEl.innerHTML = '<div class="content-empty" style="padding:30px 12px;"><p>暂无记忆文件</p></div>';
+    return;
+  }
+
+  var html = '';
+  for (var i = 0; i < memoryFiles.length; i++) {
+    var f = memoryFiles[i];
+    html += '<div class="file-item" data-action="select-file" data-index="' + i + '">';
+    html += '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+    html += '<span class="file-name">' + escapeHtml(f.name || f.path) + '</span>';
+    html += '</div>';
+  }
+  listEl.innerHTML = html;
+}
+
+// ===== My Memory: Load Content =====
+async function loadFileContent(index) {
+  var f = memoryFiles[index];
+  if (!f) return;
+
+  document.querySelectorAll('#fileList .file-item').forEach(function(el, i) {
+    el.classList.toggle('active', i === index);
+  });
+
+  var headerEl = document.getElementById('contentHeader');
+  var pathEl = document.getElementById('contentPath');
+  var bodyEl = document.getElementById('contentBody');
+
+  headerEl.style.display = 'flex';
+  pathEl.textContent = f.path || f.name;
+  bodyEl.innerHTML = '<div class="skeleton" style="height:200px;border-radius:8px;"></div>';
+
+  try {
+    var data = await api('GET', '/content?path=' + encodeURIComponent(f.path || f.name));
+    var content = data.content || '';
+    var rendered = simpleMarkdown(content);
+    bodyEl.innerHTML = '<div class="file-content-body markdown-content">' + rendered + '</div>';
+  } catch (e) {
+    bodyEl.innerHTML = '<div class="content-empty"><p>加载失败: ' + escapeHtml(e.message) + '</p></div>';
+  }
+}
+
+// Simple markdown to HTML
+function simpleMarkdown(text) {
+  if (!text) return '';
+  var html = escapeHtml(text);
+
+  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+
+  html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+  html = html.replace(/```[\s\S]*?```/g, function(m) {
+    var code = m.slice(3, -3).trim();
+    return '<pre><code>' + code + '</code></pre>';
+  });
+
+  html = html.replace(/`(.+?)`/g, '<code>$1</code>');
+
+  html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+
+  html = html.replace(/^[\-\*] (.+)$/gm, '<li>$1</li>');
+  html = html.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
+
+  html = html.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
+
+  html = html.replace(/\n\n/g, '</p><p>');
+  html = html.replace(/\n/g, '<br>');
+
+  return '<p>' + html + '</p>';
+}
+
+// File list event delegation
+document.getElementById('fileList').addEventListener('click', function(e) {
+  var item = e.target.closest('[data-action="select-file"]');
+  if (!item) return;
+  var index = parseInt(item.dataset.index, 10);
+  loadFileContent(index);
+});
+
+// ===== Team Memory (Markdown-based) =====
+async function loadTeamMemory() {
+  var container = document.getElementById('teamContentList');
+  container.innerHTML = '<div class="skeleton" style="height:80px;"></div><div class="skeleton" style="height:80px;"></div>';
+
+  try {
+    var data = await api('GET', '/team');
+    teamCategories = data.categories || [];
+    teamLoaded = true;
+    renderTeamMemory();
+  } catch (e) {
+    container.innerHTML = '<div class="team-empty"><p>加载失败: ' + escapeHtml(e.message) + '</p></div>';
+  }
+}
+
+function renderTeamMemory() {
+  var container = document.getElementById('teamContentList');
+
+  if (!teamCategories || teamCategories.length === 0) {
+    container.innerHTML = '<div class="team-empty">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>' +
+      '<p>还没有团队记忆</p>' +
+      '<p style="font-size:12px;color:#bbb;">点击下方按钮添加</p>' +
+      '</div>';
+    return;
+  }
+
+  var html = '';
+  for (var ci = 0; ci < teamCategories.length; ci++) {
+    var cat = teamCategories[ci];
+    if (!cat.items || cat.items.length === 0) continue;
+
+    html += '<div class="tm-category">';
+    html += '<div class="tm-category-header open" data-action="toggle-category">';
+    html += '<svg class="tm-category-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><polyline points="9 18 15 12 9 6"/></svg>';
+    html += '<span class="tm-category-name">' + escapeHtml(cat.name) + '</span>';
+    html += '<span class="tm-category-count">' + cat.items.length + '</span>';
+    html += '</div>';
+    html += '<div class="tm-category-body open">';
+
+    for (var j = 0; j < cat.items.length; j++) {
+      var item = cat.items[j];
+      html += '<div class="tm-item">';
+      html += '<span class="tm-item-dot"></span>';
+      html += '<span class="tm-item-text">' + escapeHtml(item.content) + '</span>';
+      html += '<button class="tm-item-delete" data-action="delete-team" data-content="' + escapeHtml(item.content).replace(/"/g, '&quot;') + '" title="删除">';
+      html += '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+      html += '</button>';
+      html += '</div>';
+    }
+
+    html += '</div></div>';
+  }
+
+  container.innerHTML = html;
+}
+
+// Toggle category collapse
+document.getElementById('teamContentList').addEventListener('click', function(e) {
+  // Handle category toggle
+  var header = e.target.closest('[data-action="toggle-category"]');
+  if (header) {
+    header.classList.toggle('open');
+    var body = header.nextElementSibling;
+    if (body) body.classList.toggle('open');
+    return;
+  }
+
+  // Handle delete
+  var btn = e.target.closest('[data-action="delete-team"]');
+  if (!btn) return;
+  e.stopPropagation();
+  var rawContent = btn.getAttribute('data-content');
+  // Unescape HTML entities for comparison
+  var tmp = document.createElement('div');
+  tmp.innerHTML = rawContent;
+  var content = tmp.textContent || tmp.innerText;
+
+  showConfirm('确定删除这条记忆？', '删除', async function() {
+    try {
+      await deleteTeamItem(content);
+    } catch (err) {
+      showToast('删除失败: ' + err.message, 'error');
+    }
+  });
+});
+
+// 调用后端删除接口（按内容匹配）
+async function deleteTeamItem(content) {
+  try {
+    var res = await fetch('/api/memory/team', {
+      method: 'DELETE',
+      headers: authHeaders(),
+      body: JSON.stringify({ content: content })
+    });
+    if (res.status === 401) {
+      localStorage.removeItem('lingxi_token');
+      window.location.href = 'index.html';
+      return;
+    }
+    var data = await res.json();
+    if (!data.success) throw new Error(data.error || '删除失败');
+
+    await loadTeamMemory();
+    showToast('记忆已删除', 'success');
+  } catch (e) {
+    showToast('删除失败: ' + e.message, 'error');
+  }
+}
+
+// Team modal — populate category dropdown dynamically
+function openTeamModal() {
+  populateCategorySelect();
+  document.getElementById('teamModal').classList.add('open');
+  document.getElementById('teamContentInput').value = '';
+  document.getElementById('newCategoryInput').value = '';
+  document.getElementById('newCategoryRow').classList.remove('show');
+}
+
+function closeTeamModal() {
+  document.getElementById('teamModal').classList.remove('open');
+}
+
+function populateCategorySelect() {
+  var sel = document.getElementById('teamCategory');
+  var html = '';
+  for (var i = 0; i < teamCategories.length; i++) {
+    html += '<option value="' + escapeHtml(teamCategories[i].name) + '">' + escapeHtml(teamCategories[i].name) + '</option>';
+  }
+  html += '<option value="__new__">+ 新建分类</option>';
+  sel.innerHTML = html;
+}
+
+function onCategoryChange() {
+  var sel = document.getElementById('teamCategory');
+  var row = document.getElementById('newCategoryRow');
+  if (sel.value === '__new__') {
+    row.classList.add('show');
+  } else {
+    row.classList.remove('show');
+  }
+}
+
+async function addTeamMemory() {
+  var content = document.getElementById('teamContentInput').value.trim();
+  var sel = document.getElementById('teamCategory');
+  var category;
+
+  if (sel.value === '__new__') {
+    category = document.getElementById('newCategoryInput').value.trim();
+    if (!category) {
+      showToast('请输入新分类名称', 'error');
+      return;
+    }
+  } else {
+    category = sel.value;
+  }
+
+  if (!content) {
+    showToast('请输入记忆内容', 'error');
+    return;
+  }
+
+  var btn = document.getElementById('teamSubmitBtn');
+  btn.disabled = true;
+  btn.textContent = '保存中...';
+
+  try {
+    await api('POST', '/team', { content: content, category: category });
+    showToast('记忆已保存', 'success');
+    closeTeamModal();
+    document.getElementById('teamContentInput').value = '';
+    teamLoaded = false;
+    loadTeamMemory();
+  } catch (e) {
+    showToast('保存失败: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '保存';
+  }
+}
+
+// ===== Search =====
+async function doSearch() {
+  var q = document.getElementById('searchInput').value.trim();
+  if (!q) {
+    showToast('请输入搜索关键词', 'error');
+    return;
+  }
+
+  var container = document.getElementById('searchResults');
+  container.innerHTML = '<div class="skeleton" style="height:60px;"></div><div class="skeleton" style="height:60px;"></div>';
+
+  try {
+    var data = await api('GET', '/search?q=' + encodeURIComponent(q));
+    var results = data.results || [];
+
+    if (results.length === 0) {
+      container.innerHTML = '<div class="search-empty">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>' +
+        '<p>没有找到相关记忆</p></div>';
+      return;
+    }
+
+    var html = '';
+    var safeQ = escapeHtml(q);
+    for (var i = 0; i < results.length; i++) {
+      var r = results[i];
+      var text = escapeHtml(r.text || r.content || r.line || '');
+      var highlighted = text.replace(new RegExp('(' + safeQ.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi'), '<mark>$1</mark>');
+
+      html += '<div class="search-result" data-action="open-result" data-path="' + escapeHtml(r.path || '') + '">';
+      html += '<div class="search-result-path"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' + escapeHtml(r.path || '未知文件') + '</div>';
+      html += '<div class="search-result-text">' + highlighted + '</div>';
+      if (r.score) html += '<div class="search-result-score">相关度: ' + (typeof r.score === 'number' ? r.score.toFixed(2) : r.score) + '</div>';
+      html += '</div>';
+    }
+
+    container.innerHTML = html;
+  } catch (e) {
+    var errMsg = e.message || '';
+    if (errMsg.indexOf('未配置') !== -1) {
+      container.innerHTML = '<div class="search-empty"><p>未配置设备</p></div>';
+    } else {
+      container.innerHTML = '<div class="search-empty"><p>搜索失败: ' + escapeHtml(errMsg) + '</p></div>';
+    }
+  }
+}
+
+// Search result click
+document.getElementById('searchResults').addEventListener('click', function(e) {
+  var result = e.target.closest('[data-action="open-result"]');
+  if (!result) return;
+  var path = result.dataset.path;
+  if (!path) return;
+
+  switchTab('my');
+
+  var index = -1;
+  for (var i = 0; i < memoryFiles.length; i++) {
+    if (memoryFiles[i].path === path || memoryFiles[i].name === path) {
+      index = i;
+      break;
+    }
+  }
+
+  if (index >= 0) {
+    loadFileContent(index);
+  } else {
+    loadFileByPath(path);
+  }
+});
+
+async function loadFileByPath(path) {
+  var headerEl = document.getElementById('contentHeader');
+  var pathEl = document.getElementById('contentPath');
+  var bodyEl = document.getElementById('contentBody');
+
+  headerEl.style.display = 'flex';
+  pathEl.textContent = path;
+  bodyEl.innerHTML = '<div class="skeleton" style="height:200px;border-radius:8px;"></div>';
+
+  try {
+    var data = await api('GET', '/content?path=' + encodeURIComponent(path));
+    var content = data.content || '';
+    var rendered = simpleMarkdown(content);
+    bodyEl.innerHTML = '<div class="file-content-body markdown-content">' + rendered + '</div>';
+  } catch (e) {
+    bodyEl.innerHTML = '<div class="content-empty"><p>加载失败: ' + escapeHtml(e.message) + '</p></div>';
+  }
+}
+
+// Search on Enter
+document.getElementById('searchInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') doSearch();
+});
+
+// ===== Modal Close on Overlay =====
+document.getElementById('teamModal').addEventListener('click', function(e) {
+  if (e.target === this) closeTeamModal();
+});
+document.getElementById('confirmOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeConfirm();
+});
+
+// ===== Keyboard =====
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    closeTeamModal();
+    closeConfirm();
+  }
+});
+
+// ===== Init =====
+(async function init() {
+  if (!checkAuth()) return;
+
+  try {
+    await loadDevices();
+    await loadMemoryFiles();
+  } catch (e) {
+    // Individual loaders handle their own errors
+  }
+})();
+  if (window.parent !== window) document.body.classList.add("in-iframe");
+</script>
+</body>
+</html>
