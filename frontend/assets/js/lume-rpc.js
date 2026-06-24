@@ -252,7 +252,23 @@ const LumeAgents = (function () {
   async function fetchList() {
     const payload = await LumeRpc.gatewayCall('config.get', {}, 12000);
     const list = payload?.config?.agents?.list || [];
-    return list.map(mapAgentRow);
+    if (!Array.isArray(list) || list.length === 0) return [];
+    const ids = new Set();
+    const rows = [];
+    list.forEach((a) => {
+      if (!a?.id || ids.has(a.id)) return;
+      ids.add(a.id);
+      rows.push(mapAgentRow(a));
+    });
+    const main = list.find((a) => a.id === 'main' || a.default);
+    const allowed = main?.subagents?.allowAgents || [];
+    allowed.forEach((id) => {
+      if (!id || ids.has(id)) return;
+      ids.add(id);
+      const existing = list.find((a) => a.id === id);
+      rows.push(existing ? mapAgentRow(existing) : mapAgentRow({ id, name: id }));
+    });
+    return rows;
   }
 
   async function addAgent(agentId, name, emoji) {

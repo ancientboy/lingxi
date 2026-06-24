@@ -7,7 +7,7 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23667eea'/><text x='16' y='22' text-anchor='middle' fill='white' font-size='16' font-weight='700'>L</text></svg>">
   <link rel="stylesheet" href="assets/css/lume.css">
   <link rel="stylesheet" href="assets/css/lume-dialog.css">
-  <link rel="stylesheet" href="assets/css/workspace-shell.css?v=20260624y">
+  <link rel="stylesheet" href="assets/css/workspace-shell.css?v=20260624z">
   <style>
     body {
       font-family: var(--font-body);
@@ -1656,7 +1656,10 @@ function switchTab(tabId) {
     if (el) el.classList.add('active');
   }
   // Load data for tab
-  if (tabId === 'manage') { fetchOpenClawAgents().then(() => renderManageTab()); }
+  if (tabId === 'manage') {
+    renderManageTab();
+    fetchOpenClawAgents().then(() => renderManageTab());
+  }
   if (tabId === 'templates') loadTemplates();
   if (tabId === 'logs') renderLogsTab();
 }
@@ -1690,53 +1693,98 @@ function getApiBase() {
   try { const u = JSON.parse(localStorage.getItem('lingxi_user') || '{}'); return u.serverUrl || ''; } catch { return ''; }
 }
 
+function resolveApiBases() {
+  const bases = [];
+  const userBase = (getApiBase() || '').replace(/\/$/, '');
+  if (userBase) bases.push(userBase);
+  const origin = window.location.origin;
+  if (origin && !bases.includes(origin)) bases.push(origin);
+  return bases;
+}
+
+async function fetchAgentsViaHttp() {
+  const token = getToken();
+  if (!token) return null;
+  for (const base of resolveApiBases()) {
+    try {
+      const res = await fetch(`${base}/api/gateway/agents`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.agents) && data.agents.length > 0) {
+        return { agents: data.agents, source: data.source || 'openclaw' };
+      }
+    } catch (e) {
+      console.warn('[manage] HTTP agents 失败:', base, e.message);
+    }
+  }
+  return null;
+}
+
+function renderManageTabIfActive() {
+  if (document.getElementById('tabManage')?.classList.contains('active')) {
+    renderManageTab();
+  }
+}
+
 // 从 OpenClaw API 拉取真实 Agent 列表（Lume 优先，HTTP 降级）
 async function fetchOpenClawAgents() {
   const token = getToken();
   if (!token) return;
   try {
     let agents = null;
+    let source = null;
+
     try {
       if (typeof LumeRpc !== 'undefined' && await LumeRpc.connect()) {
-        agents = await LumeAgents.fetchList();
-        openClawSource = 'lume';
-        console.log('[Lume] config.get 拉取到', agents.length, '个 Agent');
+        const lumeList = await LumeAgents.fetchList();
+        if (Array.isArray(lumeList) && lumeList.length > 0) {
+          agents = lumeList;
+          source = 'lume';
+          console.log('[Lume] 拉取到', agents.length, '个 Agent');
+        } else {
+          console.warn('[Lume] Agent 列表为空，尝试 HTTP 降级');
+        }
       }
     } catch (lumeErr) {
       console.warn('Lume Agent 拉取失败，降级 HTTP:', lumeErr.message);
     }
-    if (!agents) {
-      const res = await fetch(`${getApiBase()}/api/gateway/agents`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (!data.success || !data.agents) return;
-      agents = data.agents;
-      openClawSource = 'openclaw';
-      console.log('从 HTTP 拉取到', agents.length, '个 Agent');
-    }
-    if (agents) {
-      openClawAgents = agents;
-      // 刷新概览办公桌（基于真实数据重建 AGENTS 数组）
-      AGENTS = buildAgentsList();
-      // 重建状态（保留已有状态，新 Agent 默认 idle）
-      const newS = {};
-      AGENTS.forEach(a => {
-        newS[a.id] = S[a.id] || { status: 'idle', task: null };
-      });
-      S = newS;
-      render();
-      if (document.getElementById('tabManage')?.classList.contains('active')) {
-        renderManageTab();
+
+    if (!agents || agents.length === 0) {
+      const httpResult = await fetchAgentsViaHttp();
+      if (httpResult) {
+        agents = httpResult.agents;
+        source = httpResult.source === 'user' ? 'openclaw' : (httpResult.source || 'openclaw');
+        console.log('从 HTTP 拉取到', agents.length, '个 Agent');
       }
     }
+
+    if (!agents || agents.length === 0) {
+      openClawSource = 'local';
+      openClawAgents = [];
+      renderManageTabIfActive();
+      return;
+    }
+
+    openClawAgents = agents;
+    openClawSource = source || 'openclaw';
+    AGENTS = buildAgentsList();
+    const newS = {};
+    AGENTS.forEach(a => {
+      newS[a.id] = S[a.id] || { status: 'idle', task: null };
+    });
+    S = newS;
+    render();
+    renderManageTabIfActive();
   } catch(e) {
     console.log('OpenClaw Agent 拉取失败，使用本地数据:', e.message);
+    openClawSource = 'local';
+    renderManageTabIfActive();
   }
 }
 
 function getMyAgentIds() {
-  // 优先用 OpenClaw / Lume 真实数据
+  // 优先用 OpenClaw / Lume 真实数据（非空时）
   if ((openClawSource === 'openclaw' || openClawSource === 'lume') && openClawAgents.length > 0) {
     return openClawAgents.map(a => a.id);
   }

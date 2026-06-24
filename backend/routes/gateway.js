@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import { getDB } from '../utils/db.js';
+import { sshExec } from '../utils/ssh.js';
 
 const router = Router();
 
@@ -14,6 +15,102 @@ const SHARED_GATEWAY = {
   token: process.env.MVP_OPENCLAW_TOKEN || process.env.OPENCLAW_TOKEN || '6f3719a52fa12799fea8e4a06655703f',
   session: process.env.MVP_OPENCLAW_SESSION || process.env.OPENCLAW_SESSION || 'c308f1f0'
 };
+
+const AGENT_NAME_MAP = {
+  main: '灵犀',
+  lingxi: '灵犀',
+  captain: '灵犀',
+  coder: '云溪',
+  ops: '若曦',
+  operator: '若曦',
+  inventor: '紫萱',
+  pm: '梓萱',
+  noter: '晓琳',
+  notes: '晓琳',
+  media: '音韵',
+  smart: '智家',
+  auto: 'Auto',
+  reviewer: '清源',
+  qa: '知微',
+};
+
+function mapOpenClawAgentRow(a) {
+  const id = a.id || a.agentId;
+  return {
+    id,
+    name: a.name || a.identity?.name || AGENT_NAME_MAP[id] || id,
+    emoji: a.identity?.emoji,
+    workspace: a.workspace,
+    model: a.model,
+    isDefault: a.default === true,
+  };
+}
+
+async function readAgentsFromServer(server) {
+  if (!server?.ip) return [];
+  const out = await sshExec(
+    server.ip,
+  'cat /root/.openclaw/openclaw.json 2>/dev/null || cat ~/.openclaw/openclaw.json 2>/dev/null || echo "{}"',
+    { ignoreError: true, timeout: 15000 },
+  );
+  const config = JSON.parse(out || '{}');
+  const list = config?.agents?.list || [];
+  if (!Array.isArray(list) || list.length === 0) return [];
+  const ids = new Set();
+  const rows = [];
+  list.forEach((a) => {
+    if (!a?.id || ids.has(a.id)) return;
+    ids.add(a.id);
+    rows.push(mapOpenClawAgentRow(a));
+  });
+  const main = list.find((a) => a.id === 'main' || a.default);
+  const allowed = main?.subagents?.allowAgents || [];
+  allowed.forEach((id) => {
+    if (!id || ids.has(id)) return;
+    ids.add(id);
+    const existing = list.find((a) => a.id === id);
+    rows.push(existing ? mapOpenClawAgentRow(existing) : { id, name: AGENT_NAME_MAP[id] || id });
+  });
+  return rows;
+}
+
+function agentsFromUserRecord(user) {
+  const members = user?.team?.members;
+  if (Array.isArray(members) && members.length > 0) {
+    return members.map((m) => ({
+      id: m.id === 'lingxi' ? 'main' : m.id,
+      name: m.name || AGENT_NAME_MAP[m.id] || m.id,
+      emoji: m.icon,
+    }));
+  }
+  const ids = user?.agents || [];
+  if (!ids.length) return [];
+  return ids.map((id) => ({
+    id: id === 'lingxi' ? 'main' : id,
+    name: AGENT_NAME_MAP[id] || id,
+  }));
+}
+
+async function authenticateGatewayRequest(req) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return { error: { status: 401, body: { error: '未登录' } } };
+  }
+  const token = authHeader.substring(7);
+  let decoded;
+  try {
+    decoded = jwt.verify(token, JWT_SECRET);
+  } catch (e) {
+    return { error: { status: 401, body: { error: '登录已过期' } } };
+  }
+  const db = await getDB();
+  const user = db.users?.find((u) => u.id === decoded.userId);
+  if (!user) {
+    return { error: { status: 401, body: { error: '用户不存在' } } };
+  }
+  const userServer = db.userServers?.find((s) => s.userId === user.id);
+  return { user, userServer, db };
+}
 
 router.get('/ws-info', (req, res) => {
   const host = req.get('host') || 'localhost:3000';
@@ -108,6 +205,41 @@ router.get('/connect-info', async (req, res) => {
       needServer: true 
     });
   }
+});
+
+router.get('/agents', async (req, res) => {
+  const auth = await authenticateGatewayRequest(req);
+  if (auth.error) {
+    return res.status(auth.error.status).json(auth.error.body);
+  }
+  const { user, userServer } = auth;
+  let agents = [];
+  let source = 'local';
+
+  if (userServer?.status === 'running' && userServer.ip) {
+    try {
+      agents = await readAgentsFromServer(userServer);
+      if (agents.length > 0) source = 'openclaw';
+    } catch (e) {
+      console.warn('[gateway/agents] SSH 读取失败:', e.message);
+    }
+  }
+
+  if (!agents.length && MVP_MODE) {
+    try {
+      agents = await readAgentsFromServer({ ip: '127.0.0.1' });
+      if (agents.length > 0) source = 'openclaw';
+    } catch (e) {
+      console.warn('[gateway/agents] 本地 OpenClaw 读取失败:', e.message);
+    }
+  }
+
+  if (!agents.length) {
+    agents = agentsFromUserRecord(user);
+    if (agents.length > 0) source = 'user';
+  }
+
+  res.json({ success: true, agents, source });
 });
 
 router.post('/proxy', async (req, res) => {
