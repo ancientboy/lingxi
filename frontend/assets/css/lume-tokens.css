@@ -1,0 +1,12 @@
+/**
+ * Lume Design Tokens — single source for accent & neutrals
+ * Import in lume.css and chat.css (chat may override layout tokens only)
+ */
+:root {
+  --accent:      #3d6b62;
+  --accent-h:    #2f554d;
+  --accent-soft: rgba(61, 107, 98, 0.08);
+  --accent-ring: rgba(61, 107, 98, 0.14);
+  --accent-muted: rgba(61, 107, 98, 0.45);
+  --accent-gradient: linear-gradient(135deg, #3d6b62 0%, #2f554d 100%);
+}

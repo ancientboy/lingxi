@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>我的团队 - lume</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      color: #fff;
+      padding: 40px 20px;
+    }
+    .container { max-width: 900px; margin: 0 auto; }
+    
+    /* 头部 */
+    .header { text-align: center; margin-bottom: 40px; }
+    .logo {
+      font-size: 48px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #fff, rgba(255,255,255,0.8));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 10px;
+    }
+    .subtitle { color: rgba(255,255,255,0.8); font-size: 16px; }
+    
+    /* 模板选择器 */
+    .template-selector {
+      background: rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 30px;
+    }
+    .template-title {
+      font-size: 14px;
+      color: rgba(255,255,255,0.8);
+      margin-bottom: 12px;
+    }
+    .template-list {
+      display: flex;
+      gap: 12px;
+      overflow-x: auto;
+      padding-bottom: 10px;
+    }
+    .template-card {
+      min-width: 200px;
+      padding: 16px;
+      background: rgba(255,255,255,0.1);
+      border: 2px solid rgba(255,255,255,0.2);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .template-card:hover {
+      background: rgba(255,255,255,0.15);
+      transform: translateY(-2px);
+    }
+    .template-card.active {
+      border-color: #fff;
+      background: rgba(255,255,255,0.2);
+    }
+    .template-name { font-weight: 600; margin-bottom: 4px; }
+    .template-info {
+      font-size: 12px;
+      color: rgba(255,255,255,0.7);
+    }
+    
+    /* 成员网格 */
+    .members-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 30px;
+    }
+    .member-card {
+      background: rgba(255,255,255,0.1);
+      border: 2px solid rgba(255,255,255,0.2);
+      border-radius: 16px;
+      padding: 20px;
+      transition: all 0.3s;
+      position: relative;
+    }
+    .member-card:hover {
+      background: rgba(255,255,255,0.15);
+      transform: translateY(-3px);
+    }
+    .member-card.default {
+      border-color: rgba(255,215,0,0.5);
+      background: rgba(255,215,0,0.1);
+    }
+    .member-emoji { font-size: 40px; margin-bottom: 12px; }
+    .member-name { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+    .member-role { font-size: 13px; color: rgba(255,255,255,0.7); margin-bottom: 8px; }
+    .member-triggers {
+      font-size: 11px;
+      color: rgba(255,255,255,0.6);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .member-trigger {
+      background: rgba(255,255,255,0.2);
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+    .member-actions {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      display: flex;
+      gap: 6px;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .member-card:hover .member-actions { opacity: 1; }
+    .member-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+      cursor: pointer;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .member-btn:hover { background: rgba(255,255,255,0.3); }
+    .member-btn.danger:hover { background: rgba(255,68,68,0.8); }
+    
+    /* 添加成员卡片 */
+    .add-member-card {
+      background: rgba(255,255,255,0.05);
+      border: 2px dashed rgba(255,255,255,0.3);
+      border-radius: 16px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.3s;
+      min-height: 160px;
+    }
+    .add-member-card:hover {
+      background: rgba(255,255,255,0.1);
+      border-color: rgba(255,255,255,0.5);
+    }
+    .add-member-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.5; }
+    .add-member-text { font-size: 14px; color: rgba(255,255,255,0.7); }
+    
+    /* 按钮 */
+    .btn {
+      padding: 14px 40px;
+      font-size: 16px;
+      font-weight: 600;
+      color: #667eea;
+      background: #fff;
+      border: none;
+      border-radius: 50px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .btn:hover { transform: scale(1.02); box-shadow: 0 5px 20px rgba(0,0,0,0.2); }
+    .btn:disabled { background: rgba(255,255,255,0.5); cursor: not-allowed; }
+    
+    /* 同步状态 */
+    .sync-status {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 13px;
+      color: rgba(255,255,255,0.7);
+    }
+    .sync-status.syncing { color: #ffd700; }
+    .sync-status.synced { color: #4caf50; }
+    .sync-status.error { color: #ff4444; }
+    
+    /* 模态框 */
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal.show { display: flex; }
+    .modal-content {
+      background: #fff;
+      color: #333;
+      border-radius: 16px;
+      max-width: 500px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .modal-header {
+      padding: 20px;
+      border-bottom: 1px solid #e5e5e5;
+    }
+    .modal-title { font-size: 20px; font-weight: 600; }
+    .modal-body { padding: 20px; }
+    .modal-footer {
+      padding: 20px;
+      border-top: 1px solid #e5e5e5;
+      display: flex;
+      gap: 12px;
+    }
+    
+    /* 表单 */
+    .form-group { margin-bottom: 16px; }
+    .form-label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: #555;
+    }
+    .form-input {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid #e5e5e5;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    .form-input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    .form-hint {
+      font-size: 12px;
+      color: #999;
+      margin-top: 4px;
+    }
+    
+    /* 响应式 */
+    @media (max-width: 768px) {
+      .members-grid { grid-template-columns: repeat(2, 1fr); }
+      .template-list { flex-direction: column; }
+      .template-card { min-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- 头部 -->
+    <div class="header">
+      <div class="logo">⚡ lume</div>
+      <p class="subtitle">管理你的 AI 团队</p>
+    </div>
+    
+    <!-- 模板选择器 -->
+    <div class="template-selector">
+      <div class="template-title">📦 快速应用团队模板</div>
+      <div class="template-list" id="templateList">
+        <!-- 动态加载 -->
+      </div>
+    </div>
+    
+    <!-- 成员列表 -->
+    <div class="members-grid" id="membersGrid">
+      <!-- 动态加载 -->
+    </div>
+    
+    <!-- 同步状态 -->
+    <div class="sync-status" id="syncStatus">
+      <span id="syncText">正在加载...</span>
+    </div>
+    
+    <!-- 保存按钮 -->
+    <div style="text-align: center; margin-top: 30px;">
+      <button class="btn" id="saveBtn" onclick="saveTeam()" style="display: none;">
+        💾 保存团队配置
+      </button>
+    </div>
+  </div>
+
+  <!-- 添加成员模态框 -->
+  <div class="modal" id="addMemberModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">➕ 添加团队成员</div>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">成员 ID *</label>
+          <input type="text" class="form-input" id="memberId" placeholder="例如: video-editor">
+          <div class="form-hint">唯一标识符，只能包含字母、数字和连字符</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">名称 *</label>
+          <input type="text" class="form-input" id="memberName" placeholder="例如: 视频剪辑">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Emoji</label>
+          <input type="text" class="form-input" id="memberEmoji" placeholder="例如: 🎬" maxlength="2">
+        </div>
+        <div class="form-group">
+          <label class="form-label">角色</label>
+          <input type="text" class="form-input" id="memberRole" placeholder="例如: 视频剪辑师">
+        </div>
+        <div class="form-group">
+          <label class="form-label">触发词</label>
+          <input type="text" class="form-input" id="memberTriggers" placeholder="例如: 视频,剪辑,特效（逗号分隔）">
+          <div class="form-hint">用户说这些词时会触发这个成员</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" style="flex: 1; background: #f5f5f5; color: #333;" onclick="closeAddMemberModal()">取消</button>
+        <button class="btn" style="flex: 1;" onclick="confirmAddMember()">确认添加</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 编辑成员模态框 -->
+  <div class="modal" id="editMemberModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">✏️ 编辑成员</div>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">名称 *</label>
+          <input type="text" class="form-input" id="editMemberName">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Emoji</label>
+          <input type="text" class="form-input" id="editMemberEmoji" maxlength="2">
+        </div>
+        <div class="form-group">
+          <label class="form-label">角色</label>
+          <input type="text" class="form-input" id="editMemberRole">
+        </div>
+        <div class="form-group">
+          <label class="form-label">触发词</label>
+          <input type="text" class="form-input" id="editMemberTriggers">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" style="flex: 1; background: #f5f5f5; color: #333;" onclick="closeEditMemberModal()">取消</button>
+        <button class="btn" style="flex: 1;" onclick="confirmEditMember()">确认修改</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = window.location.origin;
+    
+    let currentUser = null;
+    let currentTeam = null;
+    let templates = [];
+    let editingMemberId = null;
+    
+    // 初始化
+    async function init() {
+      // 检查登录
+      const userStr = localStorage.getItem('lingxi_user');
+      if (!userStr) {
+        window.location.href = 'index.html';
+        return;
+      }
+      
+      currentUser = JSON.parse(userStr);
+      
+      // 加载模板
+      await loadTemplates();
+      
+      // 加载团队
+      await loadTeam();
+    }
+    
+    // 加载模板列表
+    async function loadTemplates() {
+      try {
+        const res = await fetch(`${API_BASE}/api/team/templates`);
+        const data = await res.json();
+        
+        if (data.success) {
+          templates = data.templates;
+          renderTemplates();
+        }
+      } catch (e) {
+        console.error('加载模板失败:', e);
+      }
+    }
+    
+    // 渲染模板列表
+    function renderTemplates() {
+      const container = document.getElementById('templateList');
+      container.innerHTML = templates.map(t => `
+        <div class="template-card" onclick="applyTemplate('${t.templateId}')">
+          <div class="template-name">${t.templateName}</div>
+          <div class="template-info">${t.description}</div>
+          <div class="template-info" style="margin-top: 6px;">👥 ${t.memberCount} 人</div>
+        </div>
+      `).join('');
+    }
+    
+    // 加载团队配置
+    async function loadTeam() {
+      updateSyncStatus('syncing', '正在加载团队配置...');
+      
+      try {
+        const token = localStorage.getItem('lingxi_token');
+        const res = await fetch(`${API_BASE}/api/team/${currentUser.id}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+          currentTeam = data.team;
+          renderMembers();
+          updateSyncStatus('synced', '✅ 已同步');
+        } else {
+          updateSyncStatus('error', '加载失败: ' + (data.error || '未知错误'));
+        }
+      } catch (e) {
+        console.error('加载团队失败:', e);
+        updateSyncStatus('error', '加载失败: ' + e.message);
+      }
+    }
+    
+    // 渲染成员列表
+    function renderMembers() {
+      const container = document.getElementById('membersGrid');
+      
+      if (!currentTeam || !currentTeam.members || currentTeam.members.length === 0) {
+        container.innerHTML = '<div style="text-align: center; padding: 40px; color: rgba(255,255,255,0.6);">暂无团队成员</div>';
+        return;
+      }
+      
+      container.innerHTML = currentTeam.members.map(member => `
+        <div class="member-card ${member.isDefault ? 'default' : ''}">
+          <div class="member-actions">
+            <button class="member-btn" onclick="editMember('${member.id}')" title="编辑">✏️</button>
+            ${!member.isDefault ? `<button class="member-btn danger" onclick="removeMember('${member.id}')" title="删除">🗑️</button>` : ''}
+          </div>
+          <div class="member-emoji">${member.emoji || '🤖'}</div>
+          <div class="member-name">${member.name}</div>
+          <div class="member-role">${member.role || '团队成员'}</div>
+          <div class="member-triggers">
+            ${(member.triggers || []).slice(0, 3).map(t => `<span class="member-trigger">${t}</span>`).join('')}
+            ${(member.triggers || []).length > 3 ? `<span class="member-trigger">+${member.triggers.length - 3}</span>` : ''}
+          </div>
+        </div>
+      `).join('') + `
+        <div class="add-member-card" onclick="showAddMemberModal()">
+          <div class="add-member-icon">➕</div>
+          <div class="add-member-text">添加新成员</div>
+        </div>
+      `;
+    }
+    
+    // 应用模板
+    async function applyTemplate(templateId) {
+      if (!confirm('应用模板会覆盖当前团队配置，确定继续吗？')) return;
+      
+      updateSyncStatus('syncing', '正在应用模板...');
+      
+      try {
+        const token = localStorage.getItem('lingxi_token');
+        const res = await fetch(`${API_BASE}/api/team/${currentUser.id}/apply-template/${templateId}`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+          currentTeam = data.team;
+          renderMembers();
+          updateSyncStatus('synced', '✅ 模板已应用');
+        } else {
+          updateSyncStatus('error', '应用失败: ' + (data.error || '未知错误'));
+        }
+      } catch (e) {
+        console.error('应用模板失败:', e);
+        updateSyncStatus('error', '应用失败: ' + e.message);
+      }
+    }
+    
+    // 显示添加成员模态框
+    function showAddMemberModal() {
+      document.getElementById('addMemberModal').classList.add('show');
+      // 清空表单
+      document.getElementById('memberId').value = '';
+      document.getElementById('memberName').value = '';
+      document.getElementById('memberEmoji').value = '';
+      document.getElementById('memberRole').value = '';
+      document.getElementById('memberTriggers').value = '';
+    }
+    
+    // 关闭添加成员模态框
+    function closeAddMemberModal() {
+      document.getElementById('addMemberModal').classList.remove('show');
+    }
+    
+    // 确认添加成员
+    async function confirmAddMember() {
+      const id = document.getElementById('memberId').value.trim();
+      const name = document.getElementById('memberName').value.trim();
+      
+      if (!id || !name) {
+        alert('成员 ID 和名称是必需的');
+        return;
+      }
+      
+      if (!/^[a-zA-Z0-9_-]+$/.test(id)) {
+        alert('成员 ID 只能包含字母、数字、下划线和连字符');
+        return;
+      }
+      
+      const member = {
+        id,
+        name,
+        emoji: document.getElementById('memberEmoji').value.trim() || '🤖',
+        role: document.getElementById('memberRole').value.trim() || '团队成员',
+        triggers: document.getElementById('memberTriggers').value.split(',').map(t => t.trim()).filter(t => t)
+      };
+      
+      updateSyncStatus('syncing', '正在添加成员...');
+      closeAddMemberModal();
+      
+      try {
+        const token = localStorage.getItem('lingxi_token');
+        const res = await fetch(`${API_BASE}/api/team/${currentUser.id}/members`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(member)
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+          currentTeam = data.team;
+          renderMembers();
+          updateSyncStatus('synced', '✅ 成员已添加');
+        } else {
+          updateSyncStatus('error', '添加失败: ' + (data.error || '未知错误'));
+        }
+      } catch (e) {
+        console.error('添加成员失败:', e);
+        updateSyncStatus('error', '添加失败: ' + e.message);
+      }
+    }
+    
+    // 编辑成员
+    function editMember(memberId) {
+      const member = currentTeam.members.find(m => m.id === memberId);
+      if (!member) return;
+      
+      editingMemberId = memberId;
+      
+      document.getElementById('editMemberName').value = member.name;
+      document.getElementById('editMemberEmoji').value = member.emoji || '';
+      document.getElementById('editMemberRole').value = member.role || '';
+      document.getElementById('editMemberTriggers').value = (member.triggers || []).join(', ');
+      
+      document.getElementById('editMemberModal').classList.add('show');
+    }
+    
+    // 关闭编辑成员模态框
+    function closeEditMemberModal() {
+      document.getElementById('editMemberModal').classList.remove('show');
+      editingMemberId = null;
+    }
+    
+    // 确认编辑成员
+    async function confirmEditMember() {
+      if (!editingMemberId) return;
+      
+      const updates = {
+        name: document.getElementById('editMemberName').value.trim(),
+        emoji: document.getElementById('editMemberEmoji').value.trim(),
+        role: document.getElementById('editMemberRole').value.trim(),
+        triggers: document.getElementById('editMemberTriggers').value.split(',').map(t => t.trim()).filter(t => t)
+      };
+      
+      if (!updates.name) {
+        alert('名称是必需的');
+        return;
+      }
+      
+      updateSyncStatus('syncing', '正在更新成员...');
+      closeEditMemberModal();
+      
+      try {
+        const token = localStorage.getItem('lingxi_token');
+        const res = await fetch(`${API_BASE}/api/team/${currentUser.id}/members/${editingMemberId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(updates)
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+          currentTeam = data.team;
+          renderMembers();
+          updateSyncStatus('synced', '✅ 成员已更新');
+        } else {
+          updateSyncStatus('error', '更新失败: ' + (data.error || '未知错误'));
+        }
+      } catch (e) {
+        console.error('更新成员失败:', e);
+        updateSyncStatus('error', '更新失败: ' + e.message);
+      }
+    }
+    
+    // 删除成员
+    async function removeMember(memberId) {
+      const member = currentTeam.members.find(m => m.id === memberId);
+      if (!member) return;
+      
+      if (!confirm(`确定要删除成员 "${member.name}" 吗？`)) return;
+      
+      updateSyncStatus('syncing', '正在删除成员...');
+      
+      try {
+        const token = localStorage.getItem('lingxi_token');
+        const res = await fetch(`${API_BASE}/api/team/${currentUser.id}/members/${memberId}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+          currentTeam = data.team;
+          renderMembers();
+          updateSyncStatus('synced', '✅ 成员已删除');
+        } else {
+          updateSyncStatus('error', '删除失败: ' + (data.error || '未知错误'));
+        }
+      } catch (e) {
+        console.error('删除成员失败:', e);
+        updateSyncStatus('error', '删除失败: ' + e.message);
+      }
+    }
+    
+    // 更新同步状态
+    function updateSyncStatus(status, text) {
+      const statusEl = document.getElementById('syncStatus');
+      const textEl = document.getElementById('syncText');
+      
+      statusEl.className = 'sync-status ' + status;
+      textEl.textContent = text;
+    }
+    
+    // 启动
+    init();
+  </script>
+</body>
+</html>

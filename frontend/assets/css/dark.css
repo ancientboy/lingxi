@@ -1,15 +1,15 @@
 /**
- * 灵犀云 - 深色主题 (Dark Theme)
- * 晚上使用的灰色主题
+ * Lume - Dark Theme Override
+ * Replaces hardcoded colors with CSS variables
  */
 
-/* ===== 深色覆盖 ===== */
+/* ===== Dark Token Overrides ===== */
 body {
   background: #202123;
   color: #ececf1;
 }
 
-/* 侧边栏 */
+/* Sidebar */
 .sidebar {
   background: #171717;
   border-right-color: #2d2d2d;
@@ -24,7 +24,7 @@ body {
 }
 
 .sidebar-brand-name {
-  color: #ececf1;
+  color: var(--text-inv);
 }
 
 .sidebar-header {
@@ -32,24 +32,33 @@ body {
 }
 
 .sidebar-new-chat {
-  background: #10a37f;
+  background: var(--accent);
 }
 
 .sidebar-new-chat:hover {
-  background: #0d8a6a;
+  background: var(--accent-h);
+}
+
+.sidebar-shortcut-btn {
+  color: var(--text-2);
+}
+
+.sidebar-shortcut-btn:hover {
+  background: #2a2a2a;
+  color: var(--border);
 }
 
 .sidebar-close {
   background: #2d2d2d;
-  color: #9a9b9f;
+  color: var(--text-3);
 }
 
 .sidebar-section-title {
-  color: #6e6e80;
+  color: var(--text-2);
 }
 
 .sidebar-session {
-  color: #ececf1;
+  color: var(--text-inv);
 }
 
 .sidebar-session:hover {
@@ -57,23 +66,23 @@ body {
 }
 
 .sidebar-session.active {
-  background: #2a4a3e;
+  background: var(--accent-soft);
 }
 
 .sidebar-session-title {
-  color: #ececf1;
+  color: var(--text-inv);
 }
 
 .sidebar-session-time {
-  color: #6e6e80;
+  color: var(--text-2);
 }
 
 .sidebar-session-delete {
-  color: #6e6e80;
+  color: var(--text-2);
 }
 
 .sidebar-session-delete:hover {
-  color: #ef4444;
+  color: var(--danger);
 }
 
 .sidebar-tools {
@@ -82,7 +91,7 @@ body {
 }
 
 .sidebar-tool-item {
-  color: #ececf1;
+  color: var(--text-inv);
 }
 
 .sidebar-tool-item:hover {
@@ -94,7 +103,7 @@ body {
 }
 
 .sidebar-user-trigger {
-  color: #ececf1;
+  color: var(--text-inv);
 }
 
 .sidebar-user-trigger:hover {
@@ -102,7 +111,7 @@ body {
 }
 
 .sidebar-user-name {
-  color: #ececf1;
+  color: var(--text-inv);
 }
 
 .sidebar-user-menu {
@@ -111,7 +120,7 @@ body {
 }
 
 .sidebar-menu-item {
-  color: #ececf1;
+  color: var(--text-inv);
 }
 
 .sidebar-menu-item:hover {
@@ -119,7 +128,7 @@ body {
 }
 
 .sidebar-menu-item.danger {
-  color: #ef4444;
+  color: var(--danger);
 }
 
 .sidebar-menu-item.danger:hover {
@@ -130,55 +139,55 @@ body {
   background: #2d2d2d;
 }
 
-/* 侧边栏遮罩 */
+/* Sidebar overlay */
 .sidebar-overlay {
   background: rgba(0, 0, 0, 0.6);
 }
 
-/* 侧边栏拖拽器 */
+/* Sidebar resizer */
 .sidebar-resizer:hover,
 .sidebar-resizer.dragging {
-  background: #10a37f;
+  background: var(--accent);
 }
 
-/* 导航栏 */
+/* Navbar */
 .navbar {
   background: #343541;
   border-bottom-color: #4d4d4f;
 }
 
 .logo {
-  color: #ececf1;
+  color: var(--text-inv);
 }
 
 .status-dot {
-  background: #ef4444;
+  background: var(--danger);
 }
 
 .status-dot.connected {
-  background: #10a37f;
+  background: var(--accent);
 }
 
-/* 侧边栏切换按钮 */
+/* Sidebar toggle */
 .sidebar-toggle {
-  color: #ececf1;
+  color: var(--text-inv);
 }
 
 .sidebar-toggle:hover {
   background: #444654;
 }
 
-/* 主题切换按钮 */
+/* Theme toggle */
 .theme-toggle-btn {
   background: #2d2d2d;
-  color: #ececf1;
+  color: var(--text-inv);
 }
 
 .theme-toggle-btn:hover {
   background: #3d3d3d;
 }
 
-/* Agent 切换器 */
+/* Agent switcher */
 .agent-switcher {
   background: #343541;
   border-color: #4d4d4f;
@@ -189,14 +198,14 @@ body {
 }
 
 .agent-avatar-mini {
-  color: #ececf1;
+  color: var(--text-inv);
 }
 
 .agent-switcher-arrow {
-  color: #6e6e80;
+  color: var(--text-2);
 }
 
-/* Agent 下拉 */
+/* Agent dropdown */
 .agent-dropdown {
   background: #343541;
   border-color: #4d4d4f;
@@ -207,7 +216,7 @@ body {
 }
 
 .agent-dropdown-item.active {
-  background: #2a4a3e;
+  background: var(--accent-soft);
 }
 
 .agent-dropdown-item .emoji {
@@ -215,35 +224,35 @@ body {
 }
 
 .agent-dropdown-item .info h4 {
-  color: #ececf1 !important;
+  color: var(--text-inv) !important;
 }
 
 .agent-dropdown-item .info p {
-  color: #9a9b9f !important;
+  color: var(--text-3) !important;
 }
 
 .agent-dropdown-item .emoji svg {
-  color: #10a37f;
+  color: var(--accent);
 }
 
-/* 用户头像 */
+/* User avatar */
 .user-avatar-circle {
-  background: #10a37f;
+  background: var(--accent);
 }
 
-/* 下拉菜单 */
+/* Dropdown menu */
 .dropdown-content {
   background: #343541;
   border-color: #4d4d4f;
 }
 
 .dropdown-header {
-  color: #ececf1;
+  color: var(--text-inv);
   border-bottom-color: #4d4d4f;
 }
 
 .dropdown-item {
-  color: #ececf1;
+  color: var(--text-inv);
 }
 
 .dropdown-item:hover {
@@ -258,24 +267,24 @@ body {
   background: #4d4d4f;
 }
 
-/* 欢迎界面 */
+/* Welcome screen */
 .welcome-title {
-  color: #ececf1;
+  color: var(--text-inv);
 }
 
 .welcome-desc {
-  color: #9a9b9f;
+  color: var(--text-3);
 }
 
 .team-tag {
   background: #343541;
   border-color: #4d4d4f;
-  color: #ececf1;
+  color: var(--text-inv);
 }
 
-/* 消息气泡 */
+/* Message bubbles */
 .message .avatar {
-  background: #10a37f;
+  background: var(--accent);
 }
 
 .message.user .avatar {
@@ -285,14 +294,14 @@ body {
 .message .bubble {
   background: #343541;
   border-color: #4d4d4f;
-  color: #ececf1;
+  color: var(--text-inv);
 }
 
 .message.user .bubble {
   background: #444654;
 }
 
-/* 输入区域 */
+/* Input area */
 .input-area {
   background: #343541;
   border-color: #4d4d4f;
@@ -312,26 +321,36 @@ body {
 .input-field {
   background: #202123;
   border-color: #4d4d4f;
-  color: #ececf1;
+  color: var(--text-inv);
 }
 
 .input-field:focus {
-  border-color: #10a37f;
+  border-color: var(--accent);
 }
 
 .input-field::placeholder {
-  color: #6e6e80;
+  color: var(--text-2);
 }
 
 .send-btn {
-  background: #10a37f;
+  background: var(--accent);
 }
 
 .send-btn:hover {
-  background: #0d8a6a;
+  background: var(--accent-h);
 }
 
-/* 弹窗 */
+.send-btn.stopping {
+  background: transparent;
+  color: var(--danger);
+}
+
+.send-btn.stopping:hover {
+  background: transparent;
+  color: #dc2626;
+}
+
+/* Modals */
 .modal-overlay {
   background: rgba(0,0,0,0.6);
 }
@@ -345,64 +364,64 @@ body {
 }
 
 .modal-header h3 {
-  color: #ececf1;
+  color: var(--text-inv);
 }
 
 .close-btn {
   background: #444654;
-  color: #9a9b9f;
+  color: var(--text-3);
 }
 
 .form-group label {
-  color: #ececf1;
+  color: var(--text-inv);
 }
 
 .form-group input {
   background: #202123;
   border-color: #4d4d4f;
-  color: #ececf1;
+  color: var(--text-inv);
 }
 
 .submit-btn {
-  background: #10a37f;
+  background: var(--accent);
 }
 
-/* 团队成员 */
+/* Team members */
 .team-member {
   background: #343541;
 }
 
 .team-member-name {
-  color: #ececf1;
+  color: var(--text-inv);
 }
 
 .team-member-role {
-  color: #9a9b9f;
+  color: var(--text-3);
 }
 
 .remove-btn {
   border-color: #4d4d4f;
-  color: #9a9b9f;
+  color: var(--text-3);
 }
 
 .agent-chip {
   background: #343541;
   border-color: #4d4d4f;
-  color: #ececf1;
+  color: var(--text-inv);
 }
 
 .agent-chip:hover {
   background: #444654;
-  border-color: #10a37f;
+  border-color: var(--accent);
 }
 
-/* 会话列表 */
+/* Session list */
 .session-item:hover {
   background: #444654;
 }
 
 .session-item.active {
-  background: #2a4a3e;
+  background: var(--accent-soft);
 }
 
 .session-avatar {
@@ -410,14 +429,14 @@ body {
 }
 
 .session-name {
-  color: #ececf1;
+  color: var(--text-inv);
 }
 
 .session-preview {
-  color: #9a9b9f;
+  color: var(--text-3);
 }
 
-/* 滚动条 */
+/* Scrollbar */
 .messages::-webkit-scrollbar-thumb {
   background: #4d4d4f;
 }

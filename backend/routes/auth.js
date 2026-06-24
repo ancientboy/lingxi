@@ -1,10 +1,35 @@
 import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import { config } from '../config/index.js';
-import { getInviteCode, createUser, getUserByInviteCode, updateLastLogin, verifyPassword, getUserByUserInviteCode } from '../utils/db.js';
+import { getInviteCode, createUser, getUserByInviteCode, updateLastLogin, verifyPassword, getUserByUserInviteCode, getUserByEmail, getUserByNickname } from '../utils/db.js';
+import { createEmailCode, verifyEmailCode, isValidEmail } from '../utils/emailCodes.js';
+import { sendVerificationCodeEmail } from '../utils/mailer.js';
 
 const router = Router();
 const JWT_SECRET = config.security.jwtSecret;
+
+function defaultNicknameFromEmail(email) {
+  const local = email.split('@')[0] || 'user';
+  const safe = local.replace(/[^a-zA-Z0-9_\u4e00-\u9fa5]/g, '').slice(0, 20);
+  return safe || 'user';
+}
+
+function authUserPayload(user) {
+  return {
+    id: user.id,
+    nickname: user.nickname,
+    email: user.email || null,
+    instanceId: user.instanceId,
+    instanceStatus: user.instanceStatus,
+    agents: user.agents || [],
+    userInviteCode: user.userInviteCode,
+    inviteCount: user.inviteCount || 0,
+    points: user.points || 0,
+    canClaimTeam: (user.points || 0) >= 100,
+    onboardingCompleted: user.onboardingCompleted === true,
+    subscription: user.subscription || null,
+  };
+}
 async function getInviteCodeInfo(code) {
   // 先检查是否是系统邀请码
   const systemCode = await getInviteCode(code);
@@ -21,54 +46,158 @@ async function getInviteCodeInfo(code) {
   return null;
 }
 
-// 注册（带密码）
+// 发送邮箱验证码（登录/注册合一）
+router.post('/send-code', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: '请提供邮箱' });
+    }
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ error: '邮箱格式不正确' });
+    }
+
+    const result = createEmailCode(email);
+    if (!result.ok) {
+      return res.status(429).json({ error: result.error, retryAfter: result.retryAfter });
+    }
+
+    await sendVerificationCodeEmail(email.trim().toLowerCase(), result.code);
+
+    const payload = {
+      success: true,
+      message: '验证码已发送，请查收邮件',
+      expiresIn: result.expiresIn,
+    };
+    if (config.mvpMode) {
+      payload.devCode = result.code;
+    }
+    res.json(payload);
+  } catch (error) {
+    console.error('发送验证码错误:', error);
+    res.status(500).json({ error: '发送失败，请稍后重试' });
+  }
+});
+
+// 验证码登录/注册（无邀请码可注册；有邀请码则绑定奖励）
+router.post('/verify-code', async (req, res) => {
+  try {
+    const { email, code, inviteCode } = req.body;
+    if (!email || !code) {
+      return res.status(400).json({ error: '请提供邮箱和验证码' });
+    }
+
+    const verified = verifyEmailCode(email, code);
+    if (!verified.ok) {
+      return res.status(400).json({ error: verified.error });
+    }
+
+    const normalizedEmail = verified.email;
+    let user = await getUserByEmail(normalizedEmail);
+    let isNewUser = false;
+
+    if (!user) {
+      let invitedBy = null;
+      let systemInviteCode = null;
+
+      if (inviteCode && String(inviteCode).trim()) {
+        const codeInfo = await getInviteCodeInfo(inviteCode.trim());
+        if (!codeInfo) {
+          return res.status(400).json({ error: '邀请码无效' });
+        }
+        if (codeInfo.type === 'system' && codeInfo.code.used) {
+          return res.status(400).json({ error: '邀请码已被使用' });
+        }
+        if (codeInfo.type === 'user') {
+          invitedBy = codeInfo.inviterId;
+          systemInviteCode = `USER-INVITE-${Date.now()}`;
+        } else {
+          systemInviteCode = inviteCode.trim();
+        }
+      }
+
+      const nickname = defaultNicknameFromEmail(normalizedEmail);
+      user = await createUser(
+        systemInviteCode,
+        nickname,
+        null,
+        invitedBy,
+        normalizedEmail
+      );
+      isNewUser = true;
+    }
+
+    await updateLastLogin(user.id);
+    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '30d' });
+
+    res.json({
+      success: true,
+      token,
+      isNewUser,
+      user: authUserPayload(user),
+    });
+  } catch (error) {
+    console.error('验证码登录错误:', error);
+    res.status(500).json({ error: error.message || '验证失败' });
+  }
+});
+
+// 注册（带密码，邀请码可选）
 router.post('/register', async (req, res) => {
   try {
-    const { inviteCode, nickname, password } = req.body;
+    const { inviteCode, nickname, password, email, code } = req.body;
     
-    if (!inviteCode) {
-      return res.status(400).json({ error: '请提供邀请码' });
-    }
-    
-    // 检查邀请码类型（系统邀请码或用户专属邀请码）
-    const codeInfo = await getInviteCodeInfo(inviteCode);
-    
-    if (!codeInfo) {
-      return res.status(400).json({ error: '邀请码无效' });
-    }
-    
-    // 系统邀请码已使用的检查
-    if (codeInfo.type === 'system' && codeInfo.code.used) {
-      const existingUser = await getUserByInviteCode(inviteCode);
-      if (existingUser) {
-        return res.status(400).json({ error: '该邀请码已注册，请直接登录' });
-      } else {
+    let invitedBy = null;
+    let systemInviteCode = null;
+
+    if (inviteCode && String(inviteCode).trim()) {
+      const codeInfo = await getInviteCodeInfo(inviteCode.trim());
+      if (!codeInfo) {
+        return res.status(400).json({ error: '邀请码无效' });
+      }
+      if (codeInfo.type === 'system' && codeInfo.code.used) {
+        const existingUser = await getUserByInviteCode(inviteCode);
+        if (existingUser) {
+          return res.status(400).json({ error: '该邀请码已注册，请直接登录' });
+        }
         return res.status(400).json({ error: '邀请码已被使用' });
+      }
+      if (codeInfo.type === 'user') {
+        invitedBy = codeInfo.inviterId;
+        systemInviteCode = `USER-INVITE-${Date.now()}`;
+      } else {
+        systemInviteCode = inviteCode.trim();
+      }
+    }
+
+    if (email) {
+      if (!isValidEmail(email)) {
+        return res.status(400).json({ error: '邮箱格式不正确' });
+      }
+      if (!code) {
+        return res.status(400).json({ error: '请填写邮箱验证码' });
+      }
+      const verified = verifyEmailCode(email, code);
+      if (!verified.ok) {
+        return res.status(400).json({ error: verified.error });
       }
     }
     
-    // 用户专属邀请码需要生成一个系统邀请码用于记录
-    let systemInviteCode = inviteCode;
-    if (codeInfo.type === 'user') {
-      // 用户邀请码注册时，生成一个虚拟的系统邀请码标记
-      systemInviteCode = `USER-INVITE-${Date.now()}`;
+    const finalNickname = nickname || (email ? defaultNicknameFromEmail(email) : null);
+    if (!finalNickname) {
+      return res.status(400).json({ error: '请提供昵称' });
+    }
+    if (!password || password.length < 6) {
+      return res.status(400).json({ error: '密码至少 6 位' });
     }
     
-    // 创建新用户（带密码），传入邀请者ID
-    const user = await createUser(systemInviteCode, nickname, password, codeInfo.inviterId);
+    const user = await createUser(systemInviteCode, finalNickname, password, invitedBy, email || null);
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '30d' });
     
     res.json({
       success: true,
       token,
-      user: {
-        id: user.id,
-        nickname: user.nickname,
-        instanceId: user.instanceId,
-        instanceStatus: user.instanceStatus,
-        agents: user.agents || [],
-        userInviteCode: user.userInviteCode  // 返回用户专属邀请码
-      }
+      user: authUserPayload(user)
     });
   } catch (error) {
     console.error('注册错误:', error);
@@ -76,55 +205,43 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// 登录（用昵称+密码）
+// 登录（邮箱/昵称 + 密码，兼容旧账号）
 router.post('/login', async (req, res) => {
   try {
-    const { nickname, password } = req.body;
+    const { nickname, email, password } = req.body;
+    const identifier = (email || nickname || '').trim();
     
-    if (!nickname || !password) {
-      return res.status(400).json({ error: '请提供用户名和密码' });
+    if (!identifier || !password) {
+      return res.status(400).json({ error: '请提供邮箱或昵称和密码' });
     }
     
-    // 按昵称查找用户
-    const { getDB } = await import('../utils/db.js');
-    const db = await getDB();
-    const user = db.users.find(u => u.nickname === nickname);
+    let user;
+    if (isValidEmail(identifier)) {
+      user = await getUserByEmail(identifier);
+    } else {
+      user = await getUserByNickname(identifier);
+    }
     
     if (!user) {
       return res.status(400).json({ error: '用户不存在' });
     }
     
-    // 验证密码
     if (!user.passwordHash) {
-      return res.status(400).json({ error: '该账号未设置密码，请联系管理员' });
+      return res.status(400).json({ error: '该账号未设置密码，请使用邮箱验证码登录' });
     }
     
-    const { verifyPassword, updateLastLogin } = await import('../utils/db.js');
     const valid = await verifyPassword(user.id, password);
     if (!valid) {
       return res.status(400).json({ error: '密码错误' });
     }
     
-    // 更新登录时间
     await updateLastLogin(user.id);
-    
-    // 生成 token
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '30d' });
     
     res.json({
       success: true,
       token,
-      user: {
-        id: user.id,
-        nickname: user.nickname,
-        instanceId: user.instanceId,
-        instanceStatus: user.instanceStatus,
-        agents: user.agents || [],
-        userInviteCode: user.userInviteCode,  // 返回用户专属邀请码
-        inviteCount: user.inviteCount || 0,    // 邀请人数
-        points: user.points || 0,              // 积分
-        canClaimTeam: (user.points || 0) >= 100
-      }
+      user: authUserPayload(user)
     });
   } catch (error) {
     console.error('登录错误:', error);
@@ -184,6 +301,7 @@ router.get('/me', async (req, res) => {
     res.json({
       id: user.id,
       nickname: user.nickname,
+      email: user.email || null,
       agents: user.agents || [],
       instanceStatus: user.instanceStatus,
       createdAt: user.createdAt,
@@ -198,7 +316,9 @@ router.get('/me', async (req, res) => {
       claimTeamCost: 100,
       inviteReward: 100,
       // 引导状态
-      onboardingCompleted: user.onboardingCompleted === true
+      onboardingCompleted: user.onboardingCompleted === true,
+      // 订阅状态（模型选择器等依赖此字段）
+      subscription: user.subscription || null,
     });
   } catch (error) {
     res.status(401).json({ error: '令牌无效' });

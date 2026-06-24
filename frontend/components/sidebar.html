@@ -1,78 +1,178 @@
 <!-- 统一侧边栏组件 -->
 <aside class="sidebar" id="sidebar">
-  <!-- 品牌区域 -->
-  <a href="index.html" class="sidebar-brand">
-    <div class="sidebar-brand-icon">
-      <i data-lucide="sparkles" class="icon-lg"></i>
-    </div>
-    <span class="sidebar-brand-name">Lume</span>
-  </a>
+  <!-- Brand -->
+  <div class="sidebar-top-row">
+    <a href="index.html" class="sidebar-brand-link">
+      <div class="sidebar-brand-icon">L</div>
+      <span class="sidebar-brand-name">Lume</span>
+    </a>
+    <button class="sidebar-collapse-btn" type="button" onclick="toggleSidebar()" data-i18n-title="common.close" title="收起侧边栏" aria-label="收起侧边栏">
+      <svg class="sidebar-toggle-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <rect x="3.5" y="4.5" width="17" height="15" rx="3" stroke="currentColor" stroke-width="1.75"/>
+        <path d="M9.5 4.5v15" stroke="currentColor" stroke-width="1.75"/>
+      </svg>
+    </button>
+  </div>
   
   <div class="sidebar-header">
     <button class="sidebar-new-chat" onclick="newChat()">
       <i data-lucide="plus" class="icon-sm"></i>
-      <span>新对话</span>
+      <span data-i18n="sidebar.new_chat">New Chat</span>
     </button>
     <button class="sidebar-close" onclick="toggleSidebar()">
       <i data-lucide="x" class="icon-sm"></i>
     </button>
   </div>
-  
+
   <div class="sidebar-content">
-    <div class="sidebar-section">
-      <div class="sidebar-section-title">今天</div>
-      <div class="sidebar-sessions" id="todaySessions"></div>
-    </div>
-    <div class="sidebar-section">
-      <div class="sidebar-section-title">最近 7 天</div>
-      <div class="sidebar-sessions" id="weekSessions"></div>
-    </div>
-    <div class="sidebar-section">
-      <div class="sidebar-section-title">更早</div>
-      <div class="sidebar-sessions" id="olderSessions"></div>
-    </div>
+    <div id="sessionList" style="display:none"></div>
+    <div id="todaySessions"></div>
+    <div id="weekSessions"></div>
+    <div id="olderSessions"></div>
   </div>
   
-  <!-- 功能区 -->
-  <div class="sidebar-tools">
-    <div class="sidebar-tool-item" onclick="showMyTeam()">
-      <i data-lucide="users" class="icon-sm icon-primary"></i>
-      <span>我的团队</span>
-    </div>
-    <div class="sidebar-tool-item" onclick="showFeishuConfig()">
-      <i data-lucide="message-square" class="icon-sm icon-primary"></i>
-      <span>飞书配置</span>
-    </div>
-    <div class="sidebar-tool-item" onclick="showWecomConfig()" style="opacity: 0.5; cursor: not-allowed;">
-      <i data-lucide="briefcase" class="icon-sm icon-primary"></i>
-      <span>企业微信</span>
-    </div>
-    <div class="sidebar-tool-item" onclick="switchView('skills')">
-      <i data-lucide="layout-grid" class="icon-sm icon-primary"></i>
-      <span>技能库</span>
-    </div>
-  </div>
   
-  <!-- 底部用户区 -->
+  <!-- User footer -->
   <div class="sidebar-footer">
     <div class="sidebar-user-trigger" onclick="toggleUserMenu()">
-      <div class="sidebar-user-avatar" id="sidebarUserAvatar">U</div>
-      <span class="sidebar-user-name" id="sidebarUserName">用户</span>
-      <span class="sidebar-user-arrow">▼</span>
+      <div class="sidebar-user-avatar-wrapper">
+        <div class="sidebar-user-avatar" id="sidebarUserAvatar">U</div>
+        <div class="sidebar-user-badge" id="sidebarUserBadge"></div>
+      </div>
+      <div class="sidebar-user-meta">
+        <span class="sidebar-user-name" id="sidebarUserName">User</span>
+        <span class="sidebar-credits-pill" id="sidebarUserCredits">
+          <svg class="credits-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2"/>
+            <path d="M12 8v8M9.5 10.5h3a1.5 1.5 0 0 1 0 3h-3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <span id="sidebarUserCreditsValue">0</span>
+        </span>
+      </div>
+      <i data-lucide="chevron-up" class="sidebar-user-chevron icon-sm"></i>
     </div>
     <div class="sidebar-user-menu" id="sidebarUserMenu">
+      <div class="sidebar-menu-item" onclick="openLumeClaw()" id="lumeclawMenuEntry" class="hidden">
+        <i data-lucide="bot" class="icon-sm"></i>
+        <span data-i18n="sidebar.lumeclaw">LumeClaw</span>
+      </div>
+      <div class="sidebar-menu-item" onclick="handleCheckin()" id="checkinBtn">
+        <i data-lucide="calendar" class="icon-sm"></i>
+        <span data-i18n="sidebar.checkin">Daily Check-in</span>
+        <span class="checkin-points" id="checkinPoints" class="ml-auto"></span>
+      </div>
+      <div class="sidebar-menu-item" onclick="showUsageStats()">
+        <i data-lucide="bar-chart-2" class="icon-sm"></i>
+        <span data-i18n="sidebar.usage_stats">Usage Stats</span>
+      </div>
+      <div class="sidebar-menu-item" onclick="showSubscription()">
+        <i data-lucide="credit-card" class="icon-sm"></i>
+        <span data-i18n="sidebar.subscription">Subscription</span>
+      </div>
+      <div class="sidebar-menu-item" onclick="toggleTheme()">
+        <i data-lucide="moon" class="icon-sm" id="themeToggleIcon"></i>
+        <span data-i18n="sidebar.theme">Toggle Theme</span>
+      </div>
+      <!-- 外观：浅色（墨绿） / 暗色 -->
+      <div class="sidebar-menu-item sidebar-accent-switcher" onclick="event.stopPropagation()">
+        <i data-lucide="palette" class="icon-sm"></i>
+        <span>主题色</span>
+        <div class="accent-toggle-group">
+          <button class="accent-dot active" data-theme-mode="light" onclick="setThemeMode('light')" title="浅色" style="background:#3d6b62;"></button>
+          <button class="accent-dot" data-theme-mode="dark" onclick="setThemeMode('dark')" title="暗色" style="background:#2d2d2d; border:1px solid #525252;"></button>
+        </div>
+      </div>
+      <div class="sidebar-menu-item" onclick="showFeishuConfig()">
+        <i data-lucide="message-square" class="icon-sm"></i>
+        <span data-i18n="sidebar.feishu">Feishu Config</span>
+      </div>
+
+      <!-- 语言切换 -->
+      <div class="sidebar-menu-item sidebar-lang-switcher">
+        <i data-lucide="globe" class="icon-sm"></i>
+        <span data-i18n="sidebar.language">语言 / Language</span>
+        <div class="lang-toggle-group">
+          <button class="lang-switch-btn" data-lang="zh" onclick="event.stopPropagation();I18n.setLang('zh')">中</button>
+          <button class="lang-switch-btn" data-lang="en" onclick="event.stopPropagation();I18n.setLang('en')">EN</button>
+        </div>
+      </div>
+
+      <div class="sidebar-menu-divider"></div>
       <div class="sidebar-menu-item" onclick="showPasswordChange()">
         <i data-lucide="lock" class="icon-sm"></i>
-        <span>修改密码</span>
+        <span data-i18n="sidebar.change_pwd">Change Password</span>
       </div>
       <div class="sidebar-menu-item" onclick="showAbout()">
         <i data-lucide="info" class="icon-sm"></i>
-        <span>关于</span>
+        <span data-i18n="sidebar.about">About</span>
       </div>
       <div class="sidebar-menu-item" onclick="logout()">
         <i data-lucide="log-out" class="icon-sm"></i>
-        <span>退出登录</span>
+        <span data-i18n="sidebar.sign_out">Sign Out</span>
       </div>
     </div>
   </div>
 </aside>
+
+<style>
+  /* 语言切换组件 */
+  .sidebar-lang-switcher {
+    position: relative;
+  }
+  .lang-toggle-group {
+    display: flex;
+    gap: 4px;
+    margin-left: auto;
+  }
+  .lang-switch-btn {
+    width: 28px;
+    height: 22px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-3);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .lang-switch-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .lang-switch-btn.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+  /* 主题色选择器 */
+  .sidebar-accent-switcher {
+    position: relative;
+  }
+  .accent-toggle-group {
+    display: flex;
+    gap: 6px;
+    margin-left: auto;
+    align-items: center;
+  }
+  .accent-dot {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.15s;
+    padding: 0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  }
+  .accent-dot:hover {
+    transform: scale(1.15);
+  }
+  .accent-dot.active {
+    border-color: var(--text-2);
+    box-shadow: 0 0 0 2px var(--bg-card), 0 0 0 3px var(--text-3);
+  }
+</style>

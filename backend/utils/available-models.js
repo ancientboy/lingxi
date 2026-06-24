@@ -1,0 +1,30 @@
+/** 聊天页可选模型列表（与前端 FALLBACK 对齐） */
+export function getAvailableModelsList() {
+  return [
+    { id: 'auto', name: 'Auto', provider: '系统', desc: '智能选择', tier: 'free' },
+    { id: 'glm-cn/glm-5.1', name: 'GLM-5.1', provider: '智谱', desc: '主力', tier: 'pro' },
+    { id: 'glm-cn/glm-5.2', name: 'GLM-5.2', provider: '智谱', desc: '主力', tier: 'pro' },
+    { id: 'gh/gpt-4o', name: 'GPT-4o', provider: 'OpenAI', desc: '经典', tier: 'pro' },
+    { id: 'gh/gpt-4.1', name: 'GPT-4.1', provider: 'OpenAI', desc: '强推理', tier: 'pro' },
+    { id: 'gh/gpt-5-mini', name: 'GPT-5 Mini', provider: 'OpenAI', desc: '快速', tier: 'free' },
+    { id: 'openrouter/openrouter/free', name: 'Free', provider: 'OpenRouter', desc: '免费', tier: 'free' },
+    { id: 'cu/default', name: 'Cursor Auto', provider: 'Cursor', desc: '智能', tier: 'pro' },
+    { id: 'cu/gpt-5.2', name: 'GPT-5.2', provider: 'Cursor', desc: '旗舰', tier: 'pro' },
+    { id: 'cu/gpt-5.2-codex', name: 'GPT-5.2 Codex', provider: 'Cursor', desc: '代码', tier: 'pro' },
+    { id: 'cu/gpt-5.3-codex', name: 'GPT-5.3 Codex', provider: 'Cursor', desc: '代码', tier: 'pro' },
+    { id: 'cu/gpt-5.5-high-fast', name: 'GPT-5.5', provider: 'Cursor', desc: 'Fast', tier: 'pro' },
+    { id: 'cu/gpt-5.5-high', name: 'GPT-5.5', provider: 'Cursor', desc: 'High', tier: 'pro' },
+    { id: 'cu/claude-4.5-sonnet', name: 'Claude 4.5 Sonnet', provider: 'Cursor', desc: '平衡', tier: 'pro' },
+    { id: 'cu/claude-4.5-haiku', name: 'Claude 4.5 Haiku', provider: 'Cursor', desc: '快速', tier: 'pro' },
+    { id: 'cu/claude-4.5-opus', name: 'Claude 4.5 Opus', provider: 'Cursor', desc: '高级', tier: 'pro' },
+    { id: 'cu/claude-4.5-opus-high', name: 'Claude 4.5 Opus', provider: 'Cursor', desc: 'High', tier: 'pro' },
+    { id: 'cu/claude-4.6-opus-max', name: 'Claude 4.6 Opus Max', provider: 'Cursor', desc: 'Max', tier: 'pro' },
+    { id: 'cu/claude-4.5-sonnet-thinking', name: 'Claude 4.5 Sonnet', provider: 'Cursor', desc: 'Think', tier: 'pro' },
+    { id: 'cu/claude-4.5-opus-high-thinking', name: 'Claude 4.5 Opus', provider: 'Cursor', desc: 'Think', tier: 'pro' },
+    { id: 'cu/claude-4.6-opus-max-thinking', name: 'Claude 4.6 Opus', provider: 'Cursor', desc: 'Think', tier: 'pro' },
+    { id: 'cu/claude-4.6-sonnet-medium-thinking', name: 'Claude 4.6 Sonnet', provider: 'Cursor', desc: 'Think', tier: 'pro' },
+    { id: 'cu/gemini-3-flash-preview', name: 'Gemini 3 Flash', provider: 'Google', desc: '预览', tier: 'pro' },
+    { id: 'cu/kimi-k2.5', name: 'Kimi K2.5', provider: 'Cursor', desc: 'Kimi', tier: 'pro' },
+    { id: 'kimi/kimi-k2.7', name: 'Kimi K2.7', provider: '月之暗面', desc: '直连', tier: 'pro' },
+  ];
+}

@@ -1,33 +1,36 @@
 /**
  * 灵犀云后端服务
- * 
- * 功能：
- * - 实例管理（创建、分配、重启）
- * - Agent 配置
- * - 用户管理
  */
 
-// 🚨 必须在最开始加载环境变量（ES Module 方式）
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 require('dotenv').config({ path: require('path').join(require('path').dirname(require('url').fileURLToPath(import.meta.url)), '.env') });
 
 import express from 'express';
 import cors from 'cors';
+import expressWs from 'express-ws';
+import jwt from 'jsonwebtoken';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { getDB, saveDB } from './utils/db.js';
+import { getAvailableModelsList } from './utils/available-models.js';
+import { sanitizePreferredModel } from './utils/model-route.js';
+import { config } from './config/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const JWT_SECRET = config.security.jwtSecret;
 
-// 中间件
+// WebSocket（Gateway + Lume 代理）
+expressWs(app);
+
 app.use(cors());
 app.use(express.json());
 
-// 托管前端静态文件（禁用 HTML 缓存）
 app.use(express.static(join(__dirname, '../frontend'), {
   setHeaders: (res, path) => {
     if (path.endsWith('.html')) {
@@ -38,46 +41,75 @@ app.use(express.static(join(__dirname, '../frontend'), {
   }
 }));
 
-// ============ 路由 ============
+app.get('/favicon.ico', (req, res) => {
+  res.type('image/svg+xml');
+  res.sendFile(join(__dirname, '../frontend/favicon.svg'));
+});
 
-// 健康检查
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// 实例管理
+// 模型列表（聊天页模型选择器）
+app.get('/api/user-models', (req, res) => {
+  res.json({ availableModels: getAvailableModelsList() });
+});
+
+app.get('/api/user-models/preference', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) return res.status(401).json({ success: false, error: '未登录' });
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const db = await getDB();
+    const user = db.users.find((u) => u.id === decoded.userId);
+    if (!user) return res.status(404).json({ success: false, error: '用户不存在' });
+    res.json({ success: true, preferredModel: user.preferredModel || 'auto' });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.post('/api/user-models/preference', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) return res.status(401).json({ success: false, error: '未登录' });
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const db = await getDB();
+    const user = db.users.find((u) => u.id === decoded.userId);
+    if (!user) return res.status(404).json({ success: false, error: '用户不存在' });
+    const model = sanitizePreferredModel(req.body?.model);
+    user.preferredModel = model;
+    await saveDB(db);
+    res.json({ success: true, model: model || 'auto' });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 import instanceRoutes from './routes/instance.js';
 app.use('/api/instance', instanceRoutes);
 
-// Agent 配置
 import agentRoutes from './routes/agents.js';
 app.use('/api/agents', agentRoutes);
 
-// Skills 管理
 import skillsRoutes from './routes/skills.js';
 app.use('/api/skills', skillsRoutes);
 
-// 认证（邀请码注册/登录）
 import authRoutes from './routes/auth.js';
 app.use('/api/auth', authRoutes);
 
-// 飞书配置
 import feishuRoutes from './routes/feishu.js';
 app.use('/api/feishu', feishuRoutes);
 
-// 企业微信配置
 import wecomRoutes from './routes/wecom.js';
 app.use('/api/wecom', wecomRoutes);
 
-// 聊天代理
 import chatRoutes from './routes/chat.js';
 app.use('/api/chat', chatRoutes);
 
-// 管理接口（生成邀请码等）
 import adminRoutes from './routes/admin.js';
 app.use('/api/admin', adminRoutes);
 
-// Gateway 代理（安全获取连接信息）
 import gatewayRoutes from './routes/gateway.js';
 app.use('/api/gateway', gatewayRoutes);
 
@@ -93,27 +125,40 @@ app.use('/api/deploy', deployRoutes);
 import batchUpdateRoutes from './routes/batch-update.js';
 app.use('/api/batch-update', batchUpdateRoutes);
 
-// 基因系统
 import genesRoutes from './routes/genes.js';
 app.use('/api/genes', genesRoutes);
 
-// 错误处理
+import memoryRoutes from './routes/memory.js';
+app.use('/api/memory', memoryRoutes);
+
+import cronRoutes from './routes/cron.js';
+app.use('/api/cron', cronRoutes);
+
+import loopsRoutes from './routes/loops.js';
+app.use('/api/loops', loopsRoutes);
+
+import subscriptionRoutes from './routes/subscription.js';
+app.use('/api/subscription', subscriptionRoutes);
+
+import userRoutes from './routes/user.js';
+app.use('/api/user', userRoutes);
+
+import lumeWsRoutes from './routes/lume-ws.js';
+app.use('/api/lume', lumeWsRoutes);
+
 app.use((err, req, res, next) => {
   console.error('Error:', err);
-  res.status(500).json({ 
-    error: err.message || 'Internal Server Error' 
-  });
+  res.status(500).json({ error: err.message || 'Internal Server Error' });
 });
 
-// 设置 WebSocket 代理（必须在 app.listen 之前）
 import { setupWebSocketProxy } from './routes/ws-proxy.js';
+import { setupLumeWebSocketProxy } from './routes/lume-ws-proxy.js';
 setupWebSocketProxy(app);
+setupLumeWebSocketProxy(app);
 
-// 启动服务
 const server = app.listen(PORT, () => {
   console.log(`🚀 灵犀云后端服务已启动: http://localhost:${PORT}`);
   console.log(`📝 健康检查: http://localhost:${PORT}/health`);
 });
-
 
 export default app;
