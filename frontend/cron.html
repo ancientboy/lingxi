@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Cron Jobs — Lume</title>
   <link rel="stylesheet" href="assets/css/lume.css">
-  <link rel="stylesheet" href="assets/css/embed-pages.css?v=20260624s">
-  <script src="assets/js/embed-init.js?v=20260624s"></script>
+  <link rel="stylesheet" href="assets/css/embed-pages.css?v=20260624w">
+  <script src="assets/js/embed-init.js?v=20260624w"></script>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23667eea'/><text x='16' y='22' text-anchor='middle' fill='white' font-size='16' font-weight='700'>L</text></svg>">
   <style>
     /* ===== Top Bar ===== */
@@ -326,8 +326,37 @@
       .freq-tab { font-size: 11px; padding: 6px 0; }
     }
     /* When embedded as iframe in chat page */
-    body.in-iframe .top-bar { display: none; }
-    body.in-iframe .main-content { padding-top: 20px; }
+    body.in-iframe .top-bar,
+    body.embedded .top-bar { display: none; }
+    body.in-iframe .main-content,
+    body.embedded .main-content { padding-top: 12px; }
+    .embed-cron-toolbar {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+    body.in-iframe .embed-cron-toolbar,
+    body.embedded .embed-cron-toolbar { display: flex; }
+    .embed-cron-tabs { display: flex; gap: 6px; }
+    .embed-cron-tab {
+      padding: 6px 12px;
+      border: 1px solid var(--border-sub);
+      border-radius: 8px;
+      background: var(--bg-card);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-2);
+      cursor: pointer;
+      font-family: var(--font-display);
+    }
+    .embed-cron-tab.active {
+      background: var(--text-1);
+      border-color: var(--text-1);
+      color: #fff;
+    }
   </style>
   <script src="assets/js/i18n.js?v=20260608"></script>
   <script src="assets/libs/lucide.min.js"></script>
@@ -443,6 +472,16 @@
 
   <!-- Main Content -->
   <div class="main-content" id="mainContent">
+    <div class="embed-cron-toolbar" id="embedCronToolbar">
+      <div class="embed-cron-tabs">
+        <button type="button" class="embed-cron-tab active" id="embedTabCron" onclick="switchTab('cron')">定时任务</button>
+        <button type="button" class="embed-cron-tab" id="embedTabReminders" onclick="switchTab('reminders')">提醒</button>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button type="button" class="btn btn-outline btn-sm" onclick="openSmtpModal()" title="邮件通知">邮件</button>
+        <button type="button" class="btn btn-primary btn-sm" id="embedCreateBtn" onclick="handleCreate()">+ 创建任务</button>
+      </div>
+    </div>
     <!-- Status Bar (cron tab) -->
     <div class="status-bar" id="statusBar">
       <span class="status-dot loading" id="statusDot"></span>
@@ -658,6 +697,23 @@ function authHeaders() {
                : { 'Content-Type': 'application/json' };
 }
 
+var FETCH_TIMEOUT_MS = 12000;
+
+async function fetchWithTimeout(url, options, timeoutMs) {
+  var ms = timeoutMs || FETCH_TIMEOUT_MS;
+  var controller = new AbortController();
+  var timer = setTimeout(function() { controller.abort(); }, ms);
+  try {
+    var res = await fetch(url, Object.assign({}, options || {}, { signal: controller.signal }));
+    clearTimeout(timer);
+    return res;
+  } catch (e) {
+    clearTimeout(timer);
+    if (e && e.name === 'AbortError') throw new Error('请求超时，请检查网络或设备连接');
+    throw e;
+  }
+}
+
 // ===== Toast =====
 function showToast(msg, type) {
   var box = document.getElementById('toastBox');
@@ -698,7 +754,7 @@ async function api(method, path, body) {
     }
   }
   if (body) opts.body = JSON.stringify(body);
-  var res = await fetch(url, opts);
+  var res = await fetchWithTimeout(url, opts);
   if (res.status === 401) {
     localStorage.removeItem('lingxi_token');
     window.location.href = 'index.html';
@@ -761,38 +817,44 @@ function scheduleDesc(job) {
 // ===== Device Management =====
 async function loadDevices() {
   try {
-    var token = getToken();
-    var res = await fetch('/api/cron/servers', { headers: authHeaders() });
+    var res = await fetchWithTimeout('/api/cron/servers', { headers: authHeaders() });
     var data = await res.json();
-    if (data.success && data.servers && data.servers.length > 1) {
-      var tabs = document.getElementById('deviceTabs');
-      var bar = document.getElementById('deviceBar');
-      tabs.innerHTML = '';
-      data.servers.forEach(function(s) {
-        var tab = document.createElement('div');
-        tab.className = 'device-tab' + (s.isActive ? ' active' : '');
-        tab.setAttribute('data-server-id', s.id);
-        tab.innerHTML = '<span class="tab-status online"></span>' + escapeHtml(s.name || s.ip);
-        tab.onclick = function() {
-          // Remove active from all tabs
-          tabs.querySelectorAll('.device-tab').forEach(function(t) { t.classList.remove('active'); });
-          tab.classList.add('active');
-          onDeviceChange(s.id);
-        };
-        tabs.appendChild(tab);
-      });
-      currentServerId = data.activeServerId || (data.servers[0] && data.servers[0].id);
-      bar.style.display = 'block';
-      document.getElementById('mainContent').classList.remove('no-device-bar');
+    if (data.success && data.servers && data.servers.length > 0) {
+      currentServerId = data.activeServerId || data.servers[0].id;
+      if (data.servers.length > 1) {
+        var tabs = document.getElementById('deviceTabs');
+        var bar = document.getElementById('deviceBar');
+        tabs.innerHTML = '';
+        data.servers.forEach(function(s) {
+          var tab = document.createElement('div');
+          tab.className = 'device-tab' + (s.isActive ? ' active' : '');
+          tab.setAttribute('data-server-id', s.id);
+          tab.innerHTML = '<span class="tab-status online"></span>' + escapeHtml(s.name || s.ip);
+          tab.onclick = function() {
+            tabs.querySelectorAll('.device-tab').forEach(function(t) { t.classList.remove('active'); });
+            tab.classList.add('active');
+            onDeviceChange(s.id);
+          };
+          tabs.appendChild(tab);
+        });
+        bar.style.display = 'block';
+        document.getElementById('mainContent').classList.remove('no-device-bar');
+      } else {
+        document.getElementById('deviceBar').style.display = 'none';
+        var mc = document.getElementById('mainContent');
+        if (mc) mc.classList.add('no-device-bar');
+      }
     } else {
       document.getElementById('deviceBar').style.display = 'none';
-      var mc = document.getElementById('mainContent');
-      if (mc) mc.classList.add('no-device-bar');
+      var mc2 = document.getElementById('mainContent');
+      if (mc2) mc2.classList.add('no-device-bar');
       currentServerId = null;
     }
   } catch (e) {
     console.warn('加载设备列表失败:', e);
     document.getElementById('deviceBar').style.display = 'none';
+    var mc3 = document.getElementById('mainContent');
+    if (mc3) mc3.classList.add('no-device-bar');
   }
 }
 
@@ -1273,27 +1335,38 @@ function switchTab(tab) {
   currentTab = tab;
   var tabCron = document.getElementById('tabCron');
   var tabRem = document.getElementById('tabReminders');
+  var embedTabCron = document.getElementById('embedTabCron');
+  var embedTabRem = document.getElementById('embedTabReminders');
   var cronPanel = document.getElementById('statusBar');
   var jobListEl = document.getElementById('jobList');
   var remPanel = document.getElementById('remindersPanel');
   var createBtn = document.getElementById('topBarCreateBtn');
+  var embedCreateBtn = document.getElementById('embedCreateBtn');
 
   if (tab === 'cron') {
-    tabCron.classList.add('active');
-    tabRem.classList.remove('active');
+    if (tabCron) tabCron.classList.add('active');
+    if (tabRem) tabRem.classList.remove('active');
+    if (embedTabCron) embedTabCron.classList.add('active');
+    if (embedTabRem) embedTabRem.classList.remove('active');
     cronPanel.style.display = '';
     jobListEl.style.display = '';
     remPanel.style.display = 'none';
-    createBtn.textContent = '+ 创建任务';
-    document.getElementById('pageTitle').textContent = '定时任务';
+    if (createBtn) createBtn.textContent = '+ 创建任务';
+    if (embedCreateBtn) embedCreateBtn.textContent = '+ 创建任务';
+    var pageTitle = document.getElementById('pageTitle');
+    if (pageTitle) pageTitle.textContent = '定时任务';
   } else {
-    tabCron.classList.remove('active');
-    tabRem.classList.add('active');
+    if (tabCron) tabCron.classList.remove('active');
+    if (tabRem) tabRem.classList.add('active');
+    if (embedTabCron) embedTabCron.classList.remove('active');
+    if (embedTabRem) embedTabRem.classList.add('active');
     cronPanel.style.display = 'none';
     jobListEl.style.display = 'none';
     remPanel.style.display = '';
-    createBtn.textContent = '+ 新建提醒';
-    document.getElementById('pageTitle').textContent = '提醒';
+    if (createBtn) createBtn.textContent = '+ 新建提醒';
+    if (embedCreateBtn) embedCreateBtn.textContent = '+ 新建提醒';
+    var pageTitle2 = document.getElementById('pageTitle');
+    if (pageTitle2) pageTitle2.textContent = '提醒';
     loadReminders();
   }
 }
@@ -1314,7 +1387,7 @@ async function reminderApi(method, path, body) {
   var opts = { method: method, headers: authHeaders() };
   var url = '/api/reminders' + path;
   if (body) opts.body = JSON.stringify(body);
-  var res = await fetch(url, opts);
+  var res = await fetchWithTimeout(url, opts);
   if (res.status === 401) {
     localStorage.removeItem('lingxi_token');
     window.location.href = 'index.html';
@@ -1543,16 +1616,18 @@ document.getElementById('smtpModal').addEventListener('click', function(e) {
   if (e.target === this) closeSmtpModal();
 });
 (async function init() {
-  // Check token first, redirect if not logged in
   if (!checkAuth()) return;
 
   try {
-    // 1. 先加载设备列表
     await loadDevices();
-    // 2. 再加载当前设备的任务和状态
+  } catch (e) {
+    console.warn('init loadDevices:', e);
+  }
+
+  try {
     await Promise.all([loadStatus(), loadJobs()]);
   } catch (e) {
-    // loadStatus/loadJobs handle their own errors
+    console.warn('init load cron data:', e);
   }
 })();
 </script>

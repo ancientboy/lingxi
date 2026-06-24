@@ -98,6 +98,13 @@ function switchView(view) {
     if (workspaceView) workspaceView.classList.add('active');
   } else if (view === 'cron') {
     if (cronView) cronView.classList.add('active');
+    const cronIframe = document.getElementById('cronIframe');
+    if (cronIframe) {
+      const src = cronIframe.dataset.src || 'cron.html?embedded=1&v=20260624w';
+      if (!cronIframe.src || cronIframe.src === 'about:blank' || cronIframe.src.endsWith('about:blank')) {
+        cronIframe.src = src;
+      }
+    }
   } else if (view === 'loops') {
     if (loopsView) loopsView.classList.add('active');
   }
