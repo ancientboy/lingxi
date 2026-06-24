@@ -113,8 +113,8 @@
 }
 
 .right-sidebar-shortcut.active {
-  background: var(--accent-soft);
-  color: var(--accent);
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--text-1);
 }
 
 .right-sidebar-shortcut-icon {
