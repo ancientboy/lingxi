@@ -7,6 +7,20 @@ body {
   background: var(--bg-main, #f7f7f8) !important;
 }
 
+/* 隐藏页面级滚动条（保留滚动） */
+html,
+body {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 /* Tab 栏：可滚动 + 中性激活态 */
 .tab-bar {
   justify-content: flex-start !important;

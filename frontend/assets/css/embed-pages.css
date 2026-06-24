@@ -7,6 +7,35 @@ body.lume-page {
   color: var(--text-1, #171717);
 }
 
+/* ===== 嵌入模式：隐藏滚动条（保留滚动，更干净） ===== */
+html.is-embedded,
+body.embedded,
+body.in-iframe {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+html.is-embedded::-webkit-scrollbar,
+body.embedded::-webkit-scrollbar,
+body.in-iframe::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+body.embedded *,
+body.in-iframe * {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+body.embedded *::-webkit-scrollbar,
+body.in-iframe *::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 /* ===== 嵌入模式：隐藏重复顶栏 ===== */
 body.embedded .top-bar,
 body.in-iframe .top-bar,
