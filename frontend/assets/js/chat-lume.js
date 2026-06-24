@@ -56,6 +56,14 @@ function normalizeLumeSession(s) {
 
 async function loadLumeSessions() {
   try {
+    if (typeof LumeRpc !== 'undefined' && !LumeRpc.isConnected()) {
+      const ok = await LumeRpc.connect();
+      if (!ok) {
+        console.warn('[Lume] 未连接，无法加载会话列表');
+        return;
+      }
+      window.USE_LUME = true;
+    }
     const res = await LumeRpc.sendRequest('sessions.list', {
       limit: 50,
       includeLastMessage: true,
@@ -74,6 +82,8 @@ async function loadLumeSessions() {
       } else if (typeof loadChatHistory === 'function') {
         await loadChatHistory();
       }
+    } else {
+      console.warn('[Lume] sessions.list 无数据:', res);
     }
   } catch (e) {
     console.warn('[Lume] 加载会话列表失败:', e);

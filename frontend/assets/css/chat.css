@@ -937,6 +937,25 @@ body::-webkit-scrollbar { display: none; }
   .notification-bell {
     display: none !important;
   }
+  .input-top .send-btn {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+  }
+  .input-top .send-btn:not(.hidden) {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+  }
+  .session-loading {
+    color: var(--text-3);
+    animation: session-pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes session-pulse {
+    0%, 100% { opacity: 0.55; }
+    50% { opacity: 1; }
+  }
   .navbar { display: none !important; }
   .checkin-text, .checkin-points { display: none; }
   .user-name { display: none; }

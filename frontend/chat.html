@@ -2211,7 +2211,7 @@
       const savedWidth = localStorage.getItem(SIDEBAR_WIDTH_KEY);
 
       // 恢复保存的宽度（仅桌面端）
-      if (sidebar && savedWidth && window.innerWidth > 768) {
+      if (sidebar && savedWidth && window.innerWidth > 1024) {
         sidebar.style.width = savedWidth + 'px';
         mainContent.style.marginLeft = savedWidth + 'px';
         if (resizer) resizer.style.left = savedWidth + 'px';
@@ -2293,19 +2293,30 @@
       const sidebar = document.getElementById('sidebar');
       const mainContent = document.getElementById('mainContent');
       const overlay = document.getElementById('sidebarOverlay');
+      if (!sidebar) return;
 
       const isMobile = isMobileLayout();
 
       if (isMobile) {
-        // 移动端：显示/隐藏侧边栏
+        const opening = !sidebar.classList.contains('show');
         sidebar.classList.toggle('show');
-        overlay.classList.toggle('show');
+        if (overlay) overlay.classList.toggle('show');
+        if (opening && typeof refreshSessionsForSidebar === 'function') {
+          void refreshSessionsForSidebar();
+        }
       } else {
         // 桌面端：收起/展开
         sidebar.classList.toggle('collapsed');
-        mainContent.classList.toggle('expanded');
+        if (mainContent) mainContent.classList.toggle('expanded');
         updateSidebarToggleUi();
       }
+    }
+
+    function closeMobileSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      if (sidebar) sidebar.classList.remove('show');
+      if (overlay) overlay.classList.remove('show');
     }
 
     function initSidebarResizer() {
@@ -2360,7 +2371,10 @@
       const allSessions = window.sessions || [];
 
       if (allSessions.length === 0) {
-        todayEl.innerHTML = '<div class="session-empty">暂无对话</div>';
+        const loading = window.USE_LUME && typeof LumeRpc !== 'undefined' && LumeRpc.isConnected();
+        todayEl.innerHTML = loading
+          ? '<div class="session-empty session-loading">加载对话中…</div>'
+          : '<div class="session-empty">暂无对话<br><span style="font-size:12px;color:var(--text-3)">连接恢复后将自动刷新</span></div>';
         weekEl.innerHTML = '';
         olderEl.innerHTML = '';
         if (typeof updateMobileChatHeader === 'function') updateMobileChatHeader();
@@ -2541,19 +2555,22 @@
     }
 
     function newChat() {
-      // 调用 chat.js 中的创建新会话函数
-      // 切换回对话视图
-      switchView('chat');
-
+      closeMobileSidebar();
+      if (typeof switchView === 'function') {
+        switchView('chat');
+      }
       if (typeof createNewSession === 'function') {
         createNewSession();
+      } else {
+        console.warn('createNewSession 未就绪');
       }
-
-      // 更新侧边栏会话列表（取消激活状态）
       document.querySelectorAll('.sidebar-session').forEach(el => {
         el.classList.remove('active');
       });
+      if (typeof updateMobileChatHeader === 'function') updateMobileChatHeader();
+      if (typeof updateInputButtons === 'function') updateInputButtons();
     }
+    window.newChat = newChat;
 
     function deleteSession(e) {
       e.stopPropagation();
@@ -3612,13 +3629,13 @@
   </script>
 
   <script src="assets/js/lume-dialog.js?v=20260624n"></script>
-  <script src="assets/js/lume-rpc.js?v=20260615p1"></script>
-  <script src="assets/js/chat-lume.js?v=20260624w"></script>
-  <script src="assets/js/chat.js?v=20260624w"></script>
+  <script src="assets/js/lume-rpc.js?v=20260624x"></script>
+  <script src="assets/js/chat-lume.js?v=20260624x"></script>
+  <script src="assets/js/chat.js?v=20260624x"></script>
 
     <!-- 统一组件加载器 -->
-    <script src="components/load-components.js?v=20260625c"></script>
-  <script src="assets/js/skills-tab.js?v=20260624w"></script>
+    <script src="components/load-components.js?v=20260625d"></script>
+  <script src="assets/js/skills-tab.js?v=20260624x"></script>
     <script src="assets/js/subscription.js?v=1772525512"></script>
   <script src="assets/js/stripe-payment.js?v=1772524675"></script>
 

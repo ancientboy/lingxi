@@ -20,10 +20,11 @@ const LumeRpc = (function () {
   function getApiBase() {
     try {
       const u = JSON.parse(localStorage.getItem('lingxi_user') || '{}');
-      return u.serverUrl || '';
+      if (u.serverUrl) return String(u.serverUrl).replace(/\/$/, '');
     } catch {
-      return '';
+      /* ignore */
     }
+    return window.location.origin;
   }
 
   function emitEvent(msg) {

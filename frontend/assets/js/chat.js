@@ -2175,6 +2175,8 @@ async function createNewSession() {
   console.log('新会话已准备就绪，等待发送第一条消息');
 }
 
+window.createNewSession = createNewSession;
+
 // 切换会话
 async function switchSession(sessionKey, forceReload = false) {
   if (sessionKey === currentSessionKey && !forceReload) {
@@ -5056,24 +5058,26 @@ document.addEventListener('DOMContentLoaded', () => {
 // 更新输入框右侧按钮显示（豆包风格：有文字显示发送，无文字显示麦克风+上传）
 function updateInputButtons() {
   const inputField = document.getElementById('inputField');
-  const inputRightBtns = document.getElementById('inputRightBtns');
   const sendBtn = document.getElementById('sendBtn');
+  if (!inputField || !sendBtn) return;
 
-  if (!inputField || !inputRightBtns || !sendBtn) return;
-
+  const inputRightBtns = document.getElementById('inputRightBtns');
   const hasText = inputField.value.trim().length > 0;
   const hasImage = document.getElementById('imagePreviewContainer')?.classList.contains('show');
+  const hasTags = (document.getElementById('skillTagsArea')?.children.length || 0) > 0;
+  const canSend = hasText || hasImage || hasTags;
 
-  if (hasText || hasImage) {
-    // 有文字或图片：显示发送按钮，隐藏麦克风+上传
-    inputRightBtns.classList.add('hidden');
+  if (canSend) {
     sendBtn.classList.remove('hidden');
+    sendBtn.disabled = false;
+    if (inputRightBtns) inputRightBtns.classList.add('hidden');
   } else {
-    // 无文字且无图片：显示麦克风+上传，隐藏发送按钮
-    inputRightBtns.classList.remove('hidden');
     sendBtn.classList.add('hidden');
+    if (inputRightBtns) inputRightBtns.classList.remove('hidden');
   }
 }
+
+window.updateInputButtons = updateInputButtons;
 
 // 拍照功能（调用摄像头）
 async function handleCameraCapture() {

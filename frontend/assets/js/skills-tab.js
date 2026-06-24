@@ -310,14 +310,18 @@ function _removeSkillTag(skillId) {
 }
 
 function _updateSendBtnVisibility() {
+  if (typeof updateInputButtons === 'function') {
+    updateInputButtons();
+    return;
+  }
   const input = document.getElementById('inputField');
   const area = document.getElementById('skillTagsArea');
   const sendBtn = document.getElementById('sendBtn');
   if (!sendBtn) return;
-  
+
   const hasText = input && input.value.trim().length > 0;
   const hasTags = area && area.children.length > 0;
-  
+
   if (hasText || hasTags) {
     sendBtn.classList.remove('hidden');
   } else {

@@ -2,9 +2,16 @@
  * 统一组件加载器
  */
 
-const COMPONENT_VERSION = '20260625c';
+const COMPONENT_VERSION = '20260625d';
 
 async function refreshChatSidebarAfterComponentsLoad() {
+  if (!window.sessions?.length && typeof loadLumeSessions === 'function') {
+    try {
+      await loadLumeSessions();
+    } catch (e) {
+      console.warn('侧栏就绪后加载会话失败:', e);
+    }
+  }
   if (typeof loadSidebarSessions === 'function') {
     loadSidebarSessions();
   }
@@ -27,6 +34,21 @@ async function refreshChatSidebarAfterComponentsLoad() {
     }
   }
 }
+
+async function refreshSessionsForSidebar() {
+  const todayEl = document.getElementById('todaySessions');
+  if (todayEl) {
+    todayEl.innerHTML = '<div class="session-empty session-loading">加载对话中…</div>';
+  }
+  if (typeof loadLumeSessions === 'function') {
+    await loadLumeSessions();
+  }
+  if (typeof loadSidebarSessions === 'function') {
+    loadSidebarSessions();
+  }
+}
+
+window.refreshSessionsForSidebar = refreshSessionsForSidebar;
 
 async function loadComponent(containerId, componentPath) {
   try {
