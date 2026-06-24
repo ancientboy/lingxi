@@ -270,7 +270,13 @@
 
   <!-- 主内容区 -->
   <main class="main-content" id="mainContent">
-    <!-- 导航栏容器 -->
+    <!-- 侧栏收起后：左侧固定展开钮（仅此时显示） -->
+    <button type="button" class="sidebar-edge-expand" id="sidebarExpandBtn" onclick="toggleSidebar()" title="展开侧边栏" aria-label="展开侧边栏" hidden>
+      <svg class="sidebar-toggle-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <rect x="3.5" y="4.5" width="17" height="15" rx="3" stroke="currentColor" stroke-width="1.75"/>
+        <path d="M9.5 4.5v15" stroke="currentColor" stroke-width="1.75"/>
+      </svg>
+    </button>
     <div id="navbar-container"></div>
 
     <!-- 通知铃铛 -->
@@ -1688,10 +1694,6 @@
     </div>
 
     <div class="chat-container">
-      <!-- 侧边栏展开按钮 -->
-      <button class="sidebar-open-btn" id="sidebarOpenBtn" onclick="toggleSidebar()" title="展开侧边栏">
-        <i data-lucide="panel-left" class="icon-sm"></i>
-      </button>
       <div class="messages" id="messages">
         <div class="welcome" id="welcome">
           <div class="welcome-icon">
@@ -2119,6 +2121,7 @@
       // 初始化拖拽调整
       initSidebarResizer();
       initScrollDetection();
+      updateSidebarToggleUi();
 
       // 加载会话列表 - 延迟调用，等待 chat.js 加载完成
       // loadSidebarSessions() 会在 loadSessions() 完成后自动调用
@@ -2148,6 +2151,17 @@
       });
     }
 
+    function updateSidebarToggleUi() {
+      const sidebar = document.getElementById('sidebar');
+      const expandBtn = document.getElementById('sidebarExpandBtn');
+      const isMobile = window.innerWidth <= 768;
+      const collapsed = sidebar?.classList.contains('collapsed');
+
+      if (expandBtn) {
+        expandBtn.hidden = isMobile || !collapsed;
+      }
+    }
+
     function toggleSidebar() {
       const sidebar = document.getElementById('sidebar');
       const mainContent = document.getElementById('mainContent');
@@ -2163,6 +2177,7 @@
         // 桌面端：收起/展开
         sidebar.classList.toggle('collapsed');
         mainContent.classList.toggle('expanded');
+        updateSidebarToggleUi();
       }
     }
 

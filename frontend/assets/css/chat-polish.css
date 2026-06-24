@@ -75,8 +75,15 @@
   color: inherit;
 }
 
+.sidebar-brand-link:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 2px;
+}
+
 .sidebar-brand-link .sidebar-brand-name {
   color: var(--text-1);
+  text-decoration: none;
+  border-bottom: none;
 }
 
 .sidebar-brand-icon {
@@ -165,17 +172,59 @@
 
 .sidebar-collapse-btn {
   border-radius: 8px;
-  border-color: var(--border-sub);
+  border: none;
+  background: transparent;
+  color: var(--text-2);
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+.sidebar-collapse-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-1);
+}
+
+.sidebar-toggle-icon {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+/* 侧栏收起后：左上角固定展开钮（非对话区重复按钮） */
+.sidebar-edge-expand {
+  position: fixed;
+  left: 12px;
+  top: 14px;
+  z-index: 1002;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-sub);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: var(--text-2);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.sidebar-edge-expand:hover {
   background: var(--bg-card);
+  color: var(--text-1);
+  border-color: var(--border);
+}
+
+.sidebar-edge-expand[hidden] {
+  display: none !important;
 }
 
 .sidebar-open-btn {
-  top: 14px;
-  left: 14px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(10px);
-  box-shadow: var(--shadow-sm);
+  display: none !important;
 }
 
 /* ===== 欢迎区 ===== */
@@ -266,6 +315,10 @@
   height: 12px;
   opacity: 0.85;
   flex-shrink: 0;
+}
+
+.credits-icon {
+  color: var(--accent);
 }
 
 .sidebar-user-chevron {
@@ -552,6 +605,12 @@ html[data-theme="dark"] .message.user .bubble {
 body[data-theme="dark"] .notification-bell,
 html[data-theme="dark"] .notification-bell {
   background: rgba(30, 30, 30, 0.88);
+  border-color: var(--border);
+}
+
+body[data-theme="dark"] .sidebar-edge-expand,
+html[data-theme="dark"] .sidebar-edge-expand {
+  background: rgba(30, 30, 30, 0.92);
   border-color: var(--border);
 }
 
