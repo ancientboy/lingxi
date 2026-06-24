@@ -2,9 +2,12 @@
  * 统一组件加载器
  */
 
+const COMPONENT_VERSION = '20260625a';
+
 async function loadComponent(containerId, componentPath) {
   try {
-    const response = await fetch(componentPath);
+    const url = componentPath + (componentPath.includes('?') ? '&' : '?') + 'v=' + COMPONENT_VERSION;
+    const response = await fetch(url);
     if (!response.ok) throw new Error(`Failed to load ${componentPath}`);
     const html = await response.text();
     const container = document.getElementById(containerId);
