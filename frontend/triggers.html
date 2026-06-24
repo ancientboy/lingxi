@@ -6,8 +6,8 @@
   <title>Triggers — Lume</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23667eea'/><text x='16' y='22' text-anchor='middle' fill='white' font-size='16' font-weight='700'>L</text></svg>">
   <link rel="stylesheet" href="assets/css/lume.css">
-  <link rel="stylesheet" href="assets/css/embed-pages.css?v=20260624s">
-  <script src="assets/js/embed-init.js?v=20260624s"></script>
+  <link rel="stylesheet" href="assets/css/embed-pages.css?v=20260624t">
+  <script src="assets/js/embed-init.js?v=20260624t"></script>
   <style>
     body {
       font-family: var(--font-body);
@@ -615,7 +615,7 @@ async function loadTriggers() {
     var errMsg = e.message || '';
     if (errMsg.indexOf('未配置服务器') !== -1) {
       document.getElementById('triggerList').innerHTML =
-        '<div class="empty-state">' +
+        '<div class="embed-section embed-empty-panel">' +
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="empty-icon-lg"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>' +
           '<p class="empty-title-lg">需要先配置设备</p>' +
           '<p class="empty-desc">触发器需要连接到你的 AI 设备才能使用</p>' +
@@ -635,14 +635,14 @@ function renderTriggers() {
 
   if (triggers.length === 0) {
     list.innerHTML =
-      '<div class="empty-state" >' +
+      '<div class="embed-section embed-empty-panel">' +
         '<div class="empty-kb-icon">' +
-          '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M18 16.98l-5 5-5-5"/><path d="M13 2.98l5 5-5 5"/><path d="M8 7l5 5-5 5"/></svg>' +
+          '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 16.98l-5 5-5-5"/><path d="M13 2.98l5 5-5 5"/><path d="M8 7l5 5-5 5"/></svg>' +
         '</div>' +
         '<h3 class="empty-kb-title">还没有触发器</h3>' +
         '<p class="empty-kb-desc">触发器让外部事件自动触发 Agent 执行任务</p>' +
         '<p class="empty-kb-hint">例如：GitHub 新 Issue → Agent 自动分析 | 收到邮件 → Agent 摘要通知</p>' +
-        '<button onclick="openCreateModal()" class="btn-upload-first">创建第一个触发器</button>' +
+        '<button type="button" onclick="openCreateModal()" class="btn-upload-first">创建第一个触发器</button>' +
       '</div>';
     return;
   }

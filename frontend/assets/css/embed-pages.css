@@ -45,11 +45,22 @@ body.lume-page .btn-upload-first {
   background: var(--text-1, #171717) !important;
   color: #fff !important;
   border-color: transparent !important;
+  border-radius: 10px !important;
+  padding: 10px 20px !important;
+  font-weight: 500 !important;
+  font-family: inherit !important;
+  cursor: pointer;
+  transition: background 0.15s;
 }
 
 body.lume-page .btn-primary:hover,
 body.lume-page .btn-upload-first:hover {
   background: #2a2a2a !important;
+}
+
+body.lume-page .btn-sm {
+  padding: 8px 14px !important;
+  font-size: 13px !important;
 }
 
 body.lume-page .btn-outline {
@@ -337,6 +348,11 @@ body.lume-page .tpl-empty-state {
   color: var(--text-3, #737373);
 }
 
+.embed-empty-panel {
+  text-align: center;
+  padding: 48px 24px !important;
+}
+
 .embed-empty-title {
   font-size: 15px;
   font-weight: 600;
@@ -349,9 +365,97 @@ body.lume-page .tpl-empty-state {
   color: var(--text-3, #737373);
 }
 
+body.lume-page .empty-icon-lg {
+  width: 48px;
+  height: 48px;
+  color: var(--text-3, #737373) !important;
+  margin: 0 auto 12px;
+  display: block;
+}
+
+body.lume-page .empty-title-lg {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-1, #171717);
+  margin: 0;
+}
+
+body.lume-page .empty-desc {
+  font-size: 13px;
+  color: var(--text-3, #737373);
+  margin: 6px 0 0;
+}
+
+body.lume-page .empty-action {
+  margin-top: 16px;
+  display: inline-block;
+}
+
 body.lume-page .empty-kb-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 14px;
   background: var(--bg-hover, #f5f5f4) !important;
   color: var(--text-3, #737373) !important;
+  margin: 0 auto 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+body.lume-page .empty-kb-icon svg {
+  stroke: currentColor !important;
+}
+
+body.lume-page .empty-kb-title {
+  color: var(--text-1, #171717);
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+  font-family: var(--font-display, 'DM Sans', sans-serif);
+}
+
+body.lume-page .empty-kb-desc {
+  color: var(--text-3, #737373);
+  font-size: 14px;
+  margin: 0 0 4px;
+}
+
+body.lume-page .empty-kb-hint {
+  color: var(--text-3, #737373);
+  font-size: 13px;
+  margin: 0 0 20px;
+}
+
+body.lume-page .btn-upload-first {
+  border: none !important;
+  font-size: 14px !important;
+  padding: 10px 24px !important;
+}
+
+/* ===== 触发器页：中性 accent ===== */
+body.lume-page .type-tab.active {
+  background: var(--text-1, #171717) !important;
+  color: #fff !important;
+}
+
+body.lume-page .toggle-switch input:checked + .toggle-slider {
+  background: var(--text-1, #171717) !important;
+}
+
+body.lume-page .copy-btn:hover {
+  border-color: var(--border, #e5e7eb) !important;
+  color: var(--text-1, #171717) !important;
+  background: var(--bg-hover, #f5f5f4) !important;
+}
+
+body.lume-page .trigger-url {
+  color: var(--text-2, #525252) !important;
+}
+
+body.lume-page .log-status.success {
+  background: var(--bg-hover, #f5f5f4) !important;
+  color: var(--text-2, #525252) !important;
 }
 
 /* ===== 模态框 ===== */
