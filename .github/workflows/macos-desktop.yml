@@ -1,0 +1,147 @@
+name: Mac Desktop (DMG)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'desktop-app/**'
+      - '.github/workflows/macos-desktop.yml'
+      - 'scripts/build-macos-dmg.sh'
+  pull_request:
+    paths:
+      - 'desktop-app/**'
+  workflow_dispatch:
+    inputs:
+      deploy_production:
+        description: 'Upload DMG to lumeword.cn (needs DEPLOY_* secrets)'
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: macos-desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read app version
+        id: ver
+        run: |
+          V=$(grep '^version:' desktop-app/pubspec.yaml | awk '{print $2}' | cut -d+ -f1)
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: cd desktop-app && flutter pub get
+
+      - name: Build macOS release
+        run: cd desktop-app && flutter build macos --release
+
+      - name: Create DMG
+        run: bash scripts/build-macos-dmg.sh
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lume-mac-dmg
+          path: desktop-app/build/dist/Lume-mac.dmg
+          retention-days: 30
+
+      - name: Upload version manifest
+        run: |
+          mkdir -p frontend/downloads
+          cat > frontend/downloads/version.json <<EOF
+          {
+            "mac": {
+              "version": "${{ steps.ver.outputs.version }}",
+              "url": "/downloads/Lume-mac.dmg",
+              "updated": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+              "github_fallback": "https://github.com/${{ github.repository }}/releases/latest/download/Lume-mac.dmg"
+            },
+            "android": {
+              "version": "1.9.4",
+              "url": "/public/lingxi.apk"
+            }
+          }
+          EOF
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: download-manifest
+          path: frontend/downloads/version.json
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/desktop-v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Lume-mac-dmg
+          path: dist
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/Lume-mac.dmg
+          generate_release_notes: true
+
+  deploy-production:
+    needs: build
+    if: |
+      github.event_name == 'workflow_dispatch' &&
+      inputs.deploy_production == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Lume-mac-dmg
+          path: dist
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: download-manifest
+          path: manifest
+
+      - name: Upload DMG
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          password: ${{ secrets.DEPLOY_PASSWORD }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          source: dist/Lume-mac.dmg
+          target: /home/admin/.openclaw/workspace/lingxi-cloud/frontend/downloads/
+
+      - name: Upload version.json
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          password: ${{ secrets.DEPLOY_PASSWORD }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          source: manifest/frontend/downloads/version.json
+          target: /home/admin/.openclaw/workspace/lingxi-cloud/frontend/downloads/
+          strip_components: 2
+
+      - name: Restart app
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          password: ${{ secrets.DEPLOY_PASSWORD }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          script: pm2 restart lingxi-cloud
