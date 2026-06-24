@@ -576,14 +576,31 @@ body.lume-page .wf-card:hover {
 }
 
 body.lume-page .wf-card.activated {
-  border-color: var(--text-1, #171717) !important;
-  border-width: 1px !important;
-  box-shadow: 0 0 0 1px var(--text-1, #171717) !important;
+  border-color: var(--border-sub, #f0f1f3) !important;
+  box-shadow: none !important;
 }
 
 body.lume-page .active-card {
-  border: 1px solid var(--text-1, #171717) !important;
-  box-shadow: 0 0 0 1px var(--text-1, #171717) !important;
+  border: 1px solid var(--border-sub, #f0f1f3) !important;
+  box-shadow: none !important;
+}
+
+body.lume-page .wf-card .btn-primary,
+body.lume-page .wf-card-footer .btn-primary {
+  background: var(--bg-card, #fff) !important;
+  color: var(--text-2, #525252) !important;
+  border: 1px solid var(--border-sub, #f0f1f3) !important;
+  border-radius: 8px !important;
+  padding: 6px 14px !important;
+  font-weight: 500 !important;
+  box-shadow: none !important;
+}
+
+body.lume-page .wf-card .btn-primary:hover,
+body.lume-page .wf-card-footer .btn-primary:hover {
+  background: var(--bg-hover, #f5f5f4) !important;
+  color: var(--text-1, #171717) !important;
+  border-color: var(--border, #e5e7eb) !important;
 }
 
 body.lume-page .section-badge.active {

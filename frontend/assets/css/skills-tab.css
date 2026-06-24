@@ -283,18 +283,22 @@
 
 .skill-install-btn {
   padding: 6px 14px;
-  background: var(--accent, #10a37f);
-  color: #fff;
-  border: none;
-  border-radius: 6px;
+  background: var(--bg-card, #fff);
+  color: var(--text-2, #525252);
+  border: 1px solid var(--border-sub, #f0f1f3);
+  border-radius: 8px;
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  font-family: var(--font-display, 'DM Sans', sans-serif);
 }
 
 .skill-install-btn:hover {
-  background: var(--primary-dark, #0d8a6a);
+  background: var(--bg-hover, #f5f5f4);
+  color: var(--text-1, #171717);
+  border-color: var(--border, #e5e7eb);
+  transform: none;
 }
 
 .skills-empty {
@@ -357,18 +361,12 @@
 
 /* 已安装标记 */
 .skill-card.installed {
-  border-color: #10b981;
-  background: rgba(16, 163, 127, 0.02);
+  border-color: var(--border-sub, #f0f1f3);
+  background: var(--bg-card, #fff);
 }
 
 .skill-card.installed::before {
-  content: '✓';
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  color: #10b981;
-  font-weight: bold;
-  font-size: 14px;
+  display: none;
 }
 
 /* 分类标签样式 */
@@ -421,17 +419,22 @@
 
 /* 官方可用按钮样式 */
 .skill-install-btn.builtin-available {
-  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  background: var(--bg-hover, #f5f5f4);
+  color: var(--text-3, #737373);
+  border-color: var(--border-sub, #f0f1f3);
   cursor: default;
 }
 
 .skill-install-btn.builtin-available:hover {
-  background: linear-gradient(135deg, #f59e0b, #d97706);
+  background: var(--bg-hover, #f5f5f4);
+  color: var(--text-3, #737373);
 }
 
 /* 已安装按钮样式 */
 .skill-install-btn.installed {
-  background: #10b981;
+  background: var(--bg-hover, #f5f5f4);
+  color: var(--text-3, #737373);
+  border-color: var(--border-sub, #f0f1f3);
   cursor: default;
 }
 
@@ -552,39 +555,39 @@
 /* Skill action buttons */
 .skill-actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
 .skill-badge { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 500; }
-.skill-badge.installed { background: var(--accent-soft); color: var(--accent); }
-.skill-btn { display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px; border: none; border-radius: 6px; font-size: 11px; font-weight: 600; font-family: var(--font-display); cursor: pointer; transition: all var(--transition); }
-.skill-btn.install { background: var(--accent); color: white; }
-.skill-btn.install:hover { background: var(--accent-h); transform: translateY(-1px); }
-.skill-btn.use { background: var(--bg-hover); color: var(--accent); border: 1px solid var(--accent); }
-.skill-btn.use:hover { background: var(--accent-soft); transform: translateY(-1px); }
+.skill-badge.installed { background: var(--bg-hover, #f5f5f4); color: var(--text-2, #525252); border: 1px solid var(--border-sub, #f0f1f3); }
+.skill-btn { display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px; border: 1px solid var(--border-sub, #f0f1f3); border-radius: 8px; font-size: 11px; font-weight: 500; font-family: var(--font-display); cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; }
+.skill-btn.install { background: var(--bg-card, #fff); color: var(--text-2, #525252); }
+.skill-btn.install:hover { background: var(--bg-hover, #f5f5f4); color: var(--text-1, #171717); border-color: var(--border, #e5e7eb); transform: none; }
+.skill-btn.use { background: var(--bg-card, #fff); color: var(--text-2, #525252); border: 1px solid var(--border-sub, #f0f1f3); }
+.skill-btn.use:hover { background: var(--bg-hover, #f5f5f4); color: var(--text-1, #171717); border-color: var(--border, #e5e7eb); transform: none; }
 
 /* ===== New Skill Action Buttons ===== */
 .skill-status-badge {
   display: inline-flex; align-items: center; gap: 4px;
-  padding: 4px 10px; border-radius: 6px;
-  font-size: 11px; font-weight: 600; font-family: var(--font-display);
+  padding: 4px 10px; border-radius: 8px;
+  font-size: 11px; font-weight: 500; font-family: var(--font-display);
 }
-.skill-status-badge.builtin { background: var(--bg-hover); color: var(--text-3); }
-.skill-status-badge.installed { background: var(--accent-soft); color: var(--accent); }
+.skill-status-badge.builtin { background: var(--bg-hover, #f5f5f4); color: var(--text-3, #737373); border: 1px solid var(--border-sub, #f0f1f3); }
+.skill-status-badge.installed { background: var(--bg-hover, #f5f5f4); color: var(--text-2, #525252); border: 1px solid var(--border-sub, #f0f1f3); }
 
 .skill-use-btn {
   display: inline-flex; align-items: center; gap: 4px;
-  padding: 5px 14px; border: 1px solid var(--accent); border-radius: 6px;
-  background: transparent; color: var(--accent);
-  font-size: 11px; font-weight: 600; font-family: var(--font-display);
-  cursor: pointer; transition: all var(--transition);
+  padding: 5px 14px; border: 1px solid var(--border-sub, #f0f1f3); border-radius: 8px;
+  background: var(--bg-card, #fff); color: var(--text-2, #525252);
+  font-size: 11px; font-weight: 500; font-family: var(--font-display);
+  cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
-.skill-use-btn:hover { background: var(--accent-soft); transform: translateY(-1px); }
+.skill-use-btn:hover { background: var(--bg-hover, #f5f5f4); color: var(--text-1, #171717); border-color: var(--border, #e5e7eb); transform: none; }
 
 .skill-install-btn {
   display: inline-flex; align-items: center; gap: 4px;
-  padding: 5px 14px; border: none; border-radius: 6px;
-  background: var(--accent); color: white;
-  font-size: 11px; font-weight: 600; font-family: var(--font-display);
-  cursor: pointer; transition: all var(--transition);
+  padding: 5px 14px; border: 1px solid var(--border-sub, #f0f1f3); border-radius: 8px;
+  background: var(--bg-card, #fff); color: var(--text-2, #525252);
+  font-size: 11px; font-weight: 500; font-family: var(--font-display);
+  cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
-.skill-install-btn:hover { background: var(--accent-h); transform: translateY(-1px); }
+.skill-install-btn:hover { background: var(--bg-hover, #f5f5f4); color: var(--text-1, #171717); border-color: var(--border, #e5e7eb); transform: none; }
 
 .skill-icon {
   width: 40px; height: 40px; border-radius: 10px;
