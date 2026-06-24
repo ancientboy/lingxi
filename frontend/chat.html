@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="assets/css/dark.css" id="darkTheme" disabled>
   <link rel="stylesheet" href="assets/css/subscription.css">
   <link rel="stylesheet" href="assets/css/stripe-payment.css">
-  <link rel="stylesheet" href="assets/css/skills-tab.css?v=20260624i">
+  <link rel="stylesheet" href="assets/css/skills-tab.css?v=20260624o">
   <link rel="stylesheet" href="assets/css/lume-dialog.css?v=20260624n">
   <!-- Lucide Icons - 使用 cdnjs 备用源 -->
   <script src="assets/libs/lucide.min.js"></script>
@@ -1822,19 +1822,23 @@
           <span>返回对话</span>
         </button>
         <span class="view-panel-title">设备管理</span>
-      </div>
-      <div class="view-panel-body">
-      <div class="skills-toolbar" style="padding: 16px 20px; border-bottom: 1px solid var(--border-sub, #f0f1f3);">
-        <div style="display: flex; align-items: center; justify-content: flex-end; width: 100%;">
-          <div style="display:flex;gap:8px;">
-            <button onclick="loadServersView()" style="background:none; border:1px solid #ddd; border-radius:8px; padding:6px 12px; cursor:pointer; font-size:13px; color:#666;">刷新</button>
-            <button onclick="showAddServerModal()" style="background:var(--accent); color:white; border:none; padding:6px 14px; border-radius:8px; cursor:pointer; font-size:13px;">+ 添加设备</button>
-          </div>
+        <div class="view-panel-header-actions">
+          <button type="button" class="view-panel-btn" onclick="loadServersView()" title="刷新列表">
+            <i data-lucide="refresh-cw" class="icon-xs"></i>
+            <span>刷新</span>
+          </button>
+          <button type="button" class="view-panel-btn view-panel-btn-primary" onclick="showAddServerModal()">
+            <i data-lucide="plus" class="icon-xs"></i>
+            <span>添加设备</span>
+          </button>
         </div>
       </div>
-      <div id="serversGridContainer" style="padding: 20px; overflow-y:auto; flex:1;">
-        <div style="text-align:center; color:#999; padding:40px;">加载中...</div>
-      </div>
+      <div class="view-panel-body">
+        <div class="devices-panel-body" id="serversGridContainer">
+          <div class="devices-empty">
+            <div class="devices-empty-title">加载中...</div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1866,43 +1870,57 @@
       </div>
     </div>
 
-    <!-- 📱 添加/编辑设备弹框（放在 main 内部确保可达） -->
-    <div id="serverFormModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:2000;align-items:center;justify-content:center;" onclick="if(event.target===this){this.style.display='none'}">
-      <div style="background:#fff;border-radius:16px;width:90%;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid #f0f0f0;">
-          <h3 id="serverFormTitle" style="font-size:18px;margin:0;">添加设备</h3>
-          <button onclick="document.getElementById('serverFormModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:#999;">✕</button>
+    <!-- Loop 视图 -->
+    <div class="skills-view" id="loopsView">
+      <div class="view-panel-header">
+        <button type="button" class="view-panel-back" onclick="switchView('chat')" title="返回对话">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          <span>返回对话</span>
+        </button>
+        <span class="view-panel-title">Loop</span>
+      </div>
+      <div class="view-panel-body">
+        <iframe src="loops.html?embedded=1"></iframe>
+      </div>
+    </div>
+
+    <!-- 📱 添加/编辑设备弹框 -->
+    <div id="serverFormModal" class="server-form-overlay" onclick="if(event.target===this)closeServerFormModal()">
+      <div class="server-form-modal">
+        <div class="server-form-header">
+          <h3 id="serverFormTitle">添加设备</h3>
+          <button type="button" class="server-form-close" onclick="closeServerFormModal()" aria-label="关闭">×</button>
         </div>
-        <div style="padding:20px 24px;">
-          <div style="margin-bottom:14px;">
-            <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px;">设备名称</label>
-            <input id="sf_name" type="text" placeholder="例：主力服务器" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box;">
+        <div class="server-form-body">
+          <div class="server-form-field">
+            <label for="sf_name">设备名称</label>
+            <input id="sf_name" type="text" placeholder="例：主力服务器">
           </div>
-          <div style="display:flex;gap:12px;margin-bottom:14px;">
-            <div style="flex:3;">
-              <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px;">IP 地址 <span style="color:#e53935">*</span></label>
-              <input id="sf_ip" type="text" placeholder="192.168.1.100" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box;">
+          <div class="server-form-row">
+            <div class="server-form-field">
+              <label for="sf_ip">IP 地址 <span style="color:#dc2626">*</span></label>
+              <input id="sf_ip" type="text" placeholder="192.168.1.100">
             </div>
-            <div style="flex:1;">
-              <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px;">端口</label>
-              <input id="sf_port" type="number" placeholder="18789" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box;">
+            <div class="server-form-field narrow">
+              <label for="sf_port">端口</label>
+              <input id="sf_port" type="number" placeholder="18789">
             </div>
           </div>
-          <div style="margin-bottom:14px;">
-            <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px;">OpenClaw Token</label>
-            <input id="sf_token" type="text" placeholder="控制令牌" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box;">
-            <div style="font-size:11px;color:#999;margin-top:3px;">在 OpenClaw 配置文件的 control.token 中找到</div>
+          <div class="server-form-field">
+            <label for="sf_token">OpenClaw Token</label>
+            <input id="sf_token" type="text" placeholder="控制令牌">
+            <div class="server-form-hint">在 OpenClaw 配置文件的 control.token 中找到</div>
           </div>
-          <div style="margin-bottom:14px;">
-            <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px;">Session ID</label>
-            <input id="sf_session" type="text" placeholder="ControlUI URL 中的路径部分" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box;">
-            <div style="font-size:11px;color:#999;margin-top:3px;">例如 http://ip:18789/8eb2a992/ 中的 8eb2a992</div>
+          <div class="server-form-field">
+            <label for="sf_session">Session ID</label>
+            <input id="sf_session" type="text" placeholder="ControlUI URL 中的路径部分">
+            <div class="server-form-hint">例如 http://ip:18789/8eb2a992/ 中的 8eb2a992</div>
           </div>
-          <div style="margin-bottom:20px;">
-            <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px;">备注</label>
-            <input id="sf_desc" type="text" placeholder="可选" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box;">
+          <div class="server-form-field">
+            <label for="sf_desc">备注</label>
+            <input id="sf_desc" type="text" placeholder="可选">
           </div>
-          <button onclick="submitServerForm()" style="width:100%;padding:12px;background:var(--accent);color:white;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;" id="serverFormSubmitBtn">添加</button>
+          <button type="button" class="server-form-submit" onclick="submitServerForm()" id="serverFormSubmitBtn">添加</button>
         </div>
       </div>
     </div>
@@ -3426,7 +3444,7 @@
 
     <!-- 统一组件加载器 -->
     <script src="components/load-components.js"></script>
-  <script src="assets/js/skills-tab.js?v=20260624n"></script>
+  <script src="assets/js/skills-tab.js?v=20260624o"></script>
     <script src="assets/js/subscription.js?v=1772525512"></script>
   <script src="assets/js/stripe-payment.js?v=1772524675"></script>
 

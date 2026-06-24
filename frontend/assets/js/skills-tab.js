@@ -35,7 +35,7 @@ let skillsState = {
 };
 
 // ===== View Switching =====
-const VIEW_IDS = ['skillsView', 'serversView', 'workspaceView', 'cronView'];
+const VIEW_IDS = ['skillsView', 'serversView', 'workspaceView', 'cronView', 'loopsView'];
 
 function hideAllAppViews() {
   VIEW_IDS.forEach((id) => {
@@ -52,7 +52,7 @@ function updateViewShortcuts(activeView) {
     const nav = btn.dataset.nav;
     if (nav === 'files') {
       btn.classList.toggle('active', feOpen && !activeView);
-    } else if (nav === 'notif' || nav === 'loops') {
+    } else if (nav === 'notif') {
       btn.classList.remove('active');
     } else {
       btn.classList.toggle('active', nav === activeView);
@@ -66,6 +66,7 @@ function switchView(view) {
   const serversView = document.getElementById('serversView');
   const workspaceView = document.getElementById('workspaceView');
   const cronView = document.getElementById('cronView');
+  const loopsView = document.getElementById('loopsView');
 
   hideAllAppViews();
 
@@ -97,6 +98,8 @@ function switchView(view) {
     if (workspaceView) workspaceView.classList.add('active');
   } else if (view === 'cron') {
     if (cronView) cronView.classList.add('active');
+  } else if (view === 'loops') {
+    if (loopsView) loopsView.classList.add('active');
   }
 
   updateViewShortcuts(view);
@@ -443,13 +446,23 @@ function _getUserId() {
   return _serversCache.userId;
 }
 
+function _escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
 async function loadServersView() {
   const container = document.getElementById('serversGridContainer');
   if (!container) return;
-  container.innerHTML = '<div class="empty-state"><div class="spinner" style="width:24px;height:24px"></div><div>Loading...</div></div>';
+  container.innerHTML = '<div class="devices-empty"><div class="spinner" style="width:24px;height:24px;margin:0 auto 12px"></div><div class="devices-empty-title">加载中...</div></div>';
   const token = localStorage.getItem('lingxi_token');
   const userId = _getUserId();
-  if (!token || !userId) { container.innerHTML = '<div class="empty-state"><div class="title">Please sign in</div></div>'; return; }
+  if (!token || !userId) {
+    container.innerHTML = '<div class="devices-empty"><div class="devices-empty-title">请先登录</div><div class="devices-empty-desc">登录后可管理你的 AI 设备</div></div>';
+    return;
+  }
 
   try {
     const res = await fetch(`${API_BASE}/api/servers/${userId}`, { headers: { 'Authorization': `Bearer ${token}` } });
@@ -458,27 +471,101 @@ async function loadServersView() {
     _serversCache.activeServerId = data.activeServerId || null;
 
     if (!_serversCache.servers.length) {
-      container.innerHTML = '<div class="empty-state"><i data-lucide="monitor" style="width:40px;height:40px;color:var(--text-3)"></i><div class="title">No devices yet</div><div class="desc">Add your OpenClaw server to get started</div></div>';
+      container.innerHTML = `
+        <div class="devices-empty">
+          <div class="devices-empty-icon"><i data-lucide="monitor-smartphone" style="width:48px;height:48px"></i></div>
+          <div class="devices-empty-title">还没有设备</div>
+          <div class="devices-empty-desc">添加 OpenClaw 服务器，连接你的 AI 团队</div>
+          <button type="button" class="view-panel-btn view-panel-btn-primary" onclick="showAddServerModal()">
+            <i data-lucide="plus" class="icon-xs"></i>
+            <span>添加第一台设备</span>
+          </button>
+        </div>`;
       if (window.lucide) lucide.createIcons();
       return;
     }
 
-    container.innerHTML = '<div style="display:grid;gap:12px">' + _serversCache.servers.map(s => {
+    const statusMap = {
+      running: { text: '在线', cls: 'running' },
+      offline: { text: '离线', cls: 'offline' },
+      pending: { text: '检测中', cls: 'pending' },
+      unhealthy: { text: '异常', cls: 'unhealthy' },
+    };
+
+    container.innerHTML = '<div class="devices-grid">' + _serversCache.servers.map((s) => {
       const isActive = s.id == _serversCache.activeServerId;
       const status = s.status || 'pending';
-      const statusMap = { running: { text: 'Online', color: '#43e97b' }, offline: { text: 'Offline', color: '#999' }, pending: { text: 'Checking', color: '#fbbf24' }, unhealthy: { text: 'Unhealthy', color: '#fb923c' } };
       const si = statusMap[status] || statusMap.pending;
-      return '<div class="card' + (isActive ? ' active' : '') + '" style="' + (isActive ? 'border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-ring);' : '') + '"><div class="flex items-center gap-3 mb-2"><div style="width:10px;height:10px;border-radius:50%;background:' + si.color + ';' + (status === 'running' ? 'box-shadow:0 0 6px ' + si.color + ';' : '') + '"></div><span class="font-semibold">' + (s.name || 'Unnamed') + '</span>' + (isActive ? ' <span class="badge badge-green" style="font-size:10px">Active</span>' : '') + '<span class="text-xs" style="color:var(--text-3);margin-left:auto">' + si.text + '</span></div><div class="text-xs" style="color:var(--text-3);font-family:monospace">' + s.ip + ':' + (s.openclawPort || 18789) + '</div>' + (s.description ? '<div class="text-xs mt-1" style="color:var(--text-3)">' + s.description + '</div>' : '') + '<div style="border-top:1px solid var(--border-sub);margin-top:10px;padding-top:10px;display:flex;flex-wrap:wrap;gap:6px"><button class="btn btn-sm btn-ghost" onclick="checkServer(\'' + s.id + '\')">Check</button>' + (!isActive ? '<button class="btn btn-sm btn-primary" onclick="activateServer(\'' + s.id + '\')">Switch</button>' : '') + '<button class="btn btn-sm btn-ghost" onclick="showEditServerModal(\'' + s.id + '\')">Edit</button><button class="btn btn-sm btn-danger" onclick="deleteServer(\'' + s.id + '\')">Delete</button></div></div>';
+      const name = _escapeHtml(s.name || '未命名设备');
+      const endpoint = _escapeHtml(`${s.ip}:${s.openclawPort || 18789}`);
+      const desc = s.description ? `<div class="device-card-desc">${_escapeHtml(s.description)}</div>` : '';
+
+      return `
+        <article class="device-card${isActive ? ' is-active' : ''}">
+          <div class="device-card-top">
+            <div class="device-card-icon">
+              <i data-lucide="${isActive ? 'check-circle-2' : 'server'}" class="icon-sm"></i>
+            </div>
+            <div class="device-card-main">
+              <div class="device-card-title-row">
+                <span class="device-card-name">${name}</span>
+                ${isActive ? '<span class="device-card-badge">当前设备</span>' : ''}
+              </div>
+              <div class="device-card-endpoint">${endpoint}</div>
+              ${desc}
+            </div>
+            <div class="device-card-status">
+              <span class="device-status-dot ${si.cls}"></span>
+              <span>${si.text}</span>
+            </div>
+          </div>
+          <div class="device-card-actions">
+            <button type="button" class="device-action-btn" onclick="checkServer('${s.id}')">检测</button>
+            ${!isActive ? `<button type="button" class="device-action-btn device-action-btn-primary" onclick="activateServer('${s.id}')">切换</button>` : ''}
+            <button type="button" class="device-action-btn" onclick="showEditServerModal('${s.id}')">编辑</button>
+            <button type="button" class="device-action-btn device-action-btn-danger" onclick="deleteServer('${s.id}')">删除</button>
+          </div>
+        </article>`;
     }).join('') + '</div>';
     if (window.lucide) lucide.createIcons();
-  } catch(e) { container.innerHTML = '<div class="empty-state"><div class="title" style="color:#ef4444">Load failed: ' + e.message + '</div></div>'; }
+  } catch (e) {
+    container.innerHTML = `<div class="devices-empty"><div class="devices-empty-title" style="color:#dc2626">加载失败</div><div class="devices-empty-desc">${_escapeHtml(e.message)}</div></div>`;
+  }
 }
 
 // Server form functions
 let _editingServerId = null;
-function showAddServerModal() { _editingServerId = null; const m = document.getElementById('serverFormModal'); if(!m)return; document.getElementById('serverFormTitle').textContent='Add Device'; document.getElementById('serverFormSubmitBtn').textContent='Add'; ['sf_name','sf_ip','sf_token','sf_session','sf_desc'].forEach(id=>document.getElementById(id).value=''); document.getElementById('sf_port').value='18789'; m.style.display='flex'; }
-function showEditServerModal(id) { const s = _serversCache.servers.find(x=>x.id==id); if(!s)return; _editingServerId=id; document.getElementById('serverFormTitle').textContent='Edit Device'; document.getElementById('serverFormSubmitBtn').textContent='Update'; document.getElementById('sf_name').value=s.name||''; document.getElementById('sf_ip').value=s.ip||''; document.getElementById('sf_port').value=s.openclawPort||18789; document.getElementById('sf_token').value=s.openclawToken||''; document.getElementById('sf_session').value=s.openclawSession||''; document.getElementById('sf_desc').value=s.description||''; document.getElementById('serverFormModal').style.display='flex'; }
-function closeServerFormModal() { const m=document.getElementById('serverFormModal'); if(m)m.style.display='none'; }
+function showAddServerModal() {
+  _editingServerId = null;
+  const m = document.getElementById('serverFormModal');
+  if (!m) return;
+  document.getElementById('serverFormTitle').textContent = '添加设备';
+  document.getElementById('serverFormSubmitBtn').textContent = '添加';
+  ['sf_name', 'sf_ip', 'sf_token', 'sf_session', 'sf_desc'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('sf_port').value = '18789';
+  m.classList.add('show');
+}
+function showEditServerModal(id) {
+  const s = _serversCache.servers.find((x) => x.id == id);
+  if (!s) return;
+  _editingServerId = id;
+  document.getElementById('serverFormTitle').textContent = '编辑设备';
+  document.getElementById('serverFormSubmitBtn').textContent = '保存';
+  document.getElementById('sf_name').value = s.name || '';
+  document.getElementById('sf_ip').value = s.ip || '';
+  document.getElementById('sf_port').value = s.openclawPort || 18789;
+  document.getElementById('sf_token').value = s.openclawToken || '';
+  document.getElementById('sf_session').value = s.openclawSession || '';
+  document.getElementById('sf_desc').value = s.description || '';
+  document.getElementById('serverFormModal').classList.add('show');
+}
+function closeServerFormModal() {
+  const m = document.getElementById('serverFormModal');
+  if (m) m.classList.remove('show');
+}
 
 async function submitServerForm() {
   const ip = document.getElementById('sf_ip').value.trim();
