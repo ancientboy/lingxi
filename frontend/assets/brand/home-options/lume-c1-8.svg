@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" aria-label="C1-8 chubby smile">
+  <path d="M 24 16 L 33 20 L 33 30 L 24 34 L 15 30 L 15 20 Z" stroke="currentColor" stroke-width="2.1" stroke-linejoin="round"/>
+  <circle cx="19.5" cy="24" r="2.55" fill="currentColor"/>
+  <circle cx="28.5" cy="24" r="2.55" fill="currentColor"/>
+  <path d="M 18.5 29.5 Q 24 33 29.5 29.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+</svg>

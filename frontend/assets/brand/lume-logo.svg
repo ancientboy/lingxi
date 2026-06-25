@@ -1,11 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 48" fill="none" aria-label="Lume">
-  <g transform="translate(2,4)">
-    <path d="M28 8.5c2.8 2.1 4.6 5.2 5.1 8.6" stroke="#3d6b62" stroke-width="2" stroke-linecap="round" opacity="0.22"/>
-    <path d="M31.5 10.5c1.8 2.2 2.6 5 2.3 7.8" stroke="#3d6b62" stroke-width="2" stroke-linecap="round" opacity="0.14"/>
-    <circle cx="28" cy="15" r="8.5" fill="#3d6b62" opacity="0.12"/>
-    <circle cx="28" cy="15" r="4.25" fill="#3d6b62"/>
-    <rect x="10" y="12" width="6" height="18" rx="3" fill="#3d6b62"/>
-    <rect x="10" y="27" width="16" height="6" rx="3" fill="#3d6b62"/>
+  <g transform="translate(0,4)">
+    <path d="M 24 13 L 32 18 L 32 28 L 24 33 L 16 28 L 16 18 Z" stroke="#3d6b62" stroke-width="1.9" stroke-linejoin="round"/>
+    <circle cx="21" cy="22.5" r="2.4" fill="#3d6b62"/>
+    <path d="M 19.5 27.8 Q 23.5 30.5 27.5 27.8" stroke="#3d6b62" stroke-width="1.5" stroke-linecap="round"/>
+    <circle cx="27.2" cy="23.8" r="1.65" fill="#3d6b62" opacity="0.5"/>
   </g>
   <text x="52" y="33" font-family="'DM Sans', system-ui, -apple-system, sans-serif" font-size="26" font-weight="600" fill="#0c0c0c" letter-spacing="-0.03em">Lume</text>
 </svg>

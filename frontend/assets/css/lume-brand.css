@@ -1,5 +1,5 @@
 /**
- * Lume standalone mark — animation layers (use with inline SVG or lume-brand.js)
+ * Lume standalone mark — C1-13 hive nest animation
  */
 
 .lume-mark {
@@ -8,61 +8,43 @@
   flex-shrink: 0;
 }
 
-.lume-mark--animate .lume-glow-core {
-  transform-origin: 28px 15px;
+.lume-mark--animate .lume-mark-nest {
+  transform-origin: 24px 23px;
   transform-box: fill-box;
 }
 
-.lume-mark--animate .lume-glow-halo {
-  transform-origin: 28px 15px;
+.lume-mark--animate .lume-mark-partner-dot {
+  transform-origin: 27.2px 23.8px;
   transform-box: fill-box;
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .lume-mark--animate .lume-glow-core {
-    animation: lume-breathe 2.6s ease-in-out infinite;
+  .lume-mark--animate .lume-mark-nest {
+    animation: lume-nest-breathe 3.2s ease-in-out infinite;
   }
 
-  .lume-mark--animate .lume-glow-halo {
-    animation: lume-halo 2.6s ease-in-out infinite;
+  .lume-mark--animate .lume-mark-partner-dot {
+    animation: lume-partner-peek 2.8s ease-in-out infinite;
   }
 
-  .lume-mark--animate .lume-ray-1 {
-    animation: lume-ray-a 3.4s ease-in-out infinite;
-  }
-
-  .lume-mark--animate .lume-ray-2 {
-    animation: lume-ray-b 3.8s ease-in-out infinite;
-  }
-
-  .lume-mark--animate .lume-ray-3 {
-    animation: lume-ray-c 3.1s ease-in-out infinite;
+  .lume-mark--animate .lume-mark-smile {
+    animation: lume-smile-soft 3.2s ease-in-out infinite;
   }
 }
 
-@keyframes lume-breathe {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.06); opacity: 0.92; }
+@keyframes lume-nest-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
 }
 
-@keyframes lume-halo {
-  0%, 100% { transform: scale(1); opacity: 0.12; }
-  50% { transform: scale(1.18); opacity: 0.2; }
+@keyframes lume-partner-peek {
+  0%, 100% { transform: translate(0, 0); opacity: 0.45; }
+  50% { transform: translate(0.6px, -0.5px); opacity: 0.72; }
 }
 
-@keyframes lume-ray-a {
-  0%, 100% { opacity: 0.18; }
-  50% { opacity: 0.32; }
-}
-
-@keyframes lume-ray-b {
-  0%, 100% { opacity: 0.1; }
-  50% { opacity: 0.22; }
-}
-
-@keyframes lume-ray-c {
-  0%, 100% { opacity: 0.14; }
-  50% { opacity: 0.26; }
+@keyframes lume-smile-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.88; }
 }
 
 .login-brand-mark,

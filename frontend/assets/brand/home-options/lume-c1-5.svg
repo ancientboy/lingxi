@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" aria-label="C1-5 happy arc eyes">
+  <path d="M 24 13 L 32 18 L 32 28 L 24 33 L 16 28 L 16 18 Z" stroke="currentColor" stroke-width="1.85" stroke-linejoin="round"/>
+  <path d="M 18.5 22.5 Q 20.5 20.5 22.5 22.5" stroke="currentColor" stroke-width="1.65" stroke-linecap="round"/>
+  <path d="M 25.5 22.5 Q 27.5 20.5 29.5 22.5" stroke="currentColor" stroke-width="1.65" stroke-linecap="round"/>
+  <path d="M 19.5 27.5 Q 24 30.8 28.5 27.5" stroke="currentColor" stroke-width="1.55" stroke-linecap="round"/>
+</svg>

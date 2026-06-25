@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" aria-label="C1-4 baby proportions">
+  <path d="M 24 12.5 L 32.5 17.5 L 32.5 28.5 L 24 34 L 15.5 28.5 L 15.5 17.5 Z" stroke="currentColor" stroke-width="1.85" stroke-linejoin="round"/>
+  <circle cx="19.5" cy="23.5" r="2.5" fill="currentColor"/>
+  <circle cx="28.5" cy="23.5" r="2.5" fill="currentColor"/>
+  <circle cx="24" cy="29.2" r="1.35" fill="currentColor" opacity="0.55"/>
+</svg>
