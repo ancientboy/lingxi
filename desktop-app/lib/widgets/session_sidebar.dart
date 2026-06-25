@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../models/lume_session.dart';
 import '../services/auth_storage.dart';
@@ -51,15 +50,13 @@ class _SessionSidebarState extends State<SessionSidebar> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final name = widget.session.displayName ?? 'Lume';
     final filtered = _filtered;
 
     return Container(
       width: 260,
-      decoration: const BoxDecoration(
-        color: LumeColors.bgCard,
-        border: Border(right: BorderSide(color: LumeColors.border)),
-      ),
+      color: LumeColors.bg,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -72,10 +69,9 @@ class _SessionSidebarState extends State<SessionSidebar> {
                 Expanded(
                   child: Text(
                     'Lume',
-                    style: GoogleFonts.dmSans(
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
                       fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: LumeColors.text1,
                       height: 1,
                     ),
                   ),
@@ -96,11 +92,6 @@ class _SessionSidebarState extends State<SessionSidebar> {
                 onPressed: widget.onNewChat,
                 icon: const Icon(Icons.add_rounded, size: 18),
                 label: const Text('新对话'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: LumeColors.accent,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                ),
               ),
             ),
           ),
@@ -109,26 +100,13 @@ class _SessionSidebarState extends State<SessionSidebar> {
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: TextField(
               onChanged: (v) => setState(() => _query = v),
-              style: const TextStyle(fontSize: 13),
-              decoration: InputDecoration(
+              style: theme.textTheme.bodyMedium?.copyWith(fontSize: 13),
+              decoration: lumeFilledDecoration(
                 hintText: '搜索对话…',
-                hintStyle: TextStyle(color: LumeColors.text3, fontSize: 13),
-                prefixIcon: Icon(Icons.search_rounded, size: 20, color: LumeColors.text3),
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                filled: true,
-                fillColor: LumeColors.bg,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: LumeColors.border),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: LumeColors.border),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: LumeColors.accent),
+                prefixIcon: Icon(
+                  Icons.search_rounded,
+                  size: 20,
+                  color: LumeColors.text3,
                 ),
               ),
             ),
@@ -138,10 +116,10 @@ class _SessionSidebarState extends State<SessionSidebar> {
             padding: const EdgeInsets.symmetric(horizontal: 14),
             child: Text(
               '历史对话',
-              style: GoogleFonts.dmSans(
-                fontSize: 12,
+              style: theme.textTheme.labelSmall?.copyWith(
                 fontWeight: FontWeight.w600,
                 color: LumeColors.text3,
+                letterSpacing: 0.2,
               ),
             ),
           ),
@@ -164,9 +142,8 @@ class _SessionSidebarState extends State<SessionSidebar> {
                   child: Text(
                     widget.error!,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
+                    style: theme.textTheme.bodySmall?.copyWith(
                       color: LumeColors.danger,
-                      fontSize: 12,
                     ),
                   ),
                 ),
@@ -177,7 +154,9 @@ class _SessionSidebarState extends State<SessionSidebar> {
               child: Center(
                 child: Text(
                   _query.isEmpty ? '暂无对话' : '没有匹配的对话',
-                  style: const TextStyle(color: LumeColors.text3, fontSize: 12),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: LumeColors.text3,
+                  ),
                 ),
               ),
             )
@@ -186,22 +165,21 @@ class _SessionSidebarState extends State<SessionSidebar> {
               child: ListView.separated(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 itemCount: filtered.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 4),
+                separatorBuilder: (_, _) => const SizedBox(height: 2),
                 itemBuilder: (context, index) {
                   final item = filtered[index];
                   final active = item.key == widget.selectedKey;
                   return Material(
-                    color: active
-                        ? LumeColors.accent.withValues(alpha: 0.08)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(10),
+                    color: active ? LumeColors.fill : Colors.transparent,
+                    borderRadius: BorderRadius.circular(8),
                     child: InkWell(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(8),
+                      hoverColor: LumeColors.fillHover.withValues(alpha: 0.6),
                       onTap: () => widget.onSelect(item),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 10,
-                          vertical: 10,
+                          vertical: 9,
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -210,21 +188,20 @@ class _SessionSidebarState extends State<SessionSidebar> {
                               item.title,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
+                              style: theme.textTheme.bodyMedium?.copyWith(
                                 fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: active
-                                    ? LumeColors.accent
-                                    : LumeColors.text1,
+                                fontWeight:
+                                    active ? FontWeight.w600 : FontWeight.w500,
+                                color: LumeColors.text1,
                               ),
                             ),
                             if (item.preview.isNotEmpty) ...[
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 3),
                               Text(
                                 item.preview,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
+                                style: theme.textTheme.bodySmall?.copyWith(
                                   fontSize: 11,
                                   color: LumeColors.text3,
                                 ),
@@ -243,18 +220,20 @@ class _SessionSidebarState extends State<SessionSidebar> {
             color: Colors.transparent,
             child: InkWell(
               onTap: widget.onOpenSettings,
+              hoverColor: LumeColors.fill,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 child: Row(
                   children: [
                     CircleAvatar(
                       radius: 16,
-                      backgroundColor: LumeColors.accent.withValues(alpha: 0.12),
+                      backgroundColor: LumeColors.fill,
                       child: Text(
                         name.isNotEmpty ? name[0].toUpperCase() : 'L',
-                        style: const TextStyle(
-                          color: LumeColors.accent,
-                          fontWeight: FontWeight.w700,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: LumeColors.text1,
+                          fontWeight: FontWeight.w600,
                           fontSize: 13,
                         ),
                       ),
@@ -268,9 +247,9 @@ class _SessionSidebarState extends State<SessionSidebar> {
                             name,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 13,
+                            style: theme.textTheme.bodyMedium?.copyWith(
                               fontWeight: FontWeight.w600,
+                              fontSize: 13,
                             ),
                           ),
                           if (widget.session.email != null)
@@ -278,7 +257,7 @@ class _SessionSidebarState extends State<SessionSidebar> {
                               widget.session.email!,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: theme.textTheme.bodySmall?.copyWith(
                                 fontSize: 11,
                                 color: LumeColors.text3,
                               ),
@@ -286,7 +265,7 @@ class _SessionSidebarState extends State<SessionSidebar> {
                         ],
                       ),
                     ),
-                    const Icon(
+                    Icon(
                       Icons.settings_outlined,
                       size: 18,
                       color: LumeColors.text3,

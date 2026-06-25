@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/lume_theme.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 /// C1-13 hive nest mark (partner peek).
@@ -24,8 +25,8 @@ class LumeMark extends StatelessWidget {
       'assets/brand/lume-mark.svg',
       width: glyphSize,
       height: glyphSize,
-      colorFilter: ColorFilter.mode(
-        Theme.of(context).colorScheme.primary,
+      colorFilter: const ColorFilter.mode(
+        LumeColors.brandMark,
         BlendMode.srcIn,
       ),
     );

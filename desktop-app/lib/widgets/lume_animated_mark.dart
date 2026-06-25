@@ -85,7 +85,7 @@ class _LumeAnimatedMarkState extends State<LumeAnimatedMark>
 
   @override
   Widget build(BuildContext context) {
-    final color = widget.color ?? LumeColors.accent;
+    final color = widget.color ?? LumeColors.brandMark;
     final glyph = widget.badge ? widget.size * 0.68 : widget.size;
 
     Widget paintMark(_LumeMarkPainter painter) {

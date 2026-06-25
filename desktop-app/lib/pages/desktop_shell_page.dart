@@ -23,6 +23,7 @@ import '../widgets/openclaw_setup_wizard.dart';
 import '../widgets/settings_sheet.dart';
 import '../widgets/web_chat_view.dart';
 import '../widgets/workspace_panel.dart';
+import '../theme/lume_theme.dart';
 
 /// Native three-column shell: sessions | chat | workspace (Cursor / Web layout).
 class DesktopShellPage extends StatefulWidget {
@@ -442,6 +443,7 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
         child: Focus(
           autofocus: true,
           child: Scaffold(
+            backgroundColor: LumeColors.bg,
             body: Row(
               children: [
                 SessionSidebar(

@@ -4,12 +4,16 @@
  */
 
 :root {
-  /* Tokens from lume-tokens.css — no green override */
+  /* 克制品牌色：低饱和墨绿，避免「荧光工具感」 */
+  --accent: #3d6b62;
+  --accent-h: #2f554d;
+  --accent-soft: rgba(61, 107, 98, 0.06);
+  --accent-ring: rgba(61, 107, 98, 0.14);
 
-  --bg: #ffffff;
-  --bg-sidebar: #f3f3f3;
-  --border: #e5e5e5;
-  --border-sub: #ebebeb;
+  --bg: #f8f9fa;
+  --bg-sidebar: #f3f4f6;
+  --border: #e5e7eb;
+  --border-sub: #f0f1f3;
 
   --content-max: 720px;
   --composer-radius: 26px;
@@ -19,7 +23,7 @@
 
 /* ===== 主舞台 ===== */
 .main-content {
-  background: var(--bg);
+  background: linear-gradient(165deg, var(--bg) 0%, #ffffff 42%, #fafafa 100%);
   min-height: 0;
 }
 
@@ -161,7 +165,7 @@
 }
 
 .home-chip:hover {
-  border-color: var(--border);
+  border-color: rgba(13, 148, 136, 0.35);
   box-shadow: var(--shadow-sm);
   transform: translateY(-1px);
   background: #fff;
@@ -175,8 +179,8 @@
 .home-chip-tag {
   font-size: 10px;
   font-weight: 600;
-  color: var(--text-2);
-  background: var(--bg-hover);
+  color: var(--accent);
+  background: var(--accent-soft);
   padding: 3px 8px;
   border-radius: 999px;
   flex-shrink: 0;
@@ -237,8 +241,10 @@
   border-bottom: none;
 }
 
-.sidebar-brand-mark.lume-mark-badge {
+.sidebar-brand-mark {
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
 }
 
 .sidebar-new-chat {
@@ -297,8 +303,8 @@
 }
 
 .sidebar-shortcut-btn.active .sidebar-shortcut-icon {
-  background: rgba(0, 0, 0, 0.06);
-  color: var(--text-1);
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 .session-group-header {
@@ -497,7 +503,7 @@
 }
 
 .sidebar-menu-item:hover .icon-sm {
-  color: var(--text-1);
+  color: var(--accent);
   opacity: 1;
 }
 
@@ -1033,6 +1039,6 @@ html[data-theme="dark"] .sidebar-shortcut-icon {
 
 body[data-theme="dark"] .sidebar-credits-pill,
 html[data-theme="dark"] .sidebar-credits-pill {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(13, 148, 136, 0.15);
+  border-color: rgba(13, 148, 136, 0.25);
 }

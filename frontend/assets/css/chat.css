@@ -7,33 +7,33 @@
 
 @import url('lume-tokens.css');
 
-/* ===== DESIGN TOKENS (Cursor light) ===== */
+/* ===== DESIGN TOKENS ===== */
 :root {
-  --bg:          #ffffff;
-  --bg-sidebar:  #f3f3f3;
+  --bg:          #fafaf9;
+  --bg-sidebar:  #f5f5f4;
   --bg-card:     #ffffff;
-  --bg-hover:    #e8e8e8;
-  --bg-input:    #ffffff;
+  --bg-hover:    #f5f5f4;
+  --bg-input:    #fafaf9;
 
-  --border:      #e5e5e5;
-  --border-sub:  #ebebeb;
+  --border:      #e7e5e4;
+  --border-sub:  #f0efee;
 
-  --text-1:      #26251e;
-  --text-2:      #616161;
-  --text-3:      #8c8c8c;
+  --text-1:      #0c0c0c;
+  --text-2:      #525252;
+  --text-3:      #a3a3a3;
   --text-inv:    #ffffff;
 
   /* accent from lume-tokens.css */
 
-  --radius:      10px;
+  --radius:      12px;
   --radius-sm:   8px;
-  --radius-lg:   12px;
-  --radius-xl:   16px;
+  --radius-lg:   16px;
+  --radius-xl:   20px;
 
-  --shadow-xs:   0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow-sm:   0 1px 3px rgba(0, 0, 0, 0.06);
-  --shadow-md:   0 4px 12px rgba(0, 0, 0, 0.08);
-  --shadow-lg:   0 12px 40px rgba(0, 0, 0, 0.1);
+  --shadow-xs:   0 1px 2px rgba(0,0,0,0.03);
+  --shadow-sm:   0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.03);
+  --shadow-md:   0 4px 12px rgba(0,0,0,0.06);
+  --shadow-lg:   0 12px 40px rgba(0,0,0,0.08);
 
   --font-display: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-body:    'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -96,13 +96,12 @@ body::-webkit-scrollbar { display: none; }
 .sidebar-header { padding: 8px 12px 12px; }
 .sidebar-new-chat {
   width: 100%; padding: 9px 16px;
-  background: var(--text-1); border: none; border-radius: var(--radius-sm);
+  background: var(--accent); border: none; border-radius: var(--radius-sm);
   color: white; font-size: 13px; font-weight: 600; font-family: var(--font-display);
   cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
-  transition: background 0.15s;
-  box-shadow: none;
+  transition: background 0.15s, box-shadow 0.15s;
 }
-.sidebar-new-chat:hover { background: var(--accent-h); box-shadow: none; }
+.sidebar-new-chat:hover { background: var(--accent-h); box-shadow: 0 2px 8px var(--accent-ring); }
 
 /* Shortcuts */
 .sidebar-shortcuts { display: flex; flex-direction: column; gap: 1px; padding: 4px 10px 8px; }
@@ -137,7 +136,7 @@ body::-webkit-scrollbar { display: none; }
 .sidebar-user:hover, .sidebar-user-trigger:hover { background: var(--bg-hover); }
 
 .sidebar-user-avatar {
-  width: 32px; height: 32px; background: var(--text-1); border-radius: 50%;
+  width: 32px; height: 32px; background: var(--accent); border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   color: white; font-size: 13px; font-weight: 600;
   font-family: var(--font-display);
@@ -380,8 +379,8 @@ body::-webkit-scrollbar { display: none; }
   cursor: pointer; transition: all 0.15s;
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
-.send-btn:not(.hidden) { background: var(--text-1); }
-.send-btn:not(.hidden):hover { background: var(--accent-h); transform: none; }
+.send-btn:not(.hidden) { background: var(--accent); }
+.send-btn:not(.hidden):hover { background: var(--accent-h); transform: scale(1.05); }
 .send-btn.hidden { display: none; }
 
 .input-bottom { display: flex; align-items: center; justify-content: space-between; padding: 4px 6px 8px; }

@@ -8,38 +8,38 @@
 
 @import url('lume-tokens.css');
 
-/* ===== TOKENS (Cursor light) ===== */
+/* ===== TOKENS ===== */
 :root {
-  --bg:          #ffffff;
-  --bg-sidebar:  #f3f3f3;
+  --bg:          #fafaf9;
+  --bg-sidebar:  #f5f5f4;
   --bg-card:     #ffffff;
-  --bg-hover:    #e8e8e8;
-  --bg-input:    #ffffff;
+  --bg-hover:    #f5f5f4;
+  --bg-input:    #fafaf9;
 
-  --border:      #e5e5e5;
-  --border-sub:  #ebebeb;
+  --border:      #e7e5e4;
+  --border-sub:  #f0efee;
 
-  --text-1:      #26251e;
-  --text-2:      #616161;
-  --text-3:      #8c8c8c;
+  --text-1:      #0c0c0c;
+  --text-2:      #525252;
+  --text-3:      #a3a3a3;
   --text-inv:    #ffffff;
 
   /* accent from lume-tokens.css */
 
-  --danger:      #e51400;
+  --danger:      #ef4444;
   --danger-soft: #fef2f2;
-  --warn:        #bf8803;
-  --info:        #0066b8;
+  --warn:        #f59e0b;
+  --info:        #3b82f6;
 
-  --radius:      10px;
+  --radius:      12px;
   --radius-sm:   8px;
-  --radius-lg:   12px;
-  --radius-xl:   16px;
+  --radius-lg:   16px;
+  --radius-xl:   20px;
 
-  --shadow-xs:   0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow-sm:   0 1px 3px rgba(0, 0, 0, 0.06);
-  --shadow-md:   0 4px 12px rgba(0, 0, 0, 0.08);
-  --shadow-lg:   0 12px 40px rgba(0, 0, 0, 0.1);
+  --shadow-xs:   0 1px 2px rgba(0,0,0,0.03);
+  --shadow-sm:   0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.03);
+  --shadow-md:   0 4px 12px rgba(0,0,0,0.06);
+  --shadow-lg:   0 12px 40px rgba(0,0,0,0.08);
 
   --font-display: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-body:    'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -62,8 +62,8 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-a { color: var(--focus); text-decoration: none; transition: color var(--transition); }
-a:hover { color: var(--focus-h); }
+a { color: var(--accent); text-decoration: none; transition: color var(--transition); }
+a:hover { color: var(--accent-h); }
 
 /* ===== SHARED LAYOUT ===== */
 .page-wrap {
@@ -99,7 +99,7 @@ a:hover { color: var(--focus-h); }
   cursor: pointer; transition: color var(--transition);
   margin-bottom: 20px; padding: 4px 0;
 }
-.back-nav:hover { color: var(--focus); }
+.back-nav:hover { color: var(--accent); }
 .back-nav svg { width: 16px; height: 16px; }
 
 /* ===== CARDS ===== */

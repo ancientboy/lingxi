@@ -299,7 +299,7 @@ class _LoginPageState extends State<LoginPage> {
           }),
           child: Text(
             '更换邮箱',
-            style: TextStyle(color: LumeColors.accent, fontSize: 13),
+            style: TextStyle(color: LumeColors.focus, fontSize: 13),
           ),
         ),
       ],
@@ -339,7 +339,7 @@ class _LoginPageState extends State<LoginPage> {
           }),
           child: Text(
             '改用邮箱验证码',
-            style: TextStyle(color: LumeColors.accent, fontSize: 13),
+            style: TextStyle(color: LumeColors.focus, fontSize: 13),
           ),
         ),
       ],

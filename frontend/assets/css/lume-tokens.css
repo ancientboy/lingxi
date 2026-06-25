@@ -1,22 +1,12 @@
 /**
- * Lume Design Tokens — Cursor IDE inspired palette
- * Neutral canvas + ink primary actions; brand green reserved for logo mark.
+ * Lume Design Tokens — single source for accent & neutrals
+ * Import in lume.css and chat.css (chat may override layout tokens only)
  */
 :root {
-  /* Primary UI — near-black ink (Cursor / VS Code light) */
-  --accent:      #26251e;
-  --accent-h:    #1a1a1a;
-  --accent-soft: rgba(38, 37, 30, 0.06);
-  --accent-ring: rgba(38, 37, 30, 0.12);
-  --accent-muted: rgba(38, 37, 30, 0.45);
-  --accent-gradient: linear-gradient(135deg, #26251e 0%, #1a1a1a 100%);
-
-  /* Links & focus ring — VS Code blue */
-  --focus:       #0066b8;
-  --focus-h:     #005a9e;
-  --focus-soft:  rgba(0, 102, 184, 0.1);
-  --border-focus: #0066b8;
-
-  /* Logo mark only — hive nest green */
-  --brand-mark:  #3d6b62;
+  --accent:      #3d6b62;
+  --accent-h:    #2f554d;
+  --accent-soft: rgba(61, 107, 98, 0.08);
+  --accent-ring: rgba(61, 107, 98, 0.14);
+  --accent-muted: rgba(61, 107, 98, 0.45);
+  --accent-gradient: linear-gradient(135deg, #3d6b62 0%, #2f554d 100%);
 }
