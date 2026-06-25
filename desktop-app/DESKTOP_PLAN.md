@@ -1,56 +1,129 @@
-# Lume 桌面端开发计划
+# Lume 原生 Mac 桌面端计划
 
-## 背景
+## 目标
 
-- 144 服务器上旧 `flutter-app` **源码已残缺**（无 `pubspec.yaml` / `main.dart`，无完整 `macos/Runner`），但 **Android APK 仍可打包**（`lume-v1.9.4.apk`）。
-- Web 端已统一为 Lume 新视觉（墨绿 `#3d6b62`）。
-- **本期范围**：连接 **lumeword.cn 云端**；本地 OpenClaw 设备管理放到后期。
+在 **lumeword.cn 云端** 之上，交付可安装的 **原生 Mac 客户端**：
 
-## 技术路线
+- 原生登录、窗口、菜单、会话管理
+- 聊天主界面与 Web **功能一致**（P0–P2 用 WebView 加载 `chat.html`）
+- 逐步把高频模块做成原生 UI（P3+）
 
-| 阶段 | 目标 | 说明 |
+本地 OpenClaw / 多设备管理 → **P4（后期）**。
+
+---
+
+## 阶段总览
+
+| 阶段 | 目标 | 状态 |
 |------|------|------|
-| **P0（当前）** | 可编译的 macOS 工程 + 登录 + 主界面 | Flutter `desktop-app/`，WebView 加载与 Web 一致的 `chat.html` |
-| **P1** | Mac `.app` / `.dmg` 发布 | 在你本机 `flutter build macos`，CI/Codemagic 可选 |
-| **P2** | 原生体验增强 | 窗口管理、深链、离线缓存、系统通知 |
-| **P3** | 逐步原生替换 | 从 6000 行旧 `chat_page.dart` 备份中按需迁移模块 |
-| **P4（后期）** | 本地 OpenClaw | 多服务器、Gateway WS、设备切换 |
+| **P0** | 可编译 macOS 工程 + 登录 + WebView 聊天 | 🔄 进行中 |
+| **P1** | `.app` / `.dmg` 发布与 CI | ✅ CI 已有，随 P0 验收后打 tag |
+| **P2** | 原生体验增强 | 📋 待做 |
+| **P3** | 模块化原生替换聊天 | 📋 待做 |
+| **P4** | 本地 OpenClaw | 📋 后期 |
 
-**P0 采用 WebView 壳**：与浏览器 UI 100% 一致，避免在源码丢失情况下重写整套原生聊天。
+---
+
+## P0 — 可运行壳（当前迭代）
+
+### 交付项
+
+- [x] Flutter `desktop-app/` + 完整 `macos/Runner`
+- [x] C1-13 品牌 Logo 资产
+- [x] macOS 默认窗口 1200×800、最小 900×620
+- [x] Debug 网络 entitlement（WebView 可联网）
+- [ ] **邮箱验证码登录**（与 Web 一致）
+- [ ] **密码登录**（邮箱/昵称 + 密码）
+- [ ] WebView 注入 `lingxi_token` / `lingxi_user`
+- [ ] `flutter analyze` 无 error
+- [ ] Mac `flutter run -d macos` 全流程：登录 → 聊天 → 退出
+
+### 技术要点
+
+- `AuthService`: `/api/auth/send-code`, `/verify-code`, `/login`, `/verify`
+- `WebAppPage`: WKWebView + `localStorage` 注入
+- `chat.html?desktop=1` 隐藏 Web 内重复顶栏（若适用）
+
+---
+
+## P1 — 发布
+
+- [x] GitHub Actions `macos-desktop.yml`
+- [x] `scripts/build-macos-dmg.sh` → `Lume-mac.dmg`
+- [ ] AppIcon 全套 PNG（1024→16）
+- [ ] 网站 `downloads/version.json` 与 Release 同步
+- [ ] 首次启动引导（可选）
+
+---
+
+## P2 — 原生体验增强
+
+- `window_manager`：记住窗口大小、标题栏样式
+- 系统通知（新消息，需 Gateway/推送通道）
+- 深链 `lume://` 打开会话
+- 离线：登录态缓存 + WebView 静态资源降级
+- 菜单栏：刷新、打开设置、关于 Lume
+- 键盘快捷键（刷新 Cmd+R、退出 Cmd+Q 已有系统菜单）
+
+---
+
+## P3 — 逐步原生化（按模块）
+
+优先级建议：
+
+1. **侧栏会话列表**（原生 List + API）
+2. **消息输入框**（原生，WebView 仅消息区或逐步替换）
+3. **设置 / 订阅 / Token**（原生 Web 或混合）
+4. **Agent 团队 / 办公区**（视 API 成熟度）
+
+旧 144 服务器 `flutter-app/lib/chat_page.dart.bak` 可作参考，按需迁移，**不整包回滚**。
+
+---
+
+## P4 — 本地 OpenClaw（后期）
+
+- 可配置 Gateway 地址（`LUME_API_ORIGIN` / 设备列表）
+- 局域网 Gateway WebSocket
+- 与云端账号关系、数据同步策略
+
+---
 
 ## 仓库结构
 
 ```
 desktop-app/
   lib/
-    config/app_config.dart      # API / Web 根地址
-    theme/lume_theme.dart       # 与 Web token 对齐
-    services/auth_service.dart  # 登录、token 持久化
-    pages/login_page.dart       # 原生登录
-    pages/web_app_page.dart     # WebView 主界面
+    config/app_config.dart
+    theme/lume_theme.dart
+    services/auth_service.dart
+    services/auth_storage.dart
+    widgets/lume_mark.dart
+    pages/login_page.dart      # 原生登录（验证码 + 密码）
+    pages/web_app_page.dart    # WebView 主界面
     main.dart
-  macos/                        # 完整 Runner.xcodeproj（可 build macos）
-  windows/ linux/               # 后续可编桌面版
+  assets/brand/lume-mark.svg
+  macos/
 ```
 
-## P0 验收标准
+---
 
-- [ ] `flutter pub get` / `dart analyze` 无错误
-- [ ] Mac 上 `flutter run -d macos` 可启动
-- [ ] 邮箱+密码登录 lumeword.cn
-- [ ] 登录后进入聊天页，session / 发消息与 Web 一致
-- [ ] 退出登录返回原生登录页
-
-## Mac 本机构建
+## 本机构建
 
 ```bash
 cd desktop-app
 flutter pub get
-flutter run -d macos          # 调试
-flutter build macos           # 产物: build/macos/Build/Products/Release/lume_desktop.app
+flutter analyze
+flutter run -d macos
+flutter build macos --release
+# 产物: build/macos/Build/Products/Release/Lume.app
+bash ../scripts/build-macos-dmg.sh
 ```
 
-## 与旧移动端工程关系
+环境变量：`--dart-define=LUME_API_ORIGIN=https://lumeword.cn`
 
-- 旧包名 `lingxicloud`、备份在 144 `flutter-app/lib/*.bak`。
-- 新桌面工程包名 `lume_desktop`，稳定后可考虑合并或作为 `desktop-app` 子目录独立演进。
+---
+
+## 与旧工程
+
+- 旧 `flutter-app`（144）：源码残缺，仅 APK 可参考
+- 新工程包名 `lume_desktop`，独立演进于 `desktop-app/`

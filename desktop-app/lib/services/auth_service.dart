@@ -12,14 +12,77 @@ class AuthException implements Exception {
   String toString() => message;
 }
 
+class SendCodeResult {
+  SendCodeResult({required this.retryAfter});
+  final int retryAfter;
+}
+
 class AuthService {
-  Future<AuthSession> login({required String email, required String password}) async {
+  Future<SendCodeResult> sendEmailCode(String email) async {
+    final response = await http.post(
+      Uri.parse(AppConfig.sendCodeApi),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email.trim().toLowerCase()}),
+    );
+
+    Map<String, dynamic> body;
+    try {
+      body = jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (_) {
+      throw AuthException('服务器响应异常');
+    }
+
+    if (response.statusCode == 429) {
+      throw AuthException(
+        body['error']?.toString() ?? '发送过于频繁，请稍后再试',
+      );
+    }
+
+    if (response.statusCode != 200 || body['success'] != true) {
+      throw AuthException(body['error']?.toString() ?? '发送验证码失败');
+    }
+
+    return SendCodeResult(retryAfter: body['retryAfter'] as int? ?? 60);
+  }
+
+  Future<AuthSession> verifyEmailCode({
+    required String email,
+    required String code,
+    String? inviteCode,
+  }) async {
+    final response = await http.post(
+      Uri.parse(AppConfig.verifyCodeApi),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'email': email.trim().toLowerCase(),
+        'code': code.trim(),
+        if (inviteCode != null && inviteCode.trim().isNotEmpty)
+          'inviteCode': inviteCode.trim(),
+      }),
+    );
+
+    return _sessionFromAuthResponse(response);
+  }
+
+  Future<AuthSession> loginWithPassword({
+    required String identifier,
+    required String password,
+  }) async {
+    final trimmed = identifier.trim();
+    final payload = isValidEmail(trimmed)
+        ? {'email': trimmed, 'password': password}
+        : {'nickname': trimmed, 'password': password};
+
     final response = await http.post(
       Uri.parse(AppConfig.loginApi),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'email': email.trim(), 'password': password}),
+      body: jsonEncode(payload),
     );
 
+    return _sessionFromAuthResponse(response);
+  }
+
+  Future<AuthSession> _sessionFromAuthResponse(http.Response response) async {
     Map<String, dynamic> body;
     try {
       body = jsonDecode(response.body) as Map<String, dynamic>;
@@ -58,5 +121,9 @@ class AuthService {
     } catch (_) {
       return false;
     }
+  }
+
+  static bool isValidEmail(String value) {
+    return RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(value);
   }
 }

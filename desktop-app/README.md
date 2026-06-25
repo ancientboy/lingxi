@@ -39,7 +39,8 @@ bash scripts/build-macos-dmg.sh
 
 ## 架构
 
-- **P0**：原生登录 + WebView 加载 `https://lumeword.cn/chat.html`（与 Web UI 一致）
+- **P0**：原生登录（邮箱验证码 + 密码）+ WebView `chat.html?desktop=1`
+- **品牌**：C1-13 蜂巢巢室 Logo
 - 详见 [DESKTOP_PLAN.md](./DESKTOP_PLAN.md)
 
 ## 环境变量
