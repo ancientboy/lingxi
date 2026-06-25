@@ -7,13 +7,14 @@ class MainFlutterWindow: NSWindow {
     self.contentViewController = flutterViewController
 
     // Match Flutter splash background (#FAFAF9) before first frame paints.
-    flutterViewController.view.wantsLayer = true
-    flutterViewController.view.layer?.backgroundColor = NSColor(
+    let splashBackground = NSColor(
       red: 250.0 / 255.0,
       green: 250.0 / 255.0,
       blue: 249.0 / 255.0,
       alpha: 1.0
     )
+    flutterViewController.view.wantsLayer = true
+    flutterViewController.view.layer?.backgroundColor = splashBackground.cgColor
 
     let defaultSize = NSSize(width: 1200, height: 800)
     if let screenFrame = NSScreen.main?.visibleFrame {
@@ -27,12 +28,7 @@ class MainFlutterWindow: NSWindow {
 
     self.minSize = NSSize(width: 900, height: 620)
     self.title = "Lume"
-    self.backgroundColor = NSColor(
-      red: 250.0 / 255.0,
-      green: 250.0 / 255.0,
-      blue: 249.0 / 255.0,
-      alpha: 1.0
-    )
+    self.backgroundColor = splashBackground
 
     RegisterGeneratedPlugins(registry: flutterViewController)
 
