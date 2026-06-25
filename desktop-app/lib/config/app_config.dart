@@ -16,6 +16,11 @@ class AppConfig {
   static String get verifyApi => '$apiOrigin/api/auth/verify';
   static String get meApi => '$apiOrigin/api/auth/me';
   static String get sessionsApi => '$apiOrigin/api/lume-ws/sessions';
+  static String get openclawBootstrapApi => '$apiOrigin/api/desktop/openclaw-bootstrap';
+  static String get openclawBootstrapCompleteApi =>
+      '$apiOrigin/api/desktop/openclaw-bootstrap/complete';
+
+  static const String openclawBundleVersion = '2026.6.9';
 
   static const String tokenKey = 'lingxi_token';
   static const String userKey = 'lingxi_user';

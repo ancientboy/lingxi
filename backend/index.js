@@ -143,6 +143,9 @@ app.use('/api/subscription', subscriptionRoutes);
 import userRoutes from './routes/user.js';
 app.use('/api/user', userRoutes);
 
+import desktopRoutes from './routes/desktop.js';
+app.use('/api/desktop', desktopRoutes);
+
 import lumeWsRoutes from './routes/lume-ws.js';
 app.use('/api/lume', lumeWsRoutes);
 

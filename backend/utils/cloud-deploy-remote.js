@@ -8,6 +8,7 @@ import {
   OPENCLAW_OSS_URL,
   NODE_OSS_URL,
   LUME_PLUGIN_PORT,
+  OPENCLAW_PORT,
 } from './openclaw-deploy-constants.js';
 
 function authProfilesObject(zhipuKey, dashscopeKey) {
@@ -105,7 +106,13 @@ else
     echo "⚠️ 未找到 Lume 插件目录，跳过 npm install"
 fi
 
-echo "7️⃣ 写入 allowedOrigins (服务器 IP)..."
+echo "7️⃣ 开放本机防火墙端口 (18789 / ${LUME_PLUGIN_PORT})..."
+if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active"; then
+    ufw allow ${OPENCLAW_PORT}/tcp 2>/dev/null || true
+    ufw allow ${LUME_PLUGIN_PORT}/tcp 2>/dev/null || true
+fi
+
+echo "8️⃣ 写入 allowedOrigins (服务器 IP)..."
 SERVER_IP="${serverIp || ''}"
 if [ -n "$SERVER_IP" ]; then
 python3 << PYEOF
@@ -126,19 +133,19 @@ print("allowedOrigins updated")
 PYEOF
 fi
 
-echo "8️⃣ 写入 auth-profiles.json (平台 API Keys)..."
+echo "9️⃣ 写入 auth-profiles.json (平台 API Keys)..."
 mkdir -p ~/.openclaw/agents/main/agent
 echo '${authB64}' | base64 -d > ~/.openclaw/agents/main/auth-profiles.json
 cp ~/.openclaw/agents/main/auth-profiles.json ~/.openclaw/agents/main/agent/auth-profiles.json
 
-echo "9️⃣ 启动 OpenClaw Gateway..."
+echo "10️⃣ 启动 OpenClaw Gateway..."
 pkill -f "openclaw gateway" 2>/dev/null || true
 sleep 2
 cd ~/.openclaw
 nohup openclaw gateway > /var/log/openclaw.log 2>&1 &
 sleep 4
 
-echo "10️⃣ 检查 Gateway 与 Lume 插件..."
+echo "11️⃣ 检查 Gateway 与 Lume 插件..."
 if pgrep -f "openclaw gateway" > /dev/null; then
     echo "✅ OpenClaw Gateway 运行中"
     ss -tlnp | grep 18789 || true

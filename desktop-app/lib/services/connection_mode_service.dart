@@ -19,6 +19,13 @@ class ConnectionModeService {
     await prefs.setString(_modeKey, mode.storageValue);
   }
 
+  /// 首次启动按云端策略写入默认连接模式（未手动设置时）。
+  Future<void> ensureDefaultMode(String defaultFromApi) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.containsKey(_modeKey)) return;
+    await saveMode(ConnectionModeLabels.fromStorage(defaultFromApi));
+  }
+
   /// Resolve user preference + local probe into an effective target.
   Future<({ConnectionMode preference, EffectiveConnection effective, LocalOpenClawStatus status})>
       resolve() async {
@@ -61,12 +68,14 @@ class ConnectionModeService {
   Map<String, String> desktopStorageEntries({
     required EffectiveConnection effective,
     required String userId,
+    String? lumeSecret,
   }) {
+    final secret = lumeSecret ?? AppConfig.lumeWsSecret;
     return {
       AppConfig.desktopConnectionModeKey:
           effective == EffectiveConnection.local ? 'local' : 'cloud',
       AppConfig.desktopWsUrlKey: wsUrlFor(effective),
-      AppConfig.desktopLumeSecretKey: AppConfig.lumeWsSecret,
+      AppConfig.desktopLumeSecretKey: secret,
       AppConfig.desktopUserIdKey: userId,
     };
   }

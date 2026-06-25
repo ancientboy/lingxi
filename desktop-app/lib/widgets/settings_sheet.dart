@@ -20,6 +20,7 @@ Future<void> showLumeSettingsSheet(
   EffectiveConnection? effectiveConnection,
   LocalOpenClawStatus? localStatus,
   Future<void> Function(ConnectionMode mode)? onConnectionModeChanged,
+  Future<void> Function()? onInstallOpenClaw,
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -36,6 +37,7 @@ Future<void> showLumeSettingsSheet(
       effectiveConnection: effectiveConnection,
       localStatus: localStatus,
       onConnectionModeChanged: onConnectionModeChanged,
+      onInstallOpenClaw: onInstallOpenClaw,
     ),
   );
 }
@@ -49,6 +51,7 @@ class _SettingsSheet extends StatefulWidget {
     this.effectiveConnection,
     this.localStatus,
     this.onConnectionModeChanged,
+    this.onInstallOpenClaw,
   });
 
   final AuthSession session;
@@ -58,6 +61,7 @@ class _SettingsSheet extends StatefulWidget {
   final EffectiveConnection? effectiveConnection;
   final LocalOpenClawStatus? localStatus;
   final Future<void> Function(ConnectionMode mode)? onConnectionModeChanged;
+  final Future<void> Function()? onInstallOpenClaw;
 
   @override
   State<_SettingsSheet> createState() => _SettingsSheetState();
@@ -144,6 +148,10 @@ class _SettingsSheetState extends State<_SettingsSheet> {
   }
 
   Future<void> _openOpenClawInstall() async {
+    if (widget.onInstallOpenClaw != null) {
+      await widget.onInstallOpenClaw!();
+      return;
+    }
     final uri = Uri.parse(AppConfig.openClawInstallUrl);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -303,7 +311,7 @@ class _SettingsSheetState extends State<_SettingsSheet> {
               leading:
                   const Icon(Icons.info_outline_rounded, color: LumeColors.text2),
               title: const Text('关于 Lume'),
-              subtitle: const Text('桌面客户端 v1.5.0 · 本机 / 云端 OpenClaw'),
+              subtitle: const Text('桌面客户端 v1.6.0 · 本机优先 / 云端可选'),
             ),
             const SizedBox(height: 8),
             OutlinedButton.icon(

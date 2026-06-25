@@ -17,6 +17,7 @@ import fs from 'fs';
 import { generateCloudPackage } from '../utils/cloud-deploy-package.js';
 import { buildCloudRemoteDeployScript } from '../utils/cloud-deploy-remote.js';
 import { isPaidSubscription, paidSubscriptionError } from '../utils/subscription-utils.js';
+import { LUME_PLUGIN_PORT } from '../utils/openclaw-deploy-constants.js';
 
 const router = Router();
 
@@ -181,6 +182,8 @@ async function deployServerAsync(serverId, taskId, openclawToken, openclawSessio
     await updateTask(taskId, 10, '正在创建阿里云 ECS 实例...');
     
     const client = createEcsClient();
+
+    await ensureSecurityGroupPorts(client);
     
     // 优先使用自定义镜像（预装 Node.js 22 + OpenClaw）
     const customImageId = process.env.ALIYUN_CUSTOM_IMAGE_ID;
@@ -386,6 +389,41 @@ async function deployServerAsync(serverId, taskId, openclawToken, openclawSessio
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/** 确保安全组放行 Gateway 与 Lume 插件端口（云端 lume-ws 代理需连 18790） */
+async function ensureSecurityGroupPorts(client) {
+  const sgId = config.aliyun.securityGroupId || process.env.ALIYUN_SECURITY_GROUP_ID;
+  if (!sgId) {
+    console.log('⚠️ 未配置 ALIYUN_SECURITY_GROUP_ID，跳过安全组端口放行');
+    return;
+  }
+
+  const ports = [OPENCLAW_PORT, LUME_PLUGIN_PORT];
+  for (const port of ports) {
+    try {
+      await client.authorizeSecurityGroup(
+        new Ecs.AuthorizeSecurityGroupRequest({
+          regionId: config.aliyun.region,
+          securityGroupId: sgId,
+          nicType: 'internet',
+          ipProtocol: 'tcp',
+          portRange: `${port}/${port}`,
+          sourceCidrIp: '0.0.0.0/0',
+          policy: 'accept',
+          priority: '1',
+        }),
+      );
+      console.log(`✅ 安全组已放行 TCP ${port}`);
+    } catch (err) {
+      const msg = err?.message || String(err);
+      if (/already|duplicate|InvalidPermission\.Duplicate/i.test(msg)) {
+        console.log(`ℹ️ 安全组端口 ${port} 规则已存在`);
+      } else {
+        console.log(`⚠️ 安全组放行 ${port} 失败: ${msg}`);
+      }
+    }
+  }
 }
 
 async function waitForSSH(host, port, password, timeout = 120000) {
