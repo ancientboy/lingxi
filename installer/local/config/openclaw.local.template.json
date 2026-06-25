@@ -1,0 +1,29 @@
+{
+  "meta": {
+    "lastTouchedVersion": "PLACEHOLDER_OPENCLAW_VERSION",
+    "description": "Lume 本机 OpenClaw 模板 — 不含 API Key，由桌面向导 bootstrap 写入"
+  },
+  "env": {
+    "ZHIPU_API_KEY": "",
+    "DASHSCOPE_API_KEY": ""
+  },
+  "auth": {
+    "profiles": {
+      "zhipu:default": { "provider": "zhipu", "mode": "api_key" },
+      "alibaba-cloud:default": { "provider": "alibaba-cloud", "mode": "api_key" }
+    }
+  },
+  "gateway": {
+    "port": 18789,
+    "mode": "local",
+    "bind": "loopback",
+    "controlUi": {
+      "enabled": true,
+      "basePath": "SESSION_ID_PLACEHOLDER",
+      "allowedOrigins": ["http://localhost", "https://lumeword.cn", "http://127.0.0.1"],
+      "allowInsecureAuth": true
+    },
+    "auth": { "mode": "token", "token": "GATEWAY_TOKEN_PLACEHOLDER" }
+  },
+  "plugins": { "entries": {} }
+}

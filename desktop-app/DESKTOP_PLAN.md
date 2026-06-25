@@ -26,6 +26,14 @@ Web 左右重复栏已隐藏；工具视图（办公区 / 技能库等）仍在�
 
 ## P4 本地 OpenClaw（对照 OneClaw）
 
+### 部署包分离（2026-06）
+
+| 路径 | 用途 |
+|------|------|
+| `installer/cloud/` | 付费用户 ECS/SSH → `releases/cloud/` |
+| `installer/local/` | 桌面本机内置 → `releases/local/` |
+| `backend/routes/deploy.js` | 仅云端 SSH 部署 |
+
 ### 架构
 
 ```
