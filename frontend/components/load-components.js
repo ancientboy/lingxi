@@ -2,7 +2,7 @@
  * 统一组件加载器
  */
 
-const COMPONENT_VERSION = '20260625e';
+const COMPONENT_VERSION = '20260626conn';
 
 async function refreshChatSidebarAfterComponentsLoad() {
   if (!window.sessions?.length && typeof loadLumeSessions === 'function') {
@@ -61,6 +61,7 @@ async function loadComponent(containerId, componentPath) {
       container.innerHTML = html;
       if (window.lucide) lucide.createIcons();
       if (window.LumeBrand) window.LumeBrand.mountLumeMarks();
+      if (window.LumeConnection) window.LumeConnection.refreshUi();
     }
   } catch (error) {
     console.error(`Error loading component ${componentPath}:`, error);

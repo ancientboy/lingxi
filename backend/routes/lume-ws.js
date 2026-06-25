@@ -36,7 +36,38 @@ function probeLumePort(host, port = LUME_PORT, timeoutMs = PROBE_TIMEOUT_MS) {
   });
 }
 
-/** Lume OpenClaw 插件 WebSocket 连接信息（订阅用户，跟随活跃设备） */
+function buildCloudWsUrl(req, jwtToken) {
+  const proto = req.headers["x-forwarded-proto"] || req.protocol || "https";
+  const wsProto = proto === "https" ? "wss" : "ws";
+  const hostHeader =
+    req.headers["x-forwarded-host"] || req.headers.host || "lumeword.cn";
+  return `${wsProto}://${hostHeader}/api/lume-ws?token=${encodeURIComponent(jwtToken)}`;
+}
+
+function buildRoutingContext(db, user) {
+  const userServer = getActiveServer(db, user.id);
+  const hasCloudServer = Boolean(userServer?.ip);
+  const cloudServerRunning =
+    userServer?.status === "running" && Boolean(userServer?.ip);
+  const recommendLocalFirst = !cloudServerRunning;
+  const defaultConnectionMode = cloudServerRunning ? "cloud" : "auto";
+  const localWsUrl = `ws://127.0.0.1:${LUME_PORT}`;
+
+  return {
+    userId: user.id,
+    hasCloudServer,
+    cloudServerRunning,
+    recommendLocalFirst,
+    defaultConnectionMode,
+    localWsUrl,
+    localSecret: LUME_SECRET,
+    serverId: userServer?.id || user.activeServerId || null,
+    serverIp: userServer?.ip || null,
+    serverName: userServer?.name || null,
+  };
+}
+
+/** Lume OpenClaw 插件 WebSocket 连接信息（本机 / 云端路由 + 付费云端代理） */
 router.get("/connect-info", async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith("Bearer ")) {
@@ -64,26 +95,31 @@ router.get("/connect-info", async (req, res) => {
       !sub.endDate ||
       new Date(sub.endDate) > new Date());
 
+  const routing = buildRoutingContext(db, user);
+  const jwtToken = authHeader.substring(7);
+
   if (!isPaid) {
     return res.json({
       success: true,
-      data: { mode: "free", lumeAvailable: false, wsUrl: null, secret: null },
+      data: {
+        mode: "free",
+        lumeAvailable: false,
+        wsUrl: null,
+        secret: null,
+        authHandled: false,
+        ...routing,
+        cloudWsUrl: null,
+      },
     });
   }
 
-  const userServer = getActiveServer(db, user.id);
   const host =
-    userServer?.ip ||
+    routing.serverIp ||
     process.env.LUME_WS_HOST ||
     "120.55.192.144";
 
   const lumeAvailable = await probeLumePort(host, LUME_PORT);
-
-  const proto = req.headers["x-forwarded-proto"] || req.protocol || "https";
-  const wsProto = proto === "https" ? "wss" : "ws";
-  const hostHeader = req.headers["x-forwarded-host"] || req.headers.host || "lumeword.cn";
-  const jwtToken = authHeader.substring(7);
-  const wsUrl = `${wsProto}://${hostHeader}/api/lume-ws?token=${encodeURIComponent(jwtToken)}`;
+  const wsUrl = buildCloudWsUrl(req, jwtToken);
 
   res.json({
     success: true,
@@ -91,12 +127,11 @@ router.get("/connect-info", async (req, res) => {
       mode: "lume",
       lumeAvailable,
       wsUrl,
+      cloudWsUrl: wsUrl,
       authHandled: true,
       secret: null,
-      userId: user.id,
-      serverId: userServer?.id || user.activeServerId || null,
+      ...routing,
       serverIp: host,
-      serverName: userServer?.name || null,
     },
   });
 });
