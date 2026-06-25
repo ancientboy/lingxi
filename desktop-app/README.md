@@ -17,6 +17,13 @@ flutter build macos --release
 # 产物: build/macos/Build/Products/Release/Lume.app
 ```
 
+重新生成 App 图标（C1-13）：
+
+```bash
+python3 scripts/generate-macos-icons.py
+# 需要: pip install pillow，/tmp/pptr 下已安装 puppeteer
+```
+
 ## Mac 安装包（CI 自动构建）
 
 GitHub Actions 工作流 **Mac Desktop (DMG)**：
@@ -39,7 +46,8 @@ bash scripts/build-macos-dmg.sh
 
 ## 架构
 
-- **P0**：原生登录 + WebView 加载 `https://lumeword.cn/chat.html`（与 Web UI 一致）
+- **P0**：原生登录（邮箱验证码 + 密码）+ WebView `chat.html?desktop=1`
+- **品牌**：C1-13 蜂巢巢室 Logo
 - 详见 [DESKTOP_PLAN.md](./DESKTOP_PLAN.md)
 
 ## 环境变量

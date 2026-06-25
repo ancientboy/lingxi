@@ -7,8 +7,9 @@ import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 import '../config/app_config.dart';
 import '../services/auth_storage.dart';
 import '../theme/lume_theme.dart';
+import '../widgets/lume_mark.dart';
 
-/// Full-screen WebView for lumeword.cn chat — matches Web UI.
+/// WebView chat shell — lumeword.cn chat.html with native chrome.
 class WebAppPage extends StatefulWidget {
   const WebAppPage({
     super.key,
@@ -64,7 +65,7 @@ class _WebAppPageState extends State<WebAppPage> {
     await _injectSession();
     if (!mounted || gen != _loadGeneration) return;
 
-  if (!_authInjected) {
+    if (!_authInjected) {
       _authInjected = true;
       await _controller.loadRequest(Uri.parse(AppConfig.chatUrl));
     }
@@ -81,6 +82,7 @@ class _WebAppPageState extends State<WebAppPage> {
         try {
           localStorage.setItem('$tokenKey', $tokenJs);
           localStorage.setItem('$userKey', $userJs);
+          document.documentElement.classList.add('lume-desktop');
         } catch (e) {
           console.error('Lume desktop auth inject failed', e);
         }
@@ -95,12 +97,23 @@ class _WebAppPageState extends State<WebAppPage> {
         title: const Text('退出登录'),
         content: const Text('确定要退出当前账号吗？'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('退出')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('退出'),
+          ),
         ],
       ),
     );
     if (ok == true) widget.onLogout();
+  }
+
+  void _refresh() {
+    _authInjected = false;
+    _controller.loadRequest(Uri.parse(AppConfig.chatUrl));
   }
 
   @override
@@ -109,15 +122,18 @@ class _WebAppPageState extends State<WebAppPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(name),
+        title: Row(
+          children: [
+            const LumeMark(size: 22),
+            const SizedBox(width: 10),
+            Text(name),
+          ],
+        ),
         actions: [
           IconButton(
             tooltip: '刷新',
             icon: const Icon(Icons.refresh_rounded),
-            onPressed: () {
-              _authInjected = false;
-              _controller.loadRequest(Uri.parse(AppConfig.chatUrl));
-            },
+            onPressed: _refresh,
           ),
           IconButton(
             tooltip: '退出',
