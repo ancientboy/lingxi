@@ -1,6 +1,6 @@
 /**
- * Lume brand mark — standalone SVG (no background box).
- * Layers are named for CSS / future motion (Claude-style idle glow).
+ * Lume brand mark — C1-13 hive nest (partner peek).
+ * Layers: nest cell, face, partner dot — for CSS idle motion.
  */
 (function () {
   const MARK_VIEWBOX = '0 0 48 48';
@@ -9,18 +9,15 @@
     const animClass = animate ? ' lume-mark--animate' : '';
     return (
       `<svg class="lume-mark${animClass}" width="${size}" height="${size}" viewBox="${MARK_VIEWBOX}" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">` +
-      '<g class="lume-mark-rays">' +
-      '<path class="lume-ray lume-ray-1" d="M28 8.5c2.8 2.1 4.6 5.2 5.1 8.6" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.22"/>' +
-      '<path class="lume-ray lume-ray-2" d="M31.5 10.5c1.8 2.2 2.6 5 2.3 7.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.14"/>' +
-      '<path class="lume-ray lume-ray-3" d="M25 6.5c1.5 1.2 2.6 2.8 3.2 4.6" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" opacity="0.18"/>' +
+      '<g class="lume-mark-nest">' +
+      '<path class="lume-mark-cell" d="M 24 13 L 32 18 L 32 28 L 24 33 L 16 28 L 16 18 Z" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/>' +
       '</g>' +
-      '<g class="lume-mark-light">' +
-      '<circle class="lume-glow-halo" cx="28" cy="15" r="8.5" fill="currentColor" opacity="0.12"/>' +
-      '<circle class="lume-glow-core" cx="28" cy="15" r="4.25" fill="currentColor"/>' +
+      '<g class="lume-mark-face">' +
+      '<circle class="lume-mark-eye" cx="21" cy="22.5" r="2.4" fill="currentColor"/>' +
+      '<path class="lume-mark-smile" d="M 19.5 27.8 Q 23.5 30.5 27.5 27.8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
       '</g>' +
-      '<g class="lume-mark-body">' +
-      '<rect class="lume-mark-stem" x="10" y="12" width="6" height="18" rx="3" fill="currentColor"/>' +
-      '<rect class="lume-mark-foot" x="10" y="27" width="16" height="6" rx="3" fill="currentColor"/>' +
+      '<g class="lume-mark-partner">' +
+      '<circle class="lume-mark-partner-dot" cx="27.2" cy="23.8" r="1.65" fill="currentColor" opacity="0.5"/>' +
       '</g>' +
       '</svg>'
     );

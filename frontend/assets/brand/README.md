@@ -1,6 +1,6 @@
 # Lume Brand Assets
 
-**Standalone lumen mark** — no background square. Designed for motion (layered SVG + CSS).
+**Hive nest mark (C1-13)** — hex cell home + partner peek. No background box.
 
 | File | Use |
 |------|-----|
@@ -16,14 +16,16 @@
 <span data-lume-mark="32"></span>
 ```
 
-Idle animation: glow pulse + ray shimmer (respects `prefers-reduced-motion`).
+Idle animation: nest breathe + partner peek (respects `prefers-reduced-motion`).
 
 Disable animation: `data-lume-mark-animate="false"`
 
-## Layers (for future Lottie / GSAP)
+## Layers
 
-- `#lume-mark-body` — L stem + foot
-- `#lume-mark-light` — core + halo
-- `#lume-mark-rays` — three ray paths
+- `#lume-mark-nest` — hex cell outline
+- `#lume-mark-face` — eye + smile
+- `#lume-mark-partner` — peeking partner dot
 
-Do **not** use a boxed letter **L** or `lume-mark-square.svg` (removed).
+Story: **蜂巢巢室是家，伙伴在巢里探头等你。**
+
+Exploration drafts: `home-options/` (not all shipped).

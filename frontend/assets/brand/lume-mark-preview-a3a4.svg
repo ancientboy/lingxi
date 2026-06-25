@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" aria-label="Lume mark preview (A3+A4)">
+  <!-- PREVIEW ONLY  not deployed until approved -->
+  <g class="lume-rays">
+    <path class="lume-ray lume-ray-1" d="M26 7.5c2.4 2.2 3.8 5 4.2 8.2" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" opacity="0.2"/>
+    <path class="lume-ray lume-ray-2" d="M30.5 9.5c1.6 2.4 2.2 5.2 1.8 8" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" opacity="0.14"/>
+    <path class="lume-ray lume-ray-3" d="M22 6c1.2 1.4 2 3.2 2.4 5.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.16"/>
+    <path class="lume-ray lume-ray-4" d="M33 12.5c1.8 1.6 2.8 3.8 2.6 6.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.12"/>
+  </g>
+  <!-- A3: subtle team satellites -->
+  <g class="lume-satellites">
+    <circle class="lume-sat lume-sat-1" cx="19.5" cy="17" r="1.65" fill="currentColor" opacity="0.55"/>
+    <circle class="lume-sat lume-sat-2" cx="32" cy="19.5" r="1.35" fill="currentColor" opacity="0.4"/>
+  </g>
+  <!-- A4: organic glow -->
+  <g class="lume-light">
+    <circle class="lume-glow-halo" cx="24" cy="20" r="10.5" fill="currentColor" opacity="0.1"/>
+    <circle class="lume-glow-mid" cx="24" cy="20" r="6.5" fill="currentColor" opacity="0.18"/>
+    <ellipse class="lume-glow-core" cx="24" cy="20" rx="4.6" ry="4.1" fill="currentColor"/>
+  </g>
+</svg>

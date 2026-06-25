@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" aria-label="Lume hive C1 single cell">
+  <path d="M 24 13 L 32 18 L 32 28 L 24 33 L 16 28 L 16 18 Z" stroke="currentColor" stroke-width="1.85" stroke-linejoin="round"/>
+  <circle cx="21" cy="23" r="1.9" fill="currentColor" opacity="0.55"/>
+  <circle cx="27" cy="23" r="1.9" fill="currentColor" opacity="0.55"/>
+</svg>

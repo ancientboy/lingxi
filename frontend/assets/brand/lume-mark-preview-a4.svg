@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" aria-label="Lume A4 preview">
+  <!-- A4: organic soft glow  hand refined -->
+  <g stroke="currentColor" stroke-linecap="round">
+    <path d="M24 6.8c1.8 2.2 2.8 4.8 3 7.6" stroke-width="1.6" opacity="0.2"/>
+    <path d="M28.8 9c1.4 2.2 1.8 4.8 1.4 7.4" stroke-width="1.5" opacity="0.14"/>
+    <path d="M19.8 8.2c1.2 1.5 1.8 3.4 2 5.4" stroke-width="1.5" opacity="0.16"/>
+    <path d="M32.5 13.2c1.6 1.4 2.4 3.2 2.2 5.2" stroke-width="1.4" opacity="0.11"/>
+    <path d="M16.5 12.8c1 1.2 1.4 2.6 1.2 4.2" stroke-width="1.35" opacity="0.12"/>
+  </g>
+  <circle cx="24" cy="22" r="11.2" fill="currentColor" opacity="0.08"/>
+  <circle cx="24" cy="22" r="7.2" fill="currentColor" opacity="0.14"/>
+  <ellipse cx="24" cy="22" rx="4.8" ry="4.2" fill="currentColor" opacity="0.92"/>
+  <ellipse cx="23.2" cy="21.2" rx="2.2" ry="1.9" fill="#fafaf9" opacity="0.22"/>
+</svg>

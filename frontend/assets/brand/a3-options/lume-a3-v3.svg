@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" aria-label="Lume A3 v3 softer star wider ring gap">
+  <path d="M 32 11.5 A 18 18 0 1 1 32 36.5" stroke="currentColor" stroke-width="1.45" stroke-linecap="round"/>
+  <path d="M 16 36.5 A 18 18 0 1 1 16 11.5" stroke="currentColor" stroke-width="1.45" stroke-linecap="round"/>
+  <circle cx="30.6" cy="15.4" r="2" fill="currentColor" opacity="0.88"/>
+  <path fill="currentColor" d="M24 5.5Q26.2 19.2 32.2 23.2Q26.6 26.8 24 42.2Q21.4 26.8 15.8 23.2Q21.8 19.2 24 5.5Z"/>
+</svg>

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" aria-label="C1-12 mascot bee home">
+  <path d="M 24 15 L 30.5 18.5 L 30.5 27.5 L 24 31 L 17.5 27.5 L 17.5 18.5 Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+  <circle cx="20.5" cy="22" r="2.25" fill="currentColor"/>
+  <circle cx="27.5" cy="22" r="2.25" fill="currentColor"/>
+  <path d="M 19.5 27.5 Q 24 30.5 28.5 27.5" stroke="currentColor" stroke-width="1.55" stroke-linecap="round"/>
+  <path d="M 20 12.5 L 18.5 9.5" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" opacity="0.45"/>
+  <path d="M 28 12.5 L 29.5 9.5" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" opacity="0.45"/>
+  <circle cx="18.5" cy="9.2" r="1" fill="currentColor" opacity="0.4"/>
+  <circle cx="29.5" cy="9.2" r="1" fill="currentColor" opacity="0.4"/>
+</svg>

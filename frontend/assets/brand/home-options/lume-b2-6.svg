@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" aria-label="Lume B2-6 hex anchor cell">
+  <path d="M 24 15 L 30.5 18.5 L 30.5 27.5 L 24 31 L 17.5 27.5 L 17.5 18.5 Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+  <circle cx="24" cy="23" r="2.8" fill="currentColor"/>
+  <circle cx="28.8" cy="18.8" r="1.45" fill="currentColor" opacity="0.7"/>
+  <circle cx="19.2" cy="27.2" r="1.35" fill="currentColor" opacity="0.55"/>
+</svg>
