@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:window_manager/window_manager.dart';
 
 import '../app_commands.dart';
 import '../models/lume_session.dart';
 import '../services/auth_storage.dart';
 import '../services/session_service.dart';
 import '../widgets/about_lume_dialog.dart';
-import '../widgets/lume_mark.dart';
+import '../widgets/chat_composer.dart';
 import '../widgets/session_sidebar.dart';
+import '../widgets/settings_sheet.dart';
 import '../widgets/web_chat_view.dart';
 
-/// Native shell: session sidebar + WebView chat (P3 slice).
+/// Native shell: session sidebar + WebView messages + native composer.
 class DesktopShellPage extends StatefulWidget {
   const DesktopShellPage({
     super.key,
@@ -33,6 +35,7 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
   bool _loadingSessions = true;
   String? _sessionError;
   String? _selectedKey;
+  bool _chatReady = false;
 
   @override
   void initState() {
@@ -41,6 +44,8 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
     AppCommands.onShowAbout = () {
       if (mounted) showLumeAboutDialog(context);
     };
+    AppCommands.onNewChat = _onNewChat;
+    AppCommands.onOpenSettings = _openSettings;
     _loadSessions();
   }
 
@@ -48,6 +53,8 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
   void dispose() {
     AppCommands.onRefresh = null;
     AppCommands.onShowAbout = null;
+    AppCommands.onNewChat = null;
+    AppCommands.onOpenSettings = null;
     super.dispose();
   }
 
@@ -64,6 +71,7 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
         _loadingSessions = false;
         _selectedKey ??= list.isNotEmpty ? list.first.key : null;
       });
+      _syncWindowTitle();
     } on SessionException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -79,6 +87,20 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
     }
   }
 
+  void _syncWindowTitle() {
+    if (_selectedKey == null) {
+      windowManager.setTitle('Lume');
+      return;
+    }
+    final match = _sessions.where((s) => s.key == _selectedKey).toList();
+    if (match.isEmpty) {
+      windowManager.setTitle('Lume');
+      return;
+    }
+    final title = match.first.title.trim();
+    windowManager.setTitle(title.isEmpty ? 'Lume' : title);
+  }
+
   void _refreshAll() {
     _chatKey.currentState?.reloadChat();
     _loadSessions();
@@ -86,13 +108,39 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
 
   Future<void> _onSelectSession(LumeSession item) async {
     setState(() => _selectedKey = item.key);
+    _syncWindowTitle();
     await _chatKey.currentState?.switchToSession(item.key);
   }
 
   Future<void> _onNewChat() async {
     await _chatKey.currentState?.createNewSession();
+    setState(() => _selectedKey = null);
+    windowManager.setTitle('新对话');
     await Future.delayed(const Duration(milliseconds: 400));
     _loadSessions();
+  }
+
+  Future<void> _onSendMessage(String text) async {
+    final ok = await _chatKey.currentState?.sendUserMessage(text) ?? false;
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('发送失败，请稍后重试'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    await Future.delayed(const Duration(milliseconds: 500));
+    _loadSessions();
+  }
+
+  void _openSettings() {
+    showLumeSettingsSheet(
+      context,
+      session: widget.session,
+      onLogout: () => _confirmLogout(),
+    );
   }
 
   Future<void> _confirmLogout() async {
@@ -116,14 +164,23 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
     if (ok == true) widget.onLogout();
   }
 
+  void _onChatReady() {
+    if (!_chatReady) {
+      setState(() => _chatReady = true);
+    }
+    _loadSessions();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final name = widget.session.displayName ?? 'Lume';
-
     return Shortcuts(
       shortcuts: {
         LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.keyR):
             const RefreshIntent(),
+        LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.keyN):
+            const NewChatIntent(),
+        LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.comma):
+            const OpenSettingsIntent(),
       },
       child: Actions(
         actions: {
@@ -133,34 +190,26 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
               return null;
             },
           ),
+          NewChatIntent: CallbackAction<NewChatIntent>(
+            onInvoke: (_) {
+              _onNewChat();
+              return null;
+            },
+          ),
+          OpenSettingsIntent: CallbackAction<OpenSettingsIntent>(
+            onInvoke: (_) {
+              _openSettings();
+              return null;
+            },
+          ),
         },
         child: Focus(
           autofocus: true,
           child: Scaffold(
-            appBar: AppBar(
-              title: Row(
-                children: [
-                  const LumeMark(size: 22),
-                  const SizedBox(width: 10),
-                  Text(name),
-                ],
-              ),
-              actions: [
-                IconButton(
-                  tooltip: '刷新 (⌘R)',
-                  icon: const Icon(Icons.refresh_rounded),
-                  onPressed: _refreshAll,
-                ),
-                IconButton(
-                  tooltip: '退出',
-                  icon: const Icon(Icons.logout_rounded),
-                  onPressed: _confirmLogout,
-                ),
-              ],
-            ),
             body: Row(
               children: [
                 SessionSidebar(
+                  session: widget.session,
                   sessions: _sessions,
                   loading: _loadingSessions,
                   error: _sessionError,
@@ -168,12 +217,23 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
                   onNewChat: _onNewChat,
                   onSelect: _onSelectSession,
                   onRefresh: _loadSessions,
+                  onOpenSettings: _openSettings,
                 ),
                 Expanded(
-                  child: WebChatView(
-                    key: _chatKey,
-                    session: widget.session,
-                    onReady: _loadSessions,
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: WebChatView(
+                          key: _chatKey,
+                          session: widget.session,
+                          onReady: _onChatReady,
+                        ),
+                      ),
+                      ChatComposer(
+                        enabled: _chatReady,
+                        onSend: _onSendMessage,
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -187,4 +247,12 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
 
 class RefreshIntent extends Intent {
   const RefreshIntent();
+}
+
+class NewChatIntent extends Intent {
+  const NewChatIntent();
+}
+
+class OpenSettingsIntent extends Intent {
+  const OpenSettingsIntent();
 }

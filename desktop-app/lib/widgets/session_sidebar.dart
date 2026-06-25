@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/lume_session.dart';
+import '../services/auth_storage.dart';
 import '../theme/lume_theme.dart';
+import 'lume_mark.dart';
 
-class SessionSidebar extends StatelessWidget {
+class SessionSidebar extends StatefulWidget {
   const SessionSidebar({
     super.key,
+    required this.session,
     required this.sessions,
     required this.loading,
     required this.error,
@@ -14,8 +17,10 @@ class SessionSidebar extends StatelessWidget {
     required this.onNewChat,
     required this.onSelect,
     required this.onRefresh,
+    required this.onOpenSettings,
   });
 
+  final AuthSession session;
   final List<LumeSession> sessions;
   final bool loading;
   final String? error;
@@ -23,9 +28,32 @@ class SessionSidebar extends StatelessWidget {
   final VoidCallback onNewChat;
   final ValueChanged<LumeSession> onSelect;
   final VoidCallback onRefresh;
+  final VoidCallback onOpenSettings;
+
+  @override
+  State<SessionSidebar> createState() => _SessionSidebarState();
+}
+
+class _SessionSidebarState extends State<SessionSidebar> {
+  String _query = '';
+
+  List<LumeSession> get _filtered {
+    final q = _query.trim().toLowerCase();
+    if (q.isEmpty) return widget.sessions;
+    return widget.sessions
+        .where(
+          (s) =>
+              s.title.toLowerCase().contains(q) ||
+              s.preview.toLowerCase().contains(q),
+        )
+        .toList();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final name = widget.session.displayName ?? 'Lume';
+    final filtered = _filtered;
+
     return Container(
       width: 280,
       decoration: const BoxDecoration(
@@ -36,23 +64,25 @@ class SessionSidebar extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+            padding: const EdgeInsets.fromLTRB(14, 14, 10, 8),
             child: Row(
               children: [
+                const LumeMark(size: 24),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    '历史对话',
+                    'Lume',
                     style: GoogleFonts.dmSans(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: LumeColors.text2,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: LumeColors.text1,
                     ),
                   ),
                 ),
                 IconButton(
-                  tooltip: '刷新列表',
+                  tooltip: '刷新 (⌘R)',
                   icon: const Icon(Icons.refresh_rounded, size: 20),
-                  onPressed: onRefresh,
+                  onPressed: widget.onRefresh,
                 ),
               ],
             ),
@@ -61,19 +91,61 @@ class SessionSidebar extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: SizedBox(
               height: 40,
-              child: OutlinedButton.icon(
-                onPressed: onNewChat,
+              child: FilledButton.icon(
+                onPressed: widget.onNewChat,
                 icon: const Icon(Icons.add_rounded, size: 18),
                 label: const Text('新对话'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: LumeColors.accent,
-                  side: const BorderSide(color: LumeColors.border),
+                style: FilledButton.styleFrom(
+                  backgroundColor: LumeColors.accent,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: TextField(
+              onChanged: (v) => setState(() => _query = v),
+              style: const TextStyle(fontSize: 13),
+              decoration: InputDecoration(
+                hintText: '搜索对话…',
+                hintStyle: TextStyle(color: LumeColors.text3, fontSize: 13),
+                prefixIcon: Icon(Icons.search_rounded, size: 20, color: LumeColors.text3),
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                filled: true,
+                fillColor: LumeColors.bg,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: LumeColors.border),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: LumeColors.border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: LumeColors.accent),
                 ),
               ),
             ),
           ),
           const SizedBox(height: 8),
-          if (loading)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: Text(
+              '历史对话',
+              style: GoogleFonts.dmSans(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: LumeColors.text3,
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          if (widget.loading)
             const Expanded(
               child: Center(
                 child: SizedBox(
@@ -83,13 +155,13 @@ class SessionSidebar extends StatelessWidget {
                 ),
               ),
             )
-          else if (error != null)
+          else if (widget.error != null)
             Expanded(
               child: Center(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Text(
-                    error!,
+                    widget.error!,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: LumeColors.danger,
@@ -99,15 +171,24 @@ class SessionSidebar extends StatelessWidget {
                 ),
               ),
             )
+          else if (filtered.isEmpty)
+            Expanded(
+              child: Center(
+                child: Text(
+                  _query.isEmpty ? '暂无对话' : '没有匹配的对话',
+                  style: const TextStyle(color: LumeColors.text3, fontSize: 12),
+                ),
+              ),
+            )
           else
             Expanded(
               child: ListView.separated(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                itemCount: sessions.length,
+                itemCount: filtered.length,
                 separatorBuilder: (_, _) => const SizedBox(height: 4),
                 itemBuilder: (context, index) {
-                  final item = sessions[index];
-                  final active = item.key == selectedKey;
+                  final item = filtered[index];
+                  final active = item.key == widget.selectedKey;
                   return Material(
                     color: active
                         ? LumeColors.accent.withValues(alpha: 0.08)
@@ -115,7 +196,7 @@ class SessionSidebar extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(10),
-                      onTap: () => onSelect(item),
+                      onTap: () => widget.onSelect(item),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 10,
@@ -156,6 +237,64 @@ class SessionSidebar extends StatelessWidget {
                 },
               ),
             ),
+          const Divider(height: 1),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: widget.onOpenSettings,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 16,
+                      backgroundColor: LumeColors.accent.withValues(alpha: 0.12),
+                      child: Text(
+                        name.isNotEmpty ? name[0].toUpperCase() : 'L',
+                        style: const TextStyle(
+                          color: LumeColors.accent,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          if (widget.session.email != null)
+                            Text(
+                              widget.session.email!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: LumeColors.text3,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.settings_outlined,
+                      size: 18,
+                      color: LumeColors.text3,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );

@@ -4,4 +4,6 @@ import 'package:flutter/material.dart';
 class AppCommands {
   static VoidCallback? onRefresh;
   static VoidCallback? onShowAbout;
+  static VoidCallback? onNewChat;
+  static VoidCallback? onOpenSettings;
 }

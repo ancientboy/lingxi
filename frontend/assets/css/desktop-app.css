@@ -20,3 +20,13 @@ html.lume-desktop .main-layout {
 html.lume-desktop .chat-main {
   max-width: none;
 }
+
+/* Native Flutter composer replaces web input bar */
+html.lume-desktop #composeDock,
+html.lume-desktop .home-suggestions {
+  display: none !important;
+}
+
+html.lume-desktop .chat-container {
+  padding-bottom: 0 !important;
+}

@@ -108,6 +108,16 @@ class WebChatViewState extends State<WebChatView> {
     );
   }
 
+  Future<bool> sendUserMessage(String text) async {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return false;
+    final textJs = jsonEncode(trimmed);
+    final result = await _controller.runJavaScriptReturningResult(
+      'typeof lumeDesktopSend === "function" ? lumeDesktopSend($textJs) : false',
+    );
+    return result == true;
+  }
+
   @override
   Widget build(BuildContext context) {
     return WebViewWidget(controller: _controller);
