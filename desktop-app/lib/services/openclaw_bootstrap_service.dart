@@ -23,6 +23,11 @@ class OpenClawBootstrapService {
     try {
       body = jsonDecode(response.body) as Map<String, dynamic>;
     } catch (_) {
+      if (response.statusCode == 404) {
+        throw OpenClawBootstrapException(
+          '服务端尚未更新，请稍后重试或联系管理员',
+        );
+      }
       throw OpenClawBootstrapException('引导配置响应异常');
     }
 

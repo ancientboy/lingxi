@@ -311,7 +311,7 @@ class _SettingsSheetState extends State<_SettingsSheet> {
               leading:
                   const Icon(Icons.info_outline_rounded, color: LumeColors.text2),
               title: const Text('关于 Lume'),
-              subtitle: const Text('桌面客户端 v1.6.0 · 本机优先 / 云端可选'),
+              subtitle: const Text('桌面客户端 v1.6.1 · 本机优先 / 云端可选'),
             ),
             const SizedBox(height: 8),
             OutlinedButton.icon(

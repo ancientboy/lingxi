@@ -10,14 +10,33 @@ class SubscriptionInfo {
     required this.status,
     this.expiresAt,
     this.serverOnline = false,
+    this.hasServer = false,
   });
 
   final String plan;
   final String status;
   final String? expiresAt;
   final bool serverOnline;
+  final bool hasServer;
 
   factory SubscriptionInfo.fromJson(Map<String, dynamic> json) {
+    // GET /api/subscription/status 格式
+    if (json.containsKey('subscribed') || json.containsKey('hasServer')) {
+      final subscribed = json['subscribed'] == true;
+      final plan = (json['plan'] ?? 'free').toString();
+      final hasServer = json['hasServer'] == true;
+      final serverStatus = json['serverStatus']?.toString();
+      final online = serverStatus == 'running';
+
+      return SubscriptionInfo(
+        plan: subscribed && plan != 'free' ? plan : 'free',
+        status: subscribed ? 'active' : 'inactive',
+        serverOnline: online,
+        hasServer: hasServer,
+      );
+    }
+
+    // 旧格式兼容
     final sub = json['subscription'] as Map<String, dynamic>? ?? json;
     final server = json['server'] as Map<String, dynamic>?;
     final serverStatus = server?['status'] ?? server?['state'];
@@ -30,6 +49,7 @@ class SubscriptionInfo {
       status: (sub['status'] ?? 'active').toString(),
       expiresAt: sub['expiresAt']?.toString(),
       serverOnline: online,
+      hasServer: server != null,
     );
   }
 

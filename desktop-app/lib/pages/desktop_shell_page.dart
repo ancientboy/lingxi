@@ -13,6 +13,7 @@ import '../services/local_openclaw_service.dart';
 import '../services/openclaw_bootstrap_service.dart';
 import '../services/openclaw_setup_storage.dart';
 import '../services/session_service.dart';
+import '../services/subscription_service.dart';
 import '../services/team_service.dart';
 import '../services/workspace_state_service.dart';
 import '../widgets/about_lume_dialog.dart';
@@ -46,6 +47,7 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
   final _workspaceState = WorkspaceStateService();
   final _bootstrapService = OpenClawBootstrapService();
   final _setupStorage = OpenClawSetupStorage();
+  final _subscriptionService = SubscriptionService();
   final _connectionService = ConnectionModeService();
   final _localProbe = LocalOpenClawService();
   final _chatKey = GlobalKey<WebChatViewState>();
@@ -92,13 +94,18 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
 
       if (local.lumePluginOpen) {
         if (!setupDone) await _setupStorage.markSetupDone();
+        await _refreshConnectionAfterBootstrap();
         return;
       }
 
-      if (setupDone) return;
+      if (setupDone) {
+        await _refreshConnectionAfterBootstrap();
+        return;
+      }
 
       // 老用户已有云端：默认云端，不强制本机向导
       if (bootstrap.cloudServerRunning && !bootstrap.recommendLocalFirst) {
+        await _refreshConnectionAfterBootstrap();
         return;
       }
 
@@ -112,12 +119,30 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
 
       if (ok && mounted) {
         await _connectionService.saveMode(ConnectionMode.auto);
-        await _chatKey.currentState?.refreshConnectionAndReload();
-        setState(() {});
+        await _refreshConnectionAfterBootstrap();
       }
     } catch (_) {
-      // 网络异常时仍可使用云端模式
+      await _fallbackToCloudIfAvailable();
     }
+  }
+
+  /// 云端老用户：bootstrap 不可用时仍尝试云端连接
+  Future<void> _fallbackToCloudIfAvailable() async {
+    final info = await _subscriptionService.fetchStatus(widget.session.token);
+    final hasCloud =
+        info != null && (info.hasServer || info.serverOnline || info.plan != 'free');
+
+    if (hasCloud) {
+      await _connectionService.saveMode(ConnectionMode.cloud);
+    }
+
+    await _refreshConnectionAfterBootstrap();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _refreshConnectionAfterBootstrap() async {
+    await _chatKey.currentState?.refreshConnectionAndReload();
+    if (mounted) setState(() {});
   }
 
   @override

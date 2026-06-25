@@ -82,7 +82,15 @@ const LumeRpc = (function () {
       secret = desktopSecret || null;
       authHandledByProxy = false;
       connecting = true;
-      return await openWebSocket(desktopWs);
+      const localOk = await openWebSocket(desktopWs);
+      if (localOk) return true;
+      // 本机未就绪时回退云端（老用户 / 仅云端 ECS）
+      connecting = false;
+      connected = false;
+      try {
+        localStorage.setItem('lume_desktop_connection_mode', 'cloud');
+        localStorage.removeItem('lume_desktop_ws_url');
+      } catch (_) {}
     }
 
     connecting = true;
