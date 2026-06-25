@@ -1,0 +1,22 @@
+/**
+ * Lume macOS desktop client — hide duplicate web chrome when embedded.
+ */
+html.lume-desktop .mobile-chat-header {
+  display: none !important;
+}
+
+html.lume-desktop #sidebar,
+html.lume-desktop .sidebar-resizer,
+html.lume-desktop .sidebar-edge-expand,
+html.lume-desktop .sidebar-overlay {
+  display: none !important;
+}
+
+html.lume-desktop .main-layout {
+  /* Native app provides session sidebar */
+  grid-template-columns: 1fr !important;
+}
+
+html.lume-desktop .chat-main {
+  max-width: none;
+}

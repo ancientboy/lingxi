@@ -15,6 +15,7 @@ class AppConfig {
   static String get loginApi => '$apiOrigin/api/auth/login';
   static String get verifyApi => '$apiOrigin/api/auth/verify';
   static String get meApi => '$apiOrigin/api/auth/me';
+  static String get sessionsApi => '$apiOrigin/api/lume-ws/sessions';
 
   static const String tokenKey = 'lingxi_token';
   static const String userKey = 'lingxi_user';
