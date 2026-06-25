@@ -3,25 +3,30 @@ import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../app_commands.dart';
+import '../models/lume_model.dart';
 import '../models/lume_session.dart';
 import '../services/auth_storage.dart';
+import '../services/deep_link_service.dart';
 import '../services/session_service.dart';
 import '../widgets/about_lume_dialog.dart';
 import '../widgets/chat_composer.dart';
+import '../widgets/desktop_tools_bar.dart';
 import '../widgets/session_sidebar.dart';
 import '../widgets/settings_sheet.dart';
 import '../widgets/web_chat_view.dart';
 
-/// Native shell: session sidebar + WebView messages + native composer.
+/// Cursor / Web aligned shell: native sessions | chat center | web right rail.
 class DesktopShellPage extends StatefulWidget {
   const DesktopShellPage({
     super.key,
     required this.session,
     required this.onLogout,
+    required this.deepLinks,
   });
 
   final AuthSession session;
   final VoidCallback onLogout;
+  final DeepLinkService deepLinks;
 
   @override
   State<DesktopShellPage> createState() => _DesktopShellPageState();
@@ -36,6 +41,7 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
   String? _sessionError;
   String? _selectedKey;
   bool _chatReady = false;
+  LumeModelState? _modelState;
 
   @override
   void initState() {
@@ -46,7 +52,9 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
     };
     AppCommands.onNewChat = _onNewChat;
     AppCommands.onOpenSettings = _openSettings;
-    _loadSessions();
+
+    widget.deepLinks.setHandler(_handleDeepLink);
+    _bootstrapSessions();
   }
 
   @override
@@ -58,11 +66,26 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
     super.dispose();
   }
 
+  Future<void> _bootstrapSessions() async {
+    final cached = await _sessionService.readCachedSessions();
+    if (cached != null && cached.isNotEmpty) {
+      setState(() {
+        _sessions = cached;
+        _loadingSessions = false;
+        _selectedKey ??= cached.first.key;
+      });
+      _syncWindowTitle();
+    }
+    _loadSessions();
+  }
+
   Future<void> _loadSessions() async {
-    setState(() {
-      _loadingSessions = true;
-      _sessionError = null;
-    });
+    if (_sessions.isEmpty) {
+      setState(() {
+        _loadingSessions = true;
+        _sessionError = null;
+      });
+    }
     try {
       final list = await _sessionService.fetchSessions(widget.session.token);
       if (!mounted) return;
@@ -81,10 +104,20 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _sessionError = '加载会话失败';
+        if (_sessions.isEmpty) _sessionError = '加载会话失败';
         _loadingSessions = false;
       });
     }
+  }
+
+  Future<void> _refreshModels() async {
+    final state = await _chatKey.currentState?.getModelState();
+    if (state != null && mounted) setState(() => _modelState = state);
+  }
+
+  Future<void> _selectModel(String id) async {
+    await _chatKey.currentState?.selectModel(id);
+    await _refreshModels();
   }
 
   void _syncWindowTitle() {
@@ -139,6 +172,7 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
     showLumeSettingsSheet(
       context,
       session: widget.session,
+      token: widget.session.token,
       onLogout: () => _confirmLogout(),
     );
   }
@@ -169,6 +203,30 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
       setState(() => _chatReady = true);
     }
     _loadSessions();
+    _refreshModels();
+  }
+
+  Future<void> _handleDeepLink(DeepLinkAction action) async {
+    if (!_chatReady) {
+      await Future.delayed(const Duration(milliseconds: 800));
+    }
+    switch (action.kind) {
+      case DeepLinkKind.session:
+        if (action.sessionKey != null) {
+          setState(() => _selectedKey = action.sessionKey);
+          await _chatKey.currentState?.switchToSession(action.sessionKey!);
+          _syncWindowTitle();
+        }
+        break;
+      case DeepLinkKind.view:
+        if (action.view != null) {
+          await _chatKey.currentState?.switchView(action.view!);
+        }
+        break;
+      case DeepLinkKind.chat:
+        break;
+    }
+    await windowManager.focus();
   }
 
   @override
@@ -229,8 +287,21 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
                           onReady: _onChatReady,
                         ),
                       ),
+                      DesktopToolsBar(
+                        onWorkspace: () =>
+                            _chatKey.currentState?.switchView('workspace'),
+                        onSkills: () =>
+                            _chatKey.currentState?.switchView('skills'),
+                        onServers: () =>
+                            _chatKey.currentState?.switchView('servers'),
+                        onToggleRail: () =>
+                            _chatKey.currentState?.toggleRightRail(),
+                      ),
                       ChatComposer(
                         enabled: _chatReady,
+                        modelState: _modelState,
+                        onRefreshModels: _refreshModels,
+                        onSelectModel: _selectModel,
                         onSend: _onSendMessage,
                       ),
                     ],

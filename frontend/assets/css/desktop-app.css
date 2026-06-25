@@ -1,27 +1,34 @@
 /**
- * Lume macOS desktop client — hide duplicate web chrome when embedded.
+ * Lume macOS desktop — Cursor / Web aligned three-column layout.
+ * Flutter native left sidebar (260px) | Web chat center | Web right rail (工作台).
  */
 html.lume-desktop .mobile-chat-header {
   display: none !important;
 }
 
+/* Hide duplicate web left sidebar — native Flutter sidebar replaces it */
+html.lume-desktop #sidebar-container,
 html.lume-desktop #sidebar,
 html.lume-desktop .sidebar-resizer,
+html.lume-desktop .sidebar-overlay,
 html.lume-desktop .sidebar-edge-expand,
-html.lume-desktop .sidebar-overlay {
+html.lume-desktop .edge-expand-left {
   display: none !important;
 }
 
-html.lume-desktop .main-layout {
-  /* Native app provides session sidebar */
-  grid-template-columns: 1fr !important;
+/* Remove left margin reserved for web sidebar */
+html.lume-desktop main.main-content,
+html.lume-desktop .main-content {
+  margin-left: 0 !important;
 }
 
-html.lume-desktop .chat-main {
-  max-width: none;
+/* Keep web right rail (agent team + tools) — same as browser */
+html.lume-desktop main.main-content.has-right-rail,
+html.lume-desktop .main-content.has-right-rail {
+  /* margin-right from right-rail.css */
 }
 
-/* Native Flutter composer replaces web input bar */
+/* Native Flutter composer replaces web input */
 html.lume-desktop #composeDock,
 html.lume-desktop .home-suggestions {
   display: none !important;
@@ -29,4 +36,16 @@ html.lume-desktop .home-suggestions {
 
 html.lume-desktop .chat-container {
   padding-bottom: 0 !important;
+}
+
+/* Center messages like web / Cursor chat column */
+html.lume-desktop .chat-scroll,
+html.lume-desktop .messages {
+  max-width: var(--content-max, 720px);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+html.lume-desktop .compose-dock {
+  max-width: var(--content-max, 720px);
 }

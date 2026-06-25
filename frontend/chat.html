@@ -26,7 +26,7 @@
       document.documentElement.classList.add('lume-desktop');
     }
   </script>
-  <link rel="stylesheet" href="assets/css/desktop-app.css?v=20260625">
+  <link rel="stylesheet" href="assets/css/desktop-app.css?v=20260625b">
   <!-- Lucide Icons - 使用 cdnjs 备用源 -->
   <script src="assets/libs/lucide.min.js"></script>
   <!-- Markdown 渲染 -->
@@ -3632,6 +3632,26 @@
       return localStorage.getItem(MODEL_KEY) || 'auto';
     };
 
+    window.lumeDesktopGetModelState = function() {
+      try {
+        return JSON.stringify({
+          current: localStorage.getItem(MODEL_KEY) || 'auto',
+          models: cachedModels.filter(function(m) { return m.id !== 'auto'; }),
+          isFreeUser: isFreeUser,
+        });
+      } catch (e) {
+        return '{"current":"auto","models":[],"isFreeUser":true}';
+      }
+    };
+
+    window.lumeDesktopSelectModel = function(modelId) {
+      if (typeof window.selectModel === 'function') {
+        window.selectModel(modelId);
+        return true;
+      }
+      return false;
+    };
+
     initModelSelector();
   })();
   </script>
@@ -3639,7 +3659,7 @@
   <script src="assets/js/lume-dialog.js?v=20260624n"></script>
   <script src="assets/js/lume-rpc.js?v=20260624x"></script>
   <script src="assets/js/chat-lume.js?v=20260624x"></script>
-  <script src="assets/js/chat.js?v=20260625"></script>
+  <script src="assets/js/chat.js?v=20260625b"></script>
 
     <!-- 统一组件加载器 -->
     <script src="components/load-components.js?v=20260625d"></script>

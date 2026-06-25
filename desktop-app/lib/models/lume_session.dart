@@ -31,4 +31,11 @@ class LumeSession {
       updatedAt: json['updatedAt']?.toString(),
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'key': key,
+        'title': title,
+        'preview': preview,
+        'updatedAt': updatedAt,
+      };
 }
