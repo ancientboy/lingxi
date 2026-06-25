@@ -27,26 +27,17 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           password: ${{ secrets.DEPLOY_PASSWORD }}
           port: ${{ secrets.DEPLOY_PORT || 22 }}
+          script_stop: true
           script: |
             set -e
             cd /home/admin/.openclaw/workspace/lingxi-cloud
-            PREV=$$(git rev-parse HEAD)
             git fetch origin main
             git reset --hard origin/main
             cd backend
             rm -rf node_modules
             npm install --no-audit --no-fund
             pm2 restart lingxi-cloud || pm2 start index.js --name lingxi-cloud
-            sleep 5
-            if ! curl -sf http://127.0.0.1:3000/health >/dev/null; then
-              echo "❌ 健康检查失败，回滚到 $$PREV"
-              cd /home/admin/.openclaw/workspace/lingxi-cloud
-              git reset --hard "$$PREV"
-              cd backend
-              rm -rf node_modules
-              npm install --no-audit --no-fund
-              pm2 restart lingxi-cloud
-              exit 1
-            fi
+            sleep 6
+            curl -sf http://127.0.0.1:3000/health
             pm2 save
-            echo "✅ Backend deployed at $$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "Backend deployed OK"
