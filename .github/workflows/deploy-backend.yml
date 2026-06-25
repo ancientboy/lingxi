@@ -33,7 +33,16 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
             cd backend
-            npm install --production --no-audit --no-fund
+            npm install --no-audit --no-fund
             pm2 restart lingxi-cloud || pm2 start index.js --name lingxi-cloud
+            sleep 4
+            if ! curl -sf http://127.0.0.1:3000/health >/dev/null; then
+              echo "❌ 健康检查失败，回滚到 $PREV"
+              cd /home/admin/.openclaw/workspace/lingxi-cloud
+              git reset --hard "$PREV"
+              cd backend && npm install --no-audit --no-fund
+              pm2 restart lingxi-cloud
+              exit 1
+            fi
             pm2 save
             echo "✅ Backend deployed at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
