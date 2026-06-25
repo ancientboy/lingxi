@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../services/team_service.dart';
 import '../theme/lume_theme.dart';
@@ -36,13 +35,12 @@ class WorkspacePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     if (collapsed) {
       return Container(
         width: collapsedWidth,
-        decoration: const BoxDecoration(
-          color: LumeColors.bgCard,
-          border: Border(left: BorderSide(color: LumeColors.border)),
-        ),
+        color: LumeColors.bg,
         child: Column(
           children: [
             const SizedBox(height: 8),
@@ -61,10 +59,7 @@ class WorkspacePanel extends StatelessWidget {
 
     return Container(
       width: expandedWidth,
-      decoration: const BoxDecoration(
-        color: LumeColors.bgCard,
-        border: Border(left: BorderSide(color: LumeColors.border)),
-      ),
+      color: LumeColors.bg,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -74,9 +69,8 @@ class WorkspacePanel extends StatelessWidget {
               children: [
                 Text(
                   '工作台',
-                  style: GoogleFonts.dmSans(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const Spacer(),
@@ -98,8 +92,7 @@ class WorkspacePanel extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Text(
               '工具',
-              style: GoogleFonts.dmSans(
-                fontSize: 11,
+              style: theme.textTheme.labelSmall?.copyWith(
                 fontWeight: FontWeight.w600,
                 color: LumeColors.text3,
               ),
@@ -160,8 +153,7 @@ class WorkspacePanel extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14),
             child: Text(
               '对话智能体',
-              style: GoogleFonts.dmSans(
-                fontSize: 11,
+              style: theme.textTheme.labelSmall?.copyWith(
                 fontWeight: FontWeight.w600,
                 color: LumeColors.text3,
               ),
@@ -174,12 +166,11 @@ class WorkspacePanel extends StatelessWidget {
               children: teamState.agents.map((agent) {
                 final active = agent.id == teamState.currentAgentId;
                 return Material(
-                  color: active
-                      ? LumeColors.accent.withValues(alpha: 0.08)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(10),
+                  color: active ? LumeColors.fill : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(8),
+                    hoverColor: LumeColors.fillHover.withValues(alpha: 0.5),
                     onTap: () => onSwitchAgent(agent.id),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
@@ -190,12 +181,11 @@ class WorkspacePanel extends StatelessWidget {
                         children: [
                           CircleAvatar(
                             radius: 14,
-                            backgroundColor:
-                                LumeColors.accent.withValues(alpha: 0.12),
+                            backgroundColor: LumeColors.fill,
                             child: Icon(
                               _agentIcon(agent.iconKey),
                               size: 16,
-                              color: LumeColors.accent,
+                              color: LumeColors.text2,
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -207,19 +197,17 @@ class WorkspacePanel extends StatelessWidget {
                                   agent.name,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
+                                  style: theme.textTheme.bodyMedium?.copyWith(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
-                                    color: active
-                                        ? LumeColors.accent
-                                        : LumeColors.text1,
+                                    color: LumeColors.text1,
                                   ),
                                 ),
                                 Text(
                                   agent.desc,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
+                                  style: theme.textTheme.bodySmall?.copyWith(
                                     fontSize: 11,
                                     color: LumeColors.text3,
                                   ),
@@ -239,19 +227,20 @@ class WorkspacePanel extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(14, 4, 14, 10),
             child: Text(
               '快捷技能',
-              style: GoogleFonts.dmSans(
-                fontSize: 11,
+              style: theme.textTheme.labelSmall?.copyWith(
                 fontWeight: FontWeight.w600,
                 color: LumeColors.text3,
               ),
             ),
           ),
           if (examples.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               child: Text(
                 '暂无快捷技能',
-                style: TextStyle(fontSize: 12, color: LumeColors.text3),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: LumeColors.text3,
+                ),
               ),
             )
           else
@@ -266,8 +255,8 @@ class WorkspacePanel extends StatelessWidget {
                       ex.desc ?? ex.text,
                       style: const TextStyle(fontSize: 11),
                     ),
-                    backgroundColor: LumeColors.bg,
-                    side: const BorderSide(color: LumeColors.border),
+                    backgroundColor: LumeColors.fill,
+                    side: BorderSide.none,
                     onPressed: () => onQuickSend(ex.text),
                   );
                 }).toList(),
@@ -322,35 +311,29 @@ class _ToolButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: active
-          ? LumeColors.accent.withValues(alpha: 0.1)
-          : LumeColors.bg,
+      color: active ? LumeColors.fill : Colors.transparent,
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(8),
-        child: Container(
+        hoverColor: LumeColors.fillHover.withValues(alpha: 0.5),
+        child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: active ? LumeColors.accent : LumeColors.border,
-            ),
-          ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
                 icon,
                 size: 14,
-                color: active ? LumeColors.accent : LumeColors.text2,
+                color: active ? LumeColors.text1 : LumeColors.text2,
               ),
               const SizedBox(width: 4),
               Text(
                 label,
                 style: TextStyle(
                   fontSize: 11,
-                  color: active ? LumeColors.accent : LumeColors.text2,
+                  fontWeight: active ? FontWeight.w600 : FontWeight.w500,
+                  color: active ? LumeColors.text1 : LumeColors.text2,
                 ),
               ),
             ],

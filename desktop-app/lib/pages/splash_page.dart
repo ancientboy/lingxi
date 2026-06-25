@@ -16,7 +16,7 @@ class SplashPage extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const LumeAnimatedMark(size: 112, animate: true),
+            const LumeAnimatedMark(size: 88, animate: true, badge: true),
             const SizedBox(height: 20),
             Text(
               'Lume',

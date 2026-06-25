@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import '../models/lume_model.dart';
 import '../theme/lume_theme.dart';
 
-/// Native message composer — model picker + send via WebView bridge.
+/// Native message composer — Cursor-style floating capsule in the shell.
 class ChatComposer extends StatefulWidget {
   const ChatComposer({
     super.key,
@@ -85,9 +85,9 @@ class _ChatComposerState extends State<ChatComposer> {
 
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: LumeColors.bgCard,
+      backgroundColor: LumeColors.bg,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
       ),
       builder: (ctx) {
         return SafeArea(
@@ -99,16 +99,15 @@ class _ChatComposerState extends State<ChatComposer> {
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
                 child: Text(
                   '选择模型',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
-                  ),
+                  style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                 ),
               ),
               ListTile(
                 title: const Text('Auto'),
                 trailing: state.currentId == 'auto'
-                    ? const Icon(Icons.check_rounded, color: LumeColors.accent)
+                    ? Icon(Icons.check_rounded, color: LumeColors.focus)
                     : null,
                 onTap: () {
                   Navigator.pop(ctx);
@@ -130,8 +129,7 @@ class _ChatComposerState extends State<ChatComposer> {
                       trailing: locked
                           ? const Icon(Icons.lock_outline, size: 18)
                           : active
-                              ? const Icon(Icons.check_rounded,
-                                  color: LumeColors.accent)
+                              ? Icon(Icons.check_rounded, color: LumeColors.focus)
                               : null,
                       enabled: !locked,
                       onTap: locked
@@ -162,109 +160,123 @@ class _ChatComposerState extends State<ChatComposer> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final modelLabel = widget.modelState?.currentLabel ?? 'Auto';
 
-    return Container(
-      decoration: const BoxDecoration(
-        color: LumeColors.bgCard,
-        border: Border(top: BorderSide(color: LumeColors.border)),
-      ),
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Material(
-                color: LumeColors.bg,
-                borderRadius: BorderRadius.circular(8),
-                child: InkWell(
-                  onTap: widget.enabled ? _openModelPicker : null,
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.auto_awesome_rounded,
-                            size: 14, color: LumeColors.accent),
-                        const SizedBox(width: 6),
-                        Text(
-                          modelLabel,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
+    return ColoredBox(
+      color: LumeColors.bg,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 6, 16, 14),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: LumeColors.fill,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: LumeColors.hairline),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Material(
+                      color: LumeColors.bg,
+                      borderRadius: BorderRadius.circular(8),
+                      child: InkWell(
+                        onTap: widget.enabled ? _openModelPicker : null,
+                        borderRadius: BorderRadius.circular(8),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.auto_awesome_rounded,
+                                size: 14,
+                                color: LumeColors.text2,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                modelLabel,
+                                style: theme.textTheme.labelMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              const SizedBox(width: 2),
+                              Icon(
+                                Icons.expand_more_rounded,
+                                size: 16,
+                                color: LumeColors.text3,
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(width: 4),
-                        Icon(Icons.expand_more_rounded,
-                            size: 16, color: LumeColors.text3),
-                      ],
+                      ),
                     ),
-                  ),
+                    const Spacer(),
+                    Text(
+                      'Enter 发送',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: LumeColors.text3,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const Spacer(),
-              Text(
-                'Enter 发送 · Shift+Enter 换行',
-                style: TextStyle(fontSize: 11, color: LumeColors.text3),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: Focus(
-                  onKeyEvent: _onKey,
-                  child: TextField(
-                    controller: _controller,
-                    focusNode: _focusNode,
-                    enabled: widget.enabled && !_sending,
-                    minLines: 1,
-                    maxLines: 6,
-                    style: const TextStyle(fontSize: 14, height: 1.45),
-                    decoration: InputDecoration(
-                      hintText: widget.enabled ? widget.hint : '正在连接…',
-                      hintStyle:
-                          TextStyle(color: LumeColors.text3, fontSize: 14),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: LumeColors.border),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: LumeColors.border),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: LumeColors.accent,
-                          width: 1.5,
+                const SizedBox(height: 6),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: Focus(
+                        onKeyEvent: _onKey,
+                        child: TextField(
+                          controller: _controller,
+                          focusNode: _focusNode,
+                          enabled: widget.enabled && !_sending,
+                          minLines: 1,
+                          maxLines: 6,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontSize: 14,
+                            height: 1.45,
+                          ),
+                          decoration: InputDecoration(
+                            hintText:
+                                widget.enabled ? widget.hint : '正在连接…',
+                            hintStyle: TextStyle(
+                              color: LumeColors.text3,
+                              fontSize: 14,
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 8,
+                            ),
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            filled: false,
+                          ),
+                          onChanged: (_) => setState(() {}),
                         ),
                       ),
-                      filled: true,
-                      fillColor: LumeColors.bg,
                     ),
-                    onChanged: (_) => setState(() {}),
-                  ),
+                    const SizedBox(width: 8),
+                    _SendButton(
+                      enabled: _canSend,
+                      loading: _sending,
+                      onPressed: _submit,
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 10),
-              _SendButton(
-                enabled: _canSend,
-                loading: _sending,
-                onPressed: _submit,
-              ),
-            ],
+              ],
+            ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -284,24 +296,27 @@ class _SendButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: enabled ? LumeColors.accent : LumeColors.border,
-      borderRadius: BorderRadius.circular(12),
+      color: enabled ? LumeColors.accent : LumeColors.fillHover,
+      borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: enabled ? onPressed : null,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         child: SizedBox(
-          width: 44,
-          height: 44,
+          width: 36,
+          height: 36,
           child: loading
               ? const Padding(
-                  padding: EdgeInsets.all(12),
+                  padding: EdgeInsets.all(10),
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
                     color: Colors.white,
                   ),
                 )
-              : const Icon(Icons.arrow_upward_rounded,
-                  color: Colors.white, size: 22),
+              : Icon(
+                  Icons.arrow_upward_rounded,
+                  color: enabled ? Colors.white : LumeColors.text3,
+                  size: 20,
+                ),
         ),
       ),
     );

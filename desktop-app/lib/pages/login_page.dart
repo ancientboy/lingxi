@@ -158,14 +158,15 @@ class _LoginPageState extends State<LoginPage> {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const LumeMark(size: 44),
-            const SizedBox(width: 12),
+            const LumeMark(size: 48, badge: true),
+            const SizedBox(width: 14),
             Text(
               'Lume',
               style: GoogleFonts.dmSans(
-                fontSize: 26,
+                fontSize: 28,
                 fontWeight: FontWeight.w700,
                 color: LumeColors.text1,
+                height: 1,
               ),
             ),
           ],
@@ -298,7 +299,7 @@ class _LoginPageState extends State<LoginPage> {
           }),
           child: Text(
             '更换邮箱',
-            style: TextStyle(color: LumeColors.accent, fontSize: 13),
+            style: TextStyle(color: LumeColors.focus, fontSize: 13),
           ),
         ),
       ],
@@ -338,7 +339,7 @@ class _LoginPageState extends State<LoginPage> {
           }),
           child: Text(
             '改用邮箱验证码',
-            style: TextStyle(color: LumeColors.accent, fontSize: 13),
+            style: TextStyle(color: LumeColors.focus, fontSize: 13),
           ),
         ),
       ],

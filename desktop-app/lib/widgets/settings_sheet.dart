@@ -200,7 +200,7 @@ class _SettingsSheetState extends State<_SettingsSheet> {
             const SizedBox(height: 8),
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: const LumeMark(size: 36),
+              leading: const LumeMark(size: 40, badge: true),
               title: Text(
                 widget.session.displayName ?? 'Lume 用户',
                 style: const TextStyle(fontWeight: FontWeight.w600),

@@ -9,11 +9,15 @@ class LumeAnimatedMark extends StatefulWidget {
     this.size = 96,
     this.animate = true,
     this.color,
+    this.badge = false,
   });
 
   final double size;
   final bool animate;
   final Color? color;
+  final bool badge;
+
+  static const Color _badgeBg = Color(0xFFF7F4EF);
 
   @override
   State<LumeAnimatedMark> createState() => _LumeAnimatedMarkState();
@@ -65,16 +69,37 @@ class _LumeAnimatedMarkState extends State<LumeAnimatedMark>
     super.dispose();
   }
 
+  Widget _wrapBadge(Widget child) {
+    if (!widget.badge) return child;
+    return Container(
+      width: widget.size,
+      height: widget.size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: LumeAnimatedMark._badgeBg,
+        borderRadius: BorderRadius.circular(widget.size * 0.22),
+      ),
+      child: child,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final color = widget.color ?? LumeColors.accent;
+    final color = widget.color ?? LumeColors.brandMark;
+    final glyph = widget.badge ? widget.size * 0.68 : widget.size;
+
+    Widget paintMark(_LumeMarkPainter painter) {
+      return SizedBox(
+        width: glyph,
+        height: glyph,
+        child: CustomPaint(painter: painter),
+      );
+    }
 
     if (!widget.animate || _breathe == null || _peek == null) {
-      return SizedBox(
-        width: widget.size,
-        height: widget.size,
-        child: CustomPaint(
-          painter: _LumeMarkPainter(
+      return _wrapBadge(
+        paintMark(
+          _LumeMarkPainter(
             color: color,
             breatheScale: 1,
             partnerOpacity: 0.5,
@@ -85,30 +110,28 @@ class _LumeAnimatedMarkState extends State<LumeAnimatedMark>
       );
     }
 
-    return AnimatedBuilder(
-      animation: Listenable.merge([_breathe!, _peek!]),
-      builder: (context, _) {
-        final breatheT = Curves.easeInOut.transform(_breathe!.value);
-        final peekT = Curves.easeInOut.transform(_peek!.value);
-        final breatheScale = 1 + breatheT * 0.03;
-        final partnerOpacity = 0.45 + peekT * 0.27;
-        final partnerNudge = Offset(0.6 * peekT, -0.5 * peekT);
-        final smileOpacity = 1 - breatheT * 0.12;
+    return _wrapBadge(
+      AnimatedBuilder(
+        animation: Listenable.merge([_breathe!, _peek!]),
+        builder: (context, _) {
+          final breatheT = Curves.easeInOut.transform(_breathe!.value);
+          final peekT = Curves.easeInOut.transform(_peek!.value);
+          final breatheScale = 1 + breatheT * 0.03;
+          final partnerOpacity = 0.45 + peekT * 0.27;
+          final partnerNudge = Offset(0.6 * peekT, -0.5 * peekT);
+          final smileOpacity = 1 - breatheT * 0.12;
 
-        return SizedBox(
-          width: widget.size,
-          height: widget.size,
-          child: CustomPaint(
-            painter: _LumeMarkPainter(
+          return paintMark(
+            _LumeMarkPainter(
               color: color,
               breatheScale: breatheScale,
               partnerOpacity: partnerOpacity,
               partnerNudge: partnerNudge,
               smileOpacity: smileOpacity,
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }
@@ -128,12 +151,20 @@ class _LumeMarkPainter extends CustomPainter {
   final Offset partnerNudge;
   final double smileOpacity;
 
+  static const _vbMinX = 14.0;
+  static const _vbMinY = 11.0;
+  static const _vbWidth = 20.0;
+  static const _vbHeight = 24.0;
   static const _pivot = Offset(24, 23);
 
   @override
   void paint(Canvas canvas, Size size) {
-    final scale = size.width / 48;
+    final scale = size.width / _vbWidth;
+    final offsetX = (size.width - _vbWidth * scale) / 2 - _vbMinX * scale;
+    final offsetY = (size.height - _vbHeight * scale) / 2 - _vbMinY * scale;
+
     canvas.save();
+    canvas.translate(offsetX, offsetY);
     canvas.scale(scale);
 
     canvas.translate(_pivot.dx, _pivot.dy);

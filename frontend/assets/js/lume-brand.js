@@ -3,7 +3,7 @@
  * Layers: nest cell, face, partner dot — for CSS idle motion.
  */
 (function () {
-  const MARK_VIEWBOX = '0 0 48 48';
+  const MARK_VIEWBOX = '14 11 20 24';
 
   function markSvg(size, animate) {
     const animClass = animate ? ' lume-mark--animate' : '';

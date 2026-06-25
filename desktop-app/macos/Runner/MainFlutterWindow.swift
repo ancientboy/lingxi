@@ -6,13 +6,8 @@ class MainFlutterWindow: NSWindow {
     let flutterViewController = FlutterViewController()
     self.contentViewController = flutterViewController
 
-    // Match Flutter splash background (#FAFAF9) before first frame paints.
-    let splashBackground = NSColor(
-      red: 250.0 / 255.0,
-      green: 250.0 / 255.0,
-      blue: 249.0 / 255.0,
-      alpha: 1.0
-    )
+    // Match Flutter shell background (#FFFFFF) before first frame paints.
+    let splashBackground = NSColor.white
     flutterViewController.view.wantsLayer = true
     flutterViewController.view.layer?.backgroundColor = splashBackground.cgColor
 
