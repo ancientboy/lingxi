@@ -1,18 +1,44 @@
 /**
- * Lume - Dark Theme Override
- * Replaces hardcoded colors with CSS variables
+ * Lume — Cursor IDE dark theme overrides
  */
+
+/* ===== Dark token overrides ===== */
+:root {
+  --bg:          #1e1e1e;
+  --bg-sidebar:  #252526;
+  --bg-card:     #252526;
+  --bg-hover:    #2a2d2e;
+  --bg-input:    #1e1e1e;
+
+  --border:      #3c3c3c;
+  --border-sub:  #333333;
+
+  --text-1:      #cccccc;
+  --text-2:      #9d9d9d;
+  --text-3:      #6e6e6e;
+  --text-inv:    #ffffff;
+
+  --accent:      #e8e8e8;
+  --accent-h:    #ffffff;
+  --accent-soft: rgba(255, 255, 255, 0.06);
+  --accent-ring: rgba(255, 255, 255, 0.12);
+
+  --focus:       #3794ff;
+  --focus-h:     #4da3ff;
+  --focus-soft:  rgba(55, 148, 255, 0.12);
+  --border-focus: #007fd4;
+}
 
 /* ===== Dark Token Overrides ===== */
 body {
-  background: #202123;
-  color: #ececf1;
+  background: var(--bg);
+  color: var(--text-1);
 }
 
 /* Sidebar */
 .sidebar {
-  background: #171717;
-  border-right-color: #2d2d2d;
+  background: var(--bg-sidebar);
+  border-right-color: var(--border);
 }
 
 .sidebar-brand {
@@ -33,10 +59,12 @@ body {
 
 .sidebar-new-chat {
   background: var(--accent);
+  color: var(--bg);
 }
 
 .sidebar-new-chat:hover {
   background: var(--accent-h);
+  color: var(--bg);
 }
 
 .sidebar-shortcut-btn {
@@ -165,7 +193,7 @@ body {
 }
 
 .status-dot.connected {
-  background: var(--accent);
+  background: #4ec9b0;
 }
 
 /* Sidebar toggle */

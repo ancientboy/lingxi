@@ -3,7 +3,7 @@
  */
 
 .lume-mark {
-  color: #3d6b62;
+  color: var(--brand-mark, #3d6b62);
   display: block;
   flex-shrink: 0;
 }
