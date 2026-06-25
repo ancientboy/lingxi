@@ -33,10 +33,7 @@ GitHub Actions 工作流 **Mac Desktop (DMG)**：
    - 登录页「下载 Mac 版」→ `https://lumeword.cn/downloads/Lume-mac.dmg`（部署到生产后）
    - 或 GitHub Releases：`https://github.com/ancientboy/lingxi/releases/latest/download/Lume-mac.dmg`
 3. **发布 tag**：推送 `desktop-v1.0.0` 等 tag 会自动创建 Release 并上传 DMG
-4. **部署到 lumeword.cn**：在 GitHub Actions 手动运行 workflow，勾选 **deploy_production**，并配置 Secrets：
-   - `DEPLOY_HOST`（如 `120.55.192.144`）
-   - `DEPLOY_USER`（如 `root`）
-   - `DEPLOY_PASSWORD` 或 `DEPLOY_SSH_KEY`
+4. **部署到 lumeword.cn**：`main` 分支构建成功后自动 SCP 上传（需配置 Secrets：`DEPLOY_HOST`、`DEPLOY_USER`、`DEPLOY_PASSWORD` 或 `DEPLOY_SSH_KEY`）。也可在 Actions 里手动 **Run workflow** 重新部署。
 
 本地打 DMG（可选）：
 
