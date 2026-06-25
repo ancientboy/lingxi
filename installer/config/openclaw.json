@@ -4,8 +4,8 @@
     "description": "灵犀云用户服务器统一配置模板"
   },
   "env": {
-    "ZHIPU_API_KEY": "77c2b59d03e646a9884f78f8c4787885.XunhoXmFaErSD0dR",
-    "DASHSCOPE_API_KEY": "sk-64985bfe63dd45e0a8e2e456624e3d21"
+    "ZHIPU_API_KEY": "ZHIPU_API_KEY_PLACEHOLDER",
+    "DASHSCOPE_API_KEY": "DASHSCOPE_API_KEY_PLACEHOLDER"
   },
   "auth": {
     "profiles": {
@@ -165,6 +165,24 @@
       }
     ]
   },
+  "channels": {
+    "lume": {
+      "port": 18790,
+      "secret": "LUME_WS_SECRET_PLACEHOLDER"
+    }
+  },
+  "plugins": {
+    "entries": {
+      "lume": {
+        "enabled": true
+      }
+    },
+    "load": {
+      "paths": [
+        "~/.openclaw/workspace/plugins/openclaw-lume"
+      ]
+    }
+  },
   "tools": {
     "agentToAgent": {
       "enabled": true,
@@ -196,10 +214,10 @@
         "http://120.26.137.51",
         "http://8.219.243.199:3000",
         "http://8.219.243.199",
-        "http://lumeword.com",
-        "http://www.lumeword.com",
-        "https://lumeword.com",
-        "https://www.lumeword.com",
+        "https://lumeword.cn",
+        "https://www.lumeword.cn",
+        "http://lumeword.cn",
+        "http://www.lumeword.cn",
         "http://localhost:3000",
         "http://120.55.192.144:3000",
         "http://120.55.192.144",

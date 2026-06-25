@@ -4,6 +4,7 @@ import { config } from '../config/index.js';
 import { getInviteCode, createUser, getUserByInviteCode, updateLastLogin, verifyPassword, getUserByUserInviteCode, getUserByEmail, getUserByNickname } from '../utils/db.js';
 import { createEmailCode, verifyEmailCode, isValidEmail } from '../utils/emailCodes.js';
 import { sendVerificationCodeEmail } from '../utils/mailer.js';
+import { isPaidSubscription } from '../utils/subscription-utils.js';
 
 const router = Router();
 const JWT_SECRET = config.security.jwtSecret;
@@ -436,9 +437,20 @@ router.post('/claim-team', async (req, res) => {
     dbUser.agents = selectedAgents;
     dbUser.agentsUpdatedAt = new Date().toISOString();
     await saveDB(db);
+
+    // 云端 ECS 部署仅面向付费订阅；免费用户仅领取团队配置，走共享 Lume 能力
+    if (!isPaidSubscription(dbUser)) {
+      return res.json({
+        success: true,
+        message: '🎉 已领取 AI 团队，登录即可使用 Lume 聊天（升级套餐可开通专属云服务器）',
+        agents: selectedAgents,
+        points: result.balance,
+        status: 'team_only',
+        needSubscription: true,
+      });
+    }
     
-    // 🚀 调用完整部署流程
-    // 内部调用 deploy/one-click API
+    // 🚀 付费用户：调用云端一键部署
     const deployResponse = await fetch(`http://localhost:${process.env.PORT || 3000}/api/deploy/one-click`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

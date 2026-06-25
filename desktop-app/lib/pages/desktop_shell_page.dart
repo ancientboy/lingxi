@@ -3,16 +3,22 @@ import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../app_commands.dart';
+import '../models/connection_mode.dart';
 import '../models/lume_model.dart';
 import '../models/lume_session.dart';
 import '../services/auth_storage.dart';
+import '../services/connection_mode_service.dart';
 import '../services/deep_link_service.dart';
+import '../services/local_openclaw_service.dart';
+import '../services/openclaw_bootstrap_service.dart';
+import '../services/openclaw_setup_storage.dart';
 import '../services/session_service.dart';
 import '../services/team_service.dart';
 import '../services/workspace_state_service.dart';
 import '../widgets/about_lume_dialog.dart';
 import '../widgets/chat_composer.dart';
 import '../widgets/session_sidebar.dart';
+import '../widgets/openclaw_setup_wizard.dart';
 import '../widgets/settings_sheet.dart';
 import '../widgets/web_chat_view.dart';
 import '../widgets/workspace_panel.dart';
@@ -38,7 +44,13 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
   final _sessionService = SessionService();
   final _teamService = TeamService();
   final _workspaceState = WorkspaceStateService();
+  final _bootstrapService = OpenClawBootstrapService();
+  final _setupStorage = OpenClawSetupStorage();
+  final _connectionService = ConnectionModeService();
+  final _localProbe = LocalOpenClawService();
   final _chatKey = GlobalKey<WebChatViewState>();
+
+  String? _lumeSecret;
 
   List<LumeSession> _sessions = [];
   bool _loadingSessions = true;
@@ -64,6 +76,48 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
     _teamState = _teamService.fromSession(widget.session);
     _loadWorkspaceCollapsed();
     _bootstrapSessions();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _prepareDesktopOpenClaw());
+  }
+
+  Future<void> _prepareDesktopOpenClaw() async {
+    try {
+      final bootstrap = await _bootstrapService.fetch(widget.session.token);
+      if (!mounted) return;
+
+      setState(() => _lumeSecret = bootstrap.lumeSecret);
+      await _connectionService.ensureDefaultMode(bootstrap.defaultConnectionMode);
+
+      final local = await _localProbe.probeLocal();
+      final setupDone = await _setupStorage.isSetupDone();
+
+      if (local.lumePluginOpen) {
+        if (!setupDone) await _setupStorage.markSetupDone();
+        return;
+      }
+
+      if (setupDone) return;
+
+      // 老用户已有云端：默认云端，不强制本机向导
+      if (bootstrap.cloudServerRunning && !bootstrap.recommendLocalFirst) {
+        return;
+      }
+
+      if (!mounted) return;
+      final ok = await showOpenClawSetupWizard(
+        context,
+        token: widget.session.token,
+        bootstrap: bootstrap,
+        allowSkip: bootstrap.cloudServerRunning,
+      );
+
+      if (ok && mounted) {
+        await _connectionService.saveMode(ConnectionMode.auto);
+        await _chatKey.currentState?.refreshConnectionAndReload();
+        setState(() {});
+      }
+    } catch (_) {
+      // 网络异常时仍可使用云端模式
+    }
   }
 
   @override
@@ -225,12 +279,46 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
   }
 
   void _openSettings() {
+    final chat = _chatKey.currentState;
     showLumeSettingsSheet(
       context,
       session: widget.session,
       token: widget.session.token,
       onLogout: () => _confirmLogout(),
+      initialMode: chat?.connectionPreference,
+      effectiveConnection: chat?.effectiveConnection,
+      localStatus: chat?.localStatus,
+      onConnectionModeChanged: (mode) async {
+        await chat?.refreshConnectionAndReload();
+        if (mounted) setState(() {});
+      },
+      onInstallOpenClaw: () => _openOpenClawWizard(),
     );
+  }
+
+  Future<void> _openOpenClawWizard() async {
+    try {
+      final bootstrap = await _bootstrapService.fetch(widget.session.token);
+      if (!mounted) return;
+      setState(() => _lumeSecret = bootstrap.lumeSecret);
+      await showOpenClawSetupWizard(
+        context,
+        token: widget.session.token,
+        bootstrap: bootstrap,
+        allowSkip: true,
+      );
+      await _connectionService.saveMode(ConnectionMode.local);
+      await _chatKey.currentState?.refreshConnectionAndReload();
+      if (mounted) setState(() {});
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('无法打开安装向导: $e'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   Future<void> _confirmLogout() async {
@@ -349,6 +437,7 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
                         child: WebChatView(
                           key: _chatKey,
                           session: widget.session,
+                          lumeSecret: _lumeSecret,
                           onReady: _onChatReady,
                         ),
                       ),

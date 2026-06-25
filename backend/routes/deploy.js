@@ -1,12 +1,11 @@
 /**
- * 一键部署路由 - 阿里云 ECS 创建 + OpenClaw 部署
- * 使用打包文件方式部署，配置与代码分离
+ * 云端 OpenClaw 部署 — 阿里云 ECS + SSH 远程安装
+ * 仅面向付费订阅；本机桌面包见 installer/local/
  */
 
 import { Router } from 'express';
 import { getDB, saveDB } from '../utils/db.js';
 import crypto from 'crypto';
-// 阿里云 SDK 使用 CommonJS 方式导入
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const Ecs = require('@alicloud/ecs20140526');
@@ -14,21 +13,16 @@ const EcsClient = Ecs.default;
 const $OpenApi = require('@alicloud/openapi-client');
 const { Client: SSHClient } = require('ssh2');
 import { config } from '../config/index.js';
-import { execSync } from 'child_process';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import fs from 'fs';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
+import { generateCloudPackage } from '../utils/cloud-deploy-package.js';
+import { buildCloudRemoteDeployScript } from '../utils/cloud-deploy-remote.js';
+import { isPaidSubscription, paidSubscriptionError } from '../utils/subscription-utils.js';
+import { LUME_PLUGIN_PORT } from '../utils/openclaw-deploy-constants.js';
 
 const router = Router();
 
-// 从统一配置获取
 const SERVER_PASSWORD = config.userServer.password;
-const OPENCLAW_PORT = config.userServer.openclawPort;
-const OPENCLAW_VERSION = '2026.2.25';
+const OPENCLAW_PORT = config.userServer.openclawPort || 18789;
 
 function generateToken() {
   return crypto.randomBytes(16).toString('hex');
@@ -50,232 +44,8 @@ function createEcsClient() {
   return new EcsClient(clientConfig);
 }
 
-/**
- * 生成用户专属部署包
- */
 async function generateUserPackage(userId, token, sessionId) {
-  const installerDir = path.join(PROJECT_ROOT, 'installer');
-  const releasesDir = path.join(PROJECT_ROOT, 'releases', 'users');
-  
-  // 确保目录存在
-  if (!fs.existsSync(releasesDir)) {
-    fs.mkdirSync(releasesDir, { recursive: true });
-  }
-  
-  const packageName = `lingxi-team-${userId}-${OPENCLAW_VERSION}`;
-  const packageDir = path.join(releasesDir, packageName);
-  const packageFile = `${packageName}.tar.gz`;
-  const packagePath = path.join(releasesDir, packageFile);
-  
-  // 如果包已存在，直接返回
-  if (fs.existsSync(packagePath)) {
-    console.log(`📦 使用已存在的部署包: ${packageFile}`);
-    return { packagePath, packageName, token, sessionId };
-  }
-  
-  console.log(`📦 生成用户部署包: ${packageName}`);
-  
-  // 调用打包脚本
-  try {
-    const scriptPath = path.join(installerDir, 'create-user-package.sh');
-    execSync(`chmod +x "${scriptPath}" && "${scriptPath}" "${userId}" "${token}" "${sessionId}"`, {
-      cwd: installerDir,
-      stdio: 'inherit',
-      timeout: 60000
-    });
-    
-    // 检查是否生成成功
-    if (!fs.existsSync(packagePath)) {
-      // 脚本可能生成了不同名称的包，查找一下
-      const files = fs.readdirSync(releasesDir);
-      const tarFile = files.find(f => f.startsWith(`lingxi-team-${userId}`) && f.endsWith('.tar.gz'));
-      if (tarFile) {
-        return { 
-          packagePath: path.join(releasesDir, tarFile), 
-          packageName: tarFile.replace('.tar.gz', ''),
-          token,
-          sessionId
-        };
-      }
-      throw new Error('打包文件生成失败');
-    }
-    
-    return { packagePath, packageName, token, sessionId };
-  } catch (error) {
-    console.error('打包失败，使用快速模式:', error.message);
-    // 如果打包失败，使用预置模板快速生成
-    return await quickGeneratePackage(userId, token, sessionId, releasesDir);
-  }
-}
-
-/**
- * 快速生成部署包（从模板复制）
- */
-async function quickGeneratePackage(userId, token, sessionId, releasesDir) {
-  const packageName = `lingxi-team-${userId}-${OPENCLAW_VERSION}`;
-  const packageDir = path.join(releasesDir, packageName);
-  const packagePath = path.join(releasesDir, `${packageName}.tar.gz`);
-  const templatesDir = path.join(PROJECT_ROOT, 'backend', 'templates');
-  
-  // 创建目录结构 - 所有 8 个 agent
-  const agents = ['main', 'coder', 'ops', 'inventor', 'pm', 'noter', 'media', 'smart'];
-  for (const agent of agents) {
-    fs.mkdirSync(path.join(packageDir, '.openclaw', 'agents', agent), { recursive: true });
-  }
-  fs.mkdirSync(path.join(packageDir, '.openclaw', 'workspace'), { recursive: true });
-  
-  // 复制所有 agent 的 SOUL.md
-  for (const agent of agents) {
-    const soulPath = path.join(templatesDir, 'agents', agent, 'SOUL.md');
-    if (fs.existsSync(soulPath)) {
-      fs.copyFileSync(soulPath, path.join(packageDir, '.openclaw', 'agents', agent, 'SOUL.md'));
-    }
-  }
-  
-  // 生成配置文件
-  const configJson = {
-    "meta": { "lastTouchedVersion": OPENCLAW_VERSION },
-    "env": {
-      "ZHIPU_API_KEY": config.env.ZHIPU_API_KEY,
-      "DASHSCOPE_API_KEY": config.env.DASHSCOPE_API_KEY
-    },
-    "auth": {
-      "profiles": {
-        "zhipu:default": { "provider": "zhipu", "mode": "api_key" },
-        "alibaba-cloud:default": { "provider": "alibaba-cloud", "mode": "api_key" }
-      }
-    },
-    "models": {
-      "mode": "merge",
-      "providers": {
-        "alibaba-cloud": {
-          "baseUrl": "https://coding.dashscope.aliyuncs.com/v1",
-          "api": "openai-completions",
-          "models": [
-            { "id": "qwen3.5-plus", "name": "通义千问3.5-Plus", "contextWindow": 262144, "maxTokens": 65536 },
-            { "id": "qwen3-max-2026-01-23", "name": "通义千问3-Max", "contextWindow": 262144, "maxTokens": 65536 },
-            { "id": "glm-5", "name": "GLM-5 (智谱)", "contextWindow": 200000, "maxTokens": 8192 }
-          ]
-        },
-        "zhipu": {
-          "baseUrl": "https://open.bigmodel.cn/api/coding/paas/v4",
-          "api": "openai-completions",
-          "authHeader": true,
-          "models": [
-            { "id": "glm-5", "name": "GLM-5", "contextWindow": 200000, "maxTokens": 8192 }
-          ]
-        }
-      }
-    },
-    "agents": {
-      "defaults": { "model": { "primary": "alibaba-cloud/qwen3.5-plus" }, "workspace": "~/.openclaw/workspace" },
-      "list": [
-        { "id": "main", "default": true, "name": "灵犀", "agentDir": "~/.openclaw/agents/main", "subagents": { "allowAgents": ["coder", "ops", "inventor", "pm", "noter", "media", "smart"] } },
-        { "id": "coder", "name": "云溪", "agentDir": "~/.openclaw/agents/coder" },
-        { "id": "ops", "name": "若曦", "agentDir": "~/.openclaw/agents/ops" },
-        { "id": "inventor", "name": "紫萱", "agentDir": "~/.openclaw/agents/inventor" },
-        { "id": "pm", "name": "梓萱", "agentDir": "~/.openclaw/agents/pm" },
-        { "id": "noter", "name": "晓琳", "agentDir": "~/.openclaw/agents/noter" },
-        { "id": "media", "name": "音韵", "agentDir": "~/.openclaw/agents/media" },
-        { "id": "smart", "name": "智家", "agentDir": "~/.openclaw/agents/smart" }
-      ]
-    },
-    "gateway": {
-      "port": 18789,
-      "mode": "local",
-      "bind": "lan",
-      "controlUi": {
-        "enabled": true,
-        "basePath": sessionId,
-        "allowedOrigins": [
-          "*",
-          "http://120.26.137.51:3000",
-          "http://120.26.137.51",
-          "http://8.219.243.199:3000",
-          "http://8.219.243.199",
-          "http://lumeword.com",
-          "http://www.lumeword.com",
-          "http://localhost:3000",
-          "http://120.55.192.144:3000",
-          "http://120.55.192.144",
-          "http://localhost"
-        ],
-        "allowInsecureAuth": true,
-        "dangerouslyDisableDeviceAuth": true
-      },
-      "auth": { "mode": "token", "token": token }
-    },
-    "plugins": { "entries": {} }
-  };
-  
-  fs.writeFileSync(
-    path.join(packageDir, '.openclaw', 'openclaw.json'),
-    JSON.stringify(configJson, null, 2)
-  );
-  
-  // 生成部署脚本
-  const deployScript = `#!/bin/bash
-set -e
-
-echo "1️⃣ 检查 Node.js..."
-if ! command -v node &> /dev/null; then
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-    apt-get install -y nodejs
-fi
-
-echo "2️⃣ 停止旧进程..."
-pkill -f openclaw 2>/dev/null || true
-sleep 2
-
-echo "3️⃣ 安装 OpenClaw..."
-npm install -g openclaw@${OPENCLAW_VERSION}
-
-echo "4️⃣ 复制配置..."
-cp -r .openclaw ~/.openclaw
-
-echo "5️⃣ 配置 auth-profiles.json..."
-mkdir -p ~/.openclaw/agents/main/agent
-
-# 位置1: agents/main/auth-profiles.json (主配置目录)
-cat > ~/.openclaw/agents/main/auth-profiles.json << 'AUTHEOF'
-{
-  "version": 1,
-  "profiles": {
-    "zhipu:default": {
-      "type": "api_key",
-      "provider": "zhipu",
-      "key": config.env.ZHIPU_API_KEY
-    },
-    "alibaba-cloud:default": {
-      "type": "api_key",
-      "provider": "alibaba-cloud",
-      "key": config.env.DASHSCOPE_API_KEY
-    }
-  },
-  "lastGood": {
-    "zhipu": "zhipu:default",
-    "alibaba-cloud": "alibaba-cloud:default"
-  }
-}
-AUTHEOF
-
-# 位置2: agents/main/agent/auth-profiles.json (agent子目录)
-cp ~/.openclaw/agents/main/auth-profiles.json ~/.openclaw/agents/main/agent/auth-profiles.json
-
-echo "6️⃣ 启动 Gateway..."
-cd ~/.openclaw
-nohup openclaw gateway > /var/log/openclaw.log 2>&1 &
-sleep 5
-
-echo "✅ 部署完成!"
-`;
-
-  fs.writeFileSync(path.join(packageDir, 'deploy-local.sh'), deployScript, { mode: 0o755 });
-  
-  // 打包
-  execSync(`tar -czf "${packagePath}" -C "${releasesDir}" "${packageName}"`, { stdio: 'inherit' });
-  
-  return { packagePath, packageName, token, sessionId };
+  return generateCloudPackage(userId, token, sessionId);
 }
 
 // ==================== 路由 ====================
@@ -292,6 +62,11 @@ router.post('/one-click', async (req, res) => {
     const user = db.users?.find(u => u.id === userId);
     if (!user) {
       return res.status(404).json({ error: '用户不存在' });
+    }
+
+    if (!isPaidSubscription(user)) {
+      const err = paidSubscriptionError();
+      return res.status(err.status).json(err.body);
     }
     
     const existingServer = db.userServers?.find(s => s.userId === userId);
@@ -398,8 +173,8 @@ async function deployServerAsync(serverId, taskId, openclawToken, openclawSessio
     // 0. 生成用户部署包
     await updateTask(taskId, 5, '正在生成部署包...');
     const { packagePath, packageName } = await generateUserPackage(
-      serverId.replace('srv-', 'user'), 
-      openclawToken, 
+      serverInfo?.userId || serverId,
+      openclawToken,
       openclawSession
     );
     console.log(`✅ 部署包已生成: ${packagePath}`);
@@ -407,6 +182,8 @@ async function deployServerAsync(serverId, taskId, openclawToken, openclawSessio
     await updateTask(taskId, 10, '正在创建阿里云 ECS 实例...');
     
     const client = createEcsClient();
+
+    await ensureSecurityGroupPorts(client);
     
     // 优先使用自定义镜像（预装 Node.js 22 + OpenClaw）
     const customImageId = process.env.ALIYUN_CUSTOM_IMAGE_ID;
@@ -614,6 +391,41 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+/** 确保安全组放行 Gateway 与 Lume 插件端口（云端 lume-ws 代理需连 18790） */
+async function ensureSecurityGroupPorts(client) {
+  const sgId = config.aliyun.securityGroupId || process.env.ALIYUN_SECURITY_GROUP_ID;
+  if (!sgId) {
+    console.log('⚠️ 未配置 ALIYUN_SECURITY_GROUP_ID，跳过安全组端口放行');
+    return;
+  }
+
+  const ports = [OPENCLAW_PORT, LUME_PLUGIN_PORT];
+  for (const port of ports) {
+    try {
+      await client.authorizeSecurityGroup(
+        new Ecs.AuthorizeSecurityGroupRequest({
+          regionId: config.aliyun.region,
+          securityGroupId: sgId,
+          nicType: 'internet',
+          ipProtocol: 'tcp',
+          portRange: `${port}/${port}`,
+          sourceCidrIp: '0.0.0.0/0',
+          policy: 'accept',
+          priority: '1',
+        }),
+      );
+      console.log(`✅ 安全组已放行 TCP ${port}`);
+    } catch (err) {
+      const msg = err?.message || String(err);
+      if (/already|duplicate|InvalidPermission\.Duplicate/i.test(msg)) {
+        console.log(`ℹ️ 安全组端口 ${port} 规则已存在`);
+      } else {
+        console.log(`⚠️ 安全组放行 ${port} 失败: ${msg}`);
+      }
+    }
+  }
+}
+
 async function waitForSSH(host, port, password, timeout = 120000) {
   const startTime = Date.now();
   
@@ -654,20 +466,8 @@ async function waitForSSH(host, port, password, timeout = 120000) {
  * 优先使用离线包，回退到淘宝镜像
  */
 async function uploadAndDeploy(host, packagePath, packageName, useCustomImage = false) {
-  // 根据是否使用自定义镜像选择安装步骤
-  const installSteps = useCustomImage ? "echo \"⚡ 使用自定义镜像，跳过安装...\"" : `
-if ! command -v node &> /dev/null; then
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-    apt-get install -y nodejs
-fi
-npm install -g openclaw@${OPENCLAW_VERSION}
-`;
-
   const packageFile = `${packageName}.tar.gz`;
-  const projectRoot = path.resolve(__dirname, '..', '..');
-  const openclawPackagePath = path.join(projectRoot, 'releases', 'packages', 'openclaw-2026.2.17.tgz');
-  const hasOfflinePackage = fs.existsSync(openclawPackagePath);
-  
+
   return new Promise((resolve, reject) => {
     const conn = new SSHClient();
     
@@ -722,148 +522,14 @@ npm install -g openclaw@${OPENCLAW_VERSION}
  * 执行部署命令
  */
 function executeDeploy(conn, packageFile, packageName, useCustomImage, serverIp, resolve, reject) {
-  // OSS 签名 URL（有效期 1 年：2026-02-24 ~ 2027-02-24）
-  // Node.js 22 (OpenClaw 需要 >= 22.12.0)
-  const NODE_URL = 'https://lume-openclaw.oss-cn-hangzhou.aliyuncs.com/packages%2Fnode22.tar.xz?Expires=1803473753&OSSAccessKeyId=LTAI5tFwob255ZynLRpQB628&Signature=85q3T7ZuqtvSCmYt2SlSgoi4jRg%3D';
-  const OPENCLAW_URL = 'https://lume-openclaw.oss-cn-hangzhou.aliyuncs.com/packages%2Fopenclaw-2026.2.17.tgz?Expires=1803470246&OSSAccessKeyId=LTAI5tFwob255ZynLRpQB628&Signature=TJ5QX24i7H5dXfEbBcxdSujLHAE%3D';
-
-  // 根据是否使用自定义镜像选择部署脚本
-  const installSteps = useCustomImage ? `
-echo "⚡ 使用自定义镜像，跳过 Node.js 和 OpenClaw 安装..."
-echo "Node 版本: $(node --version)"
-echo "OpenClaw 版本: $(openclaw --version 2>/dev/null || echo '已预装')"
-` : `
-echo "2️⃣ 安装 Node.js 22 (OSS 加速)..."
-if ! node --version 2>/dev/null | grep -q "v22"; then
-    apt-get update -qq
-    apt-get install -y xz-utils
-    wget -q '${NODE_URL}' -O /tmp/node22.tar.xz
-    tar -xf /tmp/node22.tar.xz -C /tmp
-    cp -r /tmp/node-v22.14.0-linux-x64/* /usr/local/
-    rm -f /usr/bin/node /usr/bin/npm
-    ln -s /usr/local/bin/node /usr/bin/node
-    ln -s /usr/local/bin/npm /usr/bin/npm
-    rm -rf /tmp/node22.tar.xz /tmp/node-v22.14.0-linux-x64
-fi
-echo "Node 版本: $(node --version)"
-
-echo "3️⃣ 配置 git 使用 HTTPS..."
-git config --global url."https://github.com/".insteadOf git@github.com:
-git config --global url."https://github.com/".insteadOf ssh://git@github.com/
-
-echo "4️⃣ 安装 OpenClaw (OSS 加速)..."
-wget -q '${OPENCLAW_URL}' -O /tmp/openclaw.tgz
-npm install -g /tmp/openclaw.tgz
-rm -f /tmp/openclaw.tgz
-echo "OpenClaw 版本: $(openclaw --version)"
-`;
-
-  const deployCommands = `
-set -e
-
-cd /root
-
-echo "1️⃣ 解压部署包..."
-tar -xzf ${packageFile}
-
-${installSteps}
-
-echo "5️⃣ 复制配置文件..."
-cd ${packageName}
-mkdir -p ~/.openclaw
-cp -r .openclaw/* ~/.openclaw/
-
-echo "6️⃣ 动态添加服务器 IP 到 allowedOrigins..."
-SERVER_IP="${serverIp}"
-if [ -n "$SERVER_IP" ]; then
-    # 使用 Python 更新 JSON 配置
-    python3 << PYEOF
-import json
-import os
-
-config_file = os.path.expanduser("~/.openclaw/openclaw.json")
-
-with open(config_file, 'r') as f:
-    config = json.load(f)
-
-# 确保 gateway.controlUi 存在
-if 'gateway' not in config:
-    config['gateway'] = {}
-if 'controlUi' not in config['gateway']:
-    config['gateway']['controlUi'] = {}
-if 'allowedOrigins' not in config['gateway']['controlUi']:
-    config['gateway']['controlUi']['allowedOrigins'] = []
-
-origins = config['gateway']['controlUi']['allowedOrigins']
-
-# 添加服务器 IP 相关的 origin
-new_origins = [
-    "http://${serverIp}:18789",
-    "http://${serverIp}"
-]
-
-for origin in new_origins:
-    if origin not in origins:
-        origins.append(origin)
-        print(f"添加 origin: {origin}")
-
-with open(config_file, 'w') as f:
-    json.dump(config, f, indent=2)
-
-print("✅ allowedOrigins 已更新")
-PYEOF
-fi
-
-echo "7️⃣ 配置 auth-profiles.json (API Keys)..."
-mkdir -p ~/.openclaw/agents/main/agent
-
-# 位置1: agents/main/auth-profiles.json (主配置目录)
-cat > ~/.openclaw/agents/main/auth-profiles.json << 'AUTHEOF'
-{
-  "version": 1,
-  "profiles": {
-    "zhipu:default": {
-      "type": "api_key",
-      "provider": "zhipu",
-      "key": config.env.ZHIPU_API_KEY
-    },
-    "alibaba-cloud:default": {
-      "type": "api_key",
-      "provider": "alibaba-cloud",
-      "key": config.env.DASHSCOPE_API_KEY
-    }
-  },
-  "lastGood": {
-    "zhipu": "zhipu:default",
-    "alibaba-cloud": "alibaba-cloud:default"
-  }
-}
-AUTHEOF
-
-# 位置2: agents/main/agent/auth-profiles.json (agent子目录)
-cp ~/.openclaw/agents/main/auth-profiles.json ~/.openclaw/agents/main/agent/auth-profiles.json
-
-echo "✅ auth-profiles.json 已配置"
-
-echo "8️⃣ 启动 OpenClaw..."
-cd ~/.openclaw
-killall node 2>/dev/null || true
-sleep 1
-nohup openclaw gateway > /var/log/openclaw.log 2>&1 &
-sleep 3
-
-echo "9️⃣ 检查服务状态..."
-if pgrep -f "openclaw gateway" > /dev/null; then
-    echo "✅ OpenClaw 正在运行"
-    ss -tlnp | grep 18789 || echo "端口 18789 已监听"
-else
-    echo "❌ OpenClaw 启动失败"
-    cat /var/log/openclaw.log | tail -20
-    exit 1
-fi
-
-echo "✅ 部署完成!"
-`;
+  const deployCommands = buildCloudRemoteDeployScript({
+    packageFile,
+    packageName,
+    serverIp,
+    useCustomImage,
+    zhipuKey: config.env?.ZHIPU_API_KEY || '',
+    dashscopeKey: config.env?.DASHSCOPE_API_KEY || '',
+  });
 
   conn.exec(deployCommands, (err, stream) => {
     if (err) {
@@ -955,6 +621,11 @@ router.post('/manual', async (req, res) => {
     if (!user) {
       return res.status(404).json({ error: '用户不存在' });
     }
+
+    if (!isPaidSubscription(user)) {
+      const err = paidSubscriptionError();
+      return res.status(err.status).json(err.body);
+    }
     
     const openclawToken = generateToken();
     const openclawSession = generateSessionId();
@@ -1019,11 +690,14 @@ router.post('/manual', async (req, res) => {
 
 async function manualDeployAsync(serverId, taskId, openclawToken, openclawSession, host, password, port) {
   try {
-    // 生成部署包
+    const db = await getDB();
+    const serverRecord = db.userServers?.find((s) => s.id === serverId);
+    const packageUserId = serverRecord?.userId || serverId;
+
     await updateTask(taskId, 10, '正在生成部署包...');
     const { packagePath, packageName } = await generateUserPackage(
-      serverId.replace('srv-', 'user'), 
-      openclawToken, 
+      packageUserId,
+      openclawToken,
       openclawSession
     );
     
@@ -1040,7 +714,6 @@ async function manualDeployAsync(serverId, taskId, openclawToken, openclawSessio
     await updateTask(taskId, 95, '验证服务状态...');
     await sleep(5000);
     
-    const db = await getDB();
     const server = db.userServers?.find(s => s.id === serverId);
     if (server) {
       server.status = 'running';
@@ -1084,50 +757,15 @@ async function uploadAndDeployCustom(host, port, password, packagePath, packageN
         const writeStream = sftp.createWriteStream(remotePath);
         
         writeStream.on('close', () => {
-          // 根据是否使用自定义镜像选择安装步骤
-          const installSteps = useCustomImage ? `
-echo "⚡ 使用自定义镜像，跳过安装..."
-echo "Node: $(node --version)"
-` : `
-if ! command -v node &> /dev/null; then
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-    apt-get install -y nodejs
-fi
-npm install -g openclaw@${OPENCLAW_VERSION}
-`;
-          
-          const deployCommands = `
-set -e
-cd /root
-tar -xzf ${packageFile}
-${installSteps}
-cd ${packageName}
-cp -r .openclaw ~/.openclaw
-cd ~/.openclaw
-pkill -f openclaw 2>/dev/null || true
-sleep 2
-nohup openclaw gateway > /var/log/openclaw.log 2>&1 &
-sleep 5
-ss -tlnp | grep 18789
-`;
-
-          
-          conn.exec(deployCommands, (err, stream) => {
-            if (err) {
-              conn.end();
-              reject(err);
-              return;
-            }
-            
-            stream.on('close', (code) => {
-              conn.end();
-              if (code === 0) resolve();
-              else reject(new Error(`部署脚本退出码: ${code}`));
-            });
-            
-            stream.on('data', (data) => console.log(data.toString()));
-            stream.stderr.on('data', (data) => console.error(data.toString()));
-          });
+          executeDeploy(
+            conn,
+            packageFile,
+            packageName,
+            useCustomImage,
+            host,
+            resolve,
+            reject,
+          );
         });
         
         writeStream.on('error', reject);

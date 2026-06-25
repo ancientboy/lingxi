@@ -16,6 +16,11 @@ class AuthSession {
   }
 
   String? get email => user['email']?.toString();
+
+  String? get userId {
+    final id = user['id'];
+    return id?.toString();
+  }
 }
 
 class AuthStorage {
