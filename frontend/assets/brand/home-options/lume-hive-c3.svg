@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" aria-label="Lume hive C3 three cells">
+  <path d="M 24 14 L 29.5 17.2 L 29.5 23.8 L 24 27 L 18.5 23.8 L 18.5 17.2 Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+  <path d="M 29.5 17.2 L 35 20.4 L 35 27 L 29.5 30.2 L 29.5 23.8" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+  <path d="M 18.5 17.2 L 24 14 L 29.5 17.2 L 24 20.4 L 18.5 17.2" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" opacity="0.55"/>
+  <circle cx="24" cy="20.5" r="1.5" fill="currentColor"/>
+</svg>

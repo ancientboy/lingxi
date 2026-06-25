@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" aria-label="Lume B2-2 three agents">
+  <path d="M 31.2 12.2 A 17.2 17.2 0 1 1 31.2 35.8" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/>
+  <path d="M 16.8 35.8 A 17.2 17.2 0 1 1 16.8 12.2" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/>
+  <circle cx="24" cy="24" r="2.7" fill="currentColor"/>
+  <circle cx="32" cy="15.6" r="1.6" fill="currentColor" opacity="0.85"/>
+  <circle cx="15.6" cy="32.4" r="1.45" fill="currentColor" opacity="0.65"/>
+  <circle cx="32.4" cy="32" r="1.35" fill="currentColor" opacity="0.5"/>
+</svg>

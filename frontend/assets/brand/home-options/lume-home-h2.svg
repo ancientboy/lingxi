@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" aria-label="Lume home H2 arch haven">
+  <path d="M 11 34 Q 11 16 24 13 Q 37 16 37 34" stroke="currentColor" stroke-width="2.25" stroke-linecap="round"/>
+  <circle cx="20.5" cy="26" r="2" fill="currentColor" opacity="0.5"/>
+  <circle cx="27.5" cy="26" r="2" fill="currentColor" opacity="0.5"/>
+</svg>
