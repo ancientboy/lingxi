@@ -16,6 +16,7 @@ logs/
 
 # 打包文件
 dist/
+!installer/plugins/openclaw-lume/dist/
 *.tar.gz
 
 # 系统文件
