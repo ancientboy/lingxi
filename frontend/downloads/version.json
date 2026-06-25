@@ -1,10 +1,10 @@
 {
   "mac": {
-    "version": "1.0.0",
+    "version": "1.1.0",
     "url": "/downloads/Lume-mac.dmg",
     "github_fallback": "https://github.com/ancientboy/lingxi/releases/latest/download/Lume-mac.dmg",
-    "updated": null,
-    "note": "由 GitHub Actions 构建后自动更新"
+    "updated": "2026-06-25T00:00:00Z",
+    "note": "原生侧栏 + 窗口记忆 + C1-13 品牌"
   },
   "android": {
     "version": "1.9.4",

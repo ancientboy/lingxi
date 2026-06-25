@@ -2221,6 +2221,33 @@ window.lumeDesktopToggleRightRail = function () {
   if (typeof toggleRightSidebar === 'function') toggleRightSidebar();
 };
 
+window.lumeDesktopSwitchAgent = function (agentId) {
+  if (typeof switchAgentFromDrawer === 'function') switchAgentFromDrawer(agentId);
+  else if (typeof switchAgent === 'function') switchAgent(agentId);
+};
+
+window.lumeDesktopSendQuick = function (text) {
+  if (typeof sendFromTeamDrawer === 'function') sendFromTeamDrawer(text);
+};
+
+window.lumeDesktopGetTeamState = function () {
+  const ids =
+    user && user.agents && user.agents.length ? user.agents : ['lingxi'];
+  return JSON.stringify({
+    currentAgentId:
+      typeof currentAgentId !== 'undefined' ? currentAgentId : 'lingxi',
+    agentIds: ids,
+  });
+};
+
+window.lumeDesktopOpenFiles = function () {
+  if (typeof openFileExplorerFromNav === 'function') openFileExplorerFromNav();
+};
+
+window.lumeDesktopToggleNotifications = function () {
+  if (typeof toggleNotificationPanel === 'function') toggleNotificationPanel();
+};
+
 // 切换会话
 async function switchSession(sessionKey, forceReload = false) {
   if (sessionKey === currentSessionKey && !forceReload) {

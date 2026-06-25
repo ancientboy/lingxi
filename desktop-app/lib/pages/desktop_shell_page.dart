@@ -8,14 +8,16 @@ import '../models/lume_session.dart';
 import '../services/auth_storage.dart';
 import '../services/deep_link_service.dart';
 import '../services/session_service.dart';
+import '../services/team_service.dart';
+import '../services/workspace_state_service.dart';
 import '../widgets/about_lume_dialog.dart';
 import '../widgets/chat_composer.dart';
-import '../widgets/desktop_tools_bar.dart';
 import '../widgets/session_sidebar.dart';
 import '../widgets/settings_sheet.dart';
 import '../widgets/web_chat_view.dart';
+import '../widgets/workspace_panel.dart';
 
-/// Cursor / Web aligned shell: native sessions | chat center | web right rail.
+/// Native three-column shell: sessions | chat | workspace (Cursor / Web layout).
 class DesktopShellPage extends StatefulWidget {
   const DesktopShellPage({
     super.key,
@@ -34,6 +36,8 @@ class DesktopShellPage extends StatefulWidget {
 
 class _DesktopShellPageState extends State<DesktopShellPage> {
   final _sessionService = SessionService();
+  final _teamService = TeamService();
+  final _workspaceState = WorkspaceStateService();
   final _chatKey = GlobalKey<WebChatViewState>();
 
   List<LumeSession> _sessions = [];
@@ -42,6 +46,9 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
   String? _selectedKey;
   bool _chatReady = false;
   LumeModelState? _modelState;
+  TeamState? _teamState;
+  bool _workspaceCollapsed = false;
+  String? _activeTool;
 
   @override
   void initState() {
@@ -54,6 +61,8 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
     AppCommands.onOpenSettings = _openSettings;
 
     widget.deepLinks.setHandler(_handleDeepLink);
+    _teamState = _teamService.fromSession(widget.session);
+    _loadWorkspaceCollapsed();
     _bootstrapSessions();
   }
 
@@ -64,6 +73,17 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
     AppCommands.onNewChat = null;
     AppCommands.onOpenSettings = null;
     super.dispose();
+  }
+
+  Future<void> _loadWorkspaceCollapsed() async {
+    final collapsed = await _workspaceState.readCollapsed();
+    if (mounted) setState(() => _workspaceCollapsed = collapsed);
+  }
+
+  Future<void> _toggleWorkspaceCollapsed() async {
+    final next = !_workspaceCollapsed;
+    setState(() => _workspaceCollapsed = next);
+    await _workspaceState.saveCollapsed(next);
   }
 
   Future<void> _bootstrapSessions() async {
@@ -110,14 +130,16 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
     }
   }
 
+  Future<void> _refreshTeam() async {
+    final state = await _chatKey.currentState?.getTeamState();
+    if (state != null && mounted) {
+      setState(() => _teamState = state);
+    }
+  }
+
   Future<void> _refreshModels() async {
     final state = await _chatKey.currentState?.getModelState();
     if (state != null && mounted) setState(() => _modelState = state);
-  }
-
-  Future<void> _selectModel(String id) async {
-    await _chatKey.currentState?.selectModel(id);
-    await _refreshModels();
   }
 
   void _syncWindowTitle() {
@@ -137,20 +159,31 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
   void _refreshAll() {
     _chatKey.currentState?.reloadChat();
     _loadSessions();
+    _refreshTeam();
   }
 
   Future<void> _onSelectSession(LumeSession item) async {
-    setState(() => _selectedKey = item.key);
+    setState(() {
+      _selectedKey = item.key;
+      _activeTool = 'chat';
+    });
     _syncWindowTitle();
     await _chatKey.currentState?.switchToSession(item.key);
+    await _chatKey.currentState?.switchView('chat');
+    await _refreshTeam();
   }
 
   Future<void> _onNewChat() async {
     await _chatKey.currentState?.createNewSession();
-    setState(() => _selectedKey = null);
+    setState(() {
+      _selectedKey = null;
+      _activeTool = 'chat';
+    });
     windowManager.setTitle('新对话');
+    await _chatKey.currentState?.switchView('chat');
     await Future.delayed(const Duration(milliseconds: 400));
     _loadSessions();
+    _refreshTeam();
   }
 
   Future<void> _onSendMessage(String text) async {
@@ -164,8 +197,31 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
       );
       return;
     }
+    setState(() => _activeTool = 'chat');
     await Future.delayed(const Duration(milliseconds: 500));
     _loadSessions();
+  }
+
+  Future<void> _onSwitchAgent(String agentId) async {
+    await _chatKey.currentState?.switchAgent(agentId);
+    setState(() => _activeTool = 'chat');
+    await _chatKey.currentState?.switchView('chat');
+    await Future.delayed(const Duration(milliseconds: 600));
+    await _refreshTeam();
+    _loadSessions();
+  }
+
+  Future<void> _onQuickSend(String text) async {
+    setState(() => _activeTool = 'chat');
+    await _chatKey.currentState?.switchView('chat');
+    await _chatKey.currentState?.sendQuickMessage(text);
+    await Future.delayed(const Duration(milliseconds: 500));
+    _loadSessions();
+  }
+
+  Future<void> _openToolView(String view) async {
+    setState(() => _activeTool = view);
+    await _chatKey.currentState?.switchView(view);
   }
 
   void _openSettings() {
@@ -204,6 +260,7 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
     }
     _loadSessions();
     _refreshModels();
+    _refreshTeam();
   }
 
   Future<void> _handleDeepLink(DeepLinkAction action) async {
@@ -213,17 +270,23 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
     switch (action.kind) {
       case DeepLinkKind.session:
         if (action.sessionKey != null) {
-          setState(() => _selectedKey = action.sessionKey);
+          setState(() {
+            _selectedKey = action.sessionKey;
+            _activeTool = 'chat';
+          });
           await _chatKey.currentState?.switchToSession(action.sessionKey!);
+          await _chatKey.currentState?.switchView('chat');
           _syncWindowTitle();
         }
         break;
       case DeepLinkKind.view:
         if (action.view != null) {
-          await _chatKey.currentState?.switchView(action.view!);
+          await _openToolView(action.view!);
         }
         break;
       case DeepLinkKind.chat:
+        setState(() => _activeTool = 'chat');
+        await _chatKey.currentState?.switchView('chat');
         break;
     }
     await windowManager.focus();
@@ -231,6 +294,8 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
 
   @override
   Widget build(BuildContext context) {
+    final team = _teamState ?? _teamService.fromSession(widget.session);
+
     return Shortcuts(
       shortcuts: {
         LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.keyR):
@@ -287,16 +352,6 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
                           onReady: _onChatReady,
                         ),
                       ),
-                      DesktopToolsBar(
-                        onWorkspace: () =>
-                            _chatKey.currentState?.switchView('workspace'),
-                        onSkills: () =>
-                            _chatKey.currentState?.switchView('skills'),
-                        onServers: () =>
-                            _chatKey.currentState?.switchView('servers'),
-                        onToggleRail: () =>
-                            _chatKey.currentState?.toggleRightRail(),
-                      ),
                       ChatComposer(
                         enabled: _chatReady,
                         modelState: _modelState,
@@ -307,12 +362,30 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
                     ],
                   ),
                 ),
+                WorkspacePanel(
+                  teamState: team,
+                  collapsed: _workspaceCollapsed,
+                  activeTool: _activeTool,
+                  onToggleCollapse: _toggleWorkspaceCollapsed,
+                  onSwitchAgent: _onSwitchAgent,
+                  onQuickSend: _onQuickSend,
+                  onOpenView: _openToolView,
+                  onOpenFiles: () => _chatKey.currentState?.openFiles(),
+                  onOpenNotifications: () =>
+                      _chatKey.currentState?.toggleNotifications(),
+                  onBackToChat: () => _openToolView('chat'),
+                ),
               ],
             ),
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _selectModel(String id) async {
+    await _chatKey.currentState?.selectModel(id);
+    await _refreshModels();
   }
 }
 
