@@ -241,10 +241,8 @@
   border-bottom: none;
 }
 
-.sidebar-brand-mark {
+.sidebar-brand-mark.lume-mark-badge {
   flex-shrink: 0;
-  display: flex;
-  align-items: center;
 }
 
 .sidebar-new-chat {

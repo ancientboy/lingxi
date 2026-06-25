@@ -15,7 +15,7 @@ Future<void> showLumeAboutDialog(BuildContext context) {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const LumeAnimatedMark(size: 72, animate: true),
+          const LumeAnimatedMark(size: 72, animate: true, badge: true),
           const SizedBox(height: 16),
           const Text(
             '你的 AI 团队，就在桌面',

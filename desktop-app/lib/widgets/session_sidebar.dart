@@ -67,15 +67,16 @@ class _SessionSidebarState extends State<SessionSidebar> {
             padding: const EdgeInsets.fromLTRB(14, 14, 10, 8),
             child: Row(
               children: [
-                const LumeMark(size: 24),
+                const LumeMark(size: 36, badge: true),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     'Lume',
                     style: GoogleFonts.dmSans(
-                      fontSize: 16,
+                      fontSize: 17,
                       fontWeight: FontWeight.w700,
                       color: LumeColors.text1,
+                      height: 1,
                     ),
                   ),
                 ),

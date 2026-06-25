@@ -158,14 +158,15 @@ class _LoginPageState extends State<LoginPage> {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const LumeMark(size: 44),
-            const SizedBox(width: 12),
+            const LumeMark(size: 48, badge: true),
+            const SizedBox(width: 14),
             Text(
               'Lume',
               style: GoogleFonts.dmSans(
-                fontSize: 26,
+                fontSize: 28,
                 fontWeight: FontWeight.w700,
                 color: LumeColors.text1,
+                height: 1,
               ),
             ),
           ],

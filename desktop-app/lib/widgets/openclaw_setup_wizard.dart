@@ -131,7 +131,7 @@ class _OpenClawSetupDialogState extends State<_OpenClawSetupDialog> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: Row(
         children: [
-          const LumeMark(size: 28),
+          const LumeMark(size: 36, badge: true),
           const SizedBox(width: 12),
           const Expanded(
             child: Text(
