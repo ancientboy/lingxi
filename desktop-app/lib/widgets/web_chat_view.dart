@@ -8,6 +8,7 @@ import '../config/app_config.dart';
 import '../models/lume_model.dart';
 import '../services/auth_storage.dart';
 import '../services/notification_service.dart';
+import '../services/team_service.dart';
 import '../theme/lume_theme.dart';
 
 /// WKWebView chat surface — auth injection + JS bridge.
@@ -83,6 +84,9 @@ class WebChatViewState extends State<WebChatView> {
 
     await _controller.runJavaScript(
       'typeof initRightSidebar === "function" && initRightSidebar();',
+    );
+    await _controller.runJavaScript(
+      'typeof setRightSidebarCollapsed === "function" && setRightSidebarCollapsed(true);',
     );
 
     widget.onReady?.call();
@@ -166,6 +170,41 @@ class WebChatViewState extends State<WebChatView> {
   Future<void> toggleRightRail() async {
     await _controller.runJavaScript(
       'typeof lumeDesktopToggleRightRail === "function" && lumeDesktopToggleRightRail();',
+    );
+  }
+
+  Future<TeamState?> getTeamState() async {
+    final result = await _controller.runJavaScriptReturningResult(
+      'typeof lumeDesktopGetTeamState === "function" ? lumeDesktopGetTeamState() : null',
+    );
+    final raw = result.toString();
+    if (raw == 'null' || raw.isEmpty) return null;
+    return TeamService().fromBridgeJson(raw);
+  }
+
+  Future<void> switchAgent(String agentId) async {
+    final idJs = jsonEncode(agentId);
+    await _controller.runJavaScript(
+      'typeof lumeDesktopSwitchAgent === "function" && lumeDesktopSwitchAgent($idJs);',
+    );
+  }
+
+  Future<void> sendQuickMessage(String text) async {
+    final textJs = jsonEncode(text);
+    await _controller.runJavaScript(
+      'typeof lumeDesktopSendQuick === "function" && lumeDesktopSendQuick($textJs);',
+    );
+  }
+
+  Future<void> openFiles() async {
+    await _controller.runJavaScript(
+      'typeof lumeDesktopOpenFiles === "function" && lumeDesktopOpenFiles();',
+    );
+  }
+
+  Future<void> toggleNotifications() async {
+    await _controller.runJavaScript(
+      'typeof lumeDesktopToggleNotifications === "function" && lumeDesktopToggleNotifications();',
     );
   }
 
