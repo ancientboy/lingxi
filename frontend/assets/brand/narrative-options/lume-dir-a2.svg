@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" aria-label="Lume direction A2 open field wider gap">
+  <path d="M 32.2 10.8 A 18.5 18.5 0 1 1 32.2 37.2" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/>
+  <path d="M 15.8 37.2 A 18.5 18.5 0 1 1 15.8 10.8" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/>
+  <circle cx="30.4" cy="14.2" r="2" fill="currentColor"/>
+  <path fill="currentColor" d="M24 5.2Q26.8 19.4 33.6 23.4Q27 27 24 42.4Q21 27 14.4 23.4Q21.2 19.4 24 5.2Z"/>
+</svg>

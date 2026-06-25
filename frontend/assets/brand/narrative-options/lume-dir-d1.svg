@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" aria-label="Lume direction D1 resonance parallel tracks">
+  <path d="M 13.5 14.5 Q 21 24 13.5 33.5" stroke="currentColor" stroke-width="1.65" stroke-linecap="round"/>
+  <path d="M 34.5 14.5 Q 27 24 34.5 33.5" stroke="currentColor" stroke-width="1.65" stroke-linecap="round"/>
+  <circle cx="14.8" cy="15.2" r="1.6" fill="currentColor" opacity="0.75"/>
+  <circle cx="33.2" cy="15.2" r="1.6" fill="currentColor" opacity="0.75"/>
+</svg>

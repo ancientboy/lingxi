@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lume Logo — 叙事方向 A / B / D</title>
+  <style>
+    :root {
+      --accent: #3d6b62;
+      --bg: #f7f4ef;
+      --card: #fffdf9;
+      --text: #2c3e35;
+      --muted: #6b7c74;
+      --border: rgba(61, 107, 98, 0.14);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+    }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 32px 20px 48px; }
+    h1 { font-size: 1.35rem; font-weight: 600; margin: 0 0 8px; color: var(--accent); }
+    .lead { color: var(--muted); font-size: 0.95rem; margin: 0 0 32px; max-width: 54rem; }
+    .section { margin-bottom: 36px; }
+    .section-head {
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .section-head h2 {
+      font-size: 1.05rem;
+      margin: 0 0 6px;
+      color: var(--accent);
+    }
+    .story {
+      font-size: 0.88rem;
+      color: var(--muted);
+      margin: 0;
+      max-width: 40rem;
+    }
+  .tagline {
+      font-size: 0.82rem;
+      color: var(--text);
+      margin-top: 8px;
+      font-style: italic;
+      opacity: 0.85;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 14px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px 14px 14px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .card:hover {
+      border-color: rgba(61, 107, 98, 0.35);
+      box-shadow: 0 4px 20px rgba(61, 107, 98, 0.08);
+    }
+    .card.selected {
+      border-color: var(--accent);
+      box-shadow: 0 4px 24px rgba(61, 107, 98, 0.14);
+    }
+    .mark { width: 88px; height: 88px; margin: 0 auto 10px; color: var(--accent); }
+    .mark svg { width: 100%; height: 100%; display: block; }
+    .label { font-weight: 600; font-size: 0.9rem; margin-bottom: 4px; }
+    .desc { font-size: 0.78rem; color: var(--muted); margin-bottom: 8px; }
+    .card a { font-size: 0.72rem; color: var(--accent); text-decoration: none; }
+    .card a:hover { text-decoration: underline; }
+    .sizes {
+      margin-top: 12px;
+      padding-top: 28px;
+      border-top: 1px solid var(--border);
+    }
+    .sizes h2 { font-size: 1rem; margin: 0 0 16px; color: var(--accent); }
+    .size-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+    .size-row span { font-size: 0.8rem; color: var(--muted); min-width: 64px; }
+    .size-inline { color: var(--accent); flex-shrink: 0; }
+    footer { margin-top: 28px; font-size: 0.8rem; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Lume Logo — 叙事方向 A / B / D</h1>
+    <p class="lead">
+      从「人类与 AI 协同、组建团队、灵犀默契」出发，而非「光」的字面含义。
+      点击卡片可高亮偏好（仅本地），方便截图反馈。品牌色 <code>#3d6b62</code>。
+    </p>
+
+    <div id="sections"></div>
+
+    <section class="sizes">
+      <h2>尺寸预览（当前默认 A1）</h2>
+      <div class="size-row">
+        <span>16px</span>
+        <div class="size-inline" style="width:16px;height:16px" id="sz16"></div>
+      </div>
+      <div class="size-row">
+        <span>24px</span>
+        <div class="size-inline" style="width:24px;height:24px" id="sz24"></div>
+      </div>
+      <div class="size-row">
+        <span>32px</span>
+        <div class="size-inline" style="width:32px;height:32px" id="sz32"></div>
+      </div>
+      <div class="size-row">
+        <span>48px</span>
+        <div class="size-inline" style="width:48px;height:48px" id="sz48"></div>
+      </div>
+    </section>
+
+    <footer>定稿前不替换线上 favicon / 侧栏。选定后可微调断环、节点数量与感应线强度。</footer>
+  </div>
+
+  <script>
+    const SECTIONS = [
+      {
+        id: 'A',
+        title: '方向 A — 编队 / 开口环',
+        story: '中心的星芒是你的意图；上下开口的环是开放的协作场，团队可进可出；圆点是第一个入列的伙伴。',
+        tagline: '你编排，他们入列。',
+        options: [
+          { id: 'a1', file: 'lume-dir-a1.svg', title: 'A1', desc: '参考平衡，故事最完整' },
+          { id: 'a2', file: 'lume-dir-a2.svg', title: 'A2', desc: '环开口更大，场更开放' },
+          { id: 'a3', file: 'lume-dir-a3.svg', title: 'A3', desc: '双圆点，编队正在形成' },
+        ],
+      },
+      {
+        id: 'B',
+        title: '方向 B — 协奏 / 多节点',
+        story: '人是指挥与锚点，多个 Agent 不对称分布、各司其职——不是一个大模型，而是一支乐队。',
+        tagline: '一人编排，多人协奏。',
+        options: [
+          { id: 'b1', file: 'lume-dir-b1.svg', title: 'B1', desc: '星芒中心 + 三星编队' },
+          { id: 'b2', file: 'lume-dir-b2.svg', title: 'B2', desc: '实心锚点 + 双 Agent 节点' },
+          { id: 'b3', file: 'lume-dir-b3.svg', title: 'B3', desc: '轨道弧线，各 Agent 独立轨迹' },
+        ],
+      },
+      {
+        id: 'D',
+        title: '方向 D — 灵犀 / 感应',
+        story: '两条轨迹平行靠近、近而不融——人机之间最好的状态是默契，不是命令与执行的硬连接。',
+        tagline: '懂你所想，伴你而行。',
+        options: [
+          { id: 'd1', file: 'lume-dir-d1.svg', title: 'D1', desc: '双轨并行，顶部双节点' },
+          { id: 'd2', file: 'lume-dir-d2.svg', title: 'D2', desc: '星芒与伙伴 + 感应弧线' },
+          { id: 'd3', file: 'lume-dir-d3.svg', title: 'D3', desc: '淡环 + 内侧双轨共鸣' },
+        ],
+      },
+    ];
+
+    let selectedSvg = null;
+
+    async function loadSvg(file) {
+      const res = await fetch(file);
+      return await res.text();
+    }
+
+    function updateSizes(svg) {
+      ['sz16', 'sz24', 'sz32', 'sz48'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = svg;
+      });
+    }
+
+    async function init() {
+      const root = document.getElementById('sections');
+      let firstSvg = null;
+
+      for (const sec of SECTIONS) {
+        const section = document.createElement('section');
+        section.className = 'section';
+        section.innerHTML = `
+          <div class="section-head">
+            <h2>${sec.title}</h2>
+            <p class="story">${sec.story}</p>
+            <p class="tagline">${sec.tagline}</p>
+          </div>
+          <div class="grid"></div>
+        `;
+        const grid = section.querySelector('.grid');
+        root.appendChild(section);
+
+        for (const opt of sec.options) {
+          const svg = await loadSvg(opt.file);
+          if (!firstSvg) firstSvg = svg;
+          const card = document.createElement('article');
+          card.className = 'card';
+          card.dataset.id = opt.id;
+          card.innerHTML = `
+            <div class="mark">${svg}</div>
+            <div class="label">${opt.title}</div>
+            <div class="desc">${opt.desc}</div>
+            <a href="${opt.file}" target="_blank" rel="noopener">SVG</a>
+          `;
+          card.addEventListener('click', (e) => {
+            if (e.target.tagName === 'A') return;
+            document.querySelectorAll('.card').forEach((c) => c.classList.remove('selected'));
+            card.classList.add('selected');
+            selectedSvg = svg;
+            updateSizes(svg);
+          });
+          grid.appendChild(card);
+        }
+      }
+
+      if (firstSvg) updateSizes(firstSvg);
+    }
+
+    init();
+  </script>
+</body>
+</html>

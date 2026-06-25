@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" aria-label="Lume direction A3 formation team forming">
+  <path d="M 31 12 A 17.5 17.5 0 1 1 31 36" stroke="currentColor" stroke-width="1.45" stroke-linecap="round"/>
+  <path d="M 17 36 A 17.5 17.5 0 1 1 17 12" stroke="currentColor" stroke-width="1.45" stroke-linecap="round"/>
+  <circle cx="30.6" cy="14.8" r="2" fill="currentColor"/>
+  <circle cx="17.2" cy="31.6" r="1.35" fill="currentColor" opacity="0.62"/>
+  <path fill="currentColor" d="M24 5Q27 19.2 34 23.5Q27.2 27 24 42.8Q20.8 27 14 23.5Q21 19.2 24 5Z"/>
+</svg>
