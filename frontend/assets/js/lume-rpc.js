@@ -17,6 +17,27 @@ const LumeRpc = (function () {
     return localStorage.getItem('lingxi_token');
   }
 
+  function getDesktopOverride(key) {
+    const v = localStorage.getItem(key);
+    return v && String(v).trim() ? String(v).trim() : null;
+  }
+
+  function getDesktopConnectionMode() {
+    return getDesktopOverride('lume_desktop_connection_mode');
+  }
+
+  function getDesktopWsUrl() {
+    return getDesktopOverride('lume_desktop_ws_url');
+  }
+
+  function getDesktopSecret() {
+    return getDesktopOverride('lume_desktop_lume_secret');
+  }
+
+  function getDesktopUserId() {
+    return getDesktopOverride('lume_desktop_user_id');
+  }
+
   function getApiBase() {
     try {
       const u = JSON.parse(localStorage.getItem('lingxi_user') || '{}');
@@ -50,6 +71,20 @@ const LumeRpc = (function () {
     const token = getToken();
     if (!token) return false;
 
+    const desktopMode = getDesktopConnectionMode();
+    const desktopWs = getDesktopWsUrl();
+    const desktopSecret = getDesktopSecret();
+    const desktopUserId = getDesktopUserId();
+
+    // Desktop local mode — direct WS to Lume plugin on 127.0.0.1:18790
+    if (desktopMode === 'local' && desktopWs) {
+      userId = desktopUserId || userId;
+      secret = desktopSecret || null;
+      authHandledByProxy = false;
+      connecting = true;
+      return await openWebSocket(desktopWs);
+    }
+
     connecting = true;
     try {
       const res = await fetch(getApiBase() + '/api/lume/connect-info', {
@@ -61,96 +96,100 @@ const LumeRpc = (function () {
         connecting = false;
         return false;
       }
-      userId = info.userId;
-      secret = info.secret || null;
+      userId = info.userId || desktopUserId || userId;
+      secret = info.secret || desktopSecret || null;
       authHandledByProxy = info.authHandled === true;
       const wsUrl = info.wsUrl;
 
-      return await new Promise((resolve) => {
-        ws = new WebSocket(wsUrl);
-        const authId = 'auth-' + Date.now();
-        let settled = false;
-
-        const succeed = (payload) => {
-          if (settled) return;
-          settled = true;
-          markConnected(payload || { userId });
-          resolve(true);
-        };
-
-        const fail = () => {
-          if (settled) return;
-          settled = true;
-          connecting = false;
-          connected = false;
-          resolve(false);
-        };
-
-        ws.onopen = () => {
-          // 代理已代完成 Lume auth 时，不再发送 secret:null 的无效 auth
-          if (!authHandledByProxy && secret) {
-            ws.send(
-              JSON.stringify({
-                id: authId,
-                method: 'auth',
-                params: { token: secret, userId },
-              }),
-            );
-          }
-        };
-
-        ws.onmessage = (ev) => {
-          let msg;
-          try {
-            msg = JSON.parse(ev.data);
-          } catch {
-            return;
-          }
-
-          if (msg.type === 'event') {
-            emitEvent(msg);
-            return;
-          }
-
-          // WSS 代理 authHandled：收到带 userId 的成功 res 即视为已连接
-          if (
-            authHandledByProxy &&
-            !connected &&
-            msg.type === 'res' &&
-            msg.ok &&
-            msg.payload?.userId
-          ) {
-            succeed(msg.payload);
-            return;
-          }
-
-          if (msg.id === authId) {
-            if (msg.ok) succeed(msg.payload);
-            else fail();
-            return;
-          }
-
-          if (msg.type === 'res' && msg.id && pending.has(msg.id)) {
-            const entry = pending.get(msg.id);
-            pending.delete(msg.id);
-            clearTimeout(entry.timer);
-            if (msg.ok) entry.resolve(msg);
-            else entry.reject(new Error(msg.error?.message || msg.error || 'RPC failed'));
-          }
-        };
-
-        ws.onerror = fail;
-        ws.onclose = () => {
-          connected = false;
-          connecting = false;
-        };
-
-        setTimeout(fail, 12000);
-      });
+      return await openWebSocket(wsUrl);
     } catch (e) {
       connecting = false;
       return false;
     }
+  }
+
+  function openWebSocket(wsUrl) {
+    return new Promise((resolve) => {
+      ws = new WebSocket(wsUrl);
+      const authId = 'auth-' + Date.now();
+      let settled = false;
+
+      const succeed = (payload) => {
+        if (settled) return;
+        settled = true;
+        markConnected(payload || { userId });
+        resolve(true);
+      };
+
+      const fail = () => {
+        if (settled) return;
+        settled = true;
+        connecting = false;
+        connected = false;
+        resolve(false);
+      };
+
+      ws.onopen = () => {
+        // 代理已代完成 Lume auth 时，不再发送 secret:null 的无效 auth
+        if (!authHandledByProxy && secret) {
+          ws.send(
+            JSON.stringify({
+              id: authId,
+              method: 'auth',
+              params: { token: secret, userId },
+            }),
+          );
+        }
+      };
+
+      ws.onmessage = (ev) => {
+        let msg;
+        try {
+          msg = JSON.parse(ev.data);
+        } catch {
+          return;
+        }
+
+        if (msg.type === 'event') {
+          emitEvent(msg);
+          return;
+        }
+
+        // WSS 代理 authHandled：收到带 userId 的成功 res 即视为已连接
+        if (
+          authHandledByProxy &&
+          !connected &&
+          msg.type === 'res' &&
+          msg.ok &&
+          msg.payload?.userId
+        ) {
+          succeed(msg.payload);
+          return;
+        }
+
+        if (msg.id === authId) {
+          if (msg.ok) succeed(msg.payload);
+          else fail();
+          return;
+        }
+
+        if (msg.type === 'res' && msg.id && pending.has(msg.id)) {
+          const entry = pending.get(msg.id);
+          pending.delete(msg.id);
+          clearTimeout(entry.timer);
+          if (msg.ok) entry.resolve(msg);
+          else entry.reject(new Error(msg.error?.message || msg.error || 'RPC failed'));
+        }
+      };
+
+      ws.onerror = fail;
+      ws.onclose = () => {
+        connected = false;
+        connecting = false;
+      };
+
+      setTimeout(fail, 12000);
+    });
   }
 
   function sendRequest(method, params, timeoutMs) {

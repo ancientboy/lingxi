@@ -19,4 +19,27 @@ class AppConfig {
 
   static const String tokenKey = 'lingxi_token';
   static const String userKey = 'lingxi_user';
+
+  /// Local OpenClaw / Lume plugin (see backend `lume-ws.js`).
+  static const String localLumeHost = '127.0.0.1';
+  static const int lumePluginPort = 18790;
+  static const int gatewayPort = 18789;
+  static const Duration localProbeTimeout = Duration(milliseconds: 2500);
+
+  static String get localLumeWsUrl => 'ws://$localLumeHost:$lumePluginPort';
+
+  /// Override: --dart-define=LUME_WS_SECRET=...
+  static String get lumeWsSecret {
+    const override = String.fromEnvironment('LUME_WS_SECRET');
+    if (override.isNotEmpty) return override;
+    return 'lume-secret-2026';
+  }
+
+  /// Injected into WebView `localStorage` for `lume-rpc.js`.
+  static const String desktopConnectionModeKey = 'lume_desktop_connection_mode';
+  static const String desktopWsUrlKey = 'lume_desktop_ws_url';
+  static const String desktopLumeSecretKey = 'lume_desktop_lume_secret';
+  static const String desktopUserIdKey = 'lume_desktop_user_id';
+
+  static const String openClawInstallUrl = 'https://openclaw.ai/install.sh';
 }

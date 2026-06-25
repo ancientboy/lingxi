@@ -5,8 +5,11 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 
 import '../config/app_config.dart';
+import '../models/connection_mode.dart';
 import '../models/lume_model.dart';
 import '../services/auth_storage.dart';
+import '../services/connection_mode_service.dart';
+import '../services/local_openclaw_service.dart';
 import '../services/notification_service.dart';
 import '../services/team_service.dart';
 import '../theme/lume_theme.dart';
@@ -30,10 +33,17 @@ class WebChatView extends StatefulWidget {
 
 class WebChatViewState extends State<WebChatView> {
   late final WebViewController _controller;
+  final _connectionMode = ConnectionModeService();
   bool _authInjected = false;
   int _loadGeneration = 0;
+  ConnectionMode _connectionPreference = ConnectionMode.auto;
+  EffectiveConnection _effectiveConnection = EffectiveConnection.cloud;
+  LocalOpenClawStatus? _localStatus;
 
   WebViewController get controller => _controller;
+  ConnectionMode get connectionPreference => _connectionPreference;
+  EffectiveConnection get effectiveConnection => _effectiveConnection;
+  LocalOpenClawStatus? get localStatus => _localStatus;
 
   @override
   void initState() {
@@ -93,16 +103,27 @@ class WebChatViewState extends State<WebChatView> {
   }
 
   Future<void> _injectSession() async {
+    await _resolveConnection();
     final tokenJs = jsonEncode(widget.session.token);
     final userJs = jsonEncode(widget.session.user);
     final tokenKey = AppConfig.tokenKey;
     final userKey = AppConfig.userKey;
+    final userId = widget.session.userId ?? '';
+    final desktopEntries = _connectionMode.desktopStorageEntries(
+      effective: _effectiveConnection,
+      userId: userId,
+    );
+    final desktopJs = desktopEntries.entries
+        .map((e) =>
+            'localStorage.setItem(${jsonEncode(e.key)}, ${jsonEncode(e.value)});')
+        .join('\n');
 
     await _controller.runJavaScript('''
       (function() {
         try {
           localStorage.setItem('$tokenKey', $tokenJs);
           localStorage.setItem('$userKey', $userJs);
+          $desktopJs
           document.documentElement.classList.add('lume-desktop');
         } catch (e) {
           console.error('Lume desktop auth inject failed', e);
@@ -114,6 +135,18 @@ class WebChatViewState extends State<WebChatView> {
   void reloadChat() {
     _authInjected = false;
     _controller.loadRequest(Uri.parse(AppConfig.chatUrl));
+  }
+
+  Future<void> _resolveConnection() async {
+    final resolved = await _connectionMode.resolve();
+    _connectionPreference = resolved.preference;
+    _effectiveConnection = resolved.effective;
+    _localStatus = resolved.status;
+  }
+
+  Future<void> refreshConnectionAndReload() async {
+    await _resolveConnection();
+    reloadChat();
   }
 
   Future<void> switchToSession(String sessionKey) async {

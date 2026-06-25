@@ -23,7 +23,7 @@ Future<void> showLumeAboutDialog(BuildContext context) {
           ),
           const SizedBox(height: 8),
           Text(
-            '连接 lumeword.cn 云端',
+            '本机或云端 OpenClaw',
             style: TextStyle(color: LumeColors.text3, fontSize: 12),
           ),
         ],

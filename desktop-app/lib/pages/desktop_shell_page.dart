@@ -225,11 +225,19 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
   }
 
   void _openSettings() {
+    final chat = _chatKey.currentState;
     showLumeSettingsSheet(
       context,
       session: widget.session,
       token: widget.session.token,
       onLogout: () => _confirmLogout(),
+      initialMode: chat?.connectionPreference,
+      effectiveConnection: chat?.effectiveConnection,
+      localStatus: chat?.localStatus,
+      onConnectionModeChanged: (mode) async {
+        await chat?.refreshConnectionAndReload();
+        if (mounted) setState(() {});
+      },
     );
   }
 
