@@ -8,12 +8,18 @@ import 'pages/login_page.dart';
 import 'pages/splash_page.dart';
 import 'services/auth_service.dart';
 import 'services/auth_storage.dart';
+import 'services/deep_link_service.dart';
+import 'services/notification_service.dart';
 import 'services/window_state_service.dart';
 import 'theme/lume_theme.dart';
+
+final _deepLinks = DeepLinkService();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await windowManager.ensureInitialized();
+  await NotificationService.instance.init();
+  await _deepLinks.init();
 
   final windowState = WindowStateService();
   final savedSize = await windowState.readSize();
@@ -187,6 +193,7 @@ class _AppRootState extends State<AppRoot> {
     return DesktopShellPage(
       session: _session!,
       onLogout: _handleLogout,
+      deepLinks: _deepLinks,
     );
   }
 }

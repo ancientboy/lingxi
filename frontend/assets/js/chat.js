@@ -1006,6 +1006,10 @@ function finalizeStreamingMessage(text, runId, modelInfo) {
   updateLatestAssistantMessageActions();
   // 清理
   delete streamingMessages[runId];
+  const agentName = (typeof AGENT_INFO !== 'undefined' && AGENT_INFO[currentAgentId])
+    ? AGENT_INFO[currentAgentId].name
+    : '灵犀';
+  lumeDesktopNotifyReply(text, agentName);
 }
 
 // 渲染团队标签
@@ -2190,6 +2194,33 @@ window.lumeDesktopSend = function (text) {
   return false;
 };
 
+function lumeDesktopPostEvent(type, payload) {
+  if (!document.documentElement.classList.contains('lume-desktop')) return;
+  try {
+    if (window.LumeDesktop && window.LumeDesktop.postMessage) {
+      window.LumeDesktop.postMessage(JSON.stringify({ type, ...payload }));
+    }
+  } catch (e) { /* noop */ }
+}
+
+function lumeDesktopNotifyReply(text, title) {
+  const body = String(text || '').replace(/\s+/g, ' ').trim().slice(0, 160);
+  if (!body) return;
+  lumeDesktopPostEvent('assistant_message', {
+    title: title || 'Lume',
+    body,
+    sessionKey: typeof currentSessionKey !== 'undefined' ? currentSessionKey : '',
+  });
+}
+
+window.lumeDesktopSwitchView = function (view) {
+  if (typeof switchView === 'function') switchView(view);
+};
+
+window.lumeDesktopToggleRightRail = function () {
+  if (typeof toggleRightSidebar === 'function') toggleRightSidebar();
+};
+
 // 切换会话
 async function switchSession(sessionKey, forceReload = false) {
   if (sessionKey === currentSessionKey && !forceReload) {
@@ -2443,6 +2474,16 @@ function addMessage(role, content, name, modelInfo) {
   if (role === 'assistant') updateLatestAssistantMessageActions();
   scrollChatToBottom(true);
   if (role === 'user') updateScrollContextBar();
+
+  if (role === 'assistant') {
+    const isStreaming = Object.values(streamingMessages).some((s) => s.element === div);
+    if (!isStreaming) {
+      const plain = typeof content === 'string'
+        ? content
+        : (content && content.text ? content.text : '');
+      lumeDesktopNotifyReply(plain, name);
+    }
+  }
 
   // 重新渲染 Lucide 图标
   if (window.lucide) lucide.createIcons();

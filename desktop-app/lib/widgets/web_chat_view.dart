@@ -5,19 +5,23 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 
 import '../config/app_config.dart';
+import '../models/lume_model.dart';
 import '../services/auth_storage.dart';
+import '../services/notification_service.dart';
 import '../theme/lume_theme.dart';
 
-/// WKWebView chat surface — auth injection + JS bridge helpers.
+/// WKWebView chat surface — auth injection + JS bridge.
 class WebChatView extends StatefulWidget {
   const WebChatView({
     super.key,
     required this.session,
     this.onReady,
+    this.onBridgeMessage,
   });
 
   final AuthSession session;
   final VoidCallback? onReady;
+  final void Function(String raw)? onBridgeMessage;
 
   @override
   State<WebChatView> createState() => WebChatViewState();
@@ -47,12 +51,21 @@ class WebChatViewState extends State<WebChatView> {
       params = const PlatformWebViewControllerCreationParams();
     }
 
-    return WebViewController.fromPlatformCreationParams(params)
+    final controller = WebViewController.fromPlatformCreationParams(params)
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(LumeColors.bg)
+      ..addJavaScriptChannel(
+        'LumeDesktop',
+        onMessageReceived: (msg) {
+          NotificationService.instance.handleBridgeMessage(msg.message);
+          widget.onBridgeMessage?.call(msg.message);
+        },
+      )
       ..setNavigationDelegate(
         NavigationDelegate(onPageFinished: _onPageFinished),
       );
+
+    return controller;
   }
 
   Future<void> _onPageFinished(String url) async {
@@ -67,6 +80,10 @@ class WebChatViewState extends State<WebChatView> {
       await _controller.loadRequest(Uri.parse(AppConfig.chatUrl));
       return;
     }
+
+    await _controller.runJavaScript(
+      'typeof initRightSidebar === "function" && initRightSidebar();',
+    );
 
     widget.onReady?.call();
   }
@@ -116,6 +133,40 @@ class WebChatViewState extends State<WebChatView> {
       'typeof lumeDesktopSend === "function" ? lumeDesktopSend($textJs) : false',
     );
     return result == true;
+  }
+
+  Future<LumeModelState?> getModelState() async {
+    final result = await _controller.runJavaScriptReturningResult(
+      'typeof lumeDesktopGetModelState === "function" ? lumeDesktopGetModelState() : null',
+    );
+    final raw = result.toString();
+    if (raw == 'null' || raw.isEmpty) return null;
+    try {
+      final map = jsonDecode(result.toString()) as Map<String, dynamic>;
+      return LumeModelState.fromJson(map);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> selectModel(String modelId) async {
+    final idJs = jsonEncode(modelId);
+    await _controller.runJavaScript(
+      'typeof lumeDesktopSelectModel === "function" && lumeDesktopSelectModel($idJs);',
+    );
+  }
+
+  Future<void> switchView(String view) async {
+    final viewJs = jsonEncode(view);
+    await _controller.runJavaScript(
+      'typeof lumeDesktopSwitchView === "function" && lumeDesktopSwitchView($viewJs);',
+    );
+  }
+
+  Future<void> toggleRightRail() async {
+    await _controller.runJavaScript(
+      'typeof lumeDesktopToggleRightRail === "function" && lumeDesktopToggleRightRail();',
+    );
   }
 
   @override

@@ -55,7 +55,7 @@ class _SessionSidebarState extends State<SessionSidebar> {
     final filtered = _filtered;
 
     return Container(
-      width: 280,
+      width: 260,
       decoration: const BoxDecoration(
         color: LumeColors.bgCard,
         border: Border(right: BorderSide(color: LumeColors.border)),
