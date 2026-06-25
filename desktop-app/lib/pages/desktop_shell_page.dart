@@ -64,6 +64,10 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
   TeamState? _teamState;
   bool _workspaceCollapsed = false;
   String? _activeTool;
+  ConnectionMode _connectionPreference = ConnectionMode.auto;
+  EffectiveConnection? _effectiveConnection;
+  LocalOpenClawStatus? _localStatus;
+  bool _cloudAvailable = false;
 
   @override
   void initState() {
@@ -82,12 +86,32 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _prepareDesktopOpenClaw());
   }
 
+  Future<void> _syncConnectionUiState() async {
+    final resolved = await _connectionService.resolve();
+    if (!mounted) return;
+    setState(() {
+      _connectionPreference = resolved.preference;
+      _effectiveConnection = resolved.effective;
+      _localStatus = resolved.status;
+    });
+  }
+
+  Future<void> _onConnectionModeChanged(ConnectionMode mode) async {
+    await _connectionService.saveMode(mode);
+    await _refreshConnectionAfterBootstrap();
+    await _syncConnectionUiState();
+  }
+
   Future<void> _prepareDesktopOpenClaw() async {
     try {
       final bootstrap = await _bootstrapService.fetch(widget.session.token);
       if (!mounted) return;
 
-      setState(() => _lumeSecret = bootstrap.lumeSecret);
+      setState(() {
+        _lumeSecret = bootstrap.lumeSecret;
+        _cloudAvailable =
+            bootstrap.cloudServerRunning || bootstrap.hasCloudServer;
+      });
       await _connectionService.ensureDefaultMode(bootstrap.defaultConnectionMode);
 
       final local = await _localProbe.probeLocal();
@@ -143,6 +167,7 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
 
   Future<void> _refreshConnectionAfterBootstrap() async {
     await _chatKey.currentState?.refreshConnectionAndReload();
+    await _syncConnectionUiState();
     if (mounted) setState(() {});
   }
 
@@ -456,6 +481,11 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
                   onSelect: _onSelectSession,
                   onRefresh: _loadSessions,
                   onOpenSettings: _openSettings,
+                  connectionMode: _connectionPreference,
+                  effectiveConnection: _effectiveConnection,
+                  localStatus: _localStatus,
+                  cloudAvailable: _cloudAvailable,
+                  onConnectionModeChanged: _onConnectionModeChanged,
                 ),
                 Expanded(
                   child: Column(

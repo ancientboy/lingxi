@@ -507,7 +507,7 @@ async function loadServersView() {
       running: { text: '在线', cls: 'running' },
       offline: { text: '离线', cls: 'offline' },
       pending: { text: '检测中', cls: 'pending' },
-      unhealthy: { text: '异常', cls: 'unhealthy' },
+      unhealthy: { text: '缺 Lume 插件', cls: 'unhealthy' },
     };
 
     container.innerHTML = '<div class="devices-grid">' + _serversCache.servers.map((s) => {
@@ -517,6 +517,12 @@ async function loadServersView() {
       const name = _escapeHtml(s.name || '未命名设备');
       const endpoint = _escapeHtml(`${s.ip}:${s.openclawPort || 18789}`);
       const desc = s.description ? `<div class="device-card-desc">${_escapeHtml(s.description)}</div>` : '';
+      const lumeHint =
+        s.lumePluginOk
+          ? '<div class="device-card-desc">Lume 插件 18790 就绪</div>'
+          : status === 'unhealthy'
+            ? '<div class="device-card-desc">Gateway 可达，需安装 Lume 插件才能聊天</div>'
+            : '';
 
       return `
         <article class="device-card${isActive ? ' is-active' : ''}">
@@ -531,6 +537,7 @@ async function loadServersView() {
               </div>
               <div class="device-card-endpoint">${endpoint}</div>
               ${desc}
+              ${lumeHint}
             </div>
             <div class="device-card-status">
               <span class="device-status-dot ${si.cls}"></span>
@@ -539,6 +546,7 @@ async function loadServersView() {
           </div>
           <div class="device-card-actions">
             <button type="button" class="device-action-btn" onclick="checkServer('${s.id}')">检测</button>
+            ${!s.lumePluginOk && status !== 'offline' ? `<button type="button" class="device-action-btn device-action-btn-primary" onclick="deployLumePlugin('${s.id}')">安装 Lume 插件</button>` : ''}
             ${!isActive ? `<button type="button" class="device-action-btn device-action-btn-primary" onclick="activateServer('${s.id}')">切换</button>` : ''}
             <button type="button" class="device-action-btn" onclick="showEditServerModal('${s.id}')">编辑</button>
             <button type="button" class="device-action-btn device-action-btn-danger" onclick="deleteServer('${s.id}')">删除</button>
@@ -620,14 +628,53 @@ async function checkServer(id) {
     const res = await fetch(`${API_BASE}/api/servers/${userId}/${id}/check`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
     const data = await res.json();
     const online = data.status === 'running';
+    const msg = data.message || (online ? '设备在线' : '设备离线');
     if (typeof showLumeToast === 'function') {
-      showLumeToast(online ? '设备在线' : '设备离线', online ? 'success' : 'info');
+      showLumeToast(msg, online ? 'success' : 'info');
     } else {
-      await uiAlert(online ? '设备在线' : '设备离线');
+      await uiAlert(msg);
     }
     loadServersView();
   } catch (e) {
     await uiAlert('检测失败，请稍后重试', { title: '连接检测' });
+  }
+}
+
+async function deployLumePlugin(id) {
+  const token = localStorage.getItem('lingxi_token');
+  const userId = _getUserId();
+  let sshPassword = '';
+  const server = _serversCache.servers.find((x) => x.id === id);
+  if (!server?.sshPassword) {
+    sshPassword = window.prompt('远程安装需要 root SSH 密码：', '') || '';
+    if (!sshPassword) {
+      await uiAlert('未提供 SSH 密码，无法远程安装。可在编辑设备时保存密码，或手动在服务器安装插件。', {
+        title: 'Lume 插件',
+      });
+      return;
+    }
+  }
+
+  try {
+    if (typeof showLumeToast === 'function') showLumeToast('正在远程安装 Lume 插件…', 'info');
+    const res = await fetch(`${API_BASE}/api/servers/${userId}/${id}/deploy-lume-plugin`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(sshPassword ? { sshPassword } : {}),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || '安装失败');
+    }
+    if (typeof showLumeToast === 'function') {
+      showLumeToast(data.message || '安装完成', data.lumePluginOk ? 'success' : 'info');
+    }
+    loadServersView();
+  } catch (e) {
+    await uiAlert('安装失败：' + e.message, { title: 'Lume 插件' });
   }
 }
 
@@ -683,6 +730,7 @@ window.showEditServerModal = showEditServerModal;
 window.closeServerFormModal = closeServerFormModal;
 window.submitServerForm = submitServerForm;
 window.checkServer = checkServer;
+window.deployLumePlugin = deployLumePlugin;
 window.activateServer = activateServer;
 window.deleteServer = deleteServer;
 window._useSkill = _useSkill;

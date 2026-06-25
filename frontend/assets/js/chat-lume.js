@@ -5,21 +5,16 @@ window.USE_LUME = false;
 
 async function tryConnectLume() {
   if (typeof LumeRpc === 'undefined') return false;
-  if (typeof LumeConnection !== 'undefined' && !LumeConnection.isDesktopShell()) {
-    await LumeConnection.init();
-  }
   try {
     const ok = await LumeRpc.connect();
     if (ok) {
       window.USE_LUME = true;
-      console.log('✅ [Lume] Web 聊天模式已启用 (' + (LumeRpc.getConnectionTarget() || '?') + ')');
-      if (typeof LumeConnection !== 'undefined') LumeConnection.refreshUi();
+      console.log('✅ [Lume] Web 聊天模式已启用');
       return true;
     }
   } catch (e) {
-    console.warn('[Lume] 连接失败:', e);
+    console.warn('[Lume] 连接失败，降级 Gateway:', e);
   }
-  if (typeof LumeConnection !== 'undefined') LumeConnection.refreshUi();
   return false;
 }
 

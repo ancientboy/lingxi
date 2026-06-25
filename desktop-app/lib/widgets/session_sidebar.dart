@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../models/connection_mode.dart';
 import '../models/lume_session.dart';
 import '../services/auth_storage.dart';
+import '../services/local_openclaw_service.dart';
 import '../theme/lume_theme.dart';
+import 'connection_target_bar.dart';
 import 'lume_mark.dart';
 
 class SessionSidebar extends StatefulWidget {
@@ -17,6 +20,11 @@ class SessionSidebar extends StatefulWidget {
     required this.onSelect,
     required this.onRefresh,
     required this.onOpenSettings,
+    this.connectionMode,
+    this.effectiveConnection,
+    this.localStatus,
+    this.cloudAvailable = false,
+    this.onConnectionModeChanged,
   });
 
   final AuthSession session;
@@ -28,6 +36,11 @@ class SessionSidebar extends StatefulWidget {
   final ValueChanged<LumeSession> onSelect;
   final VoidCallback onRefresh;
   final VoidCallback onOpenSettings;
+  final ConnectionMode? connectionMode;
+  final EffectiveConnection? effectiveConnection;
+  final LocalOpenClawStatus? localStatus;
+  final bool cloudAvailable;
+  final ValueChanged<ConnectionMode>? onConnectionModeChanged;
 
   @override
   State<SessionSidebar> createState() => _SessionSidebarState();
@@ -95,6 +108,15 @@ class _SessionSidebarState extends State<SessionSidebar> {
               ),
             ),
           ),
+          if (widget.connectionMode != null &&
+              widget.onConnectionModeChanged != null)
+            ConnectionTargetBar(
+              mode: widget.connectionMode!,
+              effective: widget.effectiveConnection,
+              localStatus: widget.localStatus,
+              cloudAvailable: widget.cloudAvailable,
+              onModeChanged: widget.onConnectionModeChanged!,
+            ),
           const SizedBox(height: 10),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
