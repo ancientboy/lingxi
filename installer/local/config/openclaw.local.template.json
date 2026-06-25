@@ -13,6 +13,12 @@
       "alibaba-cloud:default": { "provider": "alibaba-cloud", "mode": "api_key" }
     }
   },
+  "channels": {
+    "lume": {
+      "port": 18790,
+      "secret": "LUME_WS_SECRET_PLACEHOLDER"
+    }
+  },
   "gateway": {
     "port": 18789,
     "mode": "local",
@@ -25,5 +31,12 @@
     },
     "auth": { "mode": "token", "token": "GATEWAY_TOKEN_PLACEHOLDER" }
   },
-  "plugins": { "entries": {} }
+  "plugins": {
+    "entries": {
+      "lume": { "enabled": true }
+    },
+    "load": {
+      "paths": ["~/.openclaw/workspace/plugins/openclaw-lume"]
+    }
+  }
 }

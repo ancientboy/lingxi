@@ -10,9 +10,10 @@ GATEWAY_TOKEN="${2:?缺少 gatewayToken}"
 SESSION_ID="${3:?缺少 sessionId}"
 
 OPENCLAW_VERSION="${OPENCLAW_VERSION:-2026.6.9}"
-PACKAGE_REV="${CLOUD_PACKAGE_REV:-1}"
+PACKAGE_REV="${CLOUD_PACKAGE_REV:-2}"
 ZHIPU_KEY="${ZHIPU_API_KEY:-}"
 DASHSCOPE_KEY="${DASHSCOPE_API_KEY:-}"
+LUME_SECRET="${LUME_WS_SECRET:-lume-secret-2026}"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 INSTALLER_ROOT="$(dirname "$SCRIPT_DIR")"
@@ -38,7 +39,12 @@ sed -e "s/GATEWAY_TOKEN_PLACEHOLDER/${GATEWAY_TOKEN}/g" \
     -e "s/SESSION_ID_PLACEHOLDER/${SESSION_ID}/g" \
     -e "s/ZHIPU_API_KEY_PLACEHOLDER/${ZHIPU_KEY}/g" \
     -e "s/DASHSCOPE_API_KEY_PLACEHOLDER/${DASHSCOPE_KEY}/g" \
+    -e "s/LUME_WS_SECRET_PLACEHOLDER/${LUME_SECRET}/g" \
     "${INSTALLER_ROOT}/config/openclaw.json" > "${PACKAGE_DIR}/.openclaw/openclaw.json"
+
+# --- Lume 插件 (18790 WebSocket) ---
+chmod +x "${INSTALLER_ROOT}/scripts/copy-lume-plugin.sh"
+"${INSTALLER_ROOT}/scripts/copy-lume-plugin.sh" "${INSTALLER_ROOT}" "${PACKAGE_DIR}"
 
 # --- Agent 记忆：lingxi -> main ---
 AGENT_MAP="lingxi:main coder:coder ops:ops inventor:inventor pm:pm noter:noter media:media smart:smart"

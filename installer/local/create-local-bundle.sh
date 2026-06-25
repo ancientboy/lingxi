@@ -5,7 +5,8 @@
 set -euo pipefail
 
 OPENCLAW_VERSION="${OPENCLAW_VERSION:-2026.6.9}"
-PACKAGE_REV="${LOCAL_PACKAGE_REV:-1}"
+PACKAGE_REV="${LOCAL_PACKAGE_REV:-2}"
+LUME_SECRET="${LUME_WS_SECRET:-lume-secret-2026}"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 INSTALLER_ROOT="$(dirname "$SCRIPT_DIR")"
@@ -22,8 +23,13 @@ mkdir -p "${PACKAGE_DIR}/.openclaw/agents/main/agent"
 sed -e "s/PLACEHOLDER_OPENCLAW_VERSION/${OPENCLAW_VERSION}/g" \
     -e "s/GATEWAY_TOKEN_PLACEHOLDER/local-bootstrap/g" \
     -e "s/SESSION_ID_PLACEHOLDER/local/g" \
+    -e "s/LUME_WS_SECRET_PLACEHOLDER/${LUME_SECRET}/g" \
     "${SCRIPT_DIR}/config/openclaw.local.template.json" \
     > "${PACKAGE_DIR}/.openclaw/openclaw.json"
+
+# Lume 插件
+chmod +x "${INSTALLER_ROOT}/scripts/copy-lume-plugin.sh"
+"${INSTALLER_ROOT}/scripts/copy-lume-plugin.sh" "${INSTALLER_ROOT}" "${PACKAGE_DIR}"
 
 # Agent 记忆（lingxi -> main）
 for pair in lingxi:main coder:coder ops:ops inventor:inventor pm:pm noter:noter media:media smart:smart; do

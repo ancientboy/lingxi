@@ -24,6 +24,8 @@ export OPENCLAW_VERSION=2026.6.9
 - 后端：`POST /api/deploy/one-click`（需付费订阅）
 - 远程脚本：`backend/utils/cloud-deploy-remote.js` 生成并 SSH 执行
 - 配置模板：`installer/config/openclaw.json`
+- Lume 插件：`installer/plugins/openclaw-lume`（打包进 tar，远程 `npm install` 装 `ws`）
+- 部署后应同时监听 **18789**（Gateway）与 **18790**（Lume 插件）
 
 ## 与本机包区别
 

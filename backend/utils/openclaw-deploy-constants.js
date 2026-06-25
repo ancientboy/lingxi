@@ -12,7 +12,10 @@ export const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 export const OPENCLAW_VERSION = process.env.OPENCLAW_VERSION || '2026.6.9';
 
 /** 配置模板变更时递增，避免复用旧 tar 包 */
-export const CLOUD_PACKAGE_REV = process.env.CLOUD_PACKAGE_REV || '1';
+export const CLOUD_PACKAGE_REV = process.env.CLOUD_PACKAGE_REV || '2';
+
+/** 与 lume-ws-proxy / 桌面端默认一致 */
+export const LUME_WS_SECRET = process.env.LUME_WS_SECRET || 'lume-secret-2026';
 
 export const NODE_VERSION = '22.14.0';
 

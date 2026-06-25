@@ -12,6 +12,7 @@ import {
   cloudPackageName,
   OPENCLAW_VERSION,
   CLOUD_PACKAGE_REV,
+  LUME_WS_SECRET,
 } from './openclaw-deploy-constants.js';
 
 export async function generateCloudPackage(userId, gatewayToken, sessionId) {
@@ -48,6 +49,7 @@ export async function generateCloudPackage(userId, gatewayToken, sessionId) {
       CLOUD_PACKAGE_REV,
       ZHIPU_API_KEY: config.env?.ZHIPU_API_KEY || '',
       DASHSCOPE_API_KEY: config.env?.DASHSCOPE_API_KEY || '',
+      LUME_WS_SECRET: process.env.LUME_WS_SECRET || LUME_WS_SECRET,
       OUTPUT_DIR: CLOUD_RELEASES_DIR,
     },
   });

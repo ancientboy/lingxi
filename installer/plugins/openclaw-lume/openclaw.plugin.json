@@ -1,0 +1,49 @@
+{
+  "id": "lume",
+  "name": "Lume",
+  "description": "Lume channel plugin — connects Lingxi Cloud (灵犀云) to OpenClaw via WebSocket bridge",
+  "version": "1.0.0",
+  "channels": ["lume"],
+  "activation": {
+    "onStartup": true,
+    "onChannels": ["lume"]
+  },
+  "channelConfigs": {
+    "lume": {
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "port": {
+            "type": "number",
+            "description": "WebSocket server port for Lume bridge (default: 18790)"
+          },
+          "secret": {
+            "type": "string",
+            "description": "Shared secret for authenticating Lume frontend connections"
+          },
+          "allowedOrigins": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Allowed CORS origins for WebSocket connections"
+          }
+        }
+      },
+      "uiHints": {
+        "port": {
+          "label": "WebSocket port",
+          "placeholder": "18790"
+        },
+        "secret": {
+          "label": "Connection secret",
+          "sensitive": true
+        }
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}

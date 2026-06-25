@@ -165,6 +165,24 @@
       }
     ]
   },
+  "channels": {
+    "lume": {
+      "port": 18790,
+      "secret": "LUME_WS_SECRET_PLACEHOLDER"
+    }
+  },
+  "plugins": {
+    "entries": {
+      "lume": {
+        "enabled": true
+      }
+    },
+    "load": {
+      "paths": [
+        "~/.openclaw/workspace/plugins/openclaw-lume"
+      ]
+    }
+  },
   "tools": {
     "agentToAgent": {
       "enabled": true,

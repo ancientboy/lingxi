@@ -1,0 +1,42 @@
+{
+  "name": "openclaw-lume",
+  "version": "1.0.0",
+  "description": "Lume channel plugin — connects Lingxi Cloud (灵犀云) to OpenClaw via WebSocket bridge",
+  "license": "MIT",
+  "type": "module",
+  "files": [
+    "src/",
+    "dist/",
+    "openclaw.plugin.json"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.3.22"
+  },
+  "devDependencies": {
+    "openclaw": "2026.3.23",
+    "typescript": "^5.8.0",
+    "@types/ws": "^8.18.0"
+  },
+  "openclaw": {
+    "extensions": [
+      "./dist/index.js"
+    ],
+    "channel": {
+      "id": "lume",
+      "label": "Lume",
+      "selectionLabel": "Lume (灵犀云)",
+      "blurb": "WebSocket bridge for Lingxi Cloud frontend",
+      "order": 50
+    }
+  }
+}
