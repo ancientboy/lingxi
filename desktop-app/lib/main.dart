@@ -1,15 +1,49 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:window_manager/window_manager.dart';
 
+import 'app_commands.dart';
+import 'pages/desktop_shell_page.dart';
 import 'pages/login_page.dart';
 import 'pages/splash_page.dart';
-import 'pages/web_app_page.dart';
 import 'services/auth_service.dart';
 import 'services/auth_storage.dart';
+import 'services/window_state_service.dart';
 import 'theme/lume_theme.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await windowManager.ensureInitialized();
+
+  final windowState = WindowStateService();
+  final savedSize = await windowState.readSize();
+
+  final windowOptions = WindowOptions(
+    size: savedSize ?? const Size(1200, 800),
+    minimumSize: const Size(900, 620),
+    center: savedSize == null,
+    backgroundColor: LumeColors.bg,
+    title: 'Lume',
+  );
+
+  windowManager.waitUntilReadyToShow(windowOptions, () async {
+    await windowManager.show();
+    await windowManager.focus();
+  });
+
+  windowManager.addListener(_LumeWindowListener(windowState));
+
   runApp(const LumeDesktopApp());
+}
+
+class _LumeWindowListener with WindowListener {
+  _LumeWindowListener(this._windowState);
+  final WindowStateService _windowState;
+
+  @override
+  void onWindowResize() {
+    windowManager.getSize().then(_windowState.saveSize);
+  }
 }
 
 class LumeDesktopApp extends StatelessWidget {
@@ -17,11 +51,49 @@ class LumeDesktopApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Lume',
-      debugShowCheckedModeBanner: false,
-      theme: buildLumeTheme(),
-      home: const AppRoot(),
+    return PlatformMenuBar(
+      menus: [
+        PlatformMenu(
+          label: 'Lume',
+          menus: [
+            PlatformMenuItem(
+              label: 'About Lume',
+              onSelected: () => AppCommands.onShowAbout?.call(),
+            ),
+            PlatformMenuItemGroup(
+              members: [
+                PlatformMenuItem(
+                  label: 'Quit Lume',
+                  shortcut: const SingleActivator(
+                    LogicalKeyboardKey.keyQ,
+                    meta: true,
+                  ),
+                  onSelected: () => windowManager.destroy(),
+                ),
+              ],
+            ),
+          ],
+        ),
+        PlatformMenu(
+          label: 'View',
+          menus: [
+            PlatformMenuItem(
+              label: 'Refresh',
+              shortcut: const SingleActivator(
+                LogicalKeyboardKey.keyR,
+                meta: true,
+              ),
+              onSelected: () => AppCommands.onRefresh?.call(),
+            ),
+          ],
+        ),
+      ],
+      child: MaterialApp(
+        title: 'Lume',
+        debugShowCheckedModeBanner: false,
+        theme: buildLumeTheme(),
+        home: const AppRoot(),
+      ),
     );
   }
 }
@@ -86,7 +158,7 @@ class _AppRootState extends State<AppRoot> {
       );
     }
 
-    return WebAppPage(
+    return DesktopShellPage(
       session: _session!,
       onLogout: _handleLogout,
     );

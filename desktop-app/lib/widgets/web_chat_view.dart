@@ -7,27 +7,28 @@ import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 import '../config/app_config.dart';
 import '../services/auth_storage.dart';
 import '../theme/lume_theme.dart';
-import '../widgets/lume_mark.dart';
 
-/// WebView chat shell — lumeword.cn chat.html with native chrome.
-class WebAppPage extends StatefulWidget {
-  const WebAppPage({
+/// WKWebView chat surface — auth injection + JS bridge helpers.
+class WebChatView extends StatefulWidget {
+  const WebChatView({
     super.key,
     required this.session,
-    required this.onLogout,
+    this.onReady,
   });
 
   final AuthSession session;
-  final VoidCallback onLogout;
+  final VoidCallback? onReady;
 
   @override
-  State<WebAppPage> createState() => _WebAppPageState();
+  State<WebChatView> createState() => WebChatViewState();
 }
 
-class _WebAppPageState extends State<WebAppPage> {
+class WebChatViewState extends State<WebChatView> {
   late final WebViewController _controller;
   bool _authInjected = false;
   int _loadGeneration = 0;
+
+  WebViewController get controller => _controller;
 
   @override
   void initState() {
@@ -46,16 +47,12 @@ class _WebAppPageState extends State<WebAppPage> {
       params = const PlatformWebViewControllerCreationParams();
     }
 
-    final controller = WebViewController.fromPlatformCreationParams(params)
+    return WebViewController.fromPlatformCreationParams(params)
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(LumeColors.bg)
       ..setNavigationDelegate(
-        NavigationDelegate(
-          onPageFinished: _onPageFinished,
-        ),
+        NavigationDelegate(onPageFinished: _onPageFinished),
       );
-
-    return controller;
   }
 
   Future<void> _onPageFinished(String url) async {
@@ -68,7 +65,10 @@ class _WebAppPageState extends State<WebAppPage> {
     if (!_authInjected) {
       _authInjected = true;
       await _controller.loadRequest(Uri.parse(AppConfig.chatUrl));
+      return;
     }
+
+    widget.onReady?.call();
   }
 
   Future<void> _injectSession() async {
@@ -90,59 +90,26 @@ class _WebAppPageState extends State<WebAppPage> {
     ''');
   }
 
-  Future<void> _confirmLogout() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('退出登录'),
-        content: const Text('确定要退出当前账号吗？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('退出'),
-          ),
-        ],
-      ),
-    );
-    if (ok == true) widget.onLogout();
-  }
-
-  void _refresh() {
+  void reloadChat() {
     _authInjected = false;
     _controller.loadRequest(Uri.parse(AppConfig.chatUrl));
   }
 
+  Future<void> switchToSession(String sessionKey) async {
+    final keyJs = jsonEncode(sessionKey);
+    await _controller.runJavaScript(
+      'typeof switchSession === "function" && switchSession($keyJs, true);',
+    );
+  }
+
+  Future<void> createNewSession() async {
+    await _controller.runJavaScript(
+      'typeof createNewSession === "function" && createNewSession();',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final name = widget.session.displayName ?? 'Lume';
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            const LumeMark(size: 22),
-            const SizedBox(width: 10),
-            Text(name),
-          ],
-        ),
-        actions: [
-          IconButton(
-            tooltip: '刷新',
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: _refresh,
-          ),
-          IconButton(
-            tooltip: '退出',
-            icon: const Icon(Icons.logout_rounded),
-            onPressed: _confirmLogout,
-          ),
-        ],
-      ),
-      body: WebViewWidget(controller: _controller),
-    );
+    return WebViewWidget(controller: _controller);
   }
 }
