@@ -75,6 +75,32 @@ class LumeDesktopApp extends StatelessWidget {
           ],
         ),
         PlatformMenu(
+          label: 'File',
+          menus: [
+            PlatformMenuItem(
+              label: 'New Chat',
+              shortcut: const SingleActivator(
+                LogicalKeyboardKey.keyN,
+                meta: true,
+              ),
+              onSelected: () => AppCommands.onNewChat?.call(),
+            ),
+          ],
+        ),
+        PlatformMenu(
+          label: 'Edit',
+          menus: [
+            PlatformMenuItem(
+              label: 'Settings…',
+              shortcut: const SingleActivator(
+                LogicalKeyboardKey.comma,
+                meta: true,
+              ),
+              onSelected: () => AppCommands.onOpenSettings?.call(),
+            ),
+          ],
+        ),
+        PlatformMenu(
           label: 'View',
           menus: [
             PlatformMenuItem(

@@ -48,7 +48,11 @@
 
 - [x] `window_manager`：记住窗口大小
 - [x] macOS 菜单：About Lume、Refresh (⌘R)、Quit (⌘Q)
-- [x] `desktop-app.css`：隐藏 Web 重复侧栏
+- [x] `desktop-app.css`：隐藏 Web 重复侧栏与输入栏
+- [x] 原生消息输入框（Enter / ⌘Enter 发送）
+- [x] 侧栏搜索、用户区、设置页（⌘,）
+- [x] 窗口标题跟随当前会话
+- [x] 菜单：新对话 (⌘N)
 - [ ] 系统通知（新消息）
 - [ ] 深链 `lume://`
 - [ ] 离线缓存
@@ -60,8 +64,9 @@
 - [x] **原生侧栏会话列表**（`/api/lume-ws/sessions`）
 - [x] 点击会话 → `switchSession()` JS 桥接
 - [x] 新对话 → `createNewSession()` JS 桥接
-- [ ] 原生消息输入框
-- [ ] 原生设置 / 订阅页
+- [x] **原生消息输入框**（`lumeDesktopSend` 桥接）
+- [x] 原生设置页（账号 / 打开网站 / 退出）
+- [ ] 原生设置 / 订阅页（完整）
 - [ ] Agent 团队 / 办公区
 
 ---
@@ -86,6 +91,8 @@ desktop-app/lib/
   widgets/
     web_chat_view.dart
     session_sidebar.dart
+    chat_composer.dart
+    settings_sheet.dart
     lume_animated_mark.dart
   services/
     auth_service.dart

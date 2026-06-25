@@ -14,6 +14,8 @@ class AuthSession {
     final name = user['nickname'] ?? user['name'] ?? user['email'];
     return name?.toString();
   }
+
+  String? get email => user['email']?.toString();
 }
 
 class AuthStorage {

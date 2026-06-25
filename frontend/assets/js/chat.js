@@ -2177,6 +2177,19 @@ async function createNewSession() {
 
 window.createNewSession = createNewSession;
 
+/** Native macOS desktop client — send from Flutter composer */
+window.lumeDesktopSend = function (text) {
+  const t = String(text || '').trim();
+  if (!t) return false;
+  const input = document.getElementById('inputField');
+  if (input) input.value = t;
+  if (typeof sendMessage === 'function') {
+    sendMessage();
+    return true;
+  }
+  return false;
+};
+
 // 切换会话
 async function switchSession(sessionKey, forceReload = false) {
   if (sessionKey === currentSessionKey && !forceReload) {
