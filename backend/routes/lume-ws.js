@@ -1,39 +1,20 @@
 import { Router } from "express";
 import jwt from "jsonwebtoken";
-import net from "node:net";
 import config from "../config/index.js";
 import { getDB } from "../utils/db.js";
 import { getActiveServer } from "../utils/activeServer.js";
 import { callOpenClawRPC } from "../utils/openclaw-rpc.js";
+import { probeTcp } from "../utils/port-probe.js";
+import { OPENCLAW_PORT, LUME_PLUGIN_PORT } from "../utils/openclaw-deploy-constants.js";
 
 const router = Router();
 const JWT_SECRET = config.security.jwtSecret;
-const LUME_PORT = Number(process.env.LUME_WS_PORT || "18790");
+const LUME_PORT = LUME_PLUGIN_PORT;
 const LUME_SECRET = process.env.LUME_WS_SECRET || "lume-secret-2026";
-const PROBE_TIMEOUT_MS = 5000; // 5秒，避免 NAT 回环延迟
+const PROBE_TIMEOUT_MS = 5000;
 
-/** TCP probe — check if Lume WS port is open on target host */
-// 缓存探测结果 30 秒，避免频繁探测导致误判
-let _probeCache = new Map(); // key: host:port → { result, expireAt }
-function probeLumePort(host, port = LUME_PORT, timeoutMs = PROBE_TIMEOUT_MS) {
-  const cacheKey = `${host}:${port}`;
-  const cached = _probeCache.get(cacheKey);
-  if (cached && cached.expireAt > Date.now()) {
-    return Promise.resolve(cached.result);
-  }
-  return new Promise((resolve) => {
-    if (!host) return resolve(false);
-    const socket = net.connect({ host, port, timeout: timeoutMs }, () => {
-      socket.destroy();
-      _probeCache.set(cacheKey, { result: true, expireAt: Date.now() + 30000 });
-      resolve(true);
-    });
-    socket.on("error", () => resolve(false));
-    socket.on("timeout", () => {
-      socket.destroy();
-      resolve(false);
-    });
-  });
+function probePortCached(host, port, timeoutMs = PROBE_TIMEOUT_MS) {
+  return probeTcp(host, port, timeoutMs);
 }
 
 function buildCloudWsUrl(req, jwtToken) {
@@ -64,6 +45,7 @@ function buildRoutingContext(db, user) {
     serverId: userServer?.id || user.activeServerId || null,
     serverIp: userServer?.ip || null,
     serverName: userServer?.name || null,
+    serverOpenclawPort: userServer?.openclawPort || OPENCLAW_PORT,
   };
 }
 
@@ -118,14 +100,20 @@ router.get("/connect-info", async (req, res) => {
     process.env.LUME_WS_HOST ||
     "120.55.192.144";
 
-  const lumeAvailable = await probeLumePort(host, LUME_PORT);
+  const gatewayPort = routing.serverOpenclawPort || OPENCLAW_PORT;
+  const gatewayAvailable = await probePortCached(host, gatewayPort);
+  const lumePluginAvailable = await probePortCached(host, LUME_PORT);
   const wsUrl = buildCloudWsUrl(req, jwtToken);
+  const transport = gatewayAvailable ? "gateway" : lumePluginAvailable ? "lume" : "gateway";
 
   res.json({
     success: true,
     data: {
       mode: "lume",
-      lumeAvailable,
+      transport,
+      gatewayAvailable,
+      lumePluginAvailable,
+      lumeAvailable: gatewayAvailable || lumePluginAvailable,
       wsUrl,
       cloudWsUrl: wsUrl,
       authHandled: true,

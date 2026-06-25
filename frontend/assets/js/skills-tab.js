@@ -518,11 +518,11 @@ async function loadServersView() {
       const endpoint = _escapeHtml(`${s.ip}:${s.openclawPort || 18789}`);
       const desc = s.description ? `<div class="device-card-desc">${_escapeHtml(s.description)}</div>` : '';
       const lumeHint =
-        s.lumePluginOk
-          ? '<div class="device-card-desc">Lume 插件 18790 就绪</div>'
-          : status === 'unhealthy'
-            ? '<div class="device-card-desc">Gateway 可达，需安装 Lume 插件才能聊天</div>'
-            : '';
+        status === 'running'
+          ? s.lumePluginOk
+            ? '<div class="device-card-desc">Gateway 在线 · 可选 Lume 插件已启用</div>'
+            : '<div class="device-card-desc">Gateway 在线，通过 OpenClaw 直连聊天</div>'
+          : '';
 
       return `
         <article class="device-card${isActive ? ' is-active' : ''}">
@@ -546,7 +546,7 @@ async function loadServersView() {
           </div>
           <div class="device-card-actions">
             <button type="button" class="device-action-btn" onclick="checkServer('${s.id}')">检测</button>
-            ${!s.lumePluginOk && status !== 'offline' ? `<button type="button" class="device-action-btn device-action-btn-primary" onclick="deployLumePlugin('${s.id}')">安装 Lume 插件</button>` : ''}
+            ${s.lumePluginOk ? '' : `<button type="button" class="device-action-btn" onclick="deployLumePlugin('${s.id}')">安装 Lume 插件（可选）</button>`}
             ${!isActive ? `<button type="button" class="device-action-btn device-action-btn-primary" onclick="activateServer('${s.id}')">切换</button>` : ''}
             <button type="button" class="device-action-btn" onclick="showEditServerModal('${s.id}')">编辑</button>
             <button type="button" class="device-action-btn device-action-btn-danger" onclick="deleteServer('${s.id}')">删除</button>

@@ -1,9 +1,9 @@
 /// How the desktop client routes Lume WebSocket traffic.
 enum ConnectionMode {
-  /// Probe local Lume plugin (18790); fall back to cloud WSS.
+  /// Probe local Gateway (18789); Lume plugin (18790) optional fallback.
   auto,
 
-  /// Direct `ws://127.0.0.1:18790` with Lume auth.
+  /// Direct local Gateway WS or Lume plugin fallback.
   local,
 
   /// Cloud proxy via lumeword.cn `/api/lume-ws`.
@@ -27,7 +27,7 @@ extension ConnectionModeLabels on ConnectionMode {
       case ConnectionMode.auto:
         return '优先本机 OpenClaw，不可用时走云端';
       case ConnectionMode.local:
-        return '仅连接本机 Lume 插件 (18790)';
+        return '仅连接本机 OpenClaw Gateway';
       case ConnectionMode.cloud:
         return '经 lumeword.cn 连接活跃设备';
     }

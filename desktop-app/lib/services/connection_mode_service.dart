@@ -46,8 +46,9 @@ class ConnectionModeService {
           status: status,
         );
       case ConnectionMode.auto:
-        final effective =
-            status.lumePluginOpen ? EffectiveConnection.local : EffectiveConnection.cloud;
+        final effective = status.gatewayOpen || status.lumePluginOpen
+            ? EffectiveConnection.local
+            : EffectiveConnection.cloud;
         return (
           preference: preference,
           effective: effective,
@@ -56,27 +57,53 @@ class ConnectionModeService {
     }
   }
 
-  String wsUrlFor(EffectiveConnection effective) {
-    switch (effective) {
-      case EffectiveConnection.local:
-        return AppConfig.localLumeWsUrl;
-      case EffectiveConnection.cloud:
-        return '';
-    }
-  }
-
   Map<String, String> desktopStorageEntries({
     required EffectiveConnection effective,
     required String userId,
     String? lumeSecret,
+    String? gatewayToken,
+    String? sessionId,
+    LocalOpenClawStatus? localStatus,
   }) {
     final secret = lumeSecret ?? AppConfig.lumeWsSecret;
+    final status = localStatus;
+    final gatewayReady = status?.gatewayOpen ?? false;
+    final lumeReady = status?.lumePluginOpen ?? false;
+
+    if (effective == EffectiveConnection.local && gatewayReady) {
+      final sid = sessionId ?? '';
+      final token = gatewayToken ?? '';
+      return {
+        AppConfig.desktopConnectionModeKey: 'local',
+        AppConfig.desktopTransportKey: 'gateway',
+        AppConfig.desktopGatewayWsUrlKey: AppConfig.localGatewayWsUrl(sid),
+        AppConfig.desktopOpenclawTokenKey: token,
+        AppConfig.desktopWsUrlKey: '',
+        AppConfig.desktopLumeSecretKey: secret,
+        AppConfig.desktopUserIdKey: userId,
+      };
+    }
+
+    if (effective == EffectiveConnection.local && lumeReady) {
+      return {
+        AppConfig.desktopConnectionModeKey: 'local',
+        AppConfig.desktopTransportKey: 'lume',
+        AppConfig.desktopWsUrlKey: AppConfig.localLumeWsUrl,
+        AppConfig.desktopLumeSecretKey: secret,
+        AppConfig.desktopUserIdKey: userId,
+        AppConfig.desktopGatewayWsUrlKey: '',
+        AppConfig.desktopOpenclawTokenKey: '',
+      };
+    }
+
     return {
-      AppConfig.desktopConnectionModeKey:
-          effective == EffectiveConnection.local ? 'local' : 'cloud',
-      AppConfig.desktopWsUrlKey: wsUrlFor(effective),
+      AppConfig.desktopConnectionModeKey: 'cloud',
+      AppConfig.desktopTransportKey: 'gateway',
+      AppConfig.desktopWsUrlKey: '',
       AppConfig.desktopLumeSecretKey: secret,
       AppConfig.desktopUserIdKey: userId,
+      AppConfig.desktopGatewayWsUrlKey: '',
+      AppConfig.desktopOpenclawTokenKey: '',
     };
   }
 }

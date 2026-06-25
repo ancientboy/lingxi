@@ -150,7 +150,7 @@ class _OpenClawSetupDialogState extends State<_OpenClawSetupDialog> {
             Text(
               widget.bootstrap.recommendLocalFirst
                   ? '新用户默认在本机运行 OpenClaw，安装后即可免费开始对话。付费后可申请云端专属服务器。'
-                  : '在本机安装 OpenClaw 与 Lume 插件，可通过 18790 直连聊天。',
+                  : '在本机安装 OpenClaw（Gateway 18789），即可直连聊天；Lume 插件为可选增强。',
               style: const TextStyle(
                 color: LumeColors.text2,
                 fontSize: 13,

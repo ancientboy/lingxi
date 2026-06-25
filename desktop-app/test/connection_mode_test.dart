@@ -23,15 +23,40 @@ void main() {
       expect(await service.readMode(), ConnectionMode.local);
     });
 
-    test('desktopStorageEntries for local', () {
+    test('desktopStorageEntries prefers gateway when open', () {
       final service = ConnectionModeService();
+      final status = LocalOpenClawStatus(
+        lumePluginOpen: false,
+        gatewayOpen: true,
+        probedAt: DateTime.now(),
+      );
       final entries = service.desktopStorageEntries(
         effective: EffectiveConnection.local,
         userId: 'user-1',
+        gatewayToken: 'tok',
+        sessionId: 'abc',
+        localStatus: status,
       );
       expect(entries['lume_desktop_connection_mode'], 'local');
+      expect(entries['lume_desktop_transport'], 'gateway');
+      expect(entries['lume_desktop_gateway_ws_url'], contains('18789'));
+      expect(entries['lume_desktop_openclaw_token'], 'tok');
+    });
+
+    test('desktopStorageEntries falls back to lume plugin', () {
+      final service = ConnectionModeService();
+      final status = LocalOpenClawStatus(
+        lumePluginOpen: true,
+        gatewayOpen: false,
+        probedAt: DateTime.now(),
+      );
+      final entries = service.desktopStorageEntries(
+        effective: EffectiveConnection.local,
+        userId: 'user-1',
+        localStatus: status,
+      );
+      expect(entries['lume_desktop_transport'], 'lume');
       expect(entries['lume_desktop_ws_url'], contains('18790'));
-      expect(entries['lume_desktop_user_id'], 'user-1');
     });
   });
 

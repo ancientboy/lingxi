@@ -45,6 +45,14 @@ class AppConfig {
   static const String desktopWsUrlKey = 'lume_desktop_ws_url';
   static const String desktopLumeSecretKey = 'lume_desktop_lume_secret';
   static const String desktopUserIdKey = 'lume_desktop_user_id';
+  static const String desktopTransportKey = 'lume_desktop_transport';
+  static const String desktopGatewayWsUrlKey = 'lume_desktop_gateway_ws_url';
+  static const String desktopOpenclawTokenKey = 'lume_desktop_openclaw_token';
+
+  static String localGatewayWsUrl(String sessionId) {
+    final path = sessionId.isNotEmpty ? '/$sessionId' : '';
+    return 'ws://$localLumeHost:$gatewayPort$path/ws';
+  }
 
   static const String openClawInstallUrl = 'https://openclaw.ai/install.sh';
 }

@@ -1,6 +1,7 @@
 /**
- * Lume WebSocket WSS 代理 — 客户端经 lumeword.cn 连接，后端转发至活跃设备 18790
- * 支持 device.list / device.switch（热切换后端，不断开客户端 WS）
+ * Lume WebSocket WSS 代理
+ * - 优先 OpenClaw Gateway (18789) 适配层
+ * - 可选回退 Lume 插件 (18790) 透明转发
  */
 
 import expressWs from "express-ws";
@@ -10,23 +11,25 @@ import config from "../config/index.js";
 import { getDB, saveDB } from "../utils/db.js";
 import { getActiveServer, getUserServers } from "../utils/activeServer.js";
 import { resolveLumeModel } from "../utils/model-route.js";
+import { probeTcp } from "../utils/port-probe.js";
+import { LumeGatewayBridge } from "../utils/lume-gateway-bridge.js";
+import { OPENCLAW_PORT, LUME_PLUGIN_PORT } from "../utils/openclaw-deploy-constants.js";
 
 const JWT_SECRET = config.security.jwtSecret;
-const LUME_PORT = Number(process.env.LUME_WS_PORT || "18790");
+const LUME_PORT = LUME_PLUGIN_PORT;
 const LUME_SECRET = process.env.LUME_WS_SECRET || "lume-secret-2026";
 const CONNECT_TIMEOUT_MS = 12_000;
 const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
 const SELF_HOST_IPS = new Set(["120.55.192.144", "127.0.0.1", "localhost"]);
 
-function resolveLumeHost(ip) {
+function resolveHost(ip) {
   if (!ip) return "127.0.0.1";
   if (SELF_HOST_IPS.has(ip)) return "127.0.0.1";
   return ip;
 }
 
-function buildTargetUrl(server) {
-  const host = resolveLumeHost(server?.ip);
-  return `ws://${host}:${LUME_PORT}`;
+function buildLumePluginUrl(server) {
+  return `ws://${resolveHost(server?.ip)}:${LUME_PORT}`;
 }
 
 export function setupLumeWebSocketProxy(app) {
@@ -34,6 +37,9 @@ export function setupLumeWebSocketProxy(app) {
 
   app.ws("/api/lume-ws", async (clientWs, req) => {
     let targetWs = null;
+    let gatewayBridge = null;
+    /** @type {'gateway' | 'lume'} */
+    let transport = "gateway";
     let userId = null;
     let userPreferredModel = null;
     let currentServer = null;
@@ -52,6 +58,12 @@ export function setupLumeWebSocketProxy(app) {
       if (idleTimer) {
         clearTimeout(idleTimer);
         idleTimer = null;
+      }
+      if (gatewayBridge) {
+        try {
+          gatewayBridge.destroy();
+        } catch (_) {}
+        gatewayBridge = null;
       }
       if (targetWs) {
         try {
@@ -75,19 +87,29 @@ export function setupLumeWebSocketProxy(app) {
       }, IDLE_TIMEOUT_MS);
     };
 
-    const flushQueue = () => {
-      while (messageQueue.length > 0 && targetWs?.readyState === WebSocket.OPEN && targetReady) {
-        targetWs.send(messageQueue.shift());
-      }
-    };
-
     const sendToClient = (obj) => {
       if (clientWs.readyState === WebSocket.OPEN) {
         clientWs.send(JSON.stringify(obj));
       }
     };
 
-    const bindTargetHandlers = () => {
+    const flushGatewayQueue = async () => {
+      while (messageQueue.length > 0 && gatewayBridge && targetReady) {
+        const raw = messageQueue.shift();
+        try {
+          const msg = JSON.parse(raw);
+          await gatewayBridge.handleMessageSafe(msg);
+        } catch (_) {}
+      }
+    };
+
+    const flushLumeQueue = () => {
+      while (messageQueue.length > 0 && targetWs?.readyState === WebSocket.OPEN && targetReady) {
+        targetWs.send(messageQueue.shift());
+      }
+    };
+
+    const bindLumeTargetHandlers = () => {
       if (!targetWs) return;
 
       targetWs.on("message", (data) => {
@@ -99,8 +121,8 @@ export function setupLumeWebSocketProxy(app) {
             const msg = JSON.parse(raw);
             if (msg.type === "res" && msg.ok === true && msg.payload?.userId) {
               targetReady = true;
-              console.log(`✅ [Lume-WS] ${userId.substring(0, 8)} Lume auth 成功 → ${currentServer?.name || currentServerId}`);
-              flushQueue();
+              console.log(`✅ [Lume-WS] ${userId.substring(0, 8)} Lume插件 auth → ${currentServer?.name || currentServerId}`);
+              flushLumeQueue();
             }
             if (msg.type === "res" && msg.ok === false) {
               console.error(`❌ [Lume-WS] ${userId.substring(0, 8)} Lume auth 失败`);
@@ -109,20 +131,9 @@ export function setupLumeWebSocketProxy(app) {
                 clientWs.close(4003, "lume auth failed");
               }
               cleanup();
-              return;
             }
           } catch (_) {}
         }
-
-        try {
-          const parsed = JSON.parse(raw);
-          if (parsed.type === "event" && parsed.event === "chat") {
-            const s = parsed.payload?.state;
-            const runId = parsed.payload?.runId;
-            const msgLen = (parsed.payload?.message || "").length;
-            console.log(`📤 [Lume-WS] chat event → state=${s}, runId=${runId?.substring(0, 12)}, msgLen=${msgLen}`);
-          }
-        } catch (_) {}
 
         if (clientWs.readyState === WebSocket.OPEN) {
           clientWs.send(raw);
@@ -130,7 +141,7 @@ export function setupLumeWebSocketProxy(app) {
       });
 
       targetWs.on("error", (err) => {
-        console.error(`❌ [Lume-WS] ${userId?.substring(0, 8)} target error:`, err.message);
+        console.error(`❌ [Lume-WS] ${userId?.substring(0, 8)} lume target error:`, err.message);
         if (!switching && clientWs.readyState === WebSocket.OPEN) {
           clientWs.send(JSON.stringify({ type: "error", error: "Lume 连接异常" }));
           clientWs.close(1011, "target error");
@@ -147,7 +158,7 @@ export function setupLumeWebSocketProxy(app) {
     };
 
     const connectToServer = (server, { reason = "init" } = {}) =>
-      new Promise((resolve, reject) => {
+      new Promise(async (resolve, reject) => {
         if (!server?.ip) {
           reject(new Error("设备无可用 IP"));
           return;
@@ -157,6 +168,10 @@ export function setupLumeWebSocketProxy(app) {
         targetReady = false;
         messageQueue.length = 0;
 
+        if (gatewayBridge) {
+          gatewayBridge.destroy();
+          gatewayBridge = null;
+        }
         if (targetWs) {
           try {
             targetWs.removeAllListeners();
@@ -169,59 +184,97 @@ export function setupLumeWebSocketProxy(app) {
 
         currentServer = server;
         currentServerId = server.id;
-        const targetUrl = buildTargetUrl(server);
-        console.log(`🔌 [Lume-WS] ${userId.substring(0, 8)} ${reason} → ${targetUrl} (${server.name || server.id})`);
+        const host = resolveHost(server.ip);
 
-        targetWs = new WebSocket(targetUrl);
-        bindTargetHandlers();
+        try {
+          transport = "gateway";
+          console.log(
+            `🔌 [Lume-WS] ${userId.substring(0, 8)} ${reason} → Gateway ws://${host}:${server.openclawPort || OPENCLAW_PORT}`,
+          );
 
-        if (connectTimer) clearTimeout(connectTimer);
-        connectTimer = setTimeout(() => {
-          if (targetWs?.readyState === WebSocket.CONNECTING) {
-            console.error(`⏱️ [Lume-WS] ${userId.substring(0, 8)} 连接 Lume 超时`);
-            switching = false;
-            cleanup();
-            reject(new Error("Lume 服务连接超时"));
-          }
-        }, CONNECT_TIMEOUT_MS);
-
-        const onOpen = () => {
-          if (connectTimer) {
-            clearTimeout(connectTimer);
-            connectTimer = null;
-          }
-          const authMsg = JSON.stringify({
-            id: `proxy-auth-${Date.now()}`,
-            method: "auth",
-            params: { token: LUME_SECRET, userId },
+          gatewayBridge = new LumeGatewayBridge({
+            server,
+            userId,
+            userPreferredModel,
+            sendToClient,
           });
-          targetWs.send(authMsg);
-          console.log(`🔐 [Lume-WS] ${userId.substring(0, 8)} 已发送 Lume auth`);
-        };
 
-        const onFirstAuthOk = (data) => {
+          let gatewayConnectError = null;
           try {
-            const msg = JSON.parse(data.toString());
-            if (msg.type === "res" && msg.ok === true && msg.payload?.userId) {
-              targetWs.off("message", onFirstAuthOk);
-              switching = false;
-              resolve(server);
-            }
-            if (msg.type === "res" && msg.ok === false) {
-              targetWs.off("message", onFirstAuthOk);
-              switching = false;
-              reject(new Error("Lume auth 失败"));
-            }
-          } catch (_) {}
-        };
+            await gatewayBridge.connect();
+            targetReady = true;
+            switching = false;
+            resolve(server);
+            return;
+          } catch (gwErr) {
+            gatewayConnectError = gwErr;
+            console.warn(
+              `⚠️ [Lume-WS] ${userId.substring(0, 8)} Gateway 失败: ${gwErr.message}，尝试 Lume 插件`,
+            );
+            gatewayBridge.destroy();
+            gatewayBridge = null;
+          }
 
-        targetWs.on("open", onOpen);
-        targetWs.on("message", onFirstAuthOk);
+          const lumePortOpen = await probeTcp(host, LUME_PORT);
+          if (!lumePortOpen) {
+            throw gatewayConnectError || new Error("Gateway 连接失败，且 Lume 插件未就绪");
+          }
 
-        targetWs.on("error", (err) => {
+          transport = "lume";
+          const targetUrl = buildLumePluginUrl(server);
+          console.log(`🔌 [Lume-WS] ${userId.substring(0, 8)} ${reason} → 插件回退 ${targetUrl}`);
+
+          targetWs = new WebSocket(targetUrl);
+          bindLumeTargetHandlers();
+
+          if (connectTimer) clearTimeout(connectTimer);
+          connectTimer = setTimeout(() => {
+            if (targetWs?.readyState === WebSocket.CONNECTING) {
+              switching = false;
+              cleanup();
+              reject(new Error("Lume 插件连接超时"));
+            }
+          }, CONNECT_TIMEOUT_MS);
+
+          targetWs.on("open", () => {
+            if (connectTimer) {
+              clearTimeout(connectTimer);
+              connectTimer = null;
+            }
+            targetWs.send(
+              JSON.stringify({
+                id: `proxy-auth-${Date.now()}`,
+                method: "auth",
+                params: { token: LUME_SECRET, userId },
+              }),
+            );
+          });
+
+          const onFirstAuthOk = (data) => {
+            try {
+              const msg = JSON.parse(data.toString());
+              if (msg.type === "res" && msg.ok === true && msg.payload?.userId) {
+                targetWs.off("message", onFirstAuthOk);
+                switching = false;
+                resolve(server);
+              }
+              if (msg.type === "res" && msg.ok === false) {
+                targetWs.off("message", onFirstAuthOk);
+                switching = false;
+                reject(new Error("Lume auth 失败"));
+              }
+            } catch (_) {}
+          };
+
+          targetWs.on("message", onFirstAuthOk);
+          targetWs.on("error", (err) => {
+            switching = false;
+            reject(err);
+          });
+        } catch (err) {
           switching = false;
           reject(err);
-        });
+        }
       });
 
     const handleDeviceList = async (msg) => {
@@ -271,6 +324,7 @@ export function setupLumeWebSocketProxy(app) {
           ok: true,
           payload: {
             userId,
+            transport,
             sessionPrefix: `user_${userId.substring(0, 8)}`,
             serverId: server.id,
             serverName: server.name,
@@ -285,6 +339,7 @@ export function setupLumeWebSocketProxy(app) {
             serverId: server.id,
             serverName: server.name,
             serverIp: server.ip,
+            transport,
           },
         });
 
@@ -295,14 +350,28 @@ export function setupLumeWebSocketProxy(app) {
             serverId: server.id,
             serverName: server.name,
             serverIp: server.ip,
+            transport,
           },
         });
-
-        console.log(`🖥️ [Lume-WS] ${userId.substring(0, 8)} 已切换到 ${server.name} (${server.ip})`);
       } catch (err) {
         console.error(`❌ [Lume-WS] device.switch 失败:`, err.message);
         sendToClient({ type: "res", id: msg.id, ok: false, error: err.message || "切换失败" });
       }
+    };
+
+    const sendProxyReady = () => {
+      sendToClient({
+        type: "res",
+        id: `proxy-ready-${Date.now()}`,
+        ok: true,
+        payload: {
+          userId,
+          transport,
+          sessionPrefix: `user_${userId.substring(0, 8)}`,
+          serverId: currentServerId,
+          serverName: currentServer?.name,
+        },
+      });
     };
 
     try {
@@ -340,19 +409,8 @@ export function setupLumeWebSocketProxy(app) {
       }
 
       resetIdleTimer();
-        await connectToServer(userServer, { reason: "connect" });
-
-        sendToClient({
-          type: "res",
-          id: `proxy-ready-${Date.now()}`,
-          ok: true,
-          payload: {
-            userId,
-            sessionPrefix: `user_${userId.substring(0, 8)}`,
-            serverId: currentServerId,
-            serverName: currentServer?.name,
-          },
-        });
+      await connectToServer(userServer, { reason: "connect" });
+      sendProxyReady();
 
       clientWs.on("message", async (data) => {
         resetIdleTimer();
@@ -386,6 +444,16 @@ export function setupLumeWebSocketProxy(app) {
           return;
         }
 
+        if (transport === "gateway" && gatewayBridge && targetReady) {
+          try {
+            const msg = JSON.parse(raw);
+            await gatewayBridge.handleMessageSafe(msg);
+          } catch (err) {
+            sendToClient({ type: "error", error: err.message });
+          }
+          return;
+        }
+
         if (targetWs?.readyState === WebSocket.OPEN && targetReady) {
           targetWs.send(raw);
         } else {
@@ -393,10 +461,7 @@ export function setupLumeWebSocketProxy(app) {
         }
       });
 
-      clientWs.on("close", () => {
-        cleanup();
-      });
-
+      clientWs.on("close", () => cleanup());
       clientWs.on("error", (err) => {
         console.error(`❌ [Lume-WS] ${userId?.substring(0, 8)} client error:`, err.message);
         cleanup();
@@ -405,7 +470,7 @@ export function setupLumeWebSocketProxy(app) {
       console.error("❌ [Lume-WS] 代理异常:", err);
       cleanup();
       if (clientWs.readyState === WebSocket.OPEN) {
-        clientWs.send(JSON.stringify({ type: "error", error: "代理异常" }));
+        clientWs.send(JSON.stringify({ type: "error", error: err.message || "代理异常" }));
         clientWs.close(1011, "proxy error");
       }
     }

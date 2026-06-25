@@ -172,7 +172,7 @@ class _SettingsSheetState extends State<_SettingsSheet> {
   @override
   Widget build(BuildContext context) {
     final email = widget.session.email ?? widget.session.displayName ?? '账号';
-    final localReady = _localStatus?.lumePluginOpen ?? false;
+    final localReady = (_localStatus?.gatewayOpen ?? false) || (_localStatus?.lumePluginOpen ?? false);
 
     return SafeArea(
       child: Padding(

@@ -20,12 +20,16 @@ class WebChatView extends StatefulWidget {
     super.key,
     required this.session,
     this.lumeSecret,
+    this.localGatewayToken,
+    this.localSessionId,
     this.onReady,
     this.onBridgeMessage,
   });
 
   final AuthSession session;
   final String? lumeSecret;
+  final String? localGatewayToken;
+  final String? localSessionId;
   final VoidCallback? onReady;
   final void Function(String raw)? onBridgeMessage;
 
@@ -115,6 +119,9 @@ class WebChatViewState extends State<WebChatView> {
       effective: _effectiveConnection,
       userId: userId,
       lumeSecret: widget.lumeSecret,
+      gatewayToken: widget.localGatewayToken,
+      sessionId: widget.localSessionId,
+      localStatus: _localStatus,
     );
     final desktopJs = desktopEntries.entries
         .map((e) =>

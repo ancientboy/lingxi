@@ -11,7 +11,7 @@ import { verifyToken } from '../middleware/auth.js';
 import { getActiveServer, getUserServers } from '../utils/activeServer.js';
 import { probeTcp } from '../utils/port-probe.js';
 import { deployLumePluginOverSsh } from '../utils/lume-plugin-ssh.js';
-import { LUME_PLUGIN_PORT } from '../utils/openclaw-deploy-constants.js';
+import { OPENCLAW_PORT, LUME_PLUGIN_PORT } from '../utils/openclaw-deploy-constants.js';
 
 const router = Router();
 
@@ -58,8 +58,7 @@ async function evaluateServerHealth(server) {
     : false;
 
   let status = 'offline';
-  if (gatewayOk && lumeOk) status = 'running';
-  else if (gatewayOk) status = 'unhealthy';
+  if (gatewayOk) status = 'running';
 
   return {
     gatewayOk,
@@ -286,7 +285,7 @@ router.post('/:userId', verifyToken, async (req, res) => {
     res.json({
       success: true,
       server,
-      message: '设备已添加。聊天需 Lume 插件 (18790)，可在设备页检测或远程安装。',
+      message: '设备已添加。填写 Gateway 信息即可聊天（OpenClaw 18789）。',
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -383,11 +382,11 @@ router.post('/:userId/:serverId/check', verifyToken, async (req, res) => {
       gatewayOk: health.gatewayOk,
       lumePluginOk: health.lumePluginOk,
       lumePluginPort: health.lumePluginPort,
-      message: health.lumePluginOk
-        ? 'Gateway 与 Lume 插件均在线'
-        : health.gatewayOk
-          ? 'Gateway 在线，但 Lume 插件 (18790) 未就绪 — 需安装 openclaw-lume'
-          : '设备离线或 Gateway 不可达',
+      message: health.gatewayOk
+        ? health.lumePluginOk
+          ? 'Gateway 在线（已检测到可选 Lume 插件）'
+          : 'Gateway 在线，可正常聊天'
+        : '设备离线或 Gateway 不可达',
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

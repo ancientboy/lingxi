@@ -24,7 +24,7 @@ class ConnectionTargetBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final localReady = localStatus?.lumePluginOpen == true;
+    final localReady = localStatus?.gatewayOpen == true || localStatus?.lumePluginOpen == true;
     final effectiveLabel = effective == EffectiveConnection.local
         ? '本机'
         : effective == EffectiveConnection.cloud
@@ -121,7 +121,7 @@ class ConnectionTargetBar extends StatelessWidget {
       return '自动：请安装本机 OpenClaw 或添加云端设备。';
     }
     if (effective == EffectiveConnection.local) {
-      return '正在通过本机 18790（Lume 插件）对话。';
+      return '正在通过本机 Gateway 对话（18789）。';
     }
     if (effective == EffectiveConnection.cloud) {
       return '正在通过云端代理对话，可在「设备」中切换服务器。';

@@ -54,6 +54,8 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
   final _chatKey = GlobalKey<WebChatViewState>();
 
   String? _lumeSecret;
+  String? _localGatewayToken;
+  String? _localSessionId;
 
   List<LumeSession> _sessions = [];
   bool _loadingSessions = true;
@@ -109,6 +111,8 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
 
       setState(() {
         _lumeSecret = bootstrap.lumeSecret;
+        _localGatewayToken = bootstrap.gatewayToken;
+        _localSessionId = bootstrap.sessionId;
         _cloudAvailable =
             bootstrap.cloudServerRunning || bootstrap.hasCloudServer;
       });
@@ -117,7 +121,7 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
       final local = await _localProbe.probeLocal();
       final setupDone = await _setupStorage.isSetupDone();
 
-      if (local.lumePluginOpen) {
+      if (local.gatewayOpen || local.lumePluginOpen) {
         if (!setupDone) await _setupStorage.markSetupDone();
         await _refreshConnectionAfterBootstrap();
         return;
@@ -495,6 +499,8 @@ class _DesktopShellPageState extends State<DesktopShellPage> {
                           key: _chatKey,
                           session: widget.session,
                           lumeSecret: _lumeSecret,
+                          localGatewayToken: _localGatewayToken,
+                          localSessionId: _localSessionId,
                           onReady: _onChatReady,
                         ),
                       ),
