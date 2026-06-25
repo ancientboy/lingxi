@@ -841,6 +841,7 @@ async function init() {
     initLumeChatMode();
   } else {
     console.error('❌ [Lume] Web 连接失败，无法加载会话');
+    if (typeof LumeConnection !== 'undefined') LumeConnection.refreshUi();
     const statusEl = document.getElementById('connectionStatus');
     if (statusEl) {
       statusDot = statusEl.querySelector('.status-dot');

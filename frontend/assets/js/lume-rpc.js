@@ -1,6 +1,5 @@
 /**
- * Lume WebSocket RPC — 付费用户优先连接 Lume 插件
- * 支持 gateway.call 代理 + 原生管理 RPC + 聊天
+ * Lume WebSocket RPC — 本机优先 / 云端代理 / 记住连接偏好
  */
 const LumeRpc = (function () {
   let ws = null;
@@ -9,9 +8,13 @@ const LumeRpc = (function () {
   let userId = null;
   let secret = null;
   let authHandledByProxy = false;
+  let connectionTarget = null;
+  let routingCache = null;
   const pending = new Map();
   const eventListeners = [];
   let reqSeq = 1;
+
+  const PREF_KEY = 'lume_connection_preference';
 
   function getToken() {
     return localStorage.getItem('lingxi_token');
@@ -24,6 +27,15 @@ const LumeRpc = (function () {
 
   function getDesktopConnectionMode() {
     return getDesktopOverride('lume_desktop_connection_mode');
+  }
+
+  function getWebPreference() {
+    const v = localStorage.getItem(PREF_KEY);
+    return v && ['auto', 'local', 'cloud'].includes(v) ? v : null;
+  }
+
+  function getConnectionPreference() {
+    return getDesktopConnectionMode() || getWebPreference();
   }
 
   function getDesktopWsUrl() {
@@ -56,10 +68,63 @@ const LumeRpc = (function () {
     }
   }
 
-  function markConnected(payload) {
+  function markConnected(payload, target) {
     connected = true;
     connecting = false;
+    connectionTarget = target || connectionTarget;
     if (payload?.userId) userId = payload.userId;
+  }
+
+  async function fetchConnectInfo() {
+    const token = getToken();
+    if (!token) return null;
+    try {
+      const res = await fetch(getApiBase() + '/api/lume/connect-info', {
+        headers: { Authorization: 'Bearer ' + token },
+      });
+      const json = await res.json();
+      routingCache = json.data || null;
+      return routingCache;
+    } catch (e) {
+      console.warn('[LumeRpc] connect-info failed', e);
+      return null;
+    }
+  }
+
+  async function tryConnectLocal(routing) {
+    const desktopWs = getDesktopWsUrl();
+    const localWs =
+      desktopWs || routing?.localWsUrl || 'ws://127.0.0.1:18790';
+    userId = getDesktopUserId() || routing?.userId || userId;
+    secret = getDesktopSecret() || routing?.localSecret || secret;
+    authHandledByProxy = false;
+    connecting = true;
+    const ok = await openWebSocket(localWs);
+    if (ok) {
+      connectionTarget = 'local';
+      return true;
+    }
+    connecting = false;
+    connected = false;
+    return false;
+  }
+
+  async function tryConnectCloud(routing) {
+    const cloudUrl = routing?.cloudWsUrl || routing?.wsUrl;
+    if (routing?.mode !== 'lume' || !cloudUrl) return false;
+
+    userId = routing.userId || getDesktopUserId() || userId;
+    secret = routing.secret || getDesktopSecret() || null;
+    authHandledByProxy = routing.authHandled === true;
+    connecting = true;
+    const ok = await openWebSocket(cloudUrl);
+    if (ok) {
+      connectionTarget = 'cloud';
+      return true;
+    }
+    connecting = false;
+    connected = false;
+    return false;
   }
 
   async function connect() {
@@ -71,49 +136,41 @@ const LumeRpc = (function () {
     const token = getToken();
     if (!token) return false;
 
-    const desktopMode = getDesktopConnectionMode();
-    const desktopWs = getDesktopWsUrl();
-    const desktopSecret = getDesktopSecret();
-    const desktopUserId = getDesktopUserId();
-
-    // Desktop local mode — direct WS to Lume plugin on 127.0.0.1:18790
-    if (desktopMode === 'local' && desktopWs) {
-      userId = desktopUserId || userId;
-      secret = desktopSecret || null;
-      authHandledByProxy = false;
-      connecting = true;
-      const localOk = await openWebSocket(desktopWs);
-      if (localOk) return true;
-      // 本机未就绪时回退云端（老用户 / 仅云端 ECS）
-      connecting = false;
-      connected = false;
-      try {
-        localStorage.setItem('lume_desktop_connection_mode', 'cloud');
-        localStorage.removeItem('lume_desktop_ws_url');
-      } catch (_) {}
-    }
-
-    connecting = true;
-    try {
-      const res = await fetch(getApiBase() + '/api/lume/connect-info', {
-        headers: { Authorization: 'Bearer ' + token },
-      });
-      const json = await res.json();
-      const info = json.data || {};
-      if (info.mode !== 'lume' || !info.wsUrl) {
-        connecting = false;
-        return false;
-      }
-      userId = info.userId || desktopUserId || userId;
-      secret = info.secret || desktopSecret || null;
-      authHandledByProxy = info.authHandled === true;
-      const wsUrl = info.wsUrl;
-
-      return await openWebSocket(wsUrl);
-    } catch (e) {
+    const routing = routingCache || (await fetchConnectInfo());
+    if (!routing) {
       connecting = false;
       return false;
     }
+
+    let pref = getConnectionPreference();
+    if (!pref) {
+      pref = routing.defaultConnectionMode || 'auto';
+      try {
+        localStorage.setItem(PREF_KEY, pref);
+      } catch (_) {}
+    }
+
+    if (pref === 'local') {
+      if (await tryConnectLocal(routing)) return true;
+      return false;
+    }
+
+    if (pref === 'cloud') {
+      return await tryConnectCloud(routing);
+    }
+
+    // auto：本机可用则本机，否则云端（已绑定 ECS 的老用户）
+    if (await tryConnectLocal(routing)) return true;
+    if (routing.cloudServerRunning || routing.mode === 'lume') {
+      return await tryConnectCloud(routing);
+    }
+    return false;
+  }
+
+  async function reconnect() {
+    disconnect();
+    routingCache = null;
+    return connect();
   }
 
   function openWebSocket(wsUrl) {
@@ -126,6 +183,12 @@ const LumeRpc = (function () {
         if (settled) return;
         settled = true;
         markConnected(payload || { userId });
+        if (
+          typeof LumeConnection !== 'undefined' &&
+          LumeConnection.afterConnect
+        ) {
+          LumeConnection.afterConnect(connectionTarget);
+        }
         resolve(true);
       };
 
@@ -138,7 +201,6 @@ const LumeRpc = (function () {
       };
 
       ws.onopen = () => {
-        // 代理已代完成 Lume auth 时，不再发送 secret:null 的无效 auth
         if (!authHandledByProxy && secret) {
           ws.send(
             JSON.stringify({
@@ -163,7 +225,6 @@ const LumeRpc = (function () {
           return;
         }
 
-        // WSS 代理 authHandled：收到带 userId 的成功 res 即视为已连接
         if (
           authHandledByProxy &&
           !connected &&
@@ -194,6 +255,7 @@ const LumeRpc = (function () {
       ws.onclose = () => {
         connected = false;
         connecting = false;
+        connectionTarget = null;
       };
 
       setTimeout(fail, 12000);
@@ -270,12 +332,19 @@ const LumeRpc = (function () {
     connected = false;
     connecting = false;
     authHandledByProxy = false;
+    connectionTarget = null;
+  }
+
+  function getConnectionTarget() {
+    return connectionTarget;
   }
 
   return {
     connect,
+    reconnect,
     disconnect,
     isConnected: () => connected,
+    getConnectionTarget,
     gatewayCall,
     pluginCall,
     sendChat,
