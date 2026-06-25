@@ -50,7 +50,8 @@
 
 - [x] GitHub Actions `macos-desktop.yml`
 - [x] `scripts/build-macos-dmg.sh` → `Lume-mac.dmg`
-- [ ] AppIcon 全套 PNG（1024→16）
+- [x] AppIcon 全套 PNG（1024→16，C1-13）
+- [x] 启动页 Logo 动效（巢室呼吸 + 伙伴探头）
 - [ ] 网站 `downloads/version.json` 与 Release 同步
 - [ ] 首次启动引导（可选）
 

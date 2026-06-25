@@ -17,6 +17,13 @@ flutter build macos --release
 # 产物: build/macos/Build/Products/Release/Lume.app
 ```
 
+重新生成 App 图标（C1-13）：
+
+```bash
+python3 scripts/generate-macos-icons.py
+# 需要: pip install pillow，/tmp/pptr 下已安装 puppeteer
+```
+
 ## Mac 安装包（CI 自动构建）
 
 GitHub Actions 工作流 **Mac Desktop (DMG)**：

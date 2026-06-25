@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'pages/login_page.dart';
+import 'pages/splash_page.dart';
 import 'pages/web_app_page.dart';
 import 'services/auth_service.dart';
 import 'services/auth_storage.dart';
@@ -37,6 +38,8 @@ class _AppRootState extends State<AppRoot> {
   AuthSession? _session;
   bool _booting = true;
 
+  static const _minSplash = Duration(milliseconds: 1500);
+
   @override
   void initState() {
     super.initState();
@@ -44,6 +47,7 @@ class _AppRootState extends State<AppRoot> {
   }
 
   Future<void> _bootstrap() async {
+    final started = DateTime.now();
     try {
       final session = await _auth.restoreSession();
       if (session != null) {
@@ -55,6 +59,10 @@ class _AppRootState extends State<AppRoot> {
         }
       }
     } finally {
+      final elapsed = DateTime.now().difference(started);
+      if (elapsed < _minSplash) {
+        await Future.delayed(_minSplash - elapsed);
+      }
       if (mounted) {
         setState(() => _booting = false);
       }
@@ -69,9 +77,7 @@ class _AppRootState extends State<AppRoot> {
   @override
   Widget build(BuildContext context) {
     if (_booting) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const SplashPage();
     }
 
     if (_session == null) {
