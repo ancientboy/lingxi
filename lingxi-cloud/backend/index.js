@@ -157,6 +157,10 @@ app.use('/api/files', filesRoutes);
 import lumeclawRoutes from './routes/lumeclaw.js';
 app.use('/api/lumeclaw', lumeclawRoutes);
 
+// Lume WS REST 路由（connect-info 等）
+import lumeWsRoutes from './routes/lume-ws.js';
+app.use('/api/lume', lumeWsRoutes);
+
 // 托管上传的图片
 import { fileURLToPath as fileURLToPath2 } from 'url';
 import { dirname as dirname2, join as join2 } from 'path';
