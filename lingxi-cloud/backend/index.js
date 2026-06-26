@@ -17,8 +17,6 @@ import cors from 'cors';
 import expressWs from 'express-ws';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import fs from 'fs';
-import jwt from 'jsonwebtoken';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -31,19 +29,8 @@ expressWs(app);
 
 // 中间件
 app.use(cors());
-// 🔍 ALL requests logger
-app.use((req, res, next) => {
-  if (req.path.includes('lume') || req.path.includes('session') || req.method === 'DELETE') {
-    console.log('📩 ALL:', req.method, req.path, 'auth:', !!req.headers.authorization);
-  }
-  next();
-});
-
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
-
-// 托管上传的图片/文件（必须在 frontend static 之前，否则 /uploads 会被 frontend 拦截）
-app.use('/uploads', express.static(join(__dirname, '../uploads')));
 
 // 托管前端静态文件（禁用 HTML 缓存）
 app.use(express.static(join(__dirname, '../frontend'), {
@@ -53,27 +40,6 @@ app.use(express.static(join(__dirname, '../frontend'), {
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
     }
-  }
-}));
-
-// 托管管理后台静态文件
-app.use('/admin', express.static(join(__dirname, '../admin-frontend/dist'), {
-  setHeaders: (res, path) => {
-    if (path.endsWith('.html')) {
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    }
-  }
-}));
-
-// 管理后台 SPA 路由回退
-app.get('/admin/*', (req, res) => {
-  res.sendFile(join(__dirname, '../admin-frontend/dist/index.html'));
-});
-
-// 📱 托管 APK 下载文件
-app.use('/downloads', express.static(join(__dirname, './downloads'), {
-  setHeaders: (res) => {
-    res.setHeader('Content-Disposition', 'attachment');
   }
 }));
 
@@ -104,23 +70,11 @@ app.get('/lingxi-minimal.apk', (req, res) => {
 
 // 实例管理
 import instanceRoutes from './routes/instance.js';
-// 🔍 请求日志（调试用）
-app.use((req, res, next) => {
-  if (req.method !== 'GET' || req.path.includes('session') || req.path.includes('delete')) {
-    console.log(`📩 ${req.method} ${req.path} user=${req.user?.id || req.headers.authorization?.substring(7, 20) || 'anon'}`);
-  }
-  next();
-});
-
 app.use('/api/instance', instanceRoutes);
 
 // Agent 配置
 import agentRoutes from './routes/agents.js';
 app.use('/api/agents', agentRoutes);
-
-// 团队管理
-import teamRoutes from './routes/team.js';
-app.use('/api/team', teamRoutes);
 
 // Skills 管理
 import skillsRoutes from './routes/skills.js';
@@ -142,9 +96,9 @@ app.use('/api/wecom', wecomRoutes);
 import chatRoutes from './routes/chat.js';
 app.use('/api/chat', chatRoutes);
 
-// 管理后台 API（新版，替代旧 admin.js）
-import adminPanelRoutes from './routes/admin/index.js';
-app.use('/api/admin', adminPanelRoutes);
+// 管理接口（生成邀请码等）
+import adminRoutes from './routes/admin.js';
+app.use('/api/admin', adminRoutes);
 
 // Gateway 代理（安全获取连接信息）
 import gatewayRoutes from './routes/gateway.js';
@@ -160,98 +114,19 @@ app.use('/api/servers', serversRoutes);
 import remoteConfigRoutes from './routes/remote-config.js';
 app.use('/api/remote-config', remoteConfigRoutes);
 
-// 用户模型偏好（公开接口）
-app.get('/api/user-models', (req, res) => {
-  res.json({
-    availableModels: getAvailableModelsList(),
-  });
-});
-
-// 获取用户模型偏好（需要登录）
-app.get('/api/user-models/preference', async (req, res) => {
-  try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    if (!token) {
-      return res.status(401).json({ success: false, error: '未登录' });
-    }
-    const jwtSecret = process.env.JWT_SECRET || 'lingxi-cloud-secret-2026';
-    const decoded = jwt.verify(token, jwtSecret);
-    const userId = decoded.userId;
-    if (!userId) {
-      return res.status(401).json({ success: false, error: 'token 无效' });
-    }
-    const dbPath = join(__dirname, 'data/db.json');
-    const db = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
-    const user = db.users.find(u => u.id === userId);
-    const preferredModel = user?.preferredModel || 'auto';
-    res.json({ success: true, preferredModel });
-  } catch(e) {
-    res.status(500).json({ success: false, error: e.message });
-  }
-});
-
-// 用户模型偏好设置（需要登录）
-app.post('/api/user-models/preference', async (req, res) => {
-  try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    if (!token) {
-      return res.status(401).json({ success: false, error: '未登录' });
-    }
-    // 验证 token 获取 userId
-    const jwtSecret = process.env.JWT_SECRET || 'lingxi-cloud-secret-2026';
-    const decoded = jwt.verify(token, jwtSecret);
-    const userId = decoded.userId;
-    if (!userId) {
-      return res.status(401).json({ success: false, error: 'token 无效' });
-    }
-    const { model } = req.body;
-    
-    // 写入 db.json
-    const dbPath = join(__dirname, 'data/db.json');
-    const raw = fs.readFileSync(dbPath, 'utf8');
-    const db = JSON.parse(raw);
-    const user = db.users.find(u => u.id === userId);
-    if (!user) {
-      return res.status(404).json({ success: false, error: '用户不存在' });
-    }
-    user.preferredModel = model || null;
-    fs.writeFileSync(dbPath, JSON.stringify(db, null, 2));
-    
-    console.log(`[模型偏好] ✅ 用户 ${user.nickname || userId} → ${model || 'auto'}`);
-    // 🔥 同进程直接刷新，不再需要 HTTP 通知
-    loadUserPreferences();
-    res.json({ success: true, model: model || 'auto' });
-  } catch(e) {
-    console.error('[模型偏好] 更新失败:', e.message);
-    res.status(500).json({ success: false, error: e.message });
-  }
-});
-
 import deployRoutes from './routes/deploy.js';
 app.use('/api/deploy', deployRoutes);
 
 import batchUpdateRoutes from './routes/batch-update.js';
 app.use('/api/batch-update', batchUpdateRoutes);
 
+// 模型管理
+import modelRoutes from './routes/models.js';
+app.use('/api/models', modelRoutes);
+
 // 基因系统
 import genesRoutes from './routes/genes.js';
 app.use('/api/genes', genesRoutes);
-
-// Cron 定时任务代理
-import cronRoutes from './routes/cron.js';
-app.use('/api/cron', cronRoutes);
-
-// 记忆系统
-import memoryRoutes from './routes/memory.js';
-app.use('/api/memory', memoryRoutes);
-
-// 触发器系统
-import triggerRoutes from './routes/triggers.js';
-app.use('/api/triggers', triggerRoutes);
-
-// Webhook 入口（不需要鉴权）—— 使用 raw body 解析以支持签名验证
-import webhookRoutes from './routes/webhook.js';
-app.use('/api/webhook', express.json({ limit: '2mb', verify: function(req, res, buf, encoding) { req.rawBody = buf.toString(encoding || 'utf8'); } }), webhookRoutes);
 
 import userRoutes from './routes/user.js';
 
@@ -266,24 +141,6 @@ import alipayRoutes from './routes/alipay.js';
 app.use('/api/subscription', subscriptionRoutes);
 app.use('/api/stripe', stripeRoutes);
 app.use('/api/alipay', alipayRoutes);
-
-// 服务器健康巡检
-import healthcheckRoutes from './routes/healthcheck.js';
-app.use('/api/healthcheck', healthcheckRoutes);
-
-// 智能提醒系统
-import reminderRoutes, { checkReminders } from './routes/reminders.js';
-app.use('/api/reminders', reminderRoutes);
-
-// 提醒自动检查（每 60 秒）
-setInterval(async function() {
-  try {
-    await checkReminders();
-  } catch (err) {
-    console.error('[提醒] 自动检查出错:', err.message);
-  }
-}, 60000);
-console.log('⏰ 提醒自动检查已启动: 每 60 秒检查一次');
 app.use('/api/user', userRoutes);
 
 // 图片上传
@@ -296,33 +153,15 @@ app.use('/api/speech', speechRoutes);
 import filesRoutes from './routes/files.js';
 app.use('/api/files', filesRoutes);
 
-// 文件下载（安全下载，不暴露 IP）
-import downloadsRoutes from './routes/downloads.js';
-app.use('/api/downloads', downloadsRoutes);
-
 // LumeClaw 维护 Agent
-import lumeWsRoutes from './routes/lume-ws.js';
 import lumeclawRoutes from './routes/lumeclaw.js';
-app.use('/api/lume', lumeWsRoutes);
 app.use('/api/lumeclaw', lumeclawRoutes);
 
-// Agent 办公区
-import agentWorkspaceRoutes from './routes/agent-workspace.js';
-app.use('/api/agent-workspace', agentWorkspaceRoutes);
-
-// 文件管理器（浏览用户 OpenClaw workspace）
-import fileExplorerRoutes from './routes/file-explorer.js';
-app.use('/api/file-explorer', fileExplorerRoutes);
-
-// 知识库管理
-import knowledgeRoutes from './routes/knowledge.js';
-app.use('/api/knowledge', knowledgeRoutes);
-
-// Agent 市场
-import marketRoutes from './routes/market.js';
-app.use('/api/market', marketRoutes);
-
-// (uploads static moved to top)
+// 托管上传的图片
+import { fileURLToPath as fileURLToPath2 } from 'url';
+import { dirname as dirname2, join as join2 } from 'path';
+const __dirname2 = dirname2(fileURLToPath2(import.meta.url));
+app.use('/uploads', express.static(join2(__dirname2, '../uploads')));
 
 // 技能库同步定时任务
 import { startCronJob } from './skills/sync-cron.mjs';
@@ -339,44 +178,6 @@ cron.schedule('0 2 * * *', () => {
 });
 console.log('⏰ 临时文件清理任务已启动: 每天凌晨2点');
 
-// 服务器定时巡检（每 30 分钟）
-import { runHealthCheckForUser } from './routes/healthcheck.js';
-var HEALTHCHECK_INTERVAL = 30 * 60 * 1000; // 30 分钟
-
-async function runAutoHealthCheck() {
-  try {
-    var db = await getDB();
-    if (!db.userServers || db.userServers.length === 0) return;
-
-    // 收集有服务器的用户 ID（去重）
-    var userIds = [...new Set(db.userServers.map(function(s) { return s.userId; }))];
-
-    var totalServers = 0;
-    var changedServers = 0;
-
-    for (var i = 0; i < userIds.length; i++) {
-      var results = await runHealthCheckForUser(db, userIds[i]);
-      totalServers += results.length;
-      changedServers += results.filter(function(r) { return r.changed; }).length;
-    }
-
-    if (totalServers > 0) {
-      cleanupOldData(db);
-      await saveDB(db);
-      console.log('[巡检] 自动巡检完成: ' + totalServers + ' 台服务器, ' + changedServers + ' 台状态变化');
-    }
-  } catch (err) {
-    console.error('[巡检] 自动巡检出错:', err.message);
-  }
-}
-
-// 启动后延迟 60 秒执行第一次巡检，然后每 30 分钟一次
-setTimeout(function() {
-  console.log('🏥 服务器自动巡检已启动: 每 30 分钟一次');
-  runAutoHealthCheck();
-  setInterval(runAutoHealthCheck, HEALTHCHECK_INTERVAL);
-}, 60 * 1000);
-
 // 错误处理
 app.use((err, req, res, next) => {
   console.error('Error:', err);
@@ -389,50 +190,9 @@ app.use((err, req, res, next) => {
 import { setupWebSocketProxy } from './routes/ws-proxy.js';
 setupWebSocketProxy(app);
 
-// ============ 合并 AI 代理路由 ============
-import http from 'http';
-import {
-  server as aiProxyServer,
-  loadUserPreferences,
-  getAvailableModelsList,
-} from './ai-proxy-lite.js';
-
-// 初始化用户偏好映射
-loadUserPreferences();
-
-// 挂载 AI 代理的所有路由到 Express（同进程，0 延迟）
-app.use('/api/ai/:provider', (req, res) => {
-  // 将 Express 请求转发到 ai-proxy 的 http server handler
-  aiProxyServer.emit('request', req, res);
-});
-
-// 挂载 /v1/chat/completions 兼容路径
-app.use('/v1/chat/completions', (req, res) => {
-  aiProxyServer.emit('request', req, res);
-});
-app.use('/chat/completions', (req, res) => {
-  aiProxyServer.emit('request', req, res);
-});
-
-// 挂载 /v1/models 兼容路径
-app.use('/v1/models', (req, res) => {
-  aiProxyServer.emit('request', req, res);
-});
-
-// 代理内部管理接口
-app.use('/api/proxy-keys', (req, res) => {
-  // Rewrite path for the internal server
-  req.url = req.url.replace('/api/proxy-keys', '/api/keys');
-  aiProxyServer.emit('request', req, res);
-});
-app.use('/api/proxy-stats', (req, res) => {
-  req.url = req.url.replace('/api/proxy-stats', '/api/stats');
-  aiProxyServer.emit('request', req, res);
-});
-app.use('/proxy-health', (req, res) => {
-  req.url = '/health';
-  aiProxyServer.emit('request', req, res);
-});
+// 设置 Lume WebSocket 代理（Gateway 优先，Lume 插件可选回退）
+import { setupLumeWebSocketProxy } from './routes/lume-ws-proxy.js';
+setupLumeWebSocketProxy(app);
 
 // 启动服务
 const server = app.listen(PORT, "0.0.0.0", () => {
@@ -440,24 +200,6 @@ const server = app.listen(PORT, "0.0.0.0", () => {
   console.log(`📝 健康检查: http://localhost:${PORT}/health`);
 });
 
-// 额外监听 13000 端口（用户 OpenClaw 已配置此端口，零改动）
-const AI_PORT = process.env.AI_PROXY_PORT || 13000;
-const aiPortServer = http.createServer((req, res) => {
-  // 直接复用 ai-proxy 的 http handler
-  aiProxyServer.emit('request', req, res);
-});
-aiPortServer.listen(AI_PORT, '0.0.0.0', () => {
-  console.log(`🔌 AI 代理端口已启动: http://localhost:${AI_PORT} (用户零改动)`);
-});
-
 
 export default app;
 
-
-// TTS 路由
-import ttsRouter from './routes/tts.js';
-app.use('/api/tts', ttsRouter);
-
-// 服务器健康检查定时任务（由下方的自动巡检模块统一管理）
-// 旧的 health-check.js 仅保留 runHealthCheck() 供手动调用
-// startHealthCheckScheduler() 已被下方 healthcheck.js 的自动巡检替代
