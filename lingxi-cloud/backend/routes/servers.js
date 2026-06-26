@@ -25,7 +25,14 @@ function generateSessionId() {
 
 function assertUserAccess(req, res) {
   const { userId } = req.params;
-  if (!userId || req.userId !== userId) {
+  const currentUserId = req.user?.id;
+  if (!userId || !currentUserId) {
+    res.status(403).json({ success: false, error: '未认证的用户' });
+    return false;
+  }
+  // 管理员可以访问所有用户设备
+  if (req.user?.isAdmin) return true;
+  if (userId !== currentUserId) {
     res.status(403).json({ success: false, error: '无权访问该用户设备' });
     return false;
   }

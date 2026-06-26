@@ -8,7 +8,6 @@ const SYSTEM_SESSION_PATTERNS = [
   /^agent:main:main$/i,
   /^agent:ops:main$/i,
   /^agent:main:(boot|allow-check|verify-|cli-test)/i,
-  /^agent:main:dashboard:/i,
 ];
 
 const HIDDEN_ROLES = new Set(['tool', 'toolresult', 'system']);
