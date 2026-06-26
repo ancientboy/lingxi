@@ -1,353 +1,489 @@
 /**
- * 设备（服务器）管理 API
- * 
- * 端点：
- *  GET    /api/servers/:userId          - 获取用户所有设备
- *  POST   /api/servers/:userId          - 添加设备
- *  PUT    /api/servers/:userId/:idx     - 编辑设备
- *  DELETE /api/servers/:userId/:idx     - 删除设备
- *  POST   /api/servers/:userId/:idx/check - 健康检查
- *  POST   /api/servers/:userId/:idx/activate - 设为活跃设备
- *  POST   /api/servers/:userId/check-all     - 全部健康检查
+ * 服务器管理路由 — 用户设备 CRUD、健康检测、Lume 插件远程安装
  */
 
-import express from 'express';
-const router = express.Router();
+import { Router } from 'express';
+import crypto from 'crypto';
+import { getDB, saveDB } from '../utils/db.js';
+import { config } from '../config/index.js';
+import logger from '../utils/logger.js';
+import { verifyToken } from '../middleware/auth.js';
+import { getActiveServer, getUserServers } from '../utils/activeServer.js';
+import { probeTcp } from '../utils/port-probe.js';
+import { deployLumePluginOverSsh } from '../utils/lume-plugin-ssh.js';
+import { OPENCLAW_PORT, LUME_PLUGIN_PORT } from '../utils/openclaw-deploy-constants.js';
 
-// ============ Helpers ============
+const router = Router();
 
-async function getDB() {
-  const { getDB: _getDB } = await import('../utils/db.js');
-  return _getDB();
+function generateToken() {
+  return crypto.randomBytes(16).toString('hex');
 }
 
-async function saveDB(db) {
-  const { saveDB: _saveDB } = await import('../utils/db.js');
-  return _saveDB(db);
+function generateSessionId() {
+  return crypto.randomBytes(4).toString('hex');
 }
 
-function findUserServers(db, userId) {
-  if (!db.userServers) db.userServers = [];
-  return db.userServers.filter(s => s.userId === userId);
+function assertUserAccess(req, res) {
+  const { userId } = req.params;
+  if (!userId || req.userId !== userId) {
+    res.status(403).json({ success: false, error: '无权访问该用户设备' });
+    return false;
+  }
+  return true;
 }
 
-function generateId() {
-  return 'srv_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-}
-
-// ============ Routes ============
-
-/**
- * GET /api/servers/:userId
- * 获取用户所有设备
- */
-router.get('/:userId', async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const db = await getDB();
-    
-    const user = db.users?.find(u => u.id === userId);
-    if (!user) return res.status(404).json({ error: '用户不存在' });
-    
-    const servers = findUserServers(db, userId);
-    
-    res.json({ 
-      servers,
-      activeServerId: user.activeServerId || null
-    });
-  } catch (err) {
-    console.error('[servers] list error:', err);
-    res.status(500).json({ error: '获取设备列表失败' });
-  }
-});
-
-/**
- * POST /api/servers/:userId
- * 添加设备
- * Body: { name, ip, openclawPort, openclawToken, openclawSession, description }
- */
-router.post('/:userId', async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const { name, ip, openclawPort, openclawToken, openclawSession, description } = req.body;
-    
-    if (!ip) return res.status(400).json({ error: 'IP 地址必填' });
-    
-    const db = await getDB();
-    const user = db.users?.find(u => u.id === userId);
-    if (!user) return res.status(404).json({ error: '用户不存在' });
-    
-    // 检查是否已存在同 IP
-    const existing = db.userServers.find(s => s.userId === userId && s.ip === ip);
-    if (existing) return res.status(400).json({ error: '该 IP 已存在' });
-    
-    const server = {
-      id: generateId(),
-      userId,
-      name: name || `设备 ${findUserServers(db, userId).length + 1}`,
-      ip,
-      openclawPort: openclawPort || 18789,
-      openclawToken: openclawToken || '',
-      openclawSession: openclawSession || '',
-      description: description || '',
-      status: 'pending',
-      lastCheck: null,
-      createdAt: new Date().toISOString()
-    };
-    
-    db.userServers.push(server);
-    
-    // 如果是第一台设备，自动设为活跃
-    const userServers = findUserServers(db, userId);
-    if (userServers.length === 1) {
-      user.activeServerId = server.id;
-    }
-    
-    await saveDB(db);
-    
-    // 自动做一次健康检查
-    checkServerHealth(server).then(async healthy => {
-      server.status = healthy ? 'running' : 'offline';
-      server.lastCheck = new Date().toISOString();
-      
-      // 🆕 设备在线时自动推送默认团队配置（通过 OpenClaw HTTP API）
-      if (healthy) {
-        try {
-          const { pushAgentsViaHttpApi } = await import('./agents.js');
-          const defaultAgents = user.agents || ['lingxi', 'coder', 'noter'];
-          await pushAgentsViaHttpApi(server, defaultAgents);
-          console.log(`✅ 已自动推送团队配置到 ${ip}`);
-          
-          // 同时更新用户的 agents 记录
-          if (!user.agents || user.agents.length === 0) {
-            user.agents = defaultAgents;
-          }
-        } catch (err) {
-          console.log(`⚠️ 推送团队配置失败（不影响使用）: ${err.message}`);
-        }
-      }
-      
-      await saveDB(db);
-    });
-    
-    res.json({ server, message: '设备添加成功' });
-  } catch (err) {
-    console.error('[servers] add error:', err);
-    res.status(500).json({ error: '添加设备失败' });
-  }
-});
-
-/**
- * PUT /api/servers/:userId/:serverId
- * 编辑设备
- */
-router.put('/:userId/:serverId', async (req, res) => {
-  try {
-    const { userId, serverId } = req.params;
-    const updates = req.body;
-    
-    const db = await getDB();
-    const server = db.userServers.find(s => s.userId === userId && (s.id === serverId || s.id === undefined && db.userServers.indexOf(s) === parseInt(serverId)));
-    
-    // 支持通过 id 或 index 查找
-    let target = db.userServers.find(s => s.userId === userId && s.id === serverId);
-    if (!target) {
-      const idx = parseInt(serverId);
-      const userServers = findUserServers(db, userId);
-      if (userServers[idx]) target = userServers[idx];
-    }
-    
-    if (!target) return res.status(404).json({ error: '设备不存在' });
-    
-    // 允许更新的字段
-    const allowedFields = ['name', 'ip', 'openclawPort', 'openclawToken', 'openclawSession', 'description'];
-    for (const field of allowedFields) {
-      if (updates[field] !== undefined) {
-        target[field] = updates[field];
-      }
-    }
-    
-    await saveDB(db);
-    res.json({ server: target, message: '设备更新成功' });
-  } catch (err) {
-    console.error('[servers] update error:', err);
-    res.status(500).json({ error: '更新设备失败' });
-  }
-});
-
-/**
- * DELETE /api/servers/:userId/:serverId
- * 删除设备
- */
-router.delete('/:userId/:serverId', async (req, res) => {
-  try {
-    const { userId, serverId } = req.params;
-    const db = await getDB();
-    
-    const idx = db.userServers.findIndex(s => s.userId === userId && (s.id === serverId || s.id === undefined));
-    if (idx === -1) return res.status(404).json({ error: '设备不存在' });
-    
-    const removed = db.userServers.splice(idx, 1)[0];
-    
-    // 如果删除的是活跃设备，切换到第一台
-    const user = db.users.find(u => u.id === userId);
-    if (user && user.activeServerId === removed.id) {
-      const remaining = findUserServers(db, userId);
-      user.activeServerId = remaining.length > 0 ? remaining[0].id : null;
-    }
-    
-    await saveDB(db);
-    res.json({ message: '设备已删除' });
-  } catch (err) {
-    console.error('[servers] delete error:', err);
-    res.status(500).json({ error: '删除设备失败' });
-  }
-});
-
-/**
- * POST /api/servers/:userId/:serverId/check
- * 健康检查单个设备
- */
-router.post('/:userId/:serverId/check', async (req, res) => {
-  try {
-    const { userId, serverId } = req.params;
-    const db = await getDB();
-    
-    const server = db.userServers.find(s => s.userId === userId && s.id === serverId);
-    if (!server) return res.status(404).json({ error: '设备不存在' });
-    
-    const healthy = await checkServerHealth(server);
-    server.status = healthy ? 'running' : 'offline';
-    server.lastCheck = new Date().toISOString();
-    
-    await saveDB(db);
-    
-    res.json({ 
-      status: server.status, 
-      lastCheck: server.lastCheck,
-      healthy
-    });
-  } catch (err) {
-    console.error('[servers] check error:', err);
-    res.status(500).json({ error: '健康检查失败' });
-  }
-});
-
-/**
- * POST /api/servers/:userId/:serverId/activate
- * 设为活跃设备
- */
-router.post('/:userId/:serverId/activate', async (req, res) => {
-  try {
-    const { userId, serverId } = req.params;
-    const db = await getDB();
-    
-    const server = db.userServers.find(s => s.userId === userId && s.id === serverId);
-    if (!server) return res.status(404).json({ error: '设备不存在' });
-    
-    const user = db.users.find(u => u.id === userId);
-    if (!user) return res.status(404).json({ error: '用户不存在' });
-    
-    user.activeServerId = serverId;
-    await saveDB(db);
-    
-    // 🔧 切换后自动触发健康检查，更新设备 status
-    checkServerHealth(server).then(async healthy => {
-      server.status = healthy ? 'running' : 'offline';
-      server.lastCheck = new Date().toISOString();
-      await saveDB(db);
-      console.log(`✅ 设备切换后健康检查: ${server.name} → ${server.status}`);
-    }).catch(err => {
-      console.warn(`⚠️ 切换后健康检查失败（不影响使用）:`, err.message);
-    });
-    
-    res.json({ 
-      message: `已切换到 ${server.name}`,
-      activeServerId: serverId,
-      server: { id: server.id, name: server.name, ip: server.ip, status: server.status }
-    });
-  } catch (err) {
-    console.error('[servers] activate error:', err);
-    res.status(500).json({ error: '切换设备失败' });
-  }
-});
-
-/**
- * POST /api/servers/:userId/check-all
- * 全部健康检查
- */
-router.post('/:userId/check-all', async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const db = await getDB();
-    
-    const servers = findUserServers(db, userId);
-    const results = [];
-    
-    for (const server of servers) {
-      const healthy = await checkServerHealth(server);
-      server.status = healthy ? 'running' : 'offline';
-      server.lastCheck = new Date().toISOString();
-      results.push({
-        id: server.id,
-        name: server.name,
-        ip: server.ip,
-        status: server.status,
-        healthy
-      });
-    }
-    
-    await saveDB(db);
-    
-    res.json({ results });
-  } catch (err) {
-    console.error('[servers] check-all error:', err);
-    res.status(500).json({ error: '健康检查失败' });
-  }
-});
-
-/**
- * GET /api/servers/:userId/active
- * 获取当前活跃设备
- */
-router.get('/:userId/active', async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const db = await getDB();
-    
-    const user = db.users?.find(u => u.id === userId);
-    if (!user) return res.status(404).json({ error: '用户不存在' });
-    
-    const server = db.userServers.find(s => s.userId === userId && s.id === user.activeServerId);
-    
-    res.json({ 
-      activeServer: server || null,
-      activeServerId: user.activeServerId || null
-    });
-  } catch (err) {
-    console.error('[servers] active error:', err);
-    res.status(500).json({ error: '获取活跃设备失败' });
-  }
-});
-
-// ============ Health Check ============
-
-async function checkServerHealth(server) {
+async function checkGatewayHealth(server) {
   const { ip, openclawPort, openclawSession, openclawToken } = server;
   const port = openclawPort || 18789;
-  
+  if (!ip || !openclawToken) return false;
+
+  const sessionPath = openclawSession ? `/${openclawSession}` : '';
+  const url = `http://${ip}:${port}${sessionPath}?token=${openclawToken}`;
+
   try {
-    // OpenClaw 用 URL query param 认证，不要用 Authorization header（会触发封锁）
-    const url = `http://${ip}:${port}/${openclawSession || ''}?token=${openclawToken || ''}`;
     const resp = await fetch(url, {
-      signal: AbortSignal.timeout(8000),
-      redirect: 'manual'  // 不跟随重定向，302 即表示认证成功
+      signal: AbortSignal.timeout(4000),
+      redirect: 'manual',
     });
-    // 302 (重定向到 Control UI) = 认证通过 = 在线
     return resp.status === 302 || resp.ok;
   } catch {
     return false;
   }
 }
+
+async function evaluateServerHealth(server) {
+  const gatewayOk = await checkGatewayHealth(server);
+  const lumeOk = gatewayOk
+    ? await probeTcp(server.ip, LUME_PLUGIN_PORT)
+    : false;
+
+  let status = 'offline';
+  if (gatewayOk) status = 'running';
+
+  return {
+    gatewayOk,
+    lumePluginOk: lumeOk,
+    status,
+    lumePluginPort: LUME_PLUGIN_PORT,
+  };
+}
+
+/**
+ * 创建服务器（数据库记录，异步创建 ECS）
+ */
+router.post('/create', async (req, res) => {
+  try {
+    const { userId, region = config.aliyun.region, spec = config.aliyun.instanceType } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ error: 'userId 必填' });
+    }
+
+    const db = await getDB();
+    const user = db.users?.find((u) => u.id === userId);
+    if (!user) {
+      return res.status(404).json({ error: '用户不存在' });
+    }
+
+    const existingServer = db.userServers?.find((s) => s.userId === userId);
+    if (existingServer) {
+      logger.info(`用户 ${userId} 已有服务器: ${existingServer.id}`);
+      return res.json({
+        success: true,
+        server: existingServer,
+        message: '用户已有服务器',
+      });
+    }
+
+    const serverId = `srv-${crypto.randomUUID().substring(0, 8)}`;
+    const openclawToken = generateToken();
+    const openclawSession = generateSessionId();
+
+    const server = {
+      id: serverId,
+      userId,
+      aliyunInstanceId: null,
+      ip: null,
+      region,
+      spec,
+      sshPort: 22,
+      sshPassword: config.userServer.password,
+      openclawPort: config.userServer.openclawPort,
+      openclawToken,
+      openclawSession,
+      status: 'pending',
+      lumePluginOk: false,
+      healthCheckedAt: null,
+      createdAt: new Date().toISOString(),
+    };
+
+    if (!db.userServers) db.userServers = [];
+    db.userServers.push(server);
+
+    const taskId = `task-${crypto.randomUUID().substring(0, 8)}`;
+    const task = {
+      id: taskId,
+      userId,
+      serverId,
+      taskType: 'create_server',
+      status: 'pending',
+      progress: 0,
+      params: JSON.stringify({ region, spec }),
+      result: null,
+      errorMessage: null,
+      startedAt: null,
+      completedAt: null,
+      createdAt: new Date().toISOString(),
+    };
+
+    if (!db.deployTasks) db.deployTasks = [];
+    db.deployTasks.push(task);
+
+    await saveDB(db);
+
+    logger.success(`服务器创建任务已提交: ${serverId}`);
+
+    res.json({
+      success: true,
+      server,
+      task: {
+        id: taskId,
+        status: 'pending',
+      },
+      message: '服务器创建任务已提交，请稍后查询状态',
+    });
+  } catch (error) {
+    logger.fail('创建服务器失败:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * 查询部署任务状态
+ */
+router.get('/task/:taskId', async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const db = await getDB();
+
+    const task = db.deployTasks?.find((t) => t.id === taskId);
+
+    if (!task) {
+      return res.status(404).json({ error: '任务不存在' });
+    }
+
+    res.json({
+      success: true,
+      task,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * 列出所有服务器（管理用）
+ */
+router.get('/', async (req, res) => {
+  try {
+    const db = await getDB();
+    const servers = db.userServers || [];
+
+    res.json({
+      success: true,
+      total: servers.length,
+      servers,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/** 用户设备列表 + 当前活跃设备 */
+router.get('/:userId', verifyToken, async (req, res) => {
+  if (!assertUserAccess(req, res)) return;
+
+  try {
+    const { userId } = req.params;
+    const db = await getDB();
+    const servers = getUserServers(db, userId);
+    const active = getActiveServer(db, userId);
+
+    const task = db.deployTasks?.find(
+      (t) =>
+        t.userId === userId &&
+        servers.some((s) => s.id === t.serverId) &&
+        ['pending', 'running'].includes(t.status),
+    );
+
+    res.json({
+      success: true,
+      servers,
+      activeServerId: active?.id || null,
+      server: active || servers[0] || null,
+      task: task || null,
+    });
+  } catch (error) {
+    logger.fail('查询服务器失败:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/** 手动添加设备（仅登记 Gateway，不含 Lume 插件） */
+router.post('/:userId', verifyToken, async (req, res) => {
+  if (!assertUserAccess(req, res)) return;
+
+  try {
+    const { userId } = req.params;
+    const {
+      name,
+      ip,
+      openclawPort = 18789,
+      openclawToken,
+      openclawSession,
+      description,
+      sshPassword,
+      sshPort = 22,
+    } = req.body;
+
+    if (!ip?.trim()) {
+      return res.status(400).json({ success: false, error: 'IP 必填' });
+    }
+
+    const db = await getDB();
+    const serverId = `srv-${crypto.randomUUID().substring(0, 8)}`;
+    const server = {
+      id: serverId,
+      userId,
+      name: name?.trim() || null,
+      description: description?.trim() || null,
+      aliyunInstanceId: null,
+      ip: ip.trim(),
+      region: 'manual',
+      spec: 'manual',
+      sshPort: Number(sshPort) || 22,
+      sshPassword: sshPassword || null,
+      openclawPort: Number(openclawPort) || 18789,
+      openclawToken: openclawToken?.trim() || generateToken(),
+      openclawSession: openclawSession?.trim() || generateSessionId(),
+      status: 'pending',
+      lumePluginOk: false,
+      healthCheckedAt: null,
+      createdAt: new Date().toISOString(),
+    };
+
+    if (!db.userServers) db.userServers = [];
+    db.userServers.push(server);
+
+    const user = db.users?.find((u) => u.id === userId);
+    if (user && !user.activeServerId) {
+      user.activeServerId = serverId;
+    }
+
+    await saveDB(db);
+
+    res.json({
+      success: true,
+      server,
+      message: '设备已添加。填写 Gateway 信息即可聊天（OpenClaw 18789）。',
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.put('/:userId/:serverId', verifyToken, async (req, res) => {
+  if (!assertUserAccess(req, res)) return;
+
+  try {
+    const { userId, serverId } = req.params;
+    const db = await getDB();
+    const server = db.userServers?.find(
+      (s) => s.userId === userId && s.id === serverId,
+    );
+    if (!server) {
+      return res.status(404).json({ success: false, error: '设备不存在' });
+    }
+
+    const fields = [
+      'name',
+      'description',
+      'ip',
+      'openclawPort',
+      'openclawToken',
+      'openclawSession',
+      'sshPassword',
+      'sshPort',
+    ];
+    for (const key of fields) {
+      if (req.body[key] !== undefined) {
+        server[key] = req.body[key];
+      }
+    }
+
+    await saveDB(db);
+    res.json({ success: true, server });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.delete('/:userId/:serverId', verifyToken, async (req, res) => {
+  if (!assertUserAccess(req, res)) return;
+
+  try {
+    const { userId, serverId } = req.params;
+    const db = await getDB();
+    const idx = db.userServers?.findIndex(
+      (s) => s.userId === userId && s.id === serverId,
+    );
+    if (idx === undefined || idx < 0) {
+      return res.status(404).json({ success: false, error: '设备不存在' });
+    }
+
+    db.userServers.splice(idx, 1);
+    const user = db.users?.find((u) => u.id === userId);
+    if (user?.activeServerId === serverId) {
+      const next = getUserServers(db, userId)[0];
+      user.activeServerId = next?.id || null;
+    }
+
+    await saveDB(db);
+    res.json({ success: true, message: '设备已删除' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/** 检测 Gateway (18789) + Lume 插件 (18790) */
+router.post('/:userId/:serverId/check', verifyToken, async (req, res) => {
+  if (!assertUserAccess(req, res)) return;
+
+  try {
+    const { userId, serverId } = req.params;
+    const db = await getDB();
+    const server = db.userServers?.find(
+      (s) => s.userId === userId && s.id === serverId,
+    );
+    if (!server) {
+      return res.status(404).json({ success: false, error: '设备不存在' });
+    }
+
+    const health = await evaluateServerHealth(server);
+    server.status = health.status;
+    server.lumePluginOk = health.lumePluginOk;
+    server.healthCheckedAt = new Date().toISOString();
+    await saveDB(db);
+
+    res.json({
+      success: true,
+      status: health.status,
+      healthy: health.gatewayOk,
+      gatewayOk: health.gatewayOk,
+      lumePluginOk: health.lumePluginOk,
+      lumePluginPort: health.lumePluginPort,
+      message: health.gatewayOk
+        ? health.lumePluginOk
+          ? 'Gateway 在线（已检测到可选 Lume 插件）'
+          : 'Gateway 在线，可正常聊天'
+        : '设备离线或 Gateway 不可达',
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post('/:userId/:serverId/activate', verifyToken, async (req, res) => {
+  if (!assertUserAccess(req, res)) return;
+
+  try {
+    const { userId, serverId } = req.params;
+    const db = await getDB();
+    const server = db.userServers?.find(
+      (s) => s.userId === userId && s.id === serverId,
+    );
+    if (!server) {
+      return res.status(404).json({ success: false, error: '设备不存在' });
+    }
+
+    const user = db.users?.find((u) => u.id === userId);
+    if (user) {
+      user.activeServerId = serverId;
+      await saveDB(db);
+    }
+
+    res.json({
+      success: true,
+      message: `已切换到 ${server.name || server.ip}`,
+      activeServerId: serverId,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * 远程安装 Lume 插件 — 需要 SSH 密码（添加设备时填写，或一键部署写入）
+ * POST body 可临时传入 sshPassword
+ */
+router.post(
+  '/:userId/:serverId/deploy-lume-plugin',
+  verifyToken,
+  async (req, res) => {
+    if (!assertUserAccess(req, res)) return;
+
+    try {
+      const { userId, serverId } = req.params;
+      const db = await getDB();
+      const server = db.userServers?.find(
+        (s) => s.userId === userId && s.id === serverId,
+      );
+      if (!server?.ip) {
+        return res.status(404).json({ success: false, error: '设备不存在' });
+      }
+
+      const password =
+        req.body?.sshPassword || server.sshPassword || config.userServer.password;
+      if (!password) {
+        return res.status(400).json({
+          success: false,
+          error:
+            '缺少 SSH 密码，无法远程安装。请编辑设备填写 SSH 密码，或在服务器上手动安装 Lume 插件。',
+        });
+      }
+
+      await deployLumePluginOverSsh({
+        host: server.ip,
+        port: server.sshPort || 22,
+        password,
+        serverIp: server.ip,
+      });
+
+      const health = await evaluateServerHealth(server);
+      server.status = health.status;
+      server.lumePluginOk = health.lumePluginOk;
+      server.healthCheckedAt = new Date().toISOString();
+      if (req.body?.sshPassword) {
+        server.sshPassword = req.body.sshPassword;
+      }
+      await saveDB(db);
+
+      res.json({
+        success: true,
+        lumePluginOk: health.lumePluginOk,
+        status: health.status,
+        message: health.lumePluginOk
+          ? 'Lume 插件已安装并就绪'
+          : '插件已推送，但 18790 仍未监听，请查看服务器日志',
+      });
+    } catch (error) {
+      logger.fail('远程安装 Lume 插件失败:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message || '远程安装失败',
+      });
+    }
+  },
+);
 
 export default router;
