@@ -3557,6 +3557,7 @@
       const q = modelSearchQuery.trim().toLowerCase();
       const listModels = cachedModels.filter(function(m) {
         if (m.id === 'auto') return false;
+        if (hiddenModels[m.id]) return false;
         if (!q) return true;
         const hay = (m.name + ' ' + (m.provider || '') + ' ' + (m.desc || '')).toLowerCase();
         return hay.indexOf(q) !== -1;
@@ -3609,6 +3610,7 @@
             for (var mi = 0; mi < pv.models.length; mi++) {
               var pm = pv.models[mi];
               var modelId = pm.id;
+              if (hiddenModels[modelId]) continue;  // 跳过隐藏模型
               // 查找 cachedModels 获取额外信息
               var cm = cachedModels.find(function(m) { return m.id === modelId; });
               var pmTier = (cm && cm.tier) || pm.tier || 'free';
@@ -3627,7 +3629,10 @@
       dropdown.innerHTML =
         '<div class="model-dropdown-search" style="display:flex;align-items:center;gap:4px;">' +
           '<input type="text" id="modelSearchInput" placeholder="搜索模型" autocomplete="off" value="' + esc(modelSearchQuery) + '" style="flex:1;min-width:0;">' +
-          '<div class="model-dropdown-add" title="链接供应商 API" onclick="event.stopPropagation();window.openSettingsKeyPanel();return false;">' +
+          '<div class="model-dropdown-add" title="模型管理" onclick="event.stopPropagation();window.openModelManager();return false;">' +
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>' +
+          '</div>' +
+          '<div class="model-dropdown-add" title="绑定供应商 Key" onclick="event.stopPropagation();window.openSettingsKeyPanel();return false;">' +
             '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>' +
           '</div>' +
         '</div>' +
@@ -3707,6 +3712,56 @@
         getKeyUrl: 'https://opencodego.com' },
     ];
 
+    // 隐藏模型偏好（存在 localStorage）
+    var hiddenModels = {};
+    try { hiddenModels = JSON.parse(localStorage.getItem('lingxi_hidden_models') || '{}'); } catch(e) {}
+    function saveHiddenModels() { localStorage.setItem('lingxi_hidden_models', JSON.stringify(hiddenModels)); }
+    
+    window.openModelManager = function() {
+      closeModelDropdown();
+      // 按分类构建管理面板
+      var html = '<div style="max-height:400px;overflow-y:auto;">';
+      for (var ci = 0; ci < cachedCategories.length; ci++) {
+        var cat = cachedCategories[ci];
+        html += '<div style="padding:8px 4px 4px;font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.5px;">' + esc(cat.label) + '</div>';
+        for (var pi = 0; pi < cat.providers.length; pi++) {
+          var pv = cat.providers[pi];
+          if (cat.providers.length > 1) {
+            html += '<div style="padding:4px 0 2px;font-size:12px;font-weight:600;color:var(--text-2);">' + esc(pv.name) + '</div>';
+          }
+          for (var mi = 0; mi < pv.models.length; mi++) {
+            var pm = pv.models[mi];
+            var isHidden = hiddenModels[pm.id];
+            html += '<label style="display:flex;align-items:center;gap:8px;padding:5px 4px;cursor:pointer;font-size:13px;">' +
+              '<input type="checkbox" data-model-id="' + esc(pm.id) + '"' + (!isHidden ? ' checked' : '') + ' style="cursor:pointer;">' +
+              '<span>' + esc(pm.name) + '</span>' +
+              '</label>';
+          }
+        }
+      }
+      html += '</div>';
+      html += '<p style="font-size:11px;color:var(--text-3);margin-top:8px;">取消勾选的模型将不会显示在模型选择器中。</p>';
+      
+      showLumeCustomDialog('模型管理', html, [
+        { text: '保存', cls: 'lume-dialog-btn-primary', action: function() {
+          var checkboxes = document.querySelectorAll('input[data-model-id]');
+          for (var i = 0; i < checkboxes.length; i++) {
+            var mid = checkboxes[i].getAttribute('data-model-id');
+            if (checkboxes[i].checked) {
+              delete hiddenModels[mid];
+            } else {
+              hiddenModels[mid] = true;
+            }
+          }
+          saveHiddenModels();
+          closeLumeDialog(false);
+          // 重新渲染 dropdown（如果打开的话）
+          if (typeof renderModelDropdown === 'function') renderModelDropdown();
+        }},
+        { text: '取消', cls: 'lume-dialog-btn-ghost', action: function() { closeLumeDialog(false); } }
+      ]);
+    };
+    
     window.openSettingsKeyPanel = function() {
       var items = PROVIDER_LIST.map(function(p) {
         var modelHint = p.models ? '<span style="float:right;font-size:11px;color:var(--text-3);">' + p.models.length + ' 个模型</span>' : '';
