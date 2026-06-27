@@ -2563,7 +2563,7 @@
     }
 
     function newChat() {
-      closeMobileSidebar();
+      if (typeof closeMobileSidebar === 'function') closeMobileSidebar();
       if (typeof switchView === 'function') {
         switchView('chat');
       }
@@ -3764,8 +3764,8 @@
   </script>
 
   <script src="assets/js/lume-dialog.js?v=20260627e"></script>
-  <script src="assets/js/lume-rpc.js?v=20260627e"></script>
-  <script src="assets/js/chat-lume.js?v=20260627c"></script>
+  <script src="assets/js/lume-rpc.js?v=20260627f"></script>
+  <script src="assets/js/chat-lume.js?v=20260627g"></script>
   <script src="assets/js/chat.js?v=20260627e"></script>
 
     <!-- 统一组件加载器 -->

@@ -82,7 +82,7 @@ export class LumeGatewayBridge {
     if (method === 'chat.send' || method === 'sendMessage') {
       const sessionKey = params.sessionKey ? String(params.sessionKey) : undefined;
       const message = String(params.message ?? '');
-      const agentId = params.agentId ? String(params.agentId) : 'lingxi';
+      const agentId = params.agentId ? String(params.agentId) : 'main';
       let model = params.model;
       const resolved = resolveLumeModel(model, this.userPreferredModel);
       if (resolved) model = resolved;
@@ -93,7 +93,8 @@ export class LumeGatewayBridge {
         agentId,
         idempotencyKey: params.idempotencyKey || `lume-${Date.now()}`,
       };
-      if (model) chatParams.model = model;
+      // OpenClaw chat.send 不接受 model 参数
+      // 模型通过 sessions.patch 设置，不在这里传
 
       // 与插件一致：先 ack，流式走 event
       this.sendToClient(lumeRes(id, true, { received: true }));
@@ -115,8 +116,9 @@ export class LumeGatewayBridge {
       return;
     }
 
+      console.log("[Bridge] handleMessage: " + method + " id=" + id);
     if (method === 'sessions.list') {
-      const gw = await this.client.request('sessions.list', params, 20_000);
+      const gw = await this.client.request('sessions.list', params, 30_000);
       const sessions = filterSessionList(gw.payload?.sessions, this.userId);
       const prefix = resolveUserSessionPrefix(this.userId);
       this.sendToClient(
@@ -220,8 +222,11 @@ export class LumeGatewayBridge {
 
   async handleMessageSafe(msg) {
     try {
+      console.log(`[Bridge] handleMessageSafe: ${msg.method} id=${msg.id}`);
       await this.handleMessage(msg);
+      console.log(`[Bridge] handleMessageSafe done: ${msg.method}`);
     } catch (err) {
+      console.error(`[Bridge] handleMessageSafe error: ${msg.method}`, err.message);
       this.sendToClient(lumeRes(msg.id, false, null, err.message || String(err)));
     }
   }

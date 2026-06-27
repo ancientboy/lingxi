@@ -241,7 +241,7 @@ const LumeRpc = (function () {
       });
       const json = await res.json();
       const info = json.data || {};
-      if (!info.wsUrl && info.mode !== 'lume') {
+      console.warn("[LumeRpc] connect-info:", JSON.stringify(info).substring(0,300)); if (!info.wsUrl && info.mode !== 'lume') {
         connecting = false;
         return false;
       }
@@ -396,7 +396,7 @@ const LumeRpc = (function () {
     const params = {
       message,
       sessionKey,
-      agentId: agentId || 'lingxi',
+      agentId: agentId || 'main',
       idempotencyKey: 'lume-' + Date.now(),
     };
     if (activeTransport === 'gateway') {

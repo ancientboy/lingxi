@@ -64,21 +64,19 @@ function getRouterApiKey() {
 
 // ============ Lume 智能模型选择 ============
 // 当用户请求 model="auto" 时，根据时段/套餐/负载自动选择最佳模型
+// 所有用户统一走同一模型列表，不区分 free/pro
 const LUME_AUTO_MODELS = {
   free: [
-    'ocg/deepseek-v4-pro',        // DeepSeek V4 Pro（首选，便宜）
-    'ocg/glm-5.1',                 // GLM-5.1
-    'ocg/kimi-k2.6',               // 长上下文备选
+    'glm-cn/glm-5.1',             // GLM-5.1 智谱直连（首选）
+    'bailian/qwen3.7-plus',        // 千问3.7 Plus
     'gh/gpt-4o',                   // GitHub Copilot
-    'gh/gpt-5-mini',               // 快速免费
-    'openrouter/openrouter/free',  // 兜底
+    'gh/gpt-5-mini',               // 快速
   ],
   pro: [
-    'ocg/deepseek-v4-pro',
-    'ocg/glm-5.1',
-    'gh/gpt-4o',
-    'gh/gpt-5-mini',
-    'openrouter/openrouter/free',
+    'glm-cn/glm-5.1',             // GLM-5.1 智谱直连（首选）
+    'bailian/qwen3.7-plus',        // 千问3.7 Plus
+    'gh/gpt-4o',                   // GitHub Copilot
+    'gh/gpt-5-mini',               // 快速
   ],
 };
 
@@ -108,9 +106,7 @@ function isModelCoolingDown(routerModel) {
 // 智能选择最佳可用模型
 function selectLumeAutoModel(clientIp) {
   // 1. 查用户套餐
-  const userInfo = ipUserMap[clientIp];
-  const tier = userInfo?.userId ? 'pro' : 'free'; // TODO: 从数据库读实际套餐
-  const candidates = LUME_AUTO_MODELS[tier] || LUME_AUTO_MODELS.free;
+  const candidates = LUME_AUTO_MODELS.pro; // 所有用户统一模型列表
 
   // 2. 避让最近失败的模型
   for (const model of candidates) {
@@ -127,8 +123,8 @@ function selectLumeAutoModel(clientIp) {
 
 // 模型映射：用户请求的模型名 → 9Router 对应的付费模型名
 // 所有请求都走 9Router，由 9Router 进行 provider 调度和 fallback
-const OPENCODE_GO_PRIMARY = 'ocg/deepseek-v4-pro';
-const OPENCODE_GO_SECONDARY = 'ocg/glm-5.1';
+const OPENCODE_GO_PRIMARY = 'glm-cn/glm-5.1';
+const OPENCODE_GO_SECONDARY = 'glm-cn/glm-5.1';
 
 const MODEL_MAP_TO_9ROUTER = {
   // Lume 智能模型（由后端自动选择）
@@ -145,7 +141,7 @@ const MODEL_MAP_TO_9ROUTER = {
   'claude-4.5-opus':    OPENCODE_GO_PRIMARY,
   // 智谱 GLM 系列 → glm-cn (Coding Plan 付费)
   'glm-5.1':            OPENCODE_GO_PRIMARY,
-  'glm-5':              'opencode-go/glm-5',
+  'glm-5':              'glm-cn/glm-5.1',
   'glm-4.7':            OPENCODE_GO_PRIMARY,
   'glm-4.6':            OPENCODE_GO_PRIMARY,
   'glm-4.5-air':        OPENCODE_GO_PRIMARY,
@@ -157,7 +153,7 @@ const MODEL_MAP_TO_9ROUTER = {
   'glm-3-turbo':        OPENCODE_GO_PRIMARY,
   'chatglm-turbo':      OPENCODE_GO_PRIMARY,
   'kimi-k2.6':          OPENCODE_GO_SECONDARY,
-  'kimi-k2.5':          'opencode-go/kimi-k2.5',
+  'kimi-k2.5':          'kimi/kimi-k2.7',
   // 阿里云 qwen 系列 → 映射到智谱等价模型（百炼已停用）
   'qwen-max':           OPENCODE_GO_PRIMARY,
   'qwen-plus':          OPENCODE_GO_PRIMARY,
@@ -175,8 +171,8 @@ const MODEL_MAP_TO_9ROUTER = {
 
 // 9Router 限流时的免费 fallback 模型（优先级从高到低）
 const ROUTER_FALLBACK_MODELS = [
-  'ocg/deepseek-v4-pro',          // DeepSeek V4 Pro（首选，便宜）
-  'ocg/glm-5.1',                  // GLM-5.1（备选）
+  'glm-cn/glm-5.1',               // GLM-5.1（首选）
+  'bailian/qwen3.7-plus',         // 千问3.7 Plus（备选）
   'gh/gpt-4o',                    // GitHub Copilot
   'gh/gpt-5-mini',                // 快速免费
   'openrouter/openrouter/free',   // 兜底
@@ -184,9 +180,9 @@ const ROUTER_FALLBACK_MODELS = [
 
 // ============ 模型上下文窗口表 ============
 const MODEL_CONTEXT_WINDOWS = {
-  'ocg/deepseek-v4-pro': 128000,
-  'ocg/glm-5.1':         200000,
-  'ocg/kimi-k2.6':       128000,
+  'glm-cn/glm-5.1': 200000,
+  'bailian/qwen3.7-plus': 128000,
+  'bailian/qwen3.6-flash': 128000,
   'gh/gpt-4o':           64000,
   'gh/gpt-4.1':          128000,
   'gh/gpt-5-mini':       64000,
@@ -197,9 +193,9 @@ const MODEL_CONTEXT_WINDOWS = {
 // 按 token 大小自动选择合适的模型
 // 如果请求估算 token 超过当前模型上下文，自动升级到大上下文模型
 const LARGE_CONTEXT_MODELS = [
-  { model: 'ocg/glm-5.1',         context: 200000 },
-  { model: 'ocg/deepseek-v4-pro', context: 128000 },
-  { model: 'ocg/kimi-k2.6',       context: 128000 },
+  { model: 'glm-cn/glm-5.1',      context: 200000 },
+  { model: 'bailian/qwen3.7-plus', context: 128000 },
+  { model: 'gh/gpt-4o',           context: 128000 },
 ];
 
 /** 估算请求的 token 数（粗估：中文 1 字 ≈ 1.5 token，英文 1 词 ≈ 1 token） */
@@ -577,7 +573,7 @@ async function proxyVia9Router(reqBody, reqUrl, clientIp, res, fallbackIndex = -
 // 支持图片输入的模型列表
 const VISION_MODELS = new Set([
   'gh/gpt-4o', 'gh/gpt-4.1', 'gh/gpt-5-mini', 'gh/gpt-4o-mini',
-  'ocg/glm-5.1', 'ocg/kimi-k2.6', 'ocg/deepseek-v4-pro',
+  'glm-cn/glm-5.1', 'bailian/qwen3.7-plus', 'gh/gpt-4o',
 ]);
 
 function isVisionModel(model) {
@@ -593,7 +589,7 @@ function selectVisionModel(clientIp) {
   }
   // 默认首选 deepseek-v4-pro（支持图片 + 大上下文 128K+）
   // 不再首选 gh/gpt-4o，上下文只有 64K，大请求容易 400
-  return 'ocg/deepseek-v4-pro';
+  return 'glm-cn/glm-5.1';
 }
 
 function detectImageInRequest(reqBody) {
@@ -1687,13 +1683,13 @@ const server = http.createServer(async (req, res) => {
     res.end(JSON.stringify({
       availableModels: [
         { id: 'auto', name: 'Auto', provider: '系统', desc: '智能选择最优模型', tier: 'free' },
-        { id: 'ocg/deepseek-v4-pro', name: 'DeepSeek V4 Pro', provider: 'DeepSeek', desc: '最强性价比', tier: 'free' },
-        { id: 'ocg/glm-5.1', name: 'GLM-5.1', provider: '智谱', desc: '中文最强', tier: 'free' },
+        { id: 'bailian/deepseek-v4-pro', name: 'DeepSeek V4 Pro', provider: '百炼', desc: '最强性价比', tier: 'free' },
+        { id: 'glm-cn/glm-5.1', name: 'GLM-5.1', provider: '智谱', desc: '中文最强', tier: 'free' },
         { id: 'glm-cn/glm-5.1', name: 'GLM-5.1 主力', provider: '智谱直连', desc: '智谱大号直接干', tier: 'pro' },
         { id: 'gh/gpt-4o', name: 'GPT-4o', provider: 'OpenAI', desc: 'GPT经典', tier: 'pro' },
         { id: 'gh/gpt-4.1', name: 'GPT-4.1', provider: 'OpenAI', desc: '强推理', tier: 'pro' },
         { id: 'gh/gpt-5-mini', name: 'GPT-5-Mini', provider: 'OpenAI', desc: '快速免费', tier: 'free' },
-        { id: 'ocg/kimi-k2.6', name: 'Kimi-K2.6', provider: '月之暗面', desc: '长上下文', tier: 'free' },
+        { id: 'bailian/kimi-k2.7-code', name: 'Kimi K2.7 Code', provider: '百炼', desc: '长上下文', tier: 'free' },
         { id: 'openrouter/openrouter/free', name: 'Free', provider: 'OpenRouter', desc: '免费兜底', tier: 'free' },
         { id: 'cu/default', name: 'Cursor Auto', provider: 'Cursor', desc: 'Cursor 智能选模', tier: 'pro' },
         { id: 'cu/gpt-5.2', name: 'Cursor GPT-5.2', provider: 'Cursor', desc: 'OpenAI 旗舰', tier: 'pro' },
@@ -1766,12 +1762,12 @@ function getAvailableModelsList() {
     { id: 'cu/claude-4.6-opus-max', name: 'Claude 4.6 Opus Max', provider: 'Cursor', desc: '最强 Claude', tier: 'pro' },
     { id: 'cu/claude-4.6-sonnet-medium-thinking', name: 'Claude 4.6 Sonnet Think', provider: 'Cursor', desc: '新一代推理', tier: 'pro' },
     { id: 'cu/claude-4.6-opus-max-thinking', name: 'Claude 4.6 Opus Think', provider: 'Cursor', desc: '最强推理链', tier: 'pro' },
-    { id: 'ocg/glm-5.1', name: 'GLM-5.1', provider: '智谱', desc: '中文最强', tier: 'free' },
-    { id: 'ocg/deepseek-v4-pro', name: 'DeepSeek V4 Pro', provider: 'DeepSeek', desc: '最强性价比', tier: 'free' },
+    { id: 'glm-cn/glm-5.1', name: 'GLM-5.1', provider: '智谱', desc: '中文最强', tier: 'free' },
+    { id: 'bailian/deepseek-v4-pro', name: 'DeepSeek V4 Pro', provider: '百炼', desc: '最强性价比', tier: 'free' },
     { id: 'gh/gpt-5-mini', name: 'GPT-5-Mini', provider: 'OpenAI', desc: '快速免费', tier: 'free' },
     { id: 'gh/gpt-4o', name: 'GPT-4o', provider: 'OpenAI', desc: 'GPT经典', tier: 'pro' },
     { id: 'gh/gpt-4.1', name: 'GPT-4.1', provider: 'OpenAI', desc: '强推理', tier: 'pro' },
-    { id: 'ocg/kimi-k2.6', name: 'Kimi-K2.6', provider: '月之暗面', desc: '长上下文', tier: 'free' },
+    { id: 'bailian/kimi-k2.7-code', name: 'Kimi K2.7 Code', provider: '百炼', desc: '长上下文', tier: 'free' },
     { id: 'openrouter/openrouter/free', name: 'Free', provider: 'OpenRouter', desc: '免费兜底', tier: 'free' },
     { id: 'cu/gpt-5.2', name: 'GPT-5.2', provider: 'Cursor', desc: 'OpenAI 旗舰', tier: 'pro' },
     { id: 'cu/gpt-5.2-codex', name: 'GPT-5.2 Codex', provider: 'Cursor', desc: '代码专精', tier: 'pro' },

@@ -4,16 +4,19 @@
 window.USE_LUME = false;
 
 async function tryConnectLume() {
-  if (typeof LumeRpc === 'undefined') return false;
+  if (typeof LumeRpc === 'undefined') { console.warn('[Lume] LumeRpc 未定义'); return false; }
   try {
+    console.log('[Lume] 🔌 尝试连接...');
     const ok = await LumeRpc.connect();
+    console.log('[Lume] connect() 返回:', ok);
     if (ok) {
       window.USE_LUME = true;
       console.log('✅ [Lume] Web 聊天模式已启用');
       return true;
     }
+    console.warn('[Lume] connect() 返回 false');
   } catch (e) {
-    console.warn('[Lume] 连接失败，降级 Gateway:', e);
+    console.warn('[Lume] 连接失败，降级 Gateway:', e.message);
   }
   return false;
 }
@@ -71,7 +74,7 @@ async function loadLumeSessions() {
       limit: 50,
       includeLastMessage: true,
       includeDerivedTitles: true,
-    });
+    }, 35000);
     if (res.ok && res.payload?.sessions) {
       window.sessions = res.payload.sessions.map(normalizeLumeSession);
       if (typeof renderSessionList === 'function') renderSessionList();
@@ -196,7 +199,10 @@ async function sendMessageViaLume(text) {
   if (!window.USE_LUME || !LumeRpc.isConnected()) return false;
   try {
     if (typeof addTyping === 'function') addTyping();
-    await LumeRpc.sendChat(text, currentSessionKey, window.currentAgentId || 'lingxi');
+    // 将前端 agent key 转换为 OpenClaw 认识的 agentId
+    const agentKey = window.currentAgentId || 'lingxi';
+    const ocAgentId = (typeof AGENT_INFO !== 'undefined' && AGENT_INFO[agentKey]?.agentId) || agentKey;
+    await LumeRpc.sendChat(text, currentSessionKey, ocAgentId);
 
     if (window.sessions && currentSessionKey) {
       const currentSession = window.sessions.find((s) => s.key === currentSessionKey);

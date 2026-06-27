@@ -35,6 +35,7 @@ function buildLumePluginUrl(server) {
 export function setupLumeWebSocketProxy(app) {
   expressWs(app);
 
+    console.log("[Lume-WS] WSS connection received");
   app.ws("/api/lume-ws", async (clientWs, req) => {
     let targetWs = null;
     let gatewayBridge = null;
@@ -120,7 +121,7 @@ export function setupLumeWebSocketProxy(app) {
           try {
             const msg = JSON.parse(raw);
             if (msg.type === "res" && msg.ok === true && msg.payload?.userId) {
-              targetReady = true;
+              targetReady = true; console.log("[Lume-WS] targetReady = true");
               console.log(`✅ [Lume-WS] ${userId.substring(0, 8)} Lume插件 auth → ${currentServer?.name || currentServerId}`);
               flushLumeQueue();
             }
@@ -202,7 +203,7 @@ export function setupLumeWebSocketProxy(app) {
           let gatewayConnectError = null;
           try {
             await gatewayBridge.connect();
-            targetReady = true;
+            targetReady = true; console.log("[Lume-WS] targetReady = true");
             switching = false;
             resolve(server);
             return;
@@ -409,6 +410,7 @@ export function setupLumeWebSocketProxy(app) {
       }
 
       resetIdleTimer();
+      sendProxyReady();
       await connectToServer(userServer, { reason: "connect" });
       sendProxyReady();
 
@@ -447,6 +449,7 @@ export function setupLumeWebSocketProxy(app) {
         if (transport === "gateway" && gatewayBridge && targetReady) {
           try {
             const msg = JSON.parse(raw);
+          console.log("[Lume-WS] dispatching to bridge: " + msg.method);
             await gatewayBridge.handleMessageSafe(msg);
           } catch (err) {
             sendToClient({ type: "error", error: err.message });

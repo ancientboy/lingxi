@@ -260,6 +260,10 @@ const AGENT_INFO = {
 
 function resolveAgentInfo(agentId) {
   if (AGENT_INFO[agentId]) return { id: agentId, ...AGENT_INFO[agentId] };
+  // 反向查找：通过 OpenClaw agentId（如 'main'）找到前端 key（如 'lingxi'）
+  for (const [key, info] of Object.entries(AGENT_INFO)) {
+    if (info.agentId === agentId) return { id: key, ...info };
+  }
   const member = user?.team?.members?.find((m) => m.id === agentId);
   if (member) {
     return {
@@ -2261,15 +2265,17 @@ async function switchSession(sessionKey, forceReload = false) {
   const parts = sessionKey.split(':');
   if (parts.length >= 2 && parts[0] === 'agent') {
     const agentId = parts[1];
-    // 更新当前 agent
-    if (AGENT_INFO[agentId] && currentAgentId !== agentId) {
-      currentAgentId = agentId;
-      console.log('🔄 同时切换 agent:', agentId);
+    // 更新当前 agent（resolveAgentInfo 支持反向查找，如 main → lingxi）
+    const resolved = resolveAgentInfo(agentId);
+    const frontEndKey = resolved.id;  // 前端 key（如 'lingxi'）
+    if (currentAgentId !== frontEndKey) {
+      currentAgentId = frontEndKey;
+      console.log('🔄 同时切换 agent:', frontEndKey, '(oc:', agentId, ')');
 
       // 更新导航栏图标
       const iconEl = document.getElementById('currentAgentIcon');
       if (iconEl) {
-        iconEl.setAttribute('data-lucide', AGENT_INFO[agentId].icon || 'bot');
+        iconEl.setAttribute('data-lucide', resolved.icon || 'bot');
         if (window.lucide) lucide.createIcons();
       }
     }
