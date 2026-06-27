@@ -1,13 +1,18 @@
 <!-- 统一侧边栏组件 -->
 <aside class="sidebar" id="sidebar">
   <!-- Brand -->
-  <a href="index.html" class="sidebar-brand">
-    <span class="sidebar-brand-icon" data-lume-mark="26"></span>
-    <span class="sidebar-brand-name">Lume</span>
-    <button class="sidebar-collapse-btn" onclick="event.preventDefault();event.stopPropagation();toggleSidebar()" data-i18n-title="common.close" title="Collapse sidebar">
-      <i data-lucide="panel-left-close" class="icon-sm"></i>
+  <div class="sidebar-top-row">
+    <a href="index.html" class="sidebar-brand-link">
+      <span class="sidebar-brand-mark" data-lume-mark="34"></span>
+      <span class="sidebar-brand-name">Lume</span>
+    </a>
+    <button class="sidebar-collapse-btn" type="button" onclick="toggleSidebar()" data-i18n-title="common.close" title="收起侧边栏" aria-label="收起侧边栏">
+      <svg class="sidebar-toggle-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <rect x="3.5" y="4.5" width="17" height="15" rx="3" stroke="currentColor" stroke-width="1.75"/>
+        <path d="M9.5 4.5v15" stroke="currentColor" stroke-width="1.75"/>
+      </svg>
     </button>
-  </a>
+  </div>
   
   <div class="sidebar-header">
     <button class="sidebar-new-chat" onclick="newChat()">
@@ -18,36 +23,7 @@
       <i data-lucide="x" class="icon-sm"></i>
     </button>
   </div>
-  
-  <!-- Shortcuts -->
-  <div class="sidebar-shortcuts">
-    <button class="sidebar-shortcut-btn" onclick="switchView('workspace')">
-      <i data-lucide="building" class="icon-sm"></i>
-      <span data-i18n="sidebar.workspace">Workspace</span>
-    </button>
-    <button class="sidebar-shortcut-btn" onclick="switchView('servers')">
-      <i data-lucide="monitor-smartphone" class="icon-sm"></i>
-      <span data-i18n="sidebar.devices">Devices</span>
-    </button>
-    <button class="sidebar-shortcut-btn" onclick="switchView('skills')">
-      <i data-lucide="layout-grid" class="icon-sm"></i>
-      <span data-i18n="sidebar.skills">Skills</span>
-    </button>
-    <button class="sidebar-shortcut-btn" onclick="toggleFileExplorer()">
-      <i data-lucide="folder-open" class="icon-sm"></i>
-      <span data-i18n="sidebar.files">Files</span>
-    </button>
-    <button class="sidebar-shortcut-btn" onclick="switchView('cron')">
-      <i data-lucide="clock" class="icon-sm"></i>
-      <span data-i18n="sidebar.timer">Timer</span>
-    </button>
-    <button class="sidebar-shortcut-btn" onclick="toggleAgentDropdown()" style="position:relative;">
-      <i data-lucide="zap" class="icon-sm" id="currentAgentIcon"></i>
-      <span data-i18n="sidebar.agent">Agent</span>
-      <div class="agent-dropdown" id="agentDropdown"></div>
-    </button>
-  </div>
-  
+
   <div class="sidebar-content">
     <div id="sessionList" style="display:none"></div>
     <div id="todaySessions"></div>
@@ -63,9 +39,17 @@
         <div class="sidebar-user-avatar" id="sidebarUserAvatar">U</div>
         <div class="sidebar-user-badge" id="sidebarUserBadge"></div>
       </div>
-      <span class="sidebar-user-name" id="sidebarUserName">User</span>
-      <span class="sidebar-user-credits" id="sidebarUserCredits">0 credits</span>
-      <span class="sidebar-user-arrow">▼</span>
+      <div class="sidebar-user-meta">
+        <span class="sidebar-user-name" id="sidebarUserName">User</span>
+        <span class="sidebar-credits-pill" id="sidebarUserCredits">
+          <svg class="credits-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2"/>
+            <path d="M12 8v8M9.5 10.5h3a1.5 1.5 0 0 1 0 3h-3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <span id="sidebarUserCreditsValue">0</span>
+        </span>
+      </div>
+      <i data-lucide="chevron-up" class="sidebar-user-chevron icon-sm"></i>
     </div>
     <div class="sidebar-user-menu" id="sidebarUserMenu">
       <div class="sidebar-menu-item" onclick="openLumeClaw()" id="lumeclawMenuEntry" class="hidden">
@@ -89,13 +73,13 @@
         <i data-lucide="moon" class="icon-sm" id="themeToggleIcon"></i>
         <span data-i18n="sidebar.theme">Toggle Theme</span>
       </div>
-      <!-- 主题色选择 -->
+      <!-- 外观：浅色（墨绿） / 暗色 -->
       <div class="sidebar-menu-item sidebar-accent-switcher" onclick="event.stopPropagation()">
         <i data-lucide="palette" class="icon-sm"></i>
         <span>主题色</span>
         <div class="accent-toggle-group">
-          <button class="accent-dot active" data-accent="default" onclick="setAccentTheme('default')" title="翡翠绿" style="background:#10a37f;"></button>
-          <button class="accent-dot" data-accent="hermes" onclick="setAccentTheme('hermes')" title="爱马仕橙" style="background:#E87040;"></button>
+          <button class="accent-dot active" data-theme-mode="light" onclick="setThemeMode('light')" title="浅色" style="background:#3d6b62;"></button>
+          <button class="accent-dot" data-theme-mode="dark" onclick="setThemeMode('dark')" title="暗色" style="background:#2d2d2d; border:1px solid #525252;"></button>
         </div>
       </div>
       <div class="sidebar-menu-item" onclick="showFeishuConfig()">
