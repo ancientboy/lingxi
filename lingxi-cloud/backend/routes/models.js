@@ -23,29 +23,18 @@ const dbPath = join(__dirname, '..', 'data', 'db.json');
 
 // 默认官方模型池
 const DEFAULT_MODEL_POOL = [
-  // 百炼 Token Plan
-  { id: 'bailian/qwen3.7-plus', name: '千问3.7 Plus', provider: 'bailian-token-plan', providerName: '百炼 Token Plan', capabilities: ['text', 'image', 'reasoning'], contextWindow: 1000000, maxTokens: 65536, tier: 'pro', enabled: true, official: true },
-  { id: 'bailian/qwen3.7-max', name: '千问3.7 Max', provider: 'bailian-token-plan', providerName: '百炼 Token Plan', capabilities: ['text', 'reasoning'], contextWindow: 1000000, maxTokens: 65536, tier: 'pro', enabled: true, official: true },
-  { id: 'bailian/qwen3.6-plus', name: '千问3.6 Plus', provider: 'bailian-token-plan', providerName: '百炼 Token Plan', capabilities: ['text', 'image', 'reasoning'], contextWindow: 1000000, maxTokens: 65536, tier: 'pro', enabled: true, official: true },
-  { id: 'bailian/qwen3.6-flash', name: '千问3.6 Flash', provider: 'bailian-token-plan', providerName: '百炼 Token Plan', capabilities: ['text', 'image'], contextWindow: 1000000, maxTokens: 32768, tier: 'free', enabled: true, official: true },
-  { id: 'bailian/deepseek-v4-pro', name: 'DeepSeek V4 Pro', provider: 'bailian-token-plan', providerName: '百炼 Token Plan', capabilities: ['text', 'reasoning'], contextWindow: 163840, maxTokens: 32768, tier: 'pro', enabled: true, official: true },
-  { id: 'bailian/kimi-k2.7-code', name: 'Kimi K2.7 Code', provider: 'bailian-token-plan', providerName: '百炼 Token Plan', capabilities: ['text', 'image', 'reasoning'], contextWindow: 262144, maxTokens: 32768, tier: 'pro', enabled: true, official: true },
-  { id: 'bailian/glm-5.2', name: 'GLM-5.2', provider: 'bailian-token-plan', providerName: '百炼 Token Plan', capabilities: ['text', 'reasoning'], contextWindow: 1000000, maxTokens: 16384, tier: 'pro', enabled: true, official: true },
-  // 九路由
-  { id: '9router/kimi/kimi-k2.7', name: 'Kimi K2.7', provider: '9router', providerName: '九路由', capabilities: ['text', 'reasoning'], contextWindow: 256000, maxTokens: 8192, tier: 'pro', enabled: true, official: true },
-  { id: '9router/gh/gpt-4o', name: 'GPT-4o', provider: '9router', providerName: '九路由', capabilities: ['text', 'image'], contextWindow: 128000, maxTokens: 4096, tier: 'pro', enabled: true, official: true },
-  { id: '9router/gh/gpt-4.1', name: 'GPT-4.1', provider: '9router', providerName: '九路由', capabilities: ['text', 'image'], contextWindow: 128000, maxTokens: 32768, tier: 'pro', enabled: true, official: true },
+  // 百炼 Token Plan（直连）
+  { id: 'bailian/qwen3.7-plus', name: '千问3.7 Plus', provider: 'bailian-token-plan', providerName: '百炼', capabilities: ['text', 'image', 'reasoning'], contextWindow: 1000000, maxTokens: 65536, tier: 'pro', enabled: true, official: true },
+  { id: 'bailian/qwen3.7-max', name: '千问3.7 Max', provider: 'bailian-token-plan', providerName: '百炼', capabilities: ['text', 'reasoning'], contextWindow: 1000000, maxTokens: 65536, tier: 'pro', enabled: true, official: true },
+  { id: 'bailian/qwen3.6-plus', name: '千问3.6 Plus', provider: 'bailian-token-plan', providerName: '百炼', capabilities: ['text', 'image', 'reasoning'], contextWindow: 1000000, maxTokens: 65536, tier: 'pro', enabled: true, official: true },
+  { id: 'bailian/qwen3.6-flash', name: '千问3.6 Flash', provider: 'bailian-token-plan', providerName: '百炼', capabilities: ['text', 'image'], contextWindow: 1000000, maxTokens: 32768, tier: 'free', enabled: true, official: true },
+  { id: 'bailian/deepseek-v4-pro', name: 'DeepSeek V4 Pro', provider: 'bailian-token-plan', providerName: '百炼', capabilities: ['text', 'reasoning'], contextWindow: 163840, maxTokens: 32768, tier: 'pro', enabled: true, official: true },
+  { id: 'bailian/kimi-k2.7-code', name: 'Kimi K2.7 Code', provider: 'bailian-token-plan', providerName: '百炼', capabilities: ['text', 'image', 'reasoning'], contextWindow: 262144, maxTokens: 32768, tier: 'pro', enabled: true, official: true },
   // 智谱直连
-  { id: 'zhipu/glm-5.2', name: 'GLM-5.2 (智谱直连)', provider: 'zhipu', providerName: '智谱 AI', capabilities: ['text', 'reasoning'], contextWindow: 200000, maxTokens: 8192, tier: 'free', enabled: true, official: true },
-  { id: 'zhipu/glm-5', name: 'GLM-5 (智谱)', provider: 'zhipu', providerName: '智谱 AI', capabilities: ['text', 'reasoning'], contextWindow: 200000, maxTokens: 8192, tier: 'free', enabled: true, official: true },
-  { id: 'zhipu/glm-4.7', name: 'GLM-4.7 (智谱)', provider: 'zhipu', providerName: '智谱 AI', capabilities: ['text'], contextWindow: 200000, maxTokens: 8192, tier: 'free', enabled: true, official: true },
-  // 阿里云百炼
-  { id: 'alibaba-cloud/qwen3.5-plus', name: '千问3.5 Plus', provider: 'alibaba-cloud', providerName: '阿里云百炼', capabilities: ['text', 'image', 'reasoning'], contextWindow: 262144, maxTokens: 65536, tier: 'pro', enabled: true, official: true },
-  { id: 'alibaba-cloud/qwen3-max-2026-01-23', name: '千问3 Max', provider: 'alibaba-cloud', providerName: '阿里云百炼', capabilities: ['text', 'reasoning'], contextWindow: 262144, maxTokens: 65536, tier: 'pro', enabled: true, official: true },
-  { id: 'alibaba-cloud/kimi-k2.5', name: 'Kimi K2.5', provider: 'alibaba-cloud', providerName: '阿里云百炼', capabilities: ['text', 'image', 'reasoning'], contextWindow: 128000, maxTokens: 8192, tier: 'pro', enabled: true, official: true },
-  // GitHub Copilot 免费
-  { id: 'github-copilot/gpt-4o', name: 'GPT-4o (Copilot)', provider: 'github-copilot', providerName: 'GitHub Copilot', capabilities: ['text', 'image'], contextWindow: 128000, maxTokens: 4096, tier: 'free', enabled: true, official: true },
-  { id: 'github-copilot/gpt-4o-mini', name: 'GPT-4o Mini', provider: 'github-copilot', providerName: 'GitHub Copilot', capabilities: ['text', 'image'], contextWindow: 128000, maxTokens: 4096, tier: 'free', enabled: true, official: true },
+  { id: 'zhipu/glm-5.2', name: 'GLM-5.2', provider: 'zhipu', providerName: '智谱', capabilities: ['text', 'reasoning'], contextWindow: 200000, maxTokens: 8192, tier: 'free', enabled: true, official: true },
+  // GitHub Copilot（经 9Router）
+  { id: 'gh/gpt-4o', name: 'GPT-4o', provider: '9router', providerName: 'GitHub Copilot', capabilities: ['text', 'image'], contextWindow: 128000, maxTokens: 4096, tier: 'free', enabled: true, official: true },
+  { id: 'gh/gpt-4.1', name: 'GPT-4.1', provider: '9router', providerName: 'GitHub Copilot', capabilities: ['text', 'image'], contextWindow: 128000, maxTokens: 32768, tier: 'free', enabled: true, official: true },
 ];
 
 // 读取/写入 db.json
