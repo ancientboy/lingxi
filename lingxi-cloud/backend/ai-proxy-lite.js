@@ -631,6 +631,28 @@ async function unifiedRoute(providerId, req, res) {
   
   reqBody.model = selectedModel;
   
+  // === 🎯 百炼模型直连（不经过 9Router）===
+  if (selectedModel.startsWith('bailian/')) {
+    const realModel = selectedModel.replace(/^bailian\//, '');
+    reqBody.model = realModel;
+    console.log(`[百炼直连] ${clientIp} → ${realModel}（跳过 9Router）`);
+    // 构造伪 req 传给 proxyRequest
+    const bailianReq = {
+      url: '/v1/chat/completions',
+      method: 'POST',
+      [Symbol.asyncIterator]: async function*() { yield JSON.stringify(reqBody); }
+    };
+    const bailianProvider = PROVIDERS['bailian-token-plan'] ? 'bailian-token-plan' : 'aliyun';
+    try {
+      await proxyRequest(bailianProvider, bailianReq, res);
+      recordRequest(clientIp, bailianProvider, originalModel, 200);
+      return;
+    } catch (e) {
+      console.error(`[百炼直连] 失败: ${e.message}，降级到 9Router`);
+      reqBody.model = selectedModel;
+    }
+  }
+  
   // === 第一步：尝试通过 9Router 转发 ===
   try {
     if (isStream) {
@@ -1226,7 +1248,7 @@ async function proxyRequest(providerId, req, res, _retryState = null) {
 
   const baseUrl = provider.baseUrl;
   let targetPath = req.url.replace(/^\/(api\/ai\/)?(aliyun|zhipu|dmxapi)/, '');
-  if (providerId === 'aliyun' || providerId === 'zhipu' || providerId === 'dmxapi') {
+  if (providerId === 'aliyun' || providerId === 'zhipu' || providerId === 'dmxapi' || providerId === 'bailian-token-plan') {
     targetPath = targetPath.replace(/\/v[14]\//, '/');
   }
   const url = new URL(baseUrl + targetPath);
