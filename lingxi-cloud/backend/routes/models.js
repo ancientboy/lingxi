@@ -240,6 +240,57 @@ router.get('/user/keys', async (req, res) => {
   }
 });
 
+// ============ 测试用户 Key 连通性 ============
+router.post('/user/keys/test', async (req, res) => {
+  try {
+    const { provider, key, testModel } = req.body;
+    if (!provider || !key) return res.status(400).json({ ok: false, error: 'provider and key required' });
+    
+    // 从 proxy-keys.json 获取 provider 配置
+    const proxyKeysPath = join(__dirname, '..', 'data', 'proxy-keys.json');
+    const proxyKeysRaw = await fs.readFile(proxyKeysPath, 'utf-8');
+    const proxyKeys = JSON.parse(proxyKeysRaw);
+    const providerConfig = proxyKeys[provider];
+    if (!providerConfig) return res.status(400).json({ ok: false, error: `未知供应商: ${provider}` });
+    
+    const baseUrl = providerConfig.baseUrl.replace(/\/$/, '');
+    const testUrl = baseUrl + '/chat/completions';
+    const model = testModel || providerConfig.models?.[0] || 'glm-5';
+    
+    console.log(`[models] 测试 ${provider} key: ${testUrl} model=${model}`);
+    
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
+    
+    try {
+      const resp = await fetch(testUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+        body: JSON.stringify({ model, messages: [{ role: 'user', content: 'Hi' }], max_tokens: 5, stream: false }),
+        signal: controller.signal
+      });
+      clearTimeout(timeout);
+      
+      if (resp.ok) {
+        const data = await resp.json().catch(() => ({}));
+        res.json({ ok: true, model: data.model || model });
+      } else {
+        const errText = await resp.text().catch(() => '');
+        res.json({ ok: false, error: `${resp.status} ${errText.slice(0, 100)}` });
+      }
+    } catch (fetchErr) {
+      clearTimeout(timeout);
+      if (fetchErr.name === 'AbortError') {
+        res.json({ ok: false, error: '请求超时' });
+      } else {
+        res.json({ ok: false, error: fetchErr.message });
+      }
+    }
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 router.post('/user/keys', async (req, res) => {
   try {
     const { userId, provider, key } = req.body;

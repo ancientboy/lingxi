@@ -3654,20 +3654,26 @@
     }
 
     // ===== API Key 弹窗 =====
+    // 供应商 ID 必须和后端 ai-proxy-lite PROVIDERS key 一致
     var PROVIDER_LIST = [
-      { id: 'zhipu', name: '智谱 AI', testUrl: 'https://open.bigmodel.cn/api/coding/paas/v4/chat/completions', testModel: 'glm-5' },
-      { id: 'alibaba-cloud', name: '阿里云百炼', testUrl: 'https://coding.dashscope.aliyuncs.com/v1/chat/completions', testModel: 'qwen3-max-2026-01-23' },
-      { id: 'bailian-token-plan', name: '百炼 Token Plan', testUrl: 'https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1/chat/completions', testModel: 'qwen3.7-plus' },
-      { id: '9router', name: '九路由', testUrl: 'http://localhost:20128/v1/chat/completions', testModel: 'kimi/kimi-k2.7' },
-      { id: 'github-copilot', name: 'GitHub Copilot', testUrl: null, testModel: null }
+      { id: 'bailian-token-plan', name: '百炼', testUrl: 'https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1/chat/completions', testModel: 'qwen3.7-plus',
+        models: ['qwen3.7-plus','qwen3.7-max','qwen3.6-plus','qwen3.6-flash','deepseek-v4-pro','kimi-k2.7-code'],
+        getKeyUrl: 'https://bailian.console.aliyun.com/?apiKey=1#/api-key' },
+      { id: 'zhipu', name: '智谱', testUrl: 'https://open.bigmodel.cn/api/coding/paas/v4/chat/completions', testModel: 'glm-5',
+        models: ['glm-5.2','glm-5','glm-4.7'],
+        getKeyUrl: 'https://open.bigmodel.cn/usercenter/apikeys' },
+      { id: 'dmxapi', name: 'DMXAPI', testUrl: 'https://www.dmxapi.cn/v1/chat/completions', testModel: 'glm-4-flash',
+        models: ['glm-4-flash','GLM-4.5-Flash','Qwen3-8B'],
+        getKeyUrl: 'https://www.dmxapi.cn/' },
     ];
 
     window.openSettingsKeyPanel = function() {
       var items = PROVIDER_LIST.map(function(p) {
+        var modelHint = p.models ? '<span style="float:right;font-size:11px;color:var(--text-3);">' + p.models.length + ' 个模型</span>' : '';
         return '<button class="lume-dialog-btn lume-dialog-btn-ghost" style="display:block;width:100%;margin-bottom:6px;text-align:left;padding:10px 14px;" onclick="showKeyInput(\'' + p.id + '\',\'' + esc(p.name) + '\')">' +
-          esc(p.name) + '<span style="float:right;color:var(--text-3);">→</span></button>';
+          esc(p.name) + modelHint + '</button>';
       }).join('');
-      showLumeCustomDialog('链接供应商 API', '<p style="font-size:13px;color:var(--text-3);margin-bottom:12px;">选择一个供应商，输入 API Key，可先测试连接。</p>' + items,
+      showLumeCustomDialog('链接供应商 API', '<p style="font-size:13px;color:var(--text-3);margin-bottom:12px;">选择供应商，输入 API Key 绑定你的自有模型。绑定后将优先使用你的 Key 调用。</p>' + items,
         [{ text: '取消', cls: 'lume-dialog-btn-ghost', action: function() { closeLumeDialog(false); } }]);
     };
 
@@ -3676,20 +3682,24 @@
       var html = '<p style="font-size:13px;color:var(--text-3);margin-bottom:8px;">' + esc(providerName) + ' API Key</p>' +
         '<input type="text" id="apiKeyInput" placeholder="粘贴 API Key..." style="width:100%;padding:8px 10px;font-size:13px;border:1px solid var(--border-sub);border-radius:8px;background:var(--bg-1);color:var(--text-1);box-sizing:border-box;margin-bottom:8px;">' +
         '<div id="apiKeyTestResult" style="font-size:12px;margin-bottom:4px;min-height:20px;"></div>';
+      var keyHint = info.getKeyUrl ? '<a href="' + info.getKeyUrl + '" target="_blank" style="font-size:12px;color:var(--accent);text-decoration:none;">获取 API Key →</a>' : '';
+      html += keyHint;
       showLumeCustomDialog(esc(providerName) + ' API Key', html, [
         { text: '测试连接', cls: 'lume-dialog-btn-primary', action: async function() {
           var key = document.getElementById('apiKeyInput').value.trim();
-          if (!key || !info.testUrl) return;
+          if (!key) return;
           var el = document.getElementById('apiKeyTestResult');
           el.textContent = '测试中...'; el.style.color = 'var(--text-3)';
           try {
-            var resp = await fetch(info.testUrl, {
-              method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
-              body: JSON.stringify({ model: info.testModel, messages: [{ role: 'user', content: 'Hi' }], max_tokens: 5 }),
-              signal: AbortSignal.timeout(10000)
+            // 通过后端代理测试，避免跨域 + 统一错误处理
+            var resp = await fetch('/api/models/user/keys/test', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ provider: providerId, key: key, testModel: info.testModel }),
+              signal: AbortSignal.timeout(15000)
             });
-            if (resp.ok) { el.textContent = '✓ 连接成功'; el.style.color = '#1a1a1a'; }
-            else { var err = await resp.text(); el.textContent = '✗ ' + resp.status + ' ' + err.slice(0,60); el.style.color = '#ef4444'; }
+            var data = await resp.json();
+            if (data.ok) { el.textContent = '✓ 连接成功' + (data.model ? ' (' + data.model + ')' : ''); el.style.color = '#10a37f'; }
+            else { el.textContent = '✗ ' + (data.error || resp.status).toString().slice(0,80); el.style.color = '#ef4444'; }
           } catch(e) { el.textContent = '✗ 连接失败: ' + e.message; el.style.color = '#ef4444'; }
         }},
         { text: '保存', cls: 'lume-dialog-btn-primary', action: async function() {

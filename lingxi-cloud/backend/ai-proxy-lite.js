@@ -97,6 +97,7 @@ const MODEL_PROVIDER_MAP = {
   'bailian/':            'bailian-token-plan',   // 百炼 Token Plan 直连
   'zhipu/':              'zhipu',                // 智谱直连
   'glm-cn/':             'zhipu',                // glm-cn 也走智谱
+  'dmxapi/':             'dmxapi',               // DMXAPI 直连
   'alibaba-cloud/':      'aliyun',               // 阿里百炼 Coding
 };
 
