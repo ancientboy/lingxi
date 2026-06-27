@@ -727,7 +727,7 @@
   color: var(--text-3); background: var(--bg-hover);
   transition: color 0.12s, background 0.12s;
 }
-.model-dropdown-add:hover { color: var(--accent, #10a37f); background: var(--bg-main); }
+.model-dropdown-add:hover { color: var(--accent, #3d6b62); background: var(--bg-main); }
 
 .model-dropdown-search input::placeholder {
   color: var(--text-3);
