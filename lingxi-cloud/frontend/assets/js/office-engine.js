@@ -17,7 +17,7 @@ const STATE_LABELS = { idle: 'Idle', typing: 'Typing', walking: 'Walking', sleep
 // Default agents (used when not embedded, or before receiving team data)
 const DEFAULT_AGENTS = [
   { id:'lingxi', name:'Lingxi',  scarf:'#6366f1' },
-  { id:'spark',  name:'Spark',   scarf:'#10a37f' },
+  { id:'spark',  name:'Spark',   scarf:'#3d6b62' },
   { id:'pulse',  name:'Pulse',   scarf:'#f59e0b' },
   { id:'nova',   name:'Nova',    scarf:'#8b5cf6' },
   { id:'scope',  name:'Scope',   scarf:'#06b6d4' },
@@ -27,7 +27,7 @@ const DEFAULT_AGENTS = [
 ];
 
 // Agent color palette for auto-assignment
-const AGENT_COLORS = ['#6366f1','#10a37f','#f59e0b','#8b5cf6','#06b6d4','#ef4444','#ec4899','#3b82f6','#e67e22','#9b59b6','#1abc9c','#e74c3c'];
+const AGENT_COLORS = ['#6366f1','#3d6b62','#f59e0b','#8b5cf6','#06b6d4','#ef4444','#ec4899','#3b82f6','#e67e22','#9b59b6','#1abc9c','#e74c3c'];
 
 let AGENTS = [...DEFAULT_AGENTS];
 let chars = [];

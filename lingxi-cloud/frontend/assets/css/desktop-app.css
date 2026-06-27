@@ -2,6 +2,11 @@
  * Lume macOS desktop — Cursor / Web three-column layout.
  * Native left (260px) | Web chat center | Native right workspace (300px).
  */
+html.lume-desktop,
+html.lume-desktop body {
+  background: #ffffff !important;
+}
+
 html.lume-desktop .mobile-chat-header {
   display: none !important;
 }
@@ -20,6 +25,7 @@ html.lume-desktop main.main-content,
 html.lume-desktop .main-content {
   margin-left: 0 !important;
   margin-right: 0 !important;
+  background: #ffffff !important;
 }
 
 /* Native Flutter right workspace — hide web right rail */

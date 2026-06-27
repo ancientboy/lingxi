@@ -3,8 +3,8 @@
  *
  * 总计: 2718 行，90 个函数
 // 全局主题色（跟随 CSS 变量）
-function _accent() { return getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#10a37f"; }
-function _accentSoft() { return getComputedStyle(document.documentElement).getPropertyValue("--accent-soft").trim() || "rgba(16,163,127,0.08)"; }
+function _accent() { return getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#3d6b62"; }
+function _accentSoft() { return getComputedStyle(document.documentElement).getPropertyValue("--accent-soft").trim() || "rgba(61,107,98,0.08)"; }
  *
  * 模块索引:
  * ─────────────────────────────────────────
@@ -23,6 +23,18 @@ function _accentSoft() { return getComputedStyle(document.documentElement).getPr
 
 // 配置变量（从后端动态获取）
 const API_BASE = window.location.origin;
+
+// 统一弹窗（优先 Lume 自定义，fallback 原生）
+function uiAlert(message, options) {
+  if (typeof showLumeAlert === 'function') return showLumeAlert(message, options);
+  window.alert(message);
+  return Promise.resolve(true);
+}
+function uiConfirm(message, options) {
+  if (typeof showLumeConfirm === 'function') return showLumeConfirm(message, options);
+  return Promise.resolve(window.confirm(message));
+}
+
 let GATEWAY_WS = null;
 let GATEWAY_TOKEN = null;  // JWT token，用于 WebSocket 代理认证
 let OPENCLAW_TOKEN = null;  // OpenClaw token，用于 connect 消息
@@ -202,8 +214,72 @@ const AGENT_INFO = {
       { text: '帮我设计一个自动化工作流', desc: '流程自动化' },
       { text: '推荐一些提高效率的工具', desc: '工具推荐' }
     ]
+  },
+  reviewer: {
+    icon: 'search',
+    name: '清源',
+    desc: '代码审查 · 质量把关',
+    scene: '代码审查',
+    skills: '审查、安全、规范、质量',
+    agentId: 'reviewer',
+    examples: [
+      { text: '审查这段代码有没有安全问题', desc: '安全审查' },
+      { text: '检查是否符合编码规范', desc: '规范检查' },
+      { text: '这段逻辑有什么潜在 bug？', desc: '逻辑审查' },
+      { text: '评估这次改动的风险', desc: '风险评估' }
+    ]
+  },
+  qa: {
+    icon: 'check-circle',
+    name: '知微',
+    desc: '质量保证 · 测试专家',
+    scene: '质量测试',
+    skills: '测试、验证、回归、用例',
+    agentId: 'qa',
+    examples: [
+      { text: '为这个功能设计测试用例', desc: '用例设计' },
+      { text: '帮我做一次回归测试清单', desc: '回归测试' },
+      { text: '这个接口如何验证正确性？', desc: '接口测试' },
+      { text: '总结本次发布的测试要点', desc: '测试总结' }
+    ]
+  },
+  auto: {
+    icon: 'bot',
+    name: 'Auto',
+    desc: 'AI 助手',
+    scene: '通用助手',
+    skills: '对话、任务、自动化',
+    agentId: 'auto',
+    examples: [
+      { text: '帮我处理这个任务', desc: '任务处理' },
+      { text: '总结一下刚才的内容', desc: '内容总结' },
+      { text: '有什么可以帮我的？', desc: '通用对话' }
+    ]
   }
 };
+
+function resolveAgentInfo(agentId) {
+  if (AGENT_INFO[agentId]) return { id: agentId, ...AGENT_INFO[agentId] };
+  const member = user?.team?.members?.find((m) => m.id === agentId);
+  if (member) {
+    return {
+      id: agentId,
+      icon: member.icon || 'bot',
+      name: member.name || agentId,
+      desc: member.desc || member.role || 'AI 助手',
+      agentId: member.agentId || agentId,
+      examples: [],
+    };
+  }
+  return {
+    id: agentId,
+    icon: 'bot',
+    name: agentId,
+    desc: 'AI 助手',
+    agentId: agentId,
+    examples: [],
+  };
+}
 
 // Agent 到技能的映射（用于技能库）
 const AGENT_SKILLS_MAP = {
@@ -214,7 +290,10 @@ const AGENT_SKILLS_MAP = {
   pm: { name: '梓萱', desc: '产品设计 · 需求专家' },
   noter: { name: '晓琳', desc: '学习顾问 · 知识管理' },
   media: { name: '音韵', desc: '多媒体创作 · AI绘图' },
-  smart: { name: '智家', desc: '效率工具 · 自动化专家' }
+  smart: { name: '智家', desc: '效率工具 · 自动化专家' },
+  reviewer: { name: '清源', desc: '代码审查 · 质量把关' },
+  qa: { name: '知微', desc: '质量保证 · 测试专家' },
+  auto: { name: 'Auto', desc: 'AI 助手' }
 };
 
 // 临时保存加载的技能数据
@@ -225,7 +304,354 @@ window.agentSkillsData = {};
 // ═══════════════════════════════════════════════════════════════
 function agentIcon(agent, size = 'sm') {
   const icon = agent.icon || 'bot';
-  return `<i data-lucide="${icon}" class="icon icon-${size} icon-primary"></i>`;
+  const primaryClass = size === 'lg' ? '' : ' icon-primary';
+  return `<i data-lucide="${icon}" class="icon icon-${size}${primaryClass}"></i>`;
+}
+
+function setSidebarCreditsDisplay(total) {
+  const valueEl = document.getElementById('sidebarUserCreditsValue');
+  const wrapEl = document.getElementById('sidebarUserCredits');
+  const n = Number(total) || 0;
+  const text = n.toLocaleString();
+  if (valueEl) {
+    valueEl.textContent = text;
+  } else if (wrapEl) {
+    wrapEl.textContent = text;
+  }
+  if (window.lucide) lucide.createIcons();
+}
+
+function setHomeMode(isHome) {
+  const container = document.getElementById('chatContainer');
+  const suggestions = document.getElementById('homeSuggestions');
+  if (container) container.classList.toggle('is-home', isHome);
+  if (suggestions && !isHome) {
+    suggestions.innerHTML = '';
+    suggestions.classList.add('hidden');
+  }
+  if (typeof updateScrollContextBar === 'function') updateScrollContextBar();
+  if (!isHome) {
+    requestAnimationFrame(() => {
+      scrollChatToBottom(true);
+    });
+  }
+}
+
+// ===== 右侧团队抽屉 + Cursor 式滚动提问条 =====
+function scrollChatToBottom(instant = false) {
+  const scrollEl = document.getElementById('chatScroll');
+  if (!scrollEl) return;
+  scrollEl.scrollTo({ top: scrollEl.scrollHeight, behavior: instant ? 'auto' : 'smooth' });
+}
+
+function getPlainUserText(content) {
+  if (typeof content === 'string') return content.trim();
+  if (content?.text && typeof content.text === 'string') return content.text.trim();
+  return '';
+}
+
+function updateScrollContextBar() {
+  const scrollEl = document.getElementById('chatScroll');
+  const bar = document.getElementById('scrollContextBar');
+  const textEl = document.getElementById('scrollContextText');
+  const chatContainer = document.getElementById('chatContainer');
+  if (!scrollEl || !bar || !textEl) return;
+
+  const isHome = chatContainer?.classList.contains('is-home');
+  const nearTop = scrollEl.scrollTop < 40;
+  const nearBottom = scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight < 100;
+
+  if (isHome || nearTop || nearBottom) {
+    bar.classList.add('hidden');
+    bar.setAttribute('aria-hidden', 'true');
+    return;
+  }
+
+  const scrollRect = scrollEl.getBoundingClientRect();
+  const threshold = scrollEl.scrollTop + 52;
+  const userMsgs = scrollEl.querySelectorAll('.message.user');
+  let label = '';
+
+  userMsgs.forEach((msg) => {
+    const msgTop = msg.getBoundingClientRect().top - scrollRect.top + scrollEl.scrollTop;
+    if (msgTop <= threshold) {
+      label = msg.dataset.userText || '';
+    }
+  });
+
+  if (label) {
+    textEl.textContent = label;
+    bar.classList.remove('hidden');
+    bar.setAttribute('aria-hidden', 'false');
+  } else {
+    bar.classList.add('hidden');
+    bar.setAttribute('aria-hidden', 'true');
+  }
+}
+
+function getTeamDrawerAgents() {
+  if (user?.team?.members?.length) {
+    return user.team.members.map((m) => ({
+      id: m.id,
+      name: m.name || m.id,
+      icon: m.icon || 'bot',
+      desc: m.desc || m.role || 'AI 助手',
+    }));
+  }
+  const ids = user?.agents?.length ? user.agents : ['lingxi'];
+  return ids.map((id) => {
+    const info = AGENT_INFO[id] || { name: id, icon: 'bot', desc: 'AI 助手' };
+    return { id, name: info.name, icon: info.icon, desc: info.desc };
+  });
+}
+
+function renderTeamDrawer() {
+  const membersEl = document.getElementById('teamDrawerMembers');
+  const skillsEl = document.getElementById('teamDrawerSkills');
+  if (!membersEl) return;
+
+  const agents = getTeamDrawerAgents();
+  membersEl.innerHTML = agents.map((a) => `
+    <button type="button" class="team-drawer-member${a.id === currentAgentId ? ' active' : ''}"
+            onclick="switchAgentFromDrawer('${a.id}')">
+      <div class="team-drawer-member-avatar">${agentIcon(a, 'sm')}</div>
+      <div>
+        <div class="team-drawer-member-name">${escapeHtml(a.name)}</div>
+        <div class="team-drawer-member-role">${escapeHtml(a.desc || '')}</div>
+      </div>
+    </button>
+  `).join('');
+
+  const fullAgent = resolveAgentInfo(currentAgentId);
+  const examples = (fullAgent.examples || []).slice(0, 4);
+  if (skillsEl) {
+    skillsEl.innerHTML = examples.length
+      ? examples.map((ex) => `
+        <button type="button" class="team-drawer-chip"
+                onclick="sendFromTeamDrawer('${ex.text.replace(/'/g, "\\'").replace(/\n/g, '\\n')}')">
+          ${escapeHtml(ex.desc || ex.text.slice(0, 24))}
+        </button>
+      `).join('')
+      : '<span class="team-drawer-empty">暂无快捷技能</span>';
+  }
+
+  if (window.lucide) lucide.createIcons();
+}
+
+function toggleTeamDrawer(forceOpen) {
+  if (typeof forceOpen === 'boolean') {
+    setRightSidebarCollapsed(!forceOpen);
+    if (forceOpen) renderTeamDrawer();
+    return;
+  }
+  toggleRightSidebar();
+}
+
+const RIGHT_SIDEBAR_COLLAPSED_KEY = 'lingxi_right_sidebar_collapsed';
+
+function setRightSidebarCollapsed(collapsed) {
+  const sidebar = document.getElementById('rightSidebar');
+  const main = document.getElementById('mainContent');
+  if (!sidebar) return;
+
+  sidebar.classList.toggle('collapsed', collapsed);
+  main?.classList.toggle('right-sidebar-collapsed', collapsed);
+  document.body.classList.toggle('right-sidebar-expanded', !collapsed);
+
+  if (window.innerWidth > 768) {
+    localStorage.setItem(RIGHT_SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0');
+  }
+
+  updateRightSidebarToggleUi();
+}
+
+function toggleRightSidebar() {
+  const sidebar = document.getElementById('rightSidebar');
+  if (!sidebar) return;
+  const willCollapse = !sidebar.classList.contains('collapsed');
+  setRightSidebarCollapsed(willCollapse);
+  if (!willCollapse) renderTeamDrawer();
+}
+
+function updateRightSidebarToggleUi() {
+  const sidebar = document.getElementById('rightSidebar');
+  const expandBtn = document.getElementById('rightSidebarExpandBtn');
+  const isMobile = window.innerWidth <= 768;
+  const collapsed = sidebar?.classList.contains('collapsed');
+
+  if (expandBtn) {
+    expandBtn.hidden = isMobile || !collapsed;
+  }
+
+  if (typeof updateViewShortcuts === 'function') {
+    updateViewShortcuts(window._currentAppView || null);
+  }
+}
+
+function openFileExplorerFromNav() {
+  if (window._currentAppView && typeof switchView === 'function') {
+    switchView('chat');
+  }
+  const panel = document.getElementById('fileExplorerPanel');
+  if (!panel?.classList.contains('open') && typeof toggleFileExplorer === 'function') {
+    toggleFileExplorer();
+  }
+}
+
+function initRightSidebar() {
+  const sidebar = document.getElementById('rightSidebar');
+  if (!sidebar) return;
+
+  let collapsed = false;
+  if (isMobileChatUi()) {
+    collapsed = true;
+  } else {
+    collapsed = localStorage.getItem(RIGHT_SIDEBAR_COLLAPSED_KEY) === '1';
+  }
+
+  setRightSidebarCollapsed(collapsed);
+  if (!collapsed) renderTeamDrawer();
+
+  if (!window._rightSidebarResizeBound) {
+    window._rightSidebarResizeBound = true;
+    window.addEventListener('resize', () => {
+      if (isMobileChatUi()) {
+        setRightSidebarCollapsed(true);
+      } else {
+        updateRightSidebarToggleUi();
+      }
+    });
+  }
+}
+
+function initTeamDrawer() {
+  initRightSidebar();
+}
+
+function switchAgentFromDrawer(agentId) {
+  if (agentId && typeof switchAgent === 'function') switchAgent(agentId);
+}
+
+function sendFromTeamDrawer(text) {
+  if (typeof sendWelcomeExample === 'function') sendWelcomeExample(text);
+}
+
+function getWelcomeGreeting(agent) {
+  const nick = user?.nickname || JSON.parse(localStorage.getItem('lingxi_user') || '{}').nickname;
+  if (nick) return `你好，${nick}`;
+  const name = agent?.name || '灵犀';
+  if (name === '灵犀' || name === 'Lume' || agent?.id === 'lingxi') {
+    return '我们先从哪里开始呢？';
+  }
+  return `与 ${name} 开始对话`;
+}
+
+function buildWelcomeExamplesHtml(examples) {
+  return (examples || []).map((ex) => `
+    <button type="button" class="home-chip" onclick="sendWelcomeExample('${ex.text.replace(/'/g, "\\'").replace(/\n/g, '\\n')}')">
+      <span class="home-chip-text">${ex.text}</span>
+      ${ex.desc ? `<span class="home-chip-tag">${ex.desc}</span>` : ''}
+    </button>
+  `).join('');
+}
+
+function renderWelcomeHome(agentInfo) {
+  const agent = agentInfo || AGENT_INFO[currentAgentId] || AGENT_INFO.lingxi;
+  const container = document.getElementById('messages');
+  const suggestionsEl = document.getElementById('homeSuggestions');
+  if (!container) return;
+
+  const sessionCount = (window.sessions || []).length;
+  const mobileTip = isMobileChatUi() && sessionCount > 0
+    ? `<p class="welcome-mobile-tip">点击左上角「历史」查看 ${sessionCount} 个对话，或直接在下方输入开始聊天</p>`
+    : '';
+
+  container.innerHTML = `
+    <div class="welcome" id="welcome">
+      <h1 class="welcome-title">${getWelcomeGreeting(agent)}</h1>
+      <p class="welcome-desc">${agent.desc || '向灵犀或你的团队提问'}</p>
+      ${mobileTip}
+    </div>
+  `;
+
+  const examplesHtml = buildWelcomeExamplesHtml(agent.examples);
+  if (suggestionsEl) {
+    if (examplesHtml) {
+      suggestionsEl.innerHTML = examplesHtml;
+      suggestionsEl.classList.remove('hidden');
+    } else {
+      suggestionsEl.innerHTML = '';
+      suggestionsEl.classList.add('hidden');
+    }
+  }
+
+  setHomeMode(true);
+  if (window.lucide) lucide.createIcons();
+}
+
+function hideWelcomeHome() {
+  setHomeMode(false);
+  const welcome = document.getElementById('welcome');
+  if (welcome) welcome.classList.add('hidden');
+  requestAnimationFrame(() => {
+    scrollChatToBottom(true);
+    if (typeof updateScrollContextBar === 'function') updateScrollContextBar();
+  });
+}
+
+const MOBILE_CHAT_BREAKPOINT = 1024;
+
+function isMobileChatUi() {
+  if (document.body?.classList.contains('force-mobile-chat-ui')) return true;
+  if (window.matchMedia(`(max-width: ${MOBILE_CHAT_BREAKPOINT}px)`).matches) return true;
+  const coarse = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+  return coarse && window.innerWidth <= 1280;
+}
+
+function initMobileChatUi() {
+  const apply = () => {
+    const mobile = isMobileChatUi();
+    document.body.classList.toggle('mobile-chat-ui', mobile);
+    if (typeof updateSidebarToggleUi === 'function') updateSidebarToggleUi();
+    if (typeof updateMobileSessionsState === 'function') updateMobileSessionsState();
+  };
+  apply();
+  if (!window._mobileChatUiResizeBound) {
+    window._mobileChatUiResizeBound = true;
+    window.addEventListener('resize', apply);
+  }
+}
+
+function updateMobileSessionsState() {
+  const container = document.getElementById('chatContainer');
+  const count = (window.sessions || []).length;
+  if (container) container.classList.toggle('mobile-has-sessions', count > 0);
+}
+
+function getSessionCandidateKeys() {
+  const sessions = window.sessions || [];
+  const keys = [];
+  const add = (k) => {
+    if (k && !keys.includes(k)) keys.push(k);
+  };
+  add(localStorage.getItem('currentSessionKey'));
+  add(window.currentSessionKey);
+  add(currentSessionKey);
+  sessions.forEach((s) => add(s.key));
+  return keys;
+}
+
+function syncCurrentSessionKey(key) {
+  currentSessionKey = key;
+  window.currentSessionKey = key;
+  try {
+    if (key && typeof SESSION_PREFIX === 'string' && key.startsWith(SESSION_PREFIX)) {
+      localStorage.setItem('currentSessionKey', key);
+    }
+  } catch (e) {
+    console.warn('无法保存 currentSessionKey:', e);
+  }
+  if (typeof updateMobileChatHeader === 'function') updateMobileChatHeader();
 }
 
 let user = null;
@@ -242,6 +668,7 @@ let userServerInfo = null; // 用户服务器信息（IP、端口）
 // ═══════════════════════════════════════════════════════════════
 async function init() {
   console.log('初始化聊天页面...');
+  initMobileChatUi();
 
   // 清空消息区，确保每次初始化都是干净状态（防止设备切换后残留旧消息）
   const _msgContainer = document.getElementById('messages');
@@ -265,7 +692,6 @@ async function init() {
     localStorage.removeItem('cached_sessions');     // 清除缓存的 session 列表
     localStorage.removeItem('chat_messages_cache'); // 清除消息缓存
     window.sessions = [];  // 清除内存中的旧会话列表
-    _wsIsReconnect = false; // 确保不走重连逻辑
   }
 
   // 🔒 先从服务器获取最新用户信息并检查团队状态
@@ -296,12 +722,19 @@ async function init() {
     // 🔒 检查是否有团队（agents 不为空）
     if (!userData.agents || userData.agents.length === 0) {
       console.log('用户没有团队，跳转首页领取');
-      alert('请先在首页领取 AI 团队');
+      await uiAlert('请先在首页领取 AI 团队');
       window.location.href = 'index.html';
       return;
     }
 
     console.log('用户已有团队:', userData.agents);
+
+    // 刷新侧边栏积分（依赖 /api/user/credits）
+    if (typeof refreshSidebarCredits === 'function') {
+      refreshSidebarCredits();
+    } else if (userData.points) {
+      setSidebarCreditsDisplay(userData.points);
+    }
 
   } catch (e) {
     console.error('检查团队失败:', e);
@@ -312,7 +745,7 @@ async function init() {
   // 初始化用户专属会话
   if (!user.id) {
     console.error('用户 ID 不存在');
-    alert('用户信息错误，请重新登录');
+    await uiAlert('用户信息错误，请重新登录');
     window.location.href = 'index.html';
     return;
   }
@@ -330,28 +763,28 @@ async function init() {
 
       // 检查是否是服务器正在创建中
       if (errorData.needServer && errorData.status === 'creating') {
-        alert('服务器正在创建中，请稍候...\n\n将返回首页等待创建完成。');
+        await uiAlert('服务器正在创建中，请稍候...\n\n将返回首页等待创建完成。');
         window.location.href = 'index.html';
         return;
       }
 
       // 检查是否是需要服务器的错误
       if (errorData.needServer) {
-        alert('您还没有专属服务器，请先在首页领取团队');
+        await uiAlert('您还没有专属服务器，请先在首页领取团队');
         window.location.href = 'index.html';
         return;
       }
 
       // 检查是否是 token 过期
       if (errorData.error === '登录已过期' || errorData.error === '未登录') {
-        alert('登录已过期，请重新登录');
+        await uiAlert('登录已过期，请重新登录');
         localStorage.removeItem('lingxi_token');
         window.location.href = 'index.html';
         return;
       }
 
       // 其他错误
-      alert(errorData.error || '获取连接信息失败');
+      await uiAlert(errorData.error || '获取连接信息失败');
       window.location.href = 'index.html';
       return;
     }
@@ -367,7 +800,7 @@ async function init() {
 
   } catch (e) {
     console.error('获取 Gateway 配置失败:', e);
-    alert('网络错误，请刷新页面');
+    await uiAlert('网络错误，请刷新页面');
     return;
   }
 
@@ -394,15 +827,26 @@ async function init() {
   // 🆕 从 localStorage 恢复上次会话（如果存在）
   const savedSessionKey = localStorage.getItem('currentSessionKey');
   if (savedSessionKey && savedSessionKey.startsWith(SESSION_PREFIX)) {
-    currentSessionKey = savedSessionKey;
+    syncCurrentSessionKey(savedSessionKey);
     console.log('🔄 从 localStorage 恢复会话:', currentSessionKey);
   } else {
-    currentSessionKey = SESSION_KEY;
+    syncCurrentSessionKey(SESSION_KEY);
     console.log('🔑 初始化主会话:', currentSessionKey);
   }
 
   renderTeamTags();
-  connectWebSocket();
+
+  const lumeOk = await tryConnectLume();
+  if (lumeOk) {
+    initLumeChatMode();
+  } else {
+    console.error('❌ [Lume] Web 连接失败，无法加载会话');
+    const statusEl = document.getElementById('connectionStatus');
+    if (statusEl) {
+      statusDot = statusEl.querySelector('.status-dot');
+      if (statusDot) statusDot.className = 'status-dot disconnected';
+    }
+  }
 
   let _isComposing = false;
   document.getElementById('inputField').addEventListener('compositionstart', () => { _isComposing = true; });
@@ -429,307 +873,22 @@ async function init() {
 
   // 检查是否需要引导（放在初始化最后）
   await checkOnboarding();
+
+  renderTeamDrawer();
+
+  window.addEventListener('pageshow', (e) => {
+    if (e.persisted && window.USE_LUME && typeof resolveInitialSession === 'function') {
+      void resolveInitialSession();
+    }
+  });
 }
 
 let requestId = 1;
-let connectNonce = null;
-let statusDot = null;  // WebSocket 状态指示器（全局变量）
+let statusDot = null;  // 状态指示器（由 Lume 模式设置）
 
-// WebSocket 连接
-
-// ═══════════════════════════════════════════════════════════════
-// 🔌 WebSocket 模块
-// ═══════════════════════════════════════════════════════════════
-let _wsIsReconnect = false; // 全局重连标记
-
-function connectWebSocket() {
-  const statusEl = document.getElementById('connectionStatus');
-  if (!statusEl) {
-    console.warn('connectionStatus 元素未找到，跳过 WebSocket 状态更新');
-    return;
-  }
-  statusDot = statusEl.querySelector('.status-dot');
-  if (!statusDot) {
-    console.warn('status-dot 元素未找到，跳过 WebSocket 状态更新');
-    return;
-  }
-  statusDot.className = 'status-dot';
-
-  try {
-    // 修复：通过后端 WebSocket 代理连接，解决 HTTPS 混合内容问题
-    // 代理地址格式：wss://lumeword.com/api/ws?token=xxx
-    const wsUrl = `${GATEWAY_WS}?token=${encodeURIComponent(GATEWAY_TOKEN)}`;
-    console.log('🔌 连接 WebSocket 代理:', wsUrl.replace(/token=[^&]+/, 'token=***'), '重连:', _wsIsReconnect);
-
-    ws = new WebSocket(wsUrl);
-
-    ws.onopen = () => {
-      console.log('WebSocket 已连接，等待 750ms 后发送 connect...');
-
-      // OpenClaw 要求等待 750ms 后再发送 connect
-      setTimeout(() => {
-        sendConnect();
-        // 会话列表和历史的加载统一在 handleWebSocketMessage 的 hello-ok 回调中处理
-        // 不再在这里重复调用 loadSessions
-      }, 750);
-    };
-
-    ws.onmessage = async (event) => {
-      try {
-        const text = typeof event.data === "string" ? event.data : await event.data.text();
-        const data = JSON.parse(text);
-        handleWebSocketMessage(data);
-      } catch (e) {
-        console.error('解析消息失败:', e);
-      }
-    };
-
-    ws.onerror = (error) => {
-      console.error('WebSocket 错误:', error);
-      statusDot.className = 'status-dot';  // 红色
-    };
-
-    ws.onclose = () => {
-      console.log('WebSocket 已断开，5秒后重连...');
-      statusDot.className = 'status-dot';  // 红色
-      _wsIsReconnect = true; // 标记下次连接为重连
-      setTimeout(connectWebSocket, 5000);
-    };
-  } catch (e) {
-    console.error('WebSocket 连接失败:', e);
-    statusDot.className = 'status-dot';  // 红色
-  }
-}
-
-// 发送 connect 请求
-function sendConnect() {
-  if (!ws || ws.readyState !== WebSocket.OPEN) return;
-
-  const params = {
-    minProtocol: 3,
-    maxProtocol: 99,
-    client: {
-      id: 'openclaw-control-ui',  // 使用 control-ui 获得完整 operator 权限
-      version: '1.0.0',
-      platform: 'web',
-      mode: 'webchat'
-    },
-    role: 'operator',
-    scopes: ['operator.admin', 'operator.read', 'operator.write'],
-    auth: { token: OPENCLAW_TOKEN },  // 使用 OpenClaw token
-    locale: 'zh-CN',
-    userAgent: navigator.userAgent
-  };
-
-  // 禁用设备认证后不需要发送 device
-  console.log('📤 发送 connect 请求:', JSON.stringify({ type: 'req', method: 'connect' }));
-    ws.send(JSON.stringify({
-    type: 'req',
-    id: `req_${requestId++}`,
-    method: 'connect',
-    params
-  }));
-}
-
-// 处理 WebSocket 消息
-async function handleWebSocketMessage(data) {
-  console.log('📥 收到消息:', data.type, data.event || data.payload?.type);
-
-  const statusEl = document.getElementById('connectionStatus');
-
-  // 连接挑战 - 设备认证已禁用时不应该收到
-  if (data.type === 'event' && data.event === 'connect.challenge') {
-    console.log('收到设备认证挑战，但已禁用，继续...');
-    // 设备认证已禁用，忽略挑战，等待 hello-ok
-    return;
-  }
-
-  // 连接响应
-  if (data.type === 'res' && data.ok && data.payload?.type === 'hello-ok') {
-    const statusDot = statusEl?.querySelector('.status-dot');
-    if (statusDot) statusDot.className = 'status-dot connected';  // 绿色
-    
-    // 检测是否是重连：用全局标记（比 window.sessions 更可靠）
-    const isReconnect = _wsIsReconnect;
-    
-    if (isReconnect) {
-      console.log('🔄 重连成功，保留现有消息，只刷新会话列表');
-      _wsIsReconnect = false; // 重置标记
-      // 重连时只刷新侧边栏列表，不重新加载历史消息
-      if (typeof loadSidebarSessions === 'function') {
-        loadSidebarSessions();
-      }
-    } else {
-      console.log('首次连接，加载会话和历史');
-      // 首次连接：正常加载会话列表和历史
-      loadSessions();
-    }
-    return;
-  }
-
-  // chat.send 响应 (开始运行)
-  if (data.type === 'res' && data.payload?.status === 'started') {
-    console.log('消息发送中，runId:', data.payload.runId);
-    currentRunId = data.payload.runId;
-    isGenerating = true;
-    updateSendButton();
-    return;
-  }
-
-  // 错误响应
-  if (data.type === 'res' && !data.ok) {
-    // 检查是否是积分不足错误
-    if (data.error?.code === 'INSUFFICIENT_CREDITS') {
-      console.log('💎 积分不足，弹出订阅窗口');
-      removeTyping();
-      isGenerating = false;
-      currentRunId = null;
-      updateSendButton();
-
-      // 弹出订阅窗口
-      if (typeof showSubscription === 'function') {
-        showSubscription();
-      } else {
-        addMessage('assistant', 'Credits insufficient. Please subscribe to continue.', '灵犀');
-      }
-      return;
-    }
-
-    // 其他错误
-    const errorMsg = data.error?.message || data.error?.error || '请求失败';
-    console.error('请求失败:', errorMsg);
-    removeTyping();
-    isGenerating = false;
-    currentRunId = null;
-    updateSendButton();
-    addMessage('assistant', errorMsg, '灵犀');
-
-    // 如果是认证错误，显示红色状态
-    if (errorMsg.includes('auth') || errorMsg.includes('token') || errorMsg.includes('认证')) {
-      statusDot.className = 'status-dot';  // 红色
-    }
-
-    removeTyping();
-    isGenerating = false;
-    currentRunId = null;
-    updateSendButton();
-    addMessage('assistant', errorMsg, '系统');
-    return;
-  }
-
-  // 工作流事件
-  if (data.type === 'event' && data.event === 'workflow') {
-    const payload = data.payload || {};
-    console.log('收到工作流事件:', payload.type, payload);
-    
-    // 根据工作流事件类型渲染不同的卡片
-    if (payload.type === 'start') {
-      addMessage('assistant', {
-        type: 'workflow_start',
-        workflow: payload
-      }, '灵犀');
-    } else if (payload.type === 'progress') {
-      addMessage('assistant', {
-        type: 'workflow_progress',
-        stepIndex: payload.stepIndex,
-        stepName: payload.stepName,
-        agent: payload.agent,
-        isComplete: payload.isComplete
-      }, '灵犀');
-    } else if (payload.type === 'complete') {
-      addMessage('assistant', {
-        type: 'workflow_complete',
-        workflow: payload
-      }, '灵犀');
-    } else if (payload.type === 'error') {
-      addMessage('assistant', {
-        type: 'workflow_error',
-        error: payload.error
-      }, '灵犀');
-    }
-    return;
-  }
-
-  // 聊天响应事件
-  if (data.type === 'event' && data.event === 'chat') {
-    const payload = data.payload || {};
-
-    // 检查是否是当前会话（宽松匹配，只检查后缀）
-    if (payload.sessionKey && currentSessionKey) {
-      const payloadSuffix = payload.sessionKey.split(':').pop();
-      const currentSuffix = currentSessionKey.split(':').pop();
-      if (payloadSuffix !== currentSuffix && payload.sessionKey !== currentSessionKey) {
-        console.log('跳过非当前会话消息:', payload.sessionKey, '当前:', currentSessionKey);
-        return;
-      }
-    }
-
-    const runId = payload.runId;
-
-    // delta - 流式输出（保持打字机效果）
-    if (payload.state === 'delta') {
-      const text = extractText(payload.message);
-      if (text) {
-        updateStreamingMessage(text, runId);
-      }
-    }
-    // final - 完成：用 chat.history 增量刷新获取核心引擎过滤后的干净消息
-    else if (payload.state === 'final') {
-      removeTyping();
-      isGenerating = false;
-      currentRunId = null;
-      updateSendButton();
-      console.log('消息完成，拉取增量历史...');
-
-      // 清除当前 runId 的流式消息占位，增量历史会带回最终版本
-      if (streamingMessages[runId]) {
-        const el = streamingMessages[runId].element;
-        if (el && el.parentNode) el.parentNode.removeChild(el);
-        delete streamingMessages[runId];
-      }
-
-      // 增量拉取 chat.history（核心引擎已过滤心跳/NO_REPLY/tool痕迹）
-      try {
-        const freshMessages = await fetchChatHistory(currentSessionKey, 20);
-        if (freshMessages && freshMessages.length > 0) {
-          renderHistory(freshMessages, true);  // appendOnly = true
-        }
-      } catch (e) {
-        console.warn('增量历史拉取失败，回退到 final payload:', e);
-        // 降级：直接用 final payload 渲染
-        const text = extractText(payload.message);
-        if (text) addMessage('assistant', text, '灵犀', payload.modelInfo);
-      }
-
-      // 刷新侧边栏积分
-      refreshSidebarCredits();
-    }
-    // error
-    else if (payload.state === 'error') {
-      removeTyping();
-      isGenerating = false;
-      currentRunId = null;
-      updateSendButton();
-      addMessage('assistant', (payload.errorMessage || '未知错误'), '灵犀');
-    }
-    // aborted
-    else if (payload.state === 'aborted') {
-      removeTyping();
-      isGenerating = false;
-      currentRunId = null;
-      updateSendButton();
-      console.log('消息已中止');
-    }
-  }
-
-  // 🎵 音频消息处理
-  if (data.type === 'audio') {
-    const { url, text, name } = data.payload || {};
-    console.log('🎵 收到音频消息:', url);
-    addMessage('assistant', { audio: url, text }, name || '灵犀');
-    return;
-  }
-}
+// ════════════════════════════════════════════════════════════════
+// 🔌 消息处理（Lume 事件由 chat-lume.js 中的 handleLumeEvent 处理）
+// ════════════════════════════════════════════════════════════════
 
 // 从消息对象中提取文本
 function extractText(message) {
@@ -745,7 +904,7 @@ function extractText(message) {
         .join('');
     }
   }
-  return { id: skillId, name: skillId, description: `Use skill ${skillId}`, example: `Use skill ${skillId}` };
+  return '';
 }
 
 // 清理消息文本，过滤掉元数据等技术信息
@@ -773,6 +932,29 @@ function cleanMessageText(text) {
 // 流式消息管理
 let streamingMessages = {};  // runId -> {element, text}
 
+function renderBubbleActionsHtml() {
+  return `
+    <div class="bubble-actions" aria-label="消息操作">
+      <button type="button" class="bubble-action-btn" onclick="copyBubble(this)" title="复制" aria-label="复制">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+      </button>
+    </div>
+  `;
+}
+
+function updateLatestAssistantMessageActions() {
+  const container = document.getElementById('messages');
+  if (!container) return;
+  container.querySelectorAll('.message.assistant.is-latest-assistant').forEach((el) => {
+    el.classList.remove('is-latest-assistant');
+  });
+  const assistants = Array.from(container.querySelectorAll('.message.assistant')).filter(
+    (el) => el.id !== 'typing-indicator'
+  );
+  const latest = assistants[assistants.length - 1];
+  if (latest) latest.classList.add('is-latest-assistant');
+}
+
 // 更新或创建流式消息
 function updateStreamingMessage(text, runId) {
   removeTyping();
@@ -786,19 +968,15 @@ function updateStreamingMessage(text, runId) {
     streamingMessages[runId].text = text;
     const bubble = streamingMessages[runId].element.querySelector('.bubble');
     if (bubble) {
-      // 使用 processMessageFull 解析 Markdown 图片
       const { text: cleanText, filesHtml, imagesHtml } = processMessageFull(text, {});
       const renderedText = cleanText ? renderMarkdown(cleanText) : '';
-      // 保留复制按钮
-      const existingCopyBtn = bubble.querySelector('.bubble-copy-btn');
-      const copyHtml = existingCopyBtn ? existingCopyBtn.outerHTML : '<button class="bubble-copy-btn" onclick="copyBubble(this)" title="复制"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>';
-      bubble.innerHTML = `${renderedText}${imagesHtml}${filesHtml}${copyHtml}`;
+      const metaEl = bubble.querySelector('.bubble-meta');
+      const metaHtml = metaEl ? metaEl.outerHTML : '';
+      bubble.innerHTML = `${renderedText}${imagesHtml}${filesHtml}${metaHtml}`;
     }
   }
 
-  // 滚动到底部
-  const messages = document.getElementById('messages');
-  messages.scrollTop = messages.scrollHeight;
+  scrollChatToBottom(true);
 }
 
 // 检查是否有流式消息
@@ -822,12 +1000,16 @@ function finalizeStreamingMessage(text, runId, modelInfo) {
       const { text: cleanText, filesHtml, imagesHtml, audioHtml } = processMessageFull(text, fileOptions);
       const renderedText = cleanText ? renderMarkdown(cleanText) : '';
       const metaHtml = modelInfo ? renderBubbleMeta(modelInfo) : '';
-      const copyHtml = '<button class="bubble-copy-btn" onclick="copyBubble(this)" title="复制"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>';
-      bubble.innerHTML = `${renderedText}${audioHtml}${imagesHtml}${filesHtml}${copyHtml}${metaHtml}`;
+      bubble.innerHTML = `${renderedText}${audioHtml}${imagesHtml}${filesHtml}${metaHtml}`;
     }
   }
+  updateLatestAssistantMessageActions();
   // 清理
   delete streamingMessages[runId];
+  const agentName = (typeof AGENT_INFO !== 'undefined' && AGENT_INFO[currentAgentId])
+    ? AGENT_INFO[currentAgentId].name
+    : '灵犀';
+  lumeDesktopNotifyReply(text, agentName);
 }
 
 // 渲染团队标签
@@ -984,7 +1166,7 @@ async function handleImageSelect(event) {
   
   // 检查文件类型
   if (!isImage && !isDocument) {
-    alert('不支持的文件类型\n\n支持的格式：\n• 图片：JPG, PNG, GIF, WebP\n• 文档：PDF, TXT, MD, HTML, CSV, JSON');
+    await uiAlert('不支持的文件类型\n\n支持的格式：\n• 图片：JPG, PNG, GIF, WebP\n• 文档：PDF, TXT, MD, HTML, CSV, JSON');
     return;
   }
 
@@ -993,7 +1175,7 @@ async function handleImageSelect(event) {
   const maxSizeText = isDocument ? '5MB' : '10MB';
   
   if (file.size > maxSize) {
-    alert(`${isDocument ? '文档' : '图片'}大小不能超过 ${maxSizeText}\n\n当前文件大小：${(file.size / 1024 / 1024).toFixed(2)}MB`);
+    await uiAlert(`${isDocument ? '文档' : '图片'}大小不能超过 ${maxSizeText}\n\n当前文件大小：${(file.size / 1024 / 1024).toFixed(2)}MB`);
     return;
   }
 
@@ -1160,7 +1342,7 @@ async function handleImageSelect(event) {
     }
   } catch (e) {
     console.error(`${isDocument ? '文档' : '图片'}上传失败:`, e);
-    alert(`${isDocument ? '文档' : '图片'}上传失败: ` + e.message);
+    await uiAlert(`${isDocument ? '文档' : '图片'}上传失败: ` + e.message);
     removeSelectedImage();
   }
 
@@ -1433,7 +1615,7 @@ async function sendMessage() {
 
   if (!currentSessionKey) {
     console.error('currentSessionKey 为空');
-    alert('会话未初始化，请刷新页面');
+    await uiAlert('会话未初始化，请刷新页面');
     return;
   }
 
@@ -1459,10 +1641,7 @@ async function sendMessage() {
   }
 
   // 隐藏欢迎界面（如果存在）
-  const welcome = document.getElementById('welcome');
-  if (welcome) {
-    welcome.classList.add('hidden');
-  }
+  hideWelcomeHome();
 
   // 显示用户消息（包含图片预览）
   addMessage('user', selectedImage ? { text, image: selectedImage.url } : text, user?.nickname || '我');
@@ -1476,70 +1655,16 @@ async function sendMessage() {
   // 更新按钮显示状态（恢复到初始状态）
   updateInputButtons();
 
-  // 通过 WebSocket 发送
-  console.log('🔌 WebSocket 状态:', ws ? ws.readyState : 'null', '(OPEN=1)');
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    console.log('通过 WebSocket 发送消息');
-    console.log('📦 sessionKey:', currentSessionKey);
-    addTyping();
-
-    const reqId = `req_${requestId++}`;
-    // 使用异步版本处理图片
-    const params = await buildMessageParamsAsync(text, currentImage);
-    const req = {
-      type: 'req',
-      id: reqId,
-      method: 'chat.send',
-      params: params
-    };
-
-    // 打印请求信息
-    console.log('📤 发送请求:');
-    console.log('  - sessionKey:', params.sessionKey);
-    console.log('  - message:', params.message?.substring(0, 50));
-    console.log('  - attachments:', params.attachments ? params.attachments.length + '个' : '无');
-    console.log('  - 请求总大小:', JSON.stringify(req).length, '字节');
-    
-    try {
-      ws.send(JSON.stringify(req));
-      console.log('消息已发送到 WebSocket');
-      
-      // 🆕 自动更新 session label（如果是第一条消息）
-      if (window.sessions) {
-        const currentSession = window.sessions.find(s => s.key === currentSessionKey);
-        if (currentSession && (!currentSession.label || currentSession.label === '灵犀' || currentSession.label.includes('agent:'))) {
-          // 使用消息文本作为新的 label
-          const newLabel = text.substring(0, 50);
-          console.log('📝 更新 session label:', currentSessionKey, '→', newLabel);
-          
-          // 发送更新请求
-          ws.send(JSON.stringify({
-            type: 'req',
-            id: `update-label-${Date.now()}`,
-            method: 'sessions.patch',
-            params: {
-              key: currentSessionKey,
-              label: newLabel
-            }
-          }));
-          
-          // 更新本地缓存
-          currentSession.label = newLabel;
-          currentSession.title = newLabel;
-          
-          // 重新渲染会话列表
-          renderSessionList();
-        }
-      }
-    } catch (sendError) {
-      console.error('WebSocket 发送失败:', sendError);
-    }
-  } else {
-    // WebSocket 未连接，使用 HTTP 代理
-    console.log('📡 WebSocket 未连接，使用 HTTP 代理');
-    const params = await buildMessageParamsAsync(text, currentImage);
-    sendViaHTTP(params.message);
+  // Lume 优先发送（付费用户）
+  if (window.USE_LUME && typeof sendMessageViaLume === 'function') {
+    const sent = await sendMessageViaLume(text);
+    if (sent) return;
   }
+
+  // Lume 不可用时使用 HTTP 代理降级
+  console.log('📡 Lume 不可用，使用 HTTP 代理');
+  const params = await buildMessageParamsAsync(text, currentImage);
+  sendViaHTTP(params.message);
 }
 
 // 处理发送/停止按钮点击
@@ -1572,25 +1697,10 @@ function updateSendButton() {
 
 // 中止对话
 function abortChat() {
-  if (!ws || ws.readyState !== WebSocket.OPEN) {
-    console.log('WebSocket 未连接');
-    return;
+  // 尝试通过 Lume 中止
+  if (window.USE_LUME && typeof LumeRpc !== 'undefined' && LumeRpc.isConnected() && currentSessionKey) {
+    LumeRpc.pluginCall('chat.abort', { sessionKey: currentSessionKey, runId: currentRunId }).catch(() => {});
   }
-
-  if (!currentSessionKey) {
-    console.log('currentSessionKey 未设置');
-    return;
-  }
-
-  ws.send(JSON.stringify({
-    type: 'req',
-    id: `req_${requestId++}`,
-    method: 'chat.abort',
-    params: {
-      sessionKey: currentSessionKey,
-      runId: currentRunId
-    }
-  }));
 
   isGenerating = false;
   currentRunId = null;
@@ -1612,33 +1722,11 @@ let _historyLoadSession = null; // 记录当前正在加载哪个 session
  * @returns {Array|null} messages 数组或 null
  */
 async function fetchChatHistory(sessionKey, limit = 20) {
-  if (!ws || ws.readyState !== WebSocket.OPEN || !sessionKey) return null;
+  if (!window.USE_LUME || typeof LumeRpc === 'undefined' || !LumeRpc.isConnected() || !sessionKey) return null;
 
   try {
-    const res = await new Promise((resolve, reject) => {
-      const id = `req_${requestId++}`;
-      const timeout = setTimeout(() => reject(new Error('timeout')), 8000);
-
-      const handler = async (event) => {
-        try {
-          const text = typeof event.data === 'string' ? event.data : await event.data.text();
-          const data = JSON.parse(text);
-          if (data.id === id) {
-            clearTimeout(timeout);
-            ws.removeEventListener('message', handler);
-            resolve(data);
-          }
-        } catch (e) { /* ignore parse errors */ }
-      };
-
-      ws.addEventListener('message', handler);
-      ws.send(JSON.stringify({
-        type: 'req', id, method: 'chat.history',
-        params: { sessionKey, limit }
-      }));
-    });
-
-    if (res.ok && res.payload?.messages) return res.payload.messages;
+    const payload = await LumeRpc.pluginCall('chat.history', { sessionKey, limit });
+    if (payload?.messages) return payload.messages;
     return null;
   } catch (e) {
     console.warn('fetchChatHistory failed:', e);
@@ -1656,8 +1744,10 @@ async function loadChatHistory(appendOnly = false) {
   _historyLoadSession = currentSessionKey;
   console.log('📚 loadChatHistory 开始, currentSessionKey:', currentSessionKey, '追加模式:', appendOnly);
 
-  if (!ws || ws.readyState !== WebSocket.OPEN) {
-    console.log('WebSocket 未连接，无法加载历史');
+  const useLume = window.USE_LUME && typeof LumeRpc !== 'undefined' && LumeRpc.isConnected();
+
+  if (!useLume) {
+    console.log('Lume 未连接，无法加载历史');
     _historyLoading = false;
     if (!appendOnly) renderHistory([]);
     return;
@@ -1670,45 +1760,14 @@ async function loadChatHistory(appendOnly = false) {
     return;
   }
 
-  console.log('📚 发送 chat.history 请求, sessionKey:', currentSessionKey);
+  console.log('📚 发送 chat.history 请求, sessionKey:', currentSessionKey, '(Lume)');
 
   try {
-    const res = await new Promise((resolve, reject) => {
-      const id = `req_${requestId++}`;
-      const timeout = setTimeout(() => {
-        console.log('⏱️ chat.history 超时');
-        reject(new Error('timeout'));
-      }, 10000);
-
-      const handler = async (event) => {
-        try {
-          const text = typeof event.data === "string" ? event.data : await event.data.text();
-        const data = JSON.parse(text);
-          console.log('📚 收到 WebSocket 消息, id:', data.id, '期待:', id);
-          if (data.id === id) {
-            clearTimeout(timeout);
-            ws.removeEventListener('message', handler);
-            resolve(data);
-          }
-        } catch (e) {
-          console.error('📚 解析消息失败:', e);
-        }
-      };
-
-      ws.addEventListener('message', handler);
-
-      const req = {
-        type: 'req',
-        id,
-        method: 'chat.history',
-        params: {
-          sessionKey: currentSessionKey,
-          limit: 100
-        }
-      };
-      console.log('📚 发送请求:', JSON.stringify(req));
-      ws.send(JSON.stringify(req));
+    const payload = await LumeRpc.pluginCall('chat.history', {
+      sessionKey: currentSessionKey,
+      limit: 100,
     });
+    const res = { ok: true, payload };
 
     console.log('📚 chat.history 完整响应:', JSON.stringify(res, null, 2));
 
@@ -1716,7 +1775,6 @@ async function loadChatHistory(appendOnly = false) {
       console.log('加载了', res.payload.messages.length, '条历史消息');
       renderHistory(res.payload.messages);
     } else if (res.ok && res.payload?.transcript) {
-      // 尝试 transcript 字段
       console.log('使用 transcript 字段, 长度:', res.payload.transcript.length);
       renderHistory(res.payload.transcript);
     } else {
@@ -1732,6 +1790,35 @@ async function loadChatHistory(appendOnly = false) {
   }
 }
 
+/**
+ * 初始化时智能选择有历史的会话（修复 Web 切 Session 后移动端仍显示首页）
+ */
+async function resolveInitialSession() {
+  updateMobileSessionsState();
+
+  const useLume = window.USE_LUME && typeof LumeRpc !== 'undefined' && LumeRpc.isConnected();
+  if (!useLume) {
+    await loadChatHistory();
+    return;
+  }
+
+  const candidates = getSessionCandidateKeys();
+  for (const key of candidates) {
+    if (!key) continue;
+    syncCurrentSessionKey(key);
+    const messages = await fetchChatHistory(key, 100);
+    if (messages && messages.length > 0) {
+      renderHistory(messages);
+      if (typeof loadSidebarSessions === 'function') loadSidebarSessions();
+      return;
+    }
+  }
+
+  const fallback = candidates[0] || currentSessionKey || SESSION_KEY;
+  if (fallback) syncCurrentSessionKey(fallback);
+  await loadChatHistory();
+}
+
 // 渲染历史消息
 // 新增 appendOnly 参数：true=只追加（重连时使用），false=清空后重新渲染（默认）
 function renderHistory(messages, appendOnly = false) {
@@ -1745,26 +1832,7 @@ function renderHistory(messages, appendOnly = false) {
     }
     
     const agentInfo = AGENT_INFO[currentAgentId] || AGENT_INFO['lingxi'];
-    const examplesHtml = (agentInfo?.examples || []).map(ex => `
-      <div class="welcome-example" onclick="sendWelcomeExample('${ex.text.replace(/'/g, "\\'").replace(/\n/g, '\\n')}')">
-        <span class="example-text">${ex.text}</span>
-        <span class="example-tag">${ex.desc}</span>
-      </div>
-    `).join('');
-
-    container.innerHTML = `
-      <div class="welcome" id="welcome">
-        <div class="welcome-icon">${agentIcon(agentInfo, 'lg')}</div>
-        <div class="welcome-title">${agentInfo.name}</div>
-        <div class="welcome-desc">${agentInfo.desc}</div>
-        ${examplesHtml ? `
-          <div class="welcome-examples">
-            <div class="welcome-examples-title">试试这些</div>
-            <div class="welcome-examples-list">${examplesHtml}</div>
-          </div>
-        ` : ''}
-      </div>
-    `;
+    renderWelcomeHome(agentInfo);
     return;
   }
 
@@ -1788,6 +1856,7 @@ function renderHistory(messages, appendOnly = false) {
   }
 
   // 默认模式：清空容器后重新渲染
+  hideWelcomeHome();
   container.innerHTML = '';
 
   // 渲染历史消息（chat.history 已经过核心引擎过滤，这里只做基础校验）
@@ -1976,21 +2045,7 @@ function renderHistory(messages, appendOnly = false) {
 
   // 强制滚动到底部（延迟确保DOM渲染完成）
   const scrollToBottom = () => {
-    // 滚动消息容器
-    container.scrollTop = container.scrollHeight;
-
-    // 滚动整个页面（移动端更可靠）
-    window.scrollTo({
-      top: document.body.scrollHeight,
-      behavior: 'instant'
-    });
-
-    // 额外：确保输入框可见
-    const inputArea = document.querySelector('.input-area');
-    if (inputArea) {
-      inputArea.scrollIntoView({ behavior: 'instant', block: 'end' });
-    }
-
+    scrollChatToBottom(true);
     console.log('📜 已滚动到底部');
   };
 
@@ -1998,6 +2053,7 @@ function renderHistory(messages, appendOnly = false) {
   setTimeout(scrollToBottom, 50);
   setTimeout(scrollToBottom, 200);
   setTimeout(scrollToBottom, 500);
+  updateLatestAssistantMessageActions();
 }
 
 // ===== 会话管理 =====
@@ -2035,211 +2091,12 @@ function clearAllSessions() {
 }
 
 // 加载会话列表
+// loadSessions: 会话列表由 chat-lume.js 的 loadLumeSessions() 通过 Lume RPC 加载
+// 此函数保留作为 loadLumeSessions 的回调，渲染已加载的 window.sessions
 async function loadSessions() {
-  if (!ws || ws.readyState !== WebSocket.OPEN) {
-    console.log('WebSocket 未连接，无法加载会话列表');
-    return;
-  }
-
-  console.log('开始加载会话列表...');
-
-
-  try {
-    const res = await new Promise((resolve, reject) => {
-      const id = `req_${requestId++}`;
-      const timeout = setTimeout(() => reject(new Error('timeout')), 10000);
-
-      const handler = async (event) => {
-        try {
-          const text = typeof event.data === "string" ? event.data : await event.data.text();
-        const data = JSON.parse(text);
-          if (data.id === id) {
-            clearTimeout(timeout);
-            ws.removeEventListener('message', handler);
-            resolve(data);
-          }
-        } catch (e) {}
-      };
-
-      ws.addEventListener('message', handler);
-
-      ws.send(JSON.stringify({
-        type: 'req',
-        id,
-        method: 'sessions.list',
-        params: {}
-      }));
-    });
-
-      console.log('sessions.list 响应:', res);
-
-    if (res.ok && res.payload?.sessions) {
-      // 过滤掉本地已删除的会话
-      const deletedSessions = getDeletedSessions();
-      let allSessions = res.payload.sessions.filter(s => !deletedSessions.includes(s.key));
-
-      // 过滤掉系统会话（心跳、健康检查等）
-      const systemPatterns = ['heartbeat', 'health', 'ping', 'pong', '_system', '_internal'];
-      allSessions = allSessions.filter(s => {
-        const key = s.key.toLowerCase();
-        return !systemPatterns.some(p => key.includes(p));
-      });
-
-      // 去重：基于 sessionKey 或 key
-      const seenKeys = new Set();
-      allSessions = allSessions.filter(session => {
-        const key = session.sessionKey || session.key || '';
-        if (seenKeys.has(key)) return false;
-        seenKeys.add(key);
-        return true;
-      });
-
-      // 🆕 为每个 session 添加标题和预览
-      // 对于没有 label 的 session，延迟加载第一条消息
-      const loadPromises = allSessions.slice(0, 10).map(async (session) => {
-        // 如果已经有 label 且不是默认值，直接使用
-        if (session.label && session.label !== '灵犀' && !session.label.includes('agent:')) {
-          session.title = session.label;
-          session.preview = session.label;
-        } else {
-          // 否则，加载第一条消息
-          try {
-            const history = await new Promise((resolve, reject) => {
-              const id = `load-history-${session.key}`;
-              const handler = (event) => {
-                try {
-                  const data = JSON.parse(event.data);
-                  if (data.id === id) {
-                    ws.removeEventListener('message', handler);
-                    resolve(data);
-                  }
-                } catch (e) {}
-              };
-              ws.addEventListener('message', handler);
-              
-              ws.send(JSON.stringify({
-                type: 'req',
-                id: id,
-                method: 'chat.history',
-                params: {
-                  sessionKey: session.key,
-                  limit: 1
-                }
-              }));
-              
-              // 超时处理
-              setTimeout(() => {
-                ws.removeEventListener('message', handler);
-                resolve({ ok: false });
-              }, 2000);
-            });
-            
-            if (history.ok && history.payload?.messages?.length > 0) {
-              const firstMessage = history.payload.messages[0];
-              const content = extractText(firstMessage);
-              // 移除附件标记
-              const cleanContent = content.replace(/\[附件:[^\]]+\]\s*/g, '').trim();
-              session.title = cleanContent.substring(0, 50);
-              session.preview = cleanContent.substring(0, 100);
-            } else {
-              // 没有消息，使用 session key 的最后一部分
-              const keyParts = (session.key || '').split(':');
-              session.title = keyParts[keyParts.length - 1] || 'Untitled';
-              session.preview = 'No messages';
-            }
-          } catch (e) {
-            console.warn('加载会话历史失败:', session.key, e);
-            const keyParts = (session.key || '').split(':');
-            session.title = keyParts[keyParts.length - 1] || 'Untitled';
-            session.preview = 'No messages';
-          }
-        }
-        
-        // 格式化时间
-        const timestamp = session.updatedAt ? new Date(session.updatedAt).getTime() : Date.now();
-        session.relativeTime = formatRelativeTime(timestamp);
-        session.timestamp = timestamp;
-        
-        return session;
-      });
-      
-      // 等待所有加载完成
-      allSessions = await Promise.all(loadPromises);
-      
-      // 对于没有加载的 session（超过前 10 个），使用默认标题
-      allSessions.slice(10).forEach(session => {
-        if (!session.title) {
-          const keyParts = (session.key || '').split(':');
-          session.title = session.label || keyParts[keyParts.length - 1] || 'Untitled';
-          session.preview = 'No messages';
-        }
-        const timestamp = session.updatedAt ? new Date(session.updatedAt).getTime() : Date.now();
-        session.relativeTime = formatRelativeTime(timestamp);
-        session.timestamp = timestamp;
-      });
-
-      // 按更新时间排序（最新的在前）
-      allSessions.sort((a, b) => {
-        const timeA = a.timestamp || 0;
-        const timeB = b.timestamp || 0;
-        return timeB - timeA;
-      });
-
-      // 限制最多显示 50 个会话
-      const maxSessions = 50;
-      if (allSessions.length > maxSessions) {
-        console.log('会话数量超过', maxSessions, '，只显示最近的', maxSessions, '个');
-        allSessions = allSessions.slice(0, maxSessions);
-      }
-
-      window.sessions = allSessions;
-      console.log('加载了', allSessions.length, '个会话（原始:', res.payload.sessions.length, '）');
-      
-      // 🆕 默认加载最新会话（按时间排序后的第一个）
-      if (allSessions.length > 0) {
-        const latestSession = allSessions[0];  // 已经按时间排序，第一个是最新的
-        // 重连时保留当前会话，不切换
-        if (ws?.isReconnect) {
-          console.log('🔄 重连模式，保持当前会话:', currentSessionKey);
-        } else {
-          currentSessionKey = latestSession.key;
-          console.log('默认加载最新会话:', currentSessionKey);
-          // 加载该会话的历史消息
-          loadChatHistory();
-        }
-      } else {
-        // 没有会话，使用主会话
-        currentSessionKey = SESSION_KEY;
-        console.log('🔑 无历史会话，使用主会话:', currentSessionKey);
-      }
-      
-      renderSessionList();
-      // 更新侧边栏会话列表
-      console.log('🔍 检查 loadSidebarSessions:', typeof loadSidebarSessions);
-      if (typeof loadSidebarSessions === 'function') {
-        console.log('📞 调用 loadSidebarSessions()');
-        loadSidebarSessions();
-      } else {
-        console.log('loadSidebarSessions 不是函数，尝试 window.loadSidebarSessions');
-        if (typeof window.loadSidebarSessions === 'function') {
-          window.loadSidebarSessions();
-        }
-      }
-    } else {
-      console.log('无会话数据');
-      window.sessions = [];
-      renderSessionList();
-      if (typeof loadSidebarSessions === 'function') {
-        loadSidebarSessions();
-      }
-    }
-  } catch (e) {
-    console.error('加载会话列表失败:', e);
-    window.sessions = [];
-    renderSessionList();
-    if (typeof loadSidebarSessions === 'function') {
-      loadSidebarSessions();
-    }
+  renderSessionList();
+  if (typeof loadSidebarSessions === 'function') {
+    loadSidebarSessions();
   }
 }
 
@@ -2272,9 +2129,9 @@ function renderSessionList() {
     const isActive = session.key === currentSessionKey;
     
     // 🆕 使用提取的标题、预览和时间
-    const displayName = session.title || session.label || 'Untitled';
-    const preview = session.preview || session.lastMessage || 'No messages';
-    const time = session.relativeTime || '';
+    const displayName = session.title || session.derivedTitle || session.label || session.displayName || 'Untitled';
+    const preview = session.lastMessagePreview || session.preview || session.lastMessage || 'No messages';
+    const time = session.relativeTime || (session.updatedAt && typeof formatRelativeTime === 'function' ? formatRelativeTime(session.updatedAt) : '');
     
     // 截断预览文本
     const truncatedPreview = preview.substring(0, 50);
@@ -2312,30 +2169,92 @@ async function createNewSession() {
 
   // 生成新的会话 key（使用从后端获取的 session prefix）
   const newSessionKey = `${SESSION_PREFIX}:chat_${Date.now()}`;
-  currentSessionKey = newSessionKey;
+  syncCurrentSessionKey(newSessionKey);
   console.log('🆕 创建新会话:', currentSessionKey);
 
   // 清空聊天，显示欢迎界面
-  const container = document.getElementById('messages');
-  container.innerHTML = `
-    <div class="welcome" id="welcome">
-      <div class="welcome-emoji">⚡</div>
-      <div class="welcome-title">新对话</div>
-      <div class="welcome-desc">发送消息开始对话</div>
-    </div>
-  `;
+  renderWelcomeHome(AGENT_INFO[currentAgentId] || AGENT_INFO.lingxi);
 
   // 会话会在第一次发送消息时自动创建
   console.log('新会话已准备就绪，等待发送第一条消息');
 }
 
+window.createNewSession = createNewSession;
+
+/** Native macOS desktop client — send from Flutter composer */
+window.lumeDesktopSend = function (text) {
+  const t = String(text || '').trim();
+  if (!t) return false;
+  const input = document.getElementById('inputField');
+  if (input) input.value = t;
+  if (typeof sendMessage === 'function') {
+    sendMessage();
+    return true;
+  }
+  return false;
+};
+
+function lumeDesktopPostEvent(type, payload) {
+  if (!document.documentElement.classList.contains('lume-desktop')) return;
+  try {
+    if (window.LumeDesktop && window.LumeDesktop.postMessage) {
+      window.LumeDesktop.postMessage(JSON.stringify({ type, ...payload }));
+    }
+  } catch (e) { /* noop */ }
+}
+
+function lumeDesktopNotifyReply(text, title) {
+  const body = String(text || '').replace(/\s+/g, ' ').trim().slice(0, 160);
+  if (!body) return;
+  lumeDesktopPostEvent('assistant_message', {
+    title: title || 'Lume',
+    body,
+    sessionKey: typeof currentSessionKey !== 'undefined' ? currentSessionKey : '',
+  });
+}
+
+window.lumeDesktopSwitchView = function (view) {
+  if (typeof switchView === 'function') switchView(view);
+};
+
+window.lumeDesktopToggleRightRail = function () {
+  if (typeof toggleRightSidebar === 'function') toggleRightSidebar();
+};
+
+window.lumeDesktopSwitchAgent = function (agentId) {
+  if (typeof switchAgentFromDrawer === 'function') switchAgentFromDrawer(agentId);
+  else if (typeof switchAgent === 'function') switchAgent(agentId);
+};
+
+window.lumeDesktopSendQuick = function (text) {
+  if (typeof sendFromTeamDrawer === 'function') sendFromTeamDrawer(text);
+};
+
+window.lumeDesktopGetTeamState = function () {
+  const ids =
+    user && user.agents && user.agents.length ? user.agents : ['lingxi'];
+  return JSON.stringify({
+    currentAgentId:
+      typeof currentAgentId !== 'undefined' ? currentAgentId : 'lingxi',
+    agentIds: ids,
+  });
+};
+
+window.lumeDesktopOpenFiles = function () {
+  if (typeof openFileExplorerFromNav === 'function') openFileExplorerFromNav();
+};
+
+window.lumeDesktopToggleNotifications = function () {
+  if (typeof toggleNotificationPanel === 'function') toggleNotificationPanel();
+};
+
 // 切换会话
-async function switchSession(sessionKey) {
-  if (sessionKey === currentSessionKey) {
+async function switchSession(sessionKey, forceReload = false) {
+  if (sessionKey === currentSessionKey && !forceReload) {
     return;
   }
 
-  currentSessionKey = sessionKey;
+  syncCurrentSessionKey(sessionKey);
   console.log('🔄 切换到会话:', sessionKey);
 
   // 从 sessionKey 解析 agent（格式：agent:{agentId}:{namespace}:{sessionId}）
@@ -2357,14 +2276,12 @@ async function switchSession(sessionKey) {
   }
 
   // 清空当前消息，显示加载状态
+  hideWelcomeHome();
   const container = document.getElementById('messages');
   container.innerHTML = `
-    <div class="welcome" id="welcome">
-      <div class="welcome-icon">
-        <i data-lucide="loader-2" class="icon-lg" style="animation: spin 1s linear infinite;"></i>
-      </div>
-      <div class="welcome-title">加载中...</div>
-      <div class="welcome-desc">正在获取聊天历史</div>
+    <div class="welcome welcome-loading" id="welcome">
+      <p class="welcome-title">加载中...</p>
+      <p class="welcome-desc">正在获取聊天历史</p>
     </div>
   `;
 
@@ -2392,82 +2309,39 @@ async function switchSession(sessionKey) {
 // 删除会话
 async function deleteSession(sessionKey) {
   if (sessionKey === currentSessionKey) {
-    alert('无法删除当前会话');
+    await uiAlert('请先切换到其他对话后再删除当前对话。', { title: '无法删除' });
     return;
   }
 
-  if (!confirm('确定删除这个会话吗？')) return;
+  const session = window.sessions?.find(s => s.key === sessionKey);
+  const label = session?.label || session?.title || '该对话';
+
+  if (!await uiConfirm(`将永久删除「${label}」，此操作无法恢复。`, {
+    title: '删除对话',
+    confirmText: '删除',
+    cancelText: '取消',
+    danger: true,
+  })) return;
 
   console.log('🗑️ 开始删除会话:', sessionKey);
 
   try {
-    // 调用 WebSocket API 删除会话
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      console.log('📡 WebSocket 已连接，发送删除请求...');
+    // 通过 Lume RPC 删除会话
+    if (window.USE_LUME && typeof LumeRpc !== 'undefined' && LumeRpc.isConnected()) {
+      await LumeRpc.sendRequest('sessions.delete', { key: sessionKey });
+      console.log('删除会话成功:', sessionKey);
+    }
 
-      const res = await new Promise((resolve, reject) => {
-        const id = `req_${requestId++}`;
-        const timeout = setTimeout(() => {
-          console.log('⏱️ 删除请求超时');
-          reject(new Error('timeout'));
-        }, 10000);
+    // 记录到本地已删除列表
+    addDeletedSession(sessionKey);
 
-        const handler = async (event) => {
-          try {
-            const text = typeof event.data === "string" ? event.data : await event.data.text();
-        const data = JSON.parse(text);
-            console.log('📥 收到响应:', data.id, '期待:', id);
-            if (data.id === id) {
-              clearTimeout(timeout);
-              ws.removeEventListener('message', handler);
-              resolve(data);
-            }
-          } catch (e) {}
-        };
+    // 从本地列表中移除
+    window.sessions = window.sessions.filter(s => s.key !== sessionKey);
+    renderSessionList();
 
-        ws.addEventListener('message', handler);
-
-        const deleteReq = {
-          type: 'req',
-          id,
-          method: 'sessions.delete',
-          params: { key: sessionKey }
-        };
-        console.log('📤 发送删除请求:', deleteReq);
-        ws.send(JSON.stringify(deleteReq));
-      });
-
-      console.log('sessions.delete 响应:', res);
-
-      if (res.ok) {
-        // 记录到本地已删除列表（防止刷新后重新出现）
-        addDeletedSession(sessionKey);
-
-        // 从本地列表中移除
-        window.sessions = window.sessions.filter(s => s.key !== sessionKey);
-        renderSessionList();
-        console.log('删除会话成功:', sessionKey);
-
-        // 刷新侧边栏
-        if (typeof loadSidebarSessions === 'function') {
-          loadSidebarSessions();
-        }
-      } else {
-        const errorMsg = res.error?.message || JSON.stringify(res.error) || '未知错误';
-        console.error('删除失败:', errorMsg);
-        alert('删除失败: ' + errorMsg);
-      }
-    } else {
-      console.log('WebSocket 未连接，只删除本地');
-      // WebSocket 未连接，只删除本地
-      addDeletedSession(sessionKey);
-      window.sessions = window.sessions.filter(s => s.key !== sessionKey);
-      renderSessionList();
-
-      // 刷新侧边栏
-      if (typeof loadSidebarSessions === 'function') {
-        loadSidebarSessions();
-      }
+    // 刷新侧边栏
+    if (typeof loadSidebarSessions === 'function') {
+      loadSidebarSessions();
     }
   } catch (e) {
     console.error('删除会话异常:', e);
@@ -2530,6 +2404,13 @@ function addMessage(role, content, name, modelInfo) {
   const messages = document.getElementById('messages');
   const div = document.createElement('div');
   div.className = `message ${role}`;
+
+  if (role === 'user') {
+    const plain = getPlainUserText(content);
+    if (plain) {
+      div.dataset.userText = plain.replace(/\s+/g, ' ').slice(0, 240);
+    }
+  }
 
   // 获取当前 Agent 的头像
   const currentAgent = AGENT_INFO[currentAgentId] || { icon: 'zap', name: '灵犀' };
@@ -2604,22 +2485,32 @@ function addMessage(role, content, name, modelInfo) {
     `;
   }
 
-  // 为助手消息添加复制按钮
-  const copyBtn = role === 'assistant'
-    ? `<button class="bubble-copy-btn" onclick="copyBubble(this)" title="复制"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>`
-    : '';
+  // 助手消息：操作栏在气泡下方（GPT / Claude 风格）
+  const actionsHtml = role === 'assistant' ? renderBubbleActionsHtml() : '';
 
   div.innerHTML = `
     ${avatarHtml}
     <div class="bubble">
       ${bubbleContent}
-      ${copyBtn}
       ${role === 'assistant' && modelInfo ? renderBubbleMeta(modelInfo) : ''}
     </div>
+    ${actionsHtml}
   `;
 
   messages.appendChild(div);
-  messages.scrollTop = messages.scrollHeight;
+  if (role === 'assistant') updateLatestAssistantMessageActions();
+  scrollChatToBottom(true);
+  if (role === 'user') updateScrollContextBar();
+
+  if (role === 'assistant') {
+    const isStreaming = Object.values(streamingMessages).some((s) => s.element === div);
+    if (!isStreaming) {
+      const plain = typeof content === 'string'
+        ? content
+        : (content && content.text ? content.text : '');
+      lumeDesktopNotifyReply(plain, name);
+    }
+  }
 
   // 重新渲染 Lucide 图标
   if (window.lucide) lucide.createIcons();
@@ -2644,7 +2535,7 @@ function formatModelName(model) {
   const name = model.includes('/') ? model.split('/').pop() : model;
   const displayMap = {
     'deepseek-v4-pro': 'DeepSeek V4 Pro',
-    'glm-5.1': 'GLM-5.1',
+    'glm-5.1': 'GLM-5.2',
     'glm-5': 'GLM-5',
     'glm-4': 'GLM-4',
     'gpt-4o': 'GPT-4o',
@@ -2659,8 +2550,11 @@ function formatModelName(model) {
   return displayMap[name] || displayMap[model] || name;
 }
 
-// 添加打字动画
+// 添加打字动画（同一时刻只保留一个）
 function addTyping() {
+  const existing = document.getElementById('typing-indicator');
+  if (existing) return existing.id;
+
   const messages = document.getElementById('messages');
   const div = document.createElement('div');
   div.className = 'message assistant';
@@ -2674,7 +2568,7 @@ function addTyping() {
     <div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div>
   `;
   messages.appendChild(div);
-  messages.scrollTop = messages.scrollHeight;
+  scrollChatToBottom(true);
   return div.id;
 }
 
@@ -2836,7 +2730,7 @@ function renderWorkflowErrorCard(data) {
 function clearChat() {
   const messages = document.getElementById('messages');
   messages.innerHTML = '';
-  document.getElementById('welcome').classList.remove('hidden');
+  renderWelcomeHome(AGENT_INFO[currentAgentId] || AGENT_INFO.lingxi);
 }
 
 // 切换下拉菜单
@@ -2854,18 +2748,21 @@ document.addEventListener('click', (e) => {
 });
 
 // 显示设置
-function showSettings() {
-  alert('设置功能开发中...');
+async function showSettings() {
+  await uiAlert('设置功能开发中...');
 }
 
 // 显示关于
-function showAbout() {
-  alert('灵犀云 v1.0\n\n你的 AI 团队，一键拥有');
+async function showAbout() {
+  await uiAlert('你的 AI 团队，一键拥有\n\n浙ICP备2026013667号-2A', {
+    title: 'Lume v1.0',
+    confirmText: '好的',
+  });
 }
 
 // 退出登录
-function logout() {
-  if (confirm('确定要退出登录吗？')) {
+async function logout() {
+  if (await uiConfirm('退出后需要重新登录才能继续使用。', { title: '退出登录', confirmText: '退出', cancelText: '取消', danger: true })) {
     localStorage.removeItem('lingxi_token');
     localStorage.removeItem('lingxi_user');
     window.location.href = 'index.html';
@@ -3087,11 +2984,11 @@ async function addAgent(agentId) {
       initAgentDropdown();
       console.log('成员添加成功:', agentId);
     } else {
-      alert('添加失败：' + (data.error || '未知错误'));
+      await uiAlert('添加失败：' + (data.error || '未知错误'));
     }
   } catch (e) {
     console.error('添加成员失败:', e);
-    alert('网络错误：' + e.message);
+    await uiAlert('网络错误：' + e.message);
   }
 }
 
@@ -3103,16 +3000,16 @@ async function removeAgent(agentId) {
   // 不允许删除默认成员（灵犀）
   const member = user.team.members.find(m => m.id === agentId);
   if (!member) {
-    alert('成员不存在');
+    await uiAlert('成员不存在');
     return;
   }
   
   if (member.isDefault) {
-    alert('不能删除默认成员');
+    await uiAlert('不能删除默认成员');
     return;
   }
 
-  if (!confirm(`确定要移除 ${member.name} 吗？`)) return;
+  if (!await uiConfirm(`将从团队中移除「${member.name}」。`, { title: '移除成员', confirmText: '移除', cancelText: '取消', danger: true })) return;
 
   try {
     const res = await fetch(`${API_BASE}/api/team/${user.id}/members/${agentId}`, {
@@ -3136,11 +3033,11 @@ async function removeAgent(agentId) {
       initAgentDropdown();
       console.log('成员移除成功:', agentId);
     } else {
-      alert('移除失败：' + (data.error || '未知错误'));
+      await uiAlert('移除失败：' + (data.error || '未知错误'));
     }
   } catch (e) {
     console.error('移除成员失败:', e);
-    alert('网络错误：' + e.message);
+    await uiAlert('网络错误：' + e.message);
   }
 }
 
@@ -3232,7 +3129,7 @@ async function showTemplateDetail(templateId) {
     }
   } catch (e) {
     console.error('加载模板详情失败:', e);
-    alert('加载模板详情失败');
+    await uiAlert('加载模板详情失败');
   }
 }
 
@@ -3301,7 +3198,7 @@ function closeTemplateDetailModal() {
 // 确认应用模板
 async function confirmApplyTemplate() {
   if (!selectedTemplate || !user) {
-    alert('请先选择模板');
+    await uiAlert('请先选择模板');
     return;
   }
   
@@ -3343,13 +3240,13 @@ async function confirmApplyTemplate() {
       
       console.log('模板应用成功:', templateId);
     } else {
-      alert('应用失败: ' + (data.error || '未知错误'));
+      await uiAlert('应用失败: ' + (data.error || '未知错误'));
     }
   } catch (e) {
     console.error('应用模板失败:', e);
     console.error('异常堆栈:', e.stack);
     console.error('selectedTemplate:', selectedTemplate);
-    alert('网络错误：' + e.message);
+    await uiAlert('网络错误：' + e.message);
   } finally {
     btn.disabled = false;
     btn.textContent = '应用此模板';
@@ -3403,14 +3300,14 @@ function closeSessionModal() {
 // ═══════════════════════════════════════════════════════════════
 // ⚙️ 配置模块
 // ═══════════════════════════════════════════════════════════════
-function showFeishuConfig() {
+async function showFeishuConfig() {
   const dropdown = document.getElementById('userDropdown');
   if (dropdown) dropdown.classList.remove('show');
   const userMenu = document.getElementById('sidebarUserMenu');
   if (userMenu) userMenu.classList.remove('show');
 
   if (!user || !user.id) {
-    alert('请先登录');
+    await uiAlert('请先登录');
     return;
   }
 
@@ -3453,7 +3350,7 @@ async function saveFeishuConfig(e) {
   const appSecret = document.getElementById('feishuAppSecret').value.trim();
 
   if (!appId || !appSecret) {
-    alert('请填写完整信息');
+    await uiAlert('请填写完整信息');
     return;
   }
 
@@ -3475,15 +3372,15 @@ async function saveFeishuConfig(e) {
     const data = await res.json();
 
     if (data.success) {
-      alert(`飞书配置成功！\n\n请在飞书开放平台配置：\n1. 进入应用管理 → 事件订阅\n2. 选择 WebSocket 连接方式\n3. 订阅事件：im.message.receive_v1\n4. 点击"保存"\n\n配置完成后即可在飞书里与机器人对话！`);
+      await uiAlert(`飞书配置成功！\n\n请在飞书开放平台配置：\n1. 进入应用管理 → 事件订阅\n2. 选择 WebSocket 连接方式\n3. 订阅事件：im.message.receive_v1\n4. 点击"保存"\n\n配置完成后即可在飞书里与机器人对话！`);
 
       loadFeishuStatus();
       closeFeishuModal(); // 关闭弹窗
     } else {
-      alert('配置失败: ' + (data.error || '未知错误'));
+      await uiAlert('配置失败: ' + (data.error || '未知错误'));
     }
   } catch (e) {
-    alert('网络错误: ' + e.message);
+    await uiAlert('网络错误: ' + e.message);
   }
 }
 
@@ -3491,19 +3388,20 @@ function copyFeishuWebhook() {
   const input = document.getElementById('feishuWebhookUrl');
   input.select();
   document.execCommand('copy');
-  alert('已复制到剪贴板');
+  if (typeof showLumeToast === 'function') showLumeToast('已复制到剪贴板', 'success');
+  else uiAlert('已复制到剪贴板');
 }
 
 // ===== 企业微信配置 =====
 
-function showWecomConfig() {
+async function showWecomConfig() {
   const dropdown = document.getElementById('userDropdown');
   if (dropdown) dropdown.classList.remove('show');
   const userMenu = document.getElementById('sidebarUserMenu');
   if (userMenu) userMenu.classList.remove('show');
 
   if (!user || !user.id) {
-    alert('请先登录');
+    await uiAlert('请先登录');
     return;
   }
 
@@ -3548,7 +3446,7 @@ async function saveWecomConfig(e) {
   const encodingAesKey = document.getElementById('wecomEncodingAesKey')?.value.trim() || '';
 
   if (!corpId || !agentId || !agentSecret) {
-    alert('请填写完整信息');
+    await uiAlert('请填写完整信息');
     return;
   }
 
@@ -3573,14 +3471,14 @@ async function saveWecomConfig(e) {
 
     if (data.success) {
       const callbackInfo = data.webhook ? `\n\n请配置回调地址：\n${data.webhook.callbackUrl}` : '';
-      alert('企业微信配置成功！' + callbackInfo);
+      await uiAlert('企业微信配置成功！' + callbackInfo);
       loadWecomStatus();
       closeWecomModal();
     } else {
-      alert('配置失败: ' + (data.error || '未知错误'));
+      await uiAlert('配置失败: ' + (data.error || '未知错误'));
     }
   } catch (e) {
-    alert('网络错误: ' + e.message);
+    await uiAlert('网络错误: ' + e.message);
   }
 }
 
@@ -3588,7 +3486,8 @@ function copyWecomWebhook() {
   const input = document.getElementById('wecomWebhookUrl');
   input.select();
   document.execCommand('copy');
-  alert('已复制到剪贴板');
+  if (typeof showLumeToast === 'function') showLumeToast('已复制到剪贴板', 'success');
+  else uiAlert('已复制到剪贴板');
 }
 
 // ===== 修改密码 =====
@@ -3614,12 +3513,12 @@ async function changePassword(e) {
   const confirmPwd = document.getElementById('confirmPassword').value;
 
   if (newPwd !== confirmPwd) {
-    alert('两次输入的新密码不一致');
+    await uiAlert('两次输入的新密码不一致');
     return;
   }
 
   if (newPwd.length < 6) {
-    alert('新密码至少6位');
+    await uiAlert('新密码至少6位');
     return;
   }
 
@@ -3639,13 +3538,13 @@ async function changePassword(e) {
     const data = await res.json();
 
     if (data.success) {
-      alert('密码修改成功！');
+      await uiAlert('密码修改成功！');
       closePasswordModal();
     } else {
-      alert('修改失败: ' + (data.error || '未知错误'));
+      await uiAlert('修改失败: ' + (data.error || '未知错误'));
     }
   } catch (e) {
-    alert('网络错误: ' + e.message);
+    await uiAlert('网络错误: ' + e.message);
   }
 }
 
@@ -3690,12 +3589,11 @@ function escapeHtmlBasic(text) {
 
 // 复制气泡内容
 function copyBubble(btn) {
-  const bubble = btn.closest('.bubble');
+  const message = btn.closest('.message');
+  const bubble = message?.querySelector('.bubble') || btn.closest('.bubble');
   if (!bubble) return;
-  // 提取纯文本（去掉 HTML 标签）
   const clone = bubble.cloneNode(true);
-  // 移除不需要复制的元素
-  clone.querySelectorAll('.bubble-copy-btn, .bubble-meta').forEach(el => el.remove());
+  clone.querySelectorAll('.bubble-actions, .bubble-copy-btn, .bubble-action-btn, .bubble-meta').forEach((el) => el.remove());
   const text = clone.textContent || clone.innerText || '';
   navigator.clipboard.writeText(text.trim()).then(() => {
     btn.classList.add('copied');
@@ -3731,7 +3629,7 @@ try {
   console.log('页面初始化完成');
 } catch (e) {
   console.error('页面初始化失败:', e);
-  alert('页面初始化失败: ' + e.message);
+  uiAlert('页面初始化失败: ' + e.message);
 }
 
 // ==================== Agent 切换功能 ====================
@@ -3916,10 +3814,10 @@ async function applyRecommendation() {
       // 跳转到完成步骤
       goToOnboardingStep(4);
     } else {
-      alert('配置失败: ' + (data.error || '未知错误'));
+      await uiAlert('配置失败: ' + (data.error || '未知错误'));
     }
   } catch (e) {
-    alert('网络错误: ' + e.message);
+    await uiAlert('网络错误: ' + e.message);
   }
 
   btn.disabled = false;
@@ -3952,6 +3850,7 @@ function startChat() {
 
 function toggleAgentDropdown() {
   const dropdown = document.getElementById('agentDropdown');
+  if (!dropdown) return;
   dropdown.classList.toggle('show');
 
   // 点击其他地方关闭
@@ -4015,12 +3914,8 @@ async function switchAgent(agentId) {
   const previousAgentId = currentAgentId;
   currentAgentId = agentId;
 
-  // 从完整的 AGENT_INFO 获取信息
-  const agent = AGENT_INFO[agentId];
-  if (!agent) {
-    console.error('找不到 Agent:', agentId);
-    return;
-  }
+  // 从 agent 元数据获取信息（支持 OpenClaw 动态成员）
+  const agent = resolveAgentInfo(agentId);
 
   // 更新导航栏图标
   const iconEl = document.getElementById('currentAgentIcon');
@@ -4051,7 +3946,7 @@ async function switchAgent(agentId) {
   }
 
   // 切换到该 session
-  currentSessionKey = targetSessionKey;
+  syncCurrentSessionKey(targetSessionKey);
 
   // 清空当前消息区域
   const messages = document.getElementById('messages');
@@ -4072,64 +3967,34 @@ async function switchAgent(agentId) {
   if (typeof loadSidebarSessions === 'function') {
     loadSidebarSessions();
   }
+
+  renderTeamDrawer();
+  updateScrollContextBar();
 }
 
 // 创建 agent 专属 session
 async function createAgentSession(sessionKey, agentName) {
-  if (!ws || ws.readyState !== WebSocket.OPEN) {
-    console.warn('WebSocket 未连接，无法创建 session');
-    return false;
-  }
-
   try {
-    const res = await new Promise((resolve, reject) => {
-      const id = `req_${requestId++}`;
-      const timeout = setTimeout(() => {
-        reject(new Error('timeout'));
-      }, 10000);
-
-      const handler = async (event) => {
-        try {
-          const text = typeof event.data === "string" ? event.data : await event.data.text();
-          const data = JSON.parse(text);
-          if (data.id === id) {
-            clearTimeout(timeout);
-            ws.removeEventListener('message', handler);
-            resolve(data);
-          }
-        } catch (e) {}
-      };
-
-      ws.addEventListener('message', handler);
-
-      ws.send(JSON.stringify({
-        type: 'req',
-        id,
-        method: 'sessions.create',
-        params: {
-          key: sessionKey,
-          label: agentName,  // 使用 agent 名称作为会话标题
-          mode: 'session'
-        }
-      }));
-    });
-
-    if (res.ok) {
+    // 通过 Lume RPC 创建 session
+    if (window.USE_LUME && typeof LumeRpc !== 'undefined' && LumeRpc.isConnected()) {
+      await LumeRpc.sendRequest('sessions.create', {
+        key: sessionKey,
+        label: agentName,
+        mode: 'session'
+      });
       console.log('Agent session 创建成功:', sessionKey);
-      // 添加到本地列表
-      if (!window.sessions) window.sessions = [];
-      if (!window.sessions.find(s => s.key === sessionKey)) {
-        window.sessions.push({
-          key: sessionKey,
-          label: agentName,
-          updatedAt: new Date().toISOString()
-        });
-      }
-      return true;
-    } else {
-      console.error('创建 session 失败:', res.error);
-      return false;
     }
+
+    // 添加到本地列表
+    if (!window.sessions) window.sessions = [];
+    if (!window.sessions.find(s => s.key === sessionKey)) {
+      window.sessions.push({
+        key: sessionKey,
+        label: agentName,
+        updatedAt: new Date().toISOString()
+      });
+    }
+    return true;
   } catch (e) {
     console.error('创建 session 异常:', e);
     return false;
@@ -4138,44 +4003,14 @@ async function createAgentSession(sessionKey, agentName) {
 
 // 更新欢迎界面为指定 Agent
 function updateWelcomeForAgent(agentId) {
-  const agentInfo = AGENT_INFO[agentId];
+  const agentInfo = resolveAgentInfo(agentId);
   if (!agentInfo) return;
-
-  const container = document.getElementById('messages');
-  container.innerHTML = '';
-
-  const examplesHtml = (agentInfo.examples || []).map(ex => `
-    <div class="welcome-example" onclick="sendWelcomeExample('${ex.text.replace(/'/g, "\\'").replace(/\n/g, '\\n')}')">
-      <span class="example-text">${ex.text}</span>
-      <span class="example-tag">${ex.desc}</span>
-    </div>
-  `).join('');
-
-  container.innerHTML = `
-    <div class="welcome" id="welcome">
-      <div class="welcome-icon">${agentIcon(agentInfo, 'lg')}</div>
-      <div class="welcome-title">${agentInfo.name}</div>
-      <div class="welcome-desc">${agentInfo.desc}</div>
-      ${examplesHtml ? `
-        <div class="welcome-examples">
-          <div class="welcome-examples-title">试试这些</div>
-          <div class="welcome-examples-list">${examplesHtml}</div>
-        </div>
-      ` : ''}
-    </div>
-  `;
-
-  // 重新渲染 Lucide 图标
-  if (window.lucide) lucide.createIcons();
+  renderWelcomeHome(agentInfo);
 }
 
 // 从欢迎界面发送示例
 function sendWelcomeExample(text) {
-  // 隐藏欢迎界面
-  const welcome = document.getElementById('welcome');
-  if (welcome) {
-    welcome.classList.add('hidden');
-  }
+  hideWelcomeHome();
 
   // 填入并发送
   const input = document.getElementById('inputField');
@@ -4262,7 +4097,7 @@ async function loadSkillLibrary() {
 
   } catch (e) {
     console.error('加载技能库失败:', e);
-    alert('加载技能库失败，请稍后重试');
+    await uiAlert('加载技能库失败，请稍后重试');
   }
 }
 
@@ -4895,6 +4730,13 @@ function initAgentDropdown() {
 
 // 显示使用量统计弹窗
 
+window.setSidebarCreditsDisplay = setSidebarCreditsDisplay;
+window.renderWelcomeHome = renderWelcomeHome;
+window.hideWelcomeHome = hideWelcomeHome;
+window.isMobileChatUi = isMobileChatUi;
+window.resolveInitialSession = resolveInitialSession;
+window.updateMobileSessionsState = updateMobileSessionsState;
+
 // 刷新侧边栏积分显示
 async function refreshSidebarCredits() {
   try {
@@ -4908,15 +4750,18 @@ async function refreshSidebarCredits() {
     console.log('📊 积分API返回:', result);
 
     if (result.success && result.data) {
-      const creditsEl = document.getElementById('sidebarUserCredits');
-      if (creditsEl) {
-        creditsEl.textContent = `💎 ${result.data.total}`;
-        console.log('侧边栏积分已更新:', result.data.total);
-      }
+      setSidebarCreditsDisplay(result.data.total);
+      console.log('侧边栏积分已更新:', result.data.total);
+      return;
     }
   } catch (e) {
     console.error('刷新积分失败:', e);
   }
+  // 回退：使用 /me 中的 points（邀请积分体系）
+  try {
+    const user = JSON.parse(localStorage.getItem('lingxi_user') || '{}');
+    if (user.points) setSidebarCreditsDisplay(user.points);
+  } catch (_) {}
 }
 
 async function showUsageStats() {
@@ -5101,10 +4946,10 @@ function initVoiceRecognition() {
   };
 
   // 错误处理
-  recognition.onerror = (event) => {
+  recognition.onerror = async (event) => {
     console.error('[语音] 识别错误:', event.error);
     if (event.error === 'not-allowed') {
-      alert('请允许浏览器访问麦克风');
+      await uiAlert('请允许浏览器访问麦克风');
     } else if (event.error === 'no-speech') {
       console.log('[语音] 未检测到语音');
     }
@@ -5152,9 +4997,9 @@ function initVoiceRecognition() {
 }
 
 // 切换录音状态（改为按住说话模式）
-function toggleVoiceInput() {
+async function toggleVoiceInput() {
   if (!recognition) {
-    alert('您的浏览器不支持语音识别，请使用 Chrome、Edge 或 Safari 浏览器');
+    await uiAlert('您的浏览器不支持语音识别，请使用 Chrome、Edge 或 Safari 浏览器');
     return;
   }
 
@@ -5294,24 +5139,26 @@ document.addEventListener('DOMContentLoaded', () => {
 // 更新输入框右侧按钮显示（豆包风格：有文字显示发送，无文字显示麦克风+上传）
 function updateInputButtons() {
   const inputField = document.getElementById('inputField');
-  const inputRightBtns = document.getElementById('inputRightBtns');
   const sendBtn = document.getElementById('sendBtn');
+  if (!inputField || !sendBtn) return;
 
-  if (!inputField || !inputRightBtns || !sendBtn) return;
-
+  const inputRightBtns = document.getElementById('inputRightBtns');
   const hasText = inputField.value.trim().length > 0;
   const hasImage = document.getElementById('imagePreviewContainer')?.classList.contains('show');
+  const hasTags = (document.getElementById('skillTagsArea')?.children.length || 0) > 0;
+  const canSend = hasText || hasImage || hasTags;
 
-  if (hasText || hasImage) {
-    // 有文字或图片：显示发送按钮，隐藏麦克风+上传
-    inputRightBtns.classList.add('hidden');
+  if (canSend) {
     sendBtn.classList.remove('hidden');
+    sendBtn.disabled = false;
+    if (inputRightBtns) inputRightBtns.classList.add('hidden');
   } else {
-    // 无文字且无图片：显示麦克风+上传，隐藏发送按钮
-    inputRightBtns.classList.remove('hidden');
     sendBtn.classList.add('hidden');
+    if (inputRightBtns) inputRightBtns.classList.remove('hidden');
   }
 }
+
+window.updateInputButtons = updateInputButtons;
 
 // 拍照功能（调用摄像头）
 async function handleCameraCapture() {
@@ -5334,7 +5181,7 @@ async function handleCameraCapture() {
     input.click();
   } catch (error) {
     console.error('打开摄像头失败:', error);
-    alert('无法打开摄像头，请检查权限设置');
+    await uiAlert('无法打开摄像头，请检查权限设置');
   }
 }
 
@@ -5362,14 +5209,18 @@ async function loadNotificationUnreadCount() {
 
 /** 更新铃铛上的 badge */
 function updateNotificationBadge() {
-  const badge = document.getElementById('notificationBadge');
-  if (!badge) return;
-  if (_notificationUnreadCount > 0) {
-    badge.textContent = _notificationUnreadCount > 9 ? '9+' : _notificationUnreadCount;
-    badge.style.display = '';
-  } else {
-    badge.style.display = 'none';
-  }
+  const text = _notificationUnreadCount > 9 ? '9+' : String(_notificationUnreadCount);
+  const show = _notificationUnreadCount > 0;
+  ['notificationBadge', 'mobileNotificationBadge'].forEach((id) => {
+    const badge = document.getElementById(id);
+    if (!badge) return;
+    if (show) {
+      badge.textContent = text;
+      badge.style.display = '';
+    } else {
+      badge.style.display = 'none';
+    }
+  });
 }
 
 /** 切换通知面板显示/隐藏 */
@@ -5536,12 +5387,22 @@ function escapeHtml(str) {
 document.addEventListener('click', (e) => {
   const panel = document.getElementById('notificationPanel');
   const bell = document.getElementById('notificationBell');
-  if (panel && panel.style.display !== 'none' && !panel.contains(e.target) && !bell?.contains(e.target)) {
+  const railNotif = document.getElementById('railNotifBtn');
+  if (panel && panel.style.display !== 'none' && !panel.contains(e.target) && !bell?.contains(e.target) && !railNotif?.contains(e.target)) {
     panel.style.display = 'none';
   }
 });
 
 // 导出函数
+window.openFileExplorerFromNav = openFileExplorerFromNav;
+window.toggleTeamDrawer = toggleTeamDrawer;
+window.toggleRightSidebar = toggleRightSidebar;
+window.initTeamDrawer = initTeamDrawer;
+window.initRightSidebar = initRightSidebar;
+window.updateRightSidebarToggleUi = updateRightSidebarToggleUi;
+window.updateScrollContextBar = updateScrollContextBar;
+window.switchAgentFromDrawer = switchAgentFromDrawer;
+window.sendFromTeamDrawer = sendFromTeamDrawer;
 window.toggleNotificationPanel = toggleNotificationPanel;
 window.markAllNotificationsRead = markAllNotificationsRead;
 window.markNotificationRead = markNotificationRead;
@@ -5564,6 +5425,9 @@ function updateUserBadge() {
 
   badgeEl.textContent = planNames[plan] || 'FREE';
   badgeEl.className = `sidebar-user-badge ${plan}`;
+  if (plan === 'free') {
+    badgeEl.textContent = '';
+  }
 
   // 更新头像文字
   const avatarEl = document.getElementById('sidebarUserAvatar');

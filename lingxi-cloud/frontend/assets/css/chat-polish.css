@@ -22,7 +22,7 @@
 }
 
 /* ===== 主舞台 ===== */
-.main-content {
+.main-content { height: 100%;
   background: linear-gradient(165deg, var(--bg) 0%, #ffffff 42%, #fafafa 100%);
   min-height: 0;
 }
@@ -971,7 +971,7 @@ html[data-theme="dark"] body {
 }
 
 body[data-theme="dark"] .main-content,
-html[data-theme="dark"] .main-content {
+html[data-theme="dark"] .main-content { height: 100%;
   background: linear-gradient(165deg, #111111 0%, #1a1a1a 50%, #141414 100%);
 }
 

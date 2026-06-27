@@ -3,9 +3,50 @@
  */
 
 .lume-mark {
-  color: #3d6b62;
+  color: var(--brand-mark, #3d6b62);
   display: block;
   flex-shrink: 0;
+}
+
+/* 圆角徽标容器 — 与 Lume 字标同量级 */
+.lume-mark-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: #f7f4ef;
+  border-radius: 22%;
+  line-height: 0;
+}
+
+.lume-mark-badge--sm {
+  width: 36px;
+  height: 36px;
+}
+
+.lume-mark-badge--sm .lume-mark {
+  width: 26px;
+  height: 26px;
+}
+
+.lume-mark-badge--md {
+  width: 48px;
+  height: 48px;
+}
+
+.lume-mark-badge--md .lume-mark {
+  width: 34px;
+  height: 34px;
+}
+
+.lume-mark-badge--lg {
+  width: 56px;
+  height: 56px;
+}
+
+.lume-mark-badge--lg .lume-mark {
+  width: 40px;
+  height: 40px;
 }
 
 .lume-mark--animate .lume-mark-nest {
