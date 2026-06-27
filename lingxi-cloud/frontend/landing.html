@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>灵犀云 — 你的 AI Agent 团队，一键部署</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/lume-brand.css?v=20260626">
+  <script src="assets/js/lume-brand.js?v=20260626"></script>
+  <style>
+    /* ===== RESET & TOKENS ===== */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg:        #f5f1eb;
+      --bg-card:   #ffffff;
+      --bg-hover:  #f0ede6;
+      --border:    #e5e0d8;
+      --border-focus: #3d6b62;
+
+      --text-1:    #2d3748;
+      --text-2:    #4a5568;
+      --text-3:    #718096;
+      --text-inv:  #ffffff;
+
+      --accent:    #3d6b62;
+      --accent-h:  #2f554d;
+      --accent-soft: rgba(61,107,98,0.08);
+      --accent-ring: rgba(61,107,98,0.14);
+      --accent-gradient: linear-gradient(135deg, #3d6b62 0%, #2f554d 100%);
+
+      --radius:    12px;
+      --radius-sm: 8px;
+      --radius-lg: 16px;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+      --shadow-md: 0 2px 8px rgba(0,0,0,0.06);
+      --shadow-lg: 0 8px 30px rgba(0,0,0,0.08);
+      --shadow-xl: 0 20px 60px rgba(0,0,0,0.12);
+
+      --font-display: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-body:    'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--bg);
+      color: var(--text-1);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ===== NAV ===== */
+    .nav {
+      position: fixed; top: 0; left: 0; right: 0;
+      z-index: 100;
+      padding: 16px 24px;
+      background: rgba(245,241,235,0.9);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(0,0,0,0.04);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .nav-logo {
+      display: flex; align-items: center; gap: 10px;
+      font-family: var(--font-display); font-weight: 700; font-size: 20px; color: var(--text-1);
+    }
+    .nav-links { display: flex; gap: 32px; align-items: center; }
+    .nav-links a {
+      font-size: 14px; font-weight: 500; color: var(--text-2); text-decoration: none;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--accent); }
+    .nav-cta {
+      padding: 10px 22px; font-size: 14px; font-weight: 600;
+      background: var(--accent); color: white; border: none; border-radius: var(--radius-sm);
+      cursor: pointer; transition: background 0.2s, transform 0.15s;
+    }
+    .nav-cta:hover { background: var(--accent-h); transform: translateY(-1px); }
+
+    /* ===== HERO ===== */
+    .hero {
+      min-height: 100vh;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; padding: 120px 24px 80px;
+      position: relative; overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+      background: radial-gradient(circle at 50% 50%, rgba(61,107,98,0.06) 0%, transparent 50%);
+      pointer-events: none;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 8px 18px; background: var(--accent-soft); border-radius: 100px;
+      font-size: 13px; font-weight: 500; color: var(--accent);
+      margin-bottom: 28px; border: 1px solid rgba(61,107,98,0.15);
+    }
+    .hero-badge .dot {
+      width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.8); }
+    }
+    .hero h1 {
+      font-family: var(--font-display); font-size: clamp(40px, 6vw, 72px);
+      font-weight: 700; line-height: 1.1; letter-spacing: -2px;
+      color: var(--text-1); max-width: 800px; margin-bottom: 24px;
+    }
+    .hero h1 .gradient-text {
+      background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero-sub {
+      font-size: 18px; color: var(--text-2); max-width: 560px; line-height: 1.7;
+      margin-bottom: 40px;
+    }
+    .hero-cta-group { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+    .btn-primary {
+      padding: 16px 36px; font-size: 16px; font-weight: 600; font-family: var(--font-display);
+      color: white; background: var(--accent); border: none; border-radius: var(--radius);
+      cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 16px var(--accent-ring);
+    }
+    .btn-primary:hover { background: var(--accent-h); transform: translateY(-2px); box-shadow: 0 6px 24px var(--accent-ring); }
+    .btn-outline {
+      padding: 16px 36px; font-size: 16px; font-weight: 600; font-family: var(--font-display);
+      color: var(--accent); background: transparent; border: 1.5px solid var(--accent);
+      border-radius: var(--radius); cursor: pointer; transition: all 0.2s;
+    }
+    .btn-outline:hover { background: var(--accent-soft); }
+    .hero-scroll {
+      position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      font-size: 12px; color: var(--text-3); letter-spacing: 1px; text-transform: uppercase;
+      animation: bounce 2s ease-in-out infinite;
+    }
+    .hero-scroll .arrow {
+      width: 24px; height: 24px; border-right: 2px solid var(--text-3); border-bottom: 2px solid var(--text-3);
+      transform: rotate(45deg);
+    }
+    @keyframes bounce {
+      0%, 100% { transform: translateX(-50%) translateY(0); }
+      50% { transform: translateX(-50%) translateY(8px); }
+    }
+
+    /* ===== SECTIONS ===== */
+    .section { padding: 100px 24px; max-width: 1200px; margin: 0 auto; }
+    .section-title {
+      font-family: var(--font-display); font-size: clamp(28px, 4vw, 40px);
+      font-weight: 700; text-align: center; margin-bottom: 16px; letter-spacing: -1px;
+    }
+    .section-sub {
+      font-size: 16px; color: var(--text-3); text-align: center; max-width: 600px; margin: 0 auto 60px;
+    }
+
+    /* ===== HOW IT WORKS ===== */
+    .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 32px; }
+    .step-card {
+      background: var(--bg-card); border-radius: var(--radius-lg); padding: 40px 32px;
+      box-shadow: var(--shadow-md); border: 1px solid var(--border); transition: all 0.3s;
+      position: relative; overflow: hidden;
+    }
+    .step-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
+    .step-card::before {
+      content: attr(data-step); position: absolute; top: 20px; right: 24px;
+      font-family: var(--font-display); font-size: 72px; font-weight: 700;
+      color: var(--accent-soft); line-height: 1; z-index: 0;
+    }
+    .step-card .icon {
+      width: 48px; height: 48px; border-radius: var(--radius); background: var(--accent-soft);
+      display: flex; align-items: center; justify-content: center; margin-bottom: 20px;
+      position: relative; z-index: 1;
+    }
+    .step-card .icon svg { width: 24px; height: 24px; color: var(--accent); }
+    .step-card h3 {
+      font-family: var(--font-display); font-size: 20px; font-weight: 600; margin-bottom: 12px;
+      position: relative; z-index: 1;
+    }
+    .step-card p { font-size: 15px; color: var(--text-2); line-height: 1.7; position: relative; z-index: 1; }
+    .step-card .tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; position: relative; z-index: 1; }
+    .step-card .tag {
+      padding: 4px 12px; background: var(--accent-soft); border-radius: 100px;
+      font-size: 12px; font-weight: 500; color: var(--accent);
+    }
+
+    /* ===== AUDIENCE ===== */
+    .audience-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px; }
+    .audience-card {
+      background: var(--bg-card); border-radius: var(--radius-lg); padding: 32px;
+      box-shadow: var(--shadow-sm); border: 1px solid var(--border); text-align: center;
+      transition: all 0.3s;
+    }
+    .audience-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+    .audience-card .avatar {
+      width: 56px; height: 56px; border-radius: 50%; margin: 0 auto 16px;
+      background: var(--accent-soft); display: flex; align-items: center; justify-content: center;
+      font-size: 24px;
+    }
+    .audience-card h3 { font-family: var(--font-display); font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+    .audience-card p { font-size: 14px; color: var(--text-2); line-height: 1.6; }
+    .audience-card .quote {
+      margin-top: 12px; padding: 12px 16px; background: var(--bg); border-radius: var(--radius-sm);
+      font-size: 13px; color: var(--text-3); font-style: italic;
+    }
+
+    /* ===== FEATURES ===== */
+    .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; }
+    .feature-card {
+      background: var(--bg-card); border-radius: var(--radius-lg); padding: 32px;
+      box-shadow: var(--shadow-sm); border: 1px solid var(--border); transition: all 0.3s;
+    }
+    .feature-card:hover { box-shadow: var(--shadow-md); border-color: var(--accent); }
+    .feature-card .icon {
+      width: 44px; height: 44px; border-radius: var(--radius-sm); background: var(--accent-soft);
+      display: flex; align-items: center; justify-content: center; margin-bottom: 16px;
+    }
+    .feature-card .icon svg { width: 22px; height: 22px; color: var(--accent); }
+    .feature-card h3 { font-family: var(--font-display); font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+    .feature-card p { font-size: 14px; color: var(--text-2); line-height: 1.6; }
+
+    /* ===== COMPARISON ===== */
+    .comparison { background: var(--bg-card); border-radius: var(--radius-lg); padding: 48px; box-shadow: var(--shadow-md); }
+    .comparison-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; }
+    .comparison-col h3 {
+      font-family: var(--font-display); font-size: 18px; font-weight: 600; margin-bottom: 24px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .comparison-col .check { color: #43e97b; font-weight: 700; }
+    .comparison-col .cross { color: #f5576c; font-weight: 700; }
+    .comparison-col ul { list-style: none; }
+    .comparison-col li {
+      padding: 12px 0; border-bottom: 1px solid var(--border); font-size: 15px; color: var(--text-2);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .comparison-col li:last-child { border-bottom: none; }
+    .vs-divider {
+      position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      width: 48px; height: 48px; border-radius: 50%; background: var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      color: white; font-family: var(--font-display); font-weight: 700; font-size: 14px;
+      box-shadow: 0 4px 16px var(--accent-ring);
+    }
+    .comparison-wrapper { position: relative; }
+
+    /* ===== STATS ===== */
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
+    .stat-card {
+      text-align: center; padding: 32px; background: var(--bg-card);
+      border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); border: 1px solid var(--border);
+    }
+    .stat-card .number {
+      font-family: var(--font-display); font-size: 48px; font-weight: 700;
+      background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text; line-height: 1;
+    }
+    .stat-card .label { font-size: 14px; color: var(--text-3); margin-top: 8px; }
+
+    /* ===== PRICING ===== */
+    .pricing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px; }
+    .pricing-card {
+      background: var(--bg-card); border-radius: var(--radius-lg); padding: 40px 32px;
+      box-shadow: var(--shadow-sm); border: 1px solid var(--border); text-align: center;
+      transition: all 0.3s; position: relative;
+    }
+    .pricing-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+    .pricing-card.popular { border: 2px solid var(--accent); box-shadow: var(--shadow-md); }
+    .pricing-card .popular-badge {
+      position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+      padding: 6px 16px; background: var(--accent); color: white;
+      font-size: 12px; font-weight: 600; border-radius: 100px;
+    }
+    .pricing-card h3 { font-family: var(--font-display); font-size: 20px; font-weight: 600; margin-bottom: 8px; }
+    .pricing-card .price {
+      font-family: var(--font-display); font-size: 48px; font-weight: 700; color: var(--text-1); line-height: 1;
+    }
+    .pricing-card .price span { font-size: 16px; font-weight: 400; color: var(--text-3); }
+    .pricing-card .period { font-size: 14px; color: var(--text-3); margin: 8px 0 24px; }
+    .pricing-card ul { list-style: none; text-align: left; margin-bottom: 28px; }
+    .pricing-card li {
+      padding: 8px 0; font-size: 14px; color: var(--text-2); display: flex; align-items: center; gap: 8px;
+    }
+    .pricing-card li svg { width: 16px; height: 16px; color: var(--accent); flex-shrink: 0; }
+
+    /* ===== FOOTER CTA ===== */
+    .footer-cta {
+      background: var(--accent-gradient); border-radius: var(--radius-lg);
+      padding: 80px 24px; text-align: center; margin: 0 24px 40px; max-width: 1200px;
+    }
+    .footer-cta h2 {
+      font-family: var(--font-display); font-size: clamp(28px, 4vw, 48px);
+      font-weight: 700; color: white; margin-bottom: 16px; letter-spacing: -1px;
+    }
+    .footer-cta p { font-size: 18px; color: rgba(255,255,255,0.8); margin-bottom: 32px; max-width: 500px; margin-left: auto; margin-right: auto; }
+    .footer-cta .btn-white {
+      padding: 16px 40px; font-size: 16px; font-weight: 600; font-family: var(--font-display);
+      color: var(--accent); background: white; border: none; border-radius: var(--radius);
+      cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    }
+    .footer-cta .btn-white:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(0,0,0,0.2); }
+
+    /* ===== FOOTER ===== */
+    .footer {
+      text-align: center; padding: 40px 24px; font-size: 13px; color: var(--text-3);
+    }
+    .footer a { color: var(--accent); text-decoration: none; }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 768px) {
+      .nav-links { display: none; }
+      .hero h1 { font-size: 36px; }
+      .comparison-grid { grid-template-columns: 1fr; }
+      .vs-divider { display: none; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .footer-cta { margin: 0 16px 24px; padding: 60px 20px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav class="nav">
+    <div class="nav-logo">
+      <span data-lume-mark="32"></span>
+      <span>Lume</span>
+    </div>
+    <div class="nav-links">
+      <a href="#how">工作原理</a>
+      <a href="#features">功能</a>
+      <a href="#pricing">定价</a>
+      <button class="nav-cta">立即开始</button>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-badge">
+      <span class="dot"></span>
+      AI Agent 团队管理平台
+    </div>
+    <h1>你的 <span class="gradient-text">AI Agent 团队</span><br>一键部署</h1>
+    <p class="hero-sub">
+      OpenClaw 是最强大的开源 AI 框架 —— 但管理多个 Agent、技能和服务器需要大量时间。
+      灵犀云帮你统一管理，让 AI 团队协作像聊天一样简单。
+    </p>
+    <div class="hero-cta-group">
+      <button class="btn-primary">免费开始</button>
+      <button class="btn-outline">查看演示</button>
+    </div>
+    <div class="hero-scroll">
+      <span>向下滚动</span>
+      <div class="arrow"></div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section class="section" id="how">
+    <h2 class="section-title">灵犀云如何工作</h2>
+    <p class="section-sub">三步搞定你的 AI Agent 团队</p>
+    <div class="steps">
+      <div class="step-card" data-step="1">
+        <div class="icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        </div>
+        <h3>连接你的 OpenClaw 服务器</h3>
+        <p>一键绑定你的 OpenClaw 实例。支持本地、VPS、Tailscale 等多种部署方式。自动检测服务器状态。</p>
+        <div class="tags">
+          <span class="tag">本地部署</span>
+          <span class="tag">VPS</span>
+          <span class="tag">Tailscale</span>
+        </div>
+      </div>
+      <div class="step-card" data-step="2">
+        <div class="icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <h3>创建并配置你的 Agent 团队</h3>
+        <p>为不同任务创建专属 Agent —— 开发、运维、文案、数据分析。每个 Agent 独立配置模型、技能和权限。</p>
+        <div class="tags">
+          <span class="tag">多 Agent</span>
+          <span class="tag">技能模板</span>
+          <span class="tag">权限管理</span>
+        </div>
+      </div>
+      <div class="step-card" data-step="3">
+        <div class="icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <h3>设置定时任务，自动运行</h3>
+        <p>用自然语言创建定时任务。"每天早上 9 点检查服务器状态并报告"。支持 Cron 表达式和一次性任务。</p>
+        <div class="tags">
+          <span class="tag">自然语言</span>
+          <span class="tag">Cron</span>
+          <span class="tag">自动报告</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- AUDIENCE -->
+  <section class="section" id="audience">
+    <h2 class="section-title">谁需要灵犀云</h2>
+    <p class="section-sub">不同角色，同一种效率提升</p>
+    <div class="audience-grid">
+      <div class="audience-card">
+        <div class="avatar">&#128187;</div>
+        <h3>开发者</h3>
+        <p>管理多个项目的 AI 助手，自动代码审查、Bug 追踪、文档生成</p>
+        <div class="quote">"让 AI 帮我 review 代码，省下一半时间"</div>
+      </div>
+      <div class="audience-card">
+        <div class="avatar">&#128200;</div>
+        <h3>运营团队</h3>
+        <p>定时生成数据报表、社媒内容、竞品监控，7x24 小时自动执行</p>
+        <div class="quote">"每天早上自动收到昨日数据总结"</div>
+      </div>
+      <div class="audience-card">
+        <div class="avatar">&#128272;</div>
+        <h3>运维工程师</h3>
+        <p>监控服务器状态、自动告警、定时巡检，问题第一时间通知</p>
+        <div class="quote">"服务器异常 30 秒内收到告警"</div>
+      </div>
+      <div class="audience-card">
+        <div class="avatar">&#128161;</div>
+        <h3>创业者</h3>
+        <p>用 AI 团队替代部分人力，客服、文案、数据分析全自动</p>
+        <div class="quote">"3 个 AI Agent 替代了一个实习生"</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section class="section" id="features">
+    <h2 class="section-title">核心功能</h2>
+    <p class="section-sub">管理 AI Agent 所需的一切</p>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        </div>
+        <h3>服务器管理</h3>
+        <p>统一管理多台 OpenClaw 服务器，实时查看状态、一键重启、远程配置</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        </div>
+        <h3>Agent 工作区</h3>
+        <p>创建、配置、管理多个 AI Agent，每个独立模型、技能、记忆</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <h3>定时任务</h3>
+        <p>自然语言创建 Cron 任务，支持循环、一次性、条件触发</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <h3>统一聊天</h3>
+        <p>在一个界面与所有 Agent 对话，上下文自动切换，历史记录永久保存</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        </div>
+        <h3>技能模板</h3>
+        <p>预置 50+ 技能模板，一键部署。支持自定义技能导入和分享</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <h3>安全可控</h3>
+        <p>AES-256 加密、权限分级、操作审计日志，数据完全由你掌控</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMPARISON -->
+  <section class="section">
+    <h2 class="section-title">有灵犀云 vs 没有</h2>
+    <p class="section-sub">管理 AI Agent 的两种体验</p>
+    <div class="comparison-wrapper">
+      <div class="comparison">
+        <div class="comparison-grid">
+          <div class="comparison-col">
+            <h3><span class="cross">&#10007;</span> 没有灵犀云</h3>
+            <ul>
+              <li><span class="cross">&#10007;</span> 每台服务器单独 SSH 配置</li>
+              <li><span class="cross">&#10007;</span> Agent 配置分散在不同文件</li>
+              <li><span class="cross">&#10007;</span> 定时任务用 crontab 手动编辑</li>
+              <li><span class="cross">&#10007;</span> 多 Agent 对话来回切换窗口</li>
+              <li><span class="cross">&#10007;</span> 技能安装靠复制粘贴</li>
+              <li><span class="cross">&#10007;</span> 服务器状态需要手动检查</li>
+            </ul>
+          </div>
+          <div class="comparison-col">
+            <h3><span class="check">&#10003;</span> 使用灵犀云</h3>
+            <ul>
+              <li><span class="check">&#10003;</span> 一个面板管理所有服务器</li>
+              <li><span class="check">&#10003;</span> Agent 团队可视化配置</li>
+              <li><span class="check">&#10003;</span> 自然语言创建定时任务</li>
+              <li><span class="check">&#10003;</span> 统一聊天界面，上下文保留</li>
+              <li><span class="check">&#10003;</span> 一键安装技能模板</li>
+              <li><span class="check">&#10003;</span> 实时监控 + 自动告警</li>
+            </ul>
+          </div>
+        </div>
+        <div class="vs-divider">VS</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATS -->
+  <section class="section">
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="number">0</div>
+        <div class="label">配置命令行</div>
+      </div>
+      <div class="stat-card">
+        <div class="number">1</div>
+        <div class="label">点击部署</div>
+      </div>
+      <div class="stat-card">
+        <div class="number">50+</div>
+        <div class="label">预置技能</div>
+      </div>
+      <div class="stat-card">
+        <div class="number">15</div>
+        <div class="label">AI 模型</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PRICING -->
+  <section class="section" id="pricing">
+    <h2 class="section-title">简单透明的定价</h2>
+    <p class="section-sub">选择适合你团队的方案，随时升级或降级</p>
+    <div class="pricing-grid">
+      <div class="pricing-card">
+        <h3>免费版</h3>
+        <div class="price">0<span>元</span></div>
+        <div class="period">永久免费</div>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> 1 台服务器</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> 3 个 Agent</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> 基础聊天功能</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> 5 个技能模板</li>
+        </ul>
+        <button class="btn-outline" style="width:100%">免费开始</button>
+      </div>
+      <div class="pricing-card popular">
+        <div class="popular-badge">最受欢迎</div>
+        <h3>专业版</h3>
+        <div class="price">29<span>元</span></div>
+        <div class="period">/ 月</div>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> 5 台服务器</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> 20 个 Agent</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> 所有聊天功能</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> 50+ 技能模板</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> 定时任务 (Cron)</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> 优先支持</li>
+        </ul>
+        <button class="btn-primary" style="width:100%">立即订阅</button>
+      </div>
+      <div class="pricing-card">
+        <h3>团队版</h3>
+        <div class="price">99<span>元</span></div>
+        <div class="period">/ 月</div>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> 无限服务器</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> 无限 Agent</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> 自定义技能导入</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> 多 Agent 编排</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> 团队管理</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> 审计日志</li>
+        </ul>
+        <button class="btn-outline" style="width:100%">联系销售</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER CTA -->
+  <section style="display:flex;justify-content:center;">
+    <div class="footer-cta">
+      <h2>停止配置，开始使用</h2>
+      <p>灵犀云让 AI Agent 管理变得简单。今天就开始构建你的 AI 团队。</p>
+      <button class="btn-white">免费开始</button>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <p>灵犀云 LumeCloud &copy; 2026. 基于 OpenClaw 构建。</p>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" aria-label="Lume B2-4 hex nest plus ring">
+  <path d="M 24 14.5 L 30 18 L 30 26 L 24 29.5 L 18 26 L 18 18 Z" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round" opacity="0.5"/>
+  <path d="M 31.2 12.6 A 16.8 16.8 0 1 1 31.2 35.4" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
+  <path d="M 16.8 35.4 A 16.8 16.8 0 1 1 16.8 12.6" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
+  <circle cx="24" cy="24" r="2.6" fill="currentColor"/>
+  <circle cx="31.8" cy="15.2" r="1.55" fill="currentColor" opacity="0.82"/>
+  <circle cx="16.2" cy="32" r="1.4" fill="currentColor" opacity="0.62"/>
+</svg>

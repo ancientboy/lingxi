@@ -161,6 +161,29 @@ app.use('/api/lumeclaw', lumeclawRoutes);
 import lumeWsRoutes from './routes/lume-ws.js';
 app.use('/api/lume', lumeWsRoutes);
 
+// 健康检查路由
+import healthcheckRoutes from './routes/healthcheck.js';
+app.use('/api/healthcheck', healthcheckRoutes);
+
+// 用户模型列表（前端模型选择器用）
+app.get('/api/user-models', (req, res) => {
+  res.json({
+    availableModels: [
+      { id: 'auto', name: 'Auto', provider: '系统', desc: '智能选择', tier: 'free' },
+      { id: 'glm-cn/glm-5.1', name: 'GLM-5.1', provider: '智谱', desc: '主力', tier: 'pro' },
+      { id: 'gh/gpt-4o', name: 'GPT-4o', provider: 'OpenAI', desc: '经典', tier: 'pro' },
+      { id: 'gh/gpt-4.1', name: 'GPT-4.1', provider: 'OpenAI', desc: '强推理', tier: 'pro' },
+      { id: 'gh/gpt-5-mini', name: 'GPT-5 Mini', provider: 'OpenAI', desc: '快速', tier: 'free' },
+      { id: 'openrouter/openrouter/free', name: 'Free', provider: 'OpenRouter', desc: '免费', tier: 'free' },
+      { id: 'cu/default', name: 'Cursor Auto', provider: 'Cursor', desc: '智能', tier: 'pro' },
+      { id: 'cu/gpt-5.2', name: 'GPT-5.2', provider: 'Cursor', desc: '旗舰', tier: 'pro' },
+      { id: 'cu/claude-4.5-sonnet', name: 'Claude 4.5 Sonnet', provider: 'Cursor', desc: '平衡', tier: 'pro' },
+      { id: 'cu/claude-4.5-opus-high', name: 'Claude 4.5 Opus', provider: 'Cursor', desc: '旗舰', tier: 'pro' },
+      { id: 'cu/claude-4.6-opus-max', name: 'Claude 4.6 Opus Max', provider: 'Cursor', desc: '最强', tier: 'pro' },
+    ]
+  });
+});
+
 // 托管上传的图片
 import { fileURLToPath as fileURLToPath2 } from 'url';
 import { dirname as dirname2, join as join2 } from 'path';

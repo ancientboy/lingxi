@@ -1,0 +1,13 @@
+{
+  "mac": {
+    "version": "1.6.3",
+    "url": "/downloads/Lume-mac.dmg",
+    "github_fallback": "https://github.com/ancientboy/lingxi/releases/latest/download/Lume-mac.dmg",
+    "updated": "2026-06-26T12:00:00Z",
+    "note": "Cursor 风格 Mac 壳层配色：统一白底、SF 字体、无边框输入"
+  },
+  "android": {
+    "version": "1.9.4",
+    "url": "/public/lingxi.apk"
+  }
+}

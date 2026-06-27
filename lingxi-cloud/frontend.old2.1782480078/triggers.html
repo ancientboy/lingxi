@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Triggers — Lume</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23667eea'/><text x='16' y='22' text-anchor='middle' fill='white' font-size='16' font-weight='700'>L</text></svg>">
+  <link rel="stylesheet" href="assets/css/lume.css?v=20260625unify">
+  <link rel="stylesheet" href="assets/css/embed-pages.css?v=20260625b">
+  <script src="assets/js/embed-init.js?v=20260624t"></script>
+  <style>
+    body {
+      font-family: var(--font-body);
+      background: var(--bg);
+      min-height: 100vh;
+      font-size: 14px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      color: var(--text-1);
+    }
+
+    /* ===== Top Bar ===== */
+    .top-bar {
+      position: fixed; top: 0; left: 0; right: 0; height: 44px;
+      background: rgba(255,255,255,0.94); backdrop-filter: blur(12px);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 16px; z-index: 200;
+      border-bottom: 1px solid var(--border-sub);
+    }
+    .top-bar-left { display: flex; align-items: center; gap: 8px; }
+    .back-link {
+      display: flex; align-items: center; gap: 3px; padding: 4px 10px;
+      border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-2);
+      font-size: 12px; text-decoration: none; transition: all var(--transition);
+    }
+    .back-link:hover { background: var(--bg-hover); color: var(--text-1); }
+    .page-title { font-size: 15px; font-weight: 700; color: var(--text-1); font-family: var(--font-display); }
+    .btn {
+      padding: 8px 16px; border: none; border-radius: var(--radius-sm);
+      font-size: 13px; cursor: pointer; font-weight: 500;
+      transition: all var(--transition); font-family: var(--font-display);
+    }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover { background: var(--accent-h); }
+    .btn-outline { background: var(--bg-card); color: var(--accent); border: 1px solid var(--accent); }
+    .btn-outline:hover { background: var(--accent-soft); }
+    .btn-danger { background: var(--bg-card); color: var(--danger); border: 1px solid var(--danger); }
+    .btn-danger:hover { background: var(--danger-soft); }
+    .btn-sm { padding: 4px 10px; font-size: 11px; }
+
+    /* ===== Main Content ===== */
+    .main-content {
+      max-width: 640px; margin: 0 auto;
+      padding: 100px 16px 32px;
+    }
+    .main-content.no-device-bar { padding-top: 60px; }
+
+    /* ===== Device Bar ===== */
+    .device-bar {
+      position: fixed; top: 44px; left: 0; right: 0;
+      background: rgba(255,255,255,0.96); backdrop-filter: blur(12px);
+      padding: 8px 16px; border-bottom: 1px solid var(--border-sub); z-index: 199;
+    }
+    .device-tabs {
+      display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px;
+      -webkit-overflow-scrolling: touch; scrollbar-width: none;
+    }
+    .device-tabs::-webkit-scrollbar { display: none; }
+    .device-tab {
+      padding: 6px 14px; border-radius: var(--radius-sm); font-size: 13px;
+      white-space: nowrap; cursor: pointer; transition: all var(--transition);
+      background: var(--bg-hover); color: var(--text-2); border: 1px solid transparent;
+    }
+    .device-tab:hover { background: var(--accent-soft); color: var(--accent); }
+    .device-tab.active {
+      background: var(--accent); color: #fff; border-color: var(--accent);
+      box-shadow: 0 2px 8px rgba(61,107,98,0.25);
+    }
+
+    /* ===== Trigger Card ===== */
+    .trigger-list { display: flex; flex-direction: column; gap: 10px; }
+
+    .trigger-card {
+      background: var(--bg-card); border-radius: var(--radius); padding: 16px 18px;
+      box-shadow: var(--shadow-sm);
+      border: 2px solid transparent;
+      transition: all var(--transition);
+    }
+    .trigger-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+    .trigger-card.disabled { opacity: 0.6; }
+
+    .trigger-header { display: flex; align-items: flex-start; gap: 12px; }
+    .trigger-info { flex: 1; min-width: 0; }
+    .trigger-name {
+      font-size: 15px; font-weight: 600; color: var(--text-1);
+      margin-bottom: 4px; display: flex; align-items: center; gap: 8px;
+    }
+    .trigger-name-text {
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    .type-badge {
+      font-size: 10px; font-weight: 600; padding: 2px 8px;
+      border-radius: var(--radius-sm); text-transform: uppercase; letter-spacing: 0.5px;
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .type-badge.webhook { background: rgba(59,130,246,0.08); color: var(--info); }
+    .type-badge.github { background: #24292e; color: #fff; }
+
+    .trigger-meta {
+      font-size: 12px; color: var(--text-2); margin-top: 2px;
+    }
+    .trigger-meta span { margin-right: 12px; }
+
+    .trigger-url-row {
+      margin-top: 10px; display: flex; align-items: center; gap: 6px;
+    }
+    .trigger-url {
+      flex: 1; padding: 6px 10px; background: var(--bg);
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      font-size: 11px; color: var(--accent); font-family: 'SF Mono', Menlo, monospace;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .trigger-secret-row {
+      margin-top: 6px; display: flex; align-items: center; gap: 6px;
+    }
+    .trigger-secret {
+      flex: 1; padding: 6px 10px; background: var(--bg);
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      font-size: 11px; color: var(--text-2); font-family: 'SF Mono', Menlo, monospace;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    .trigger-stats {
+      margin-top: 10px; display: flex; gap: 16px;
+      font-size: 12px; color: var(--text-3);
+    }
+    .trigger-stats span { display: flex; align-items: center; gap: 4px; }
+    .trigger-stats svg { width: 12px; height: 12px; }
+
+    .trigger-actions {
+      display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+    }
+
+    /* Toggle Switch */
+    .toggle-switch { position: relative; width: 40px; height: 22px; cursor: pointer; }
+    .toggle-switch input { display: none; }
+    .toggle-slider {
+      position: absolute; inset: 0; background: #ddd;
+      border-radius: 11px; transition: all 0.3s;
+    }
+    .toggle-slider::before {
+      content: ''; position: absolute; width: 16px; height: 16px;
+      border-radius: 50%; background: var(--bg-card); left: 3px; top: 3px;
+      transition: all 0.3s;
+    }
+    .toggle-switch input:checked + .toggle-slider { background: var(--accent); }
+    .toggle-switch input:checked + .toggle-slider::before { transform: translateX(18px); }
+
+    /* Icon Button */
+    .btn-icon {
+      width: 32px; height: 32px; border: none; border-radius: var(--radius-sm);
+      background: transparent; color: var(--text-2);
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: all var(--transition);
+    }
+    .btn-icon:hover { background: var(--bg-hover); color: var(--text-1); }
+    .btn-icon.danger:hover { background: var(--bg-card)5f5; color: var(--danger); }
+    .btn-icon svg { width: 16px; height: 16px; }
+
+    .copy-btn {
+      padding: 4px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+      background: var(--bg-card); color: var(--text-2); font-size: 11px;
+      cursor: pointer; transition: all var(--transition); white-space: nowrap;
+    }
+    .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ===== Empty State ===== */
+    .empty-state {
+      text-align: center; padding: 60px 24px; color: var(--text-3);
+    }
+    .empty-state svg { width: 48px; height: 48px; margin-bottom: 16px; opacity: 0.4; }
+    .empty-state p { font-size: 14px; margin-bottom: 4px; color: var(--text-2); }
+    .empty-state small { font-size: 12px; }
+
+    /* ===== Modal ===== */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);
+      z-index: 500; justify-content: center; align-items: center;
+      padding: 16px;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: white; border-radius: var(--radius-lg);
+      width: 100%; max-width: 520px;
+      max-height: 90vh; overflow-y: auto;
+      box-shadow: var(--shadow-lg)(0,0,0,0.15);
+      animation: modal-in 0.25s ease-out;
+    }
+    @keyframes modal-in { from{opacity:0;transform:scale(0.95) translateY(10px)} to{opacity:1;transform:scale(1) translateY(0)} }
+    .modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 20px 0; margin-bottom: 16px;
+    }
+    .modal-header h3 { font-size: 18px; font-weight: 700; color: var(--text-1); }
+    .modal-close {
+      width: 32px; height: 32px; border: none; border-radius: var(--radius-sm);
+      background: var(--bg-hover); color: var(--text-2); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all var(--transition);
+    }
+    .modal-close:hover { background: #eee; }
+    .modal-close svg { width: 18px; height: 18px; }
+    .modal-body { padding: 0 20px 20px; }
+
+    /* ===== Form ===== */
+    .form-group { margin-bottom: 14px; }
+    .form-label {
+      display: block; font-size: 12px; font-weight: 600;
+      color: var(--text-2); margin-bottom: 6px;
+    }
+    .form-input, .form-textarea, .form-select {
+      width: 100%; padding: 8px 12px;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); color: var(--text-1);
+      font-size: 13px; font-family: var(--font-display);
+      transition: border-color var(--transition); outline: none;
+    }
+    .form-input:focus, .form-textarea:focus, .form-select:focus { border-color: var(--accent); }
+    .form-input::placeholder, .form-textarea::placeholder { color: var(--text-3); }
+    .form-textarea { resize: vertical; min-height: 100px; }
+    .form-select {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 32px;
+    }
+    .form-hint {
+      font-size: 11px; color: var(--text-3); margin-top: 4px; line-height: 1.5;
+    }
+
+    /* Type tabs */
+    .type-tabs {
+      display: flex; gap: 0; background: var(--bg-hover);
+      border-radius: var(--radius-sm); padding: 3px;
+    }
+    .type-tab {
+      flex: 1; padding: 7px 0; text-align: center;
+      font-size: 12px; font-weight: 500; color: var(--text-2);
+      border: none; background: transparent; border-radius: var(--radius-sm);
+      cursor: pointer; transition: all var(--transition);
+    }
+    .type-tab.active { background: var(--accent); color: #fff; font-weight: 600; }
+    .type-tab:hover:not(.active) { color: var(--text-1); }
+
+    .modal-actions {
+      display: flex; gap: 8px; margin-top: 20px;
+    }
+    .modal-actions .btn { flex: 1; }
+
+    /* ===== Toast ===== */
+    .toast-box {
+      position: fixed; top: 52px; right: 12px; z-index: 600;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .toast {
+      padding: 8px 16px; background: var(--bg-card);
+      border: 1px solid rgba(0,0,0,0.06); border-radius: var(--radius-sm);
+      font-size: 13px; color: var(--text-1);
+      box-shadow: var(--shadow-md)(0,0,0,0.1);
+      animation: t-in 0.3s ease-out;
+      max-width: 300px;
+    }
+    .toast.error { border-color: var(--danger); color: var(--danger); }
+    .toast.success { border-color: #43e97b; color: var(--accent); }
+    .toast.out { animation: t-out 0.3s ease-in forwards; }
+    @keyframes t-in { from{transform:translateX(40px);opacity:0} to{transform:translateX(0);opacity:1} }
+    @keyframes t-out { from{transform:translateX(0);opacity:1} to{transform:translateX(40px);opacity:0} }
+
+    /* ===== Confirm Dialog ===== */
+    .confirm-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);
+      z-index: 550; justify-content: center; align-items: center;
+      padding: 16px;
+    }
+    .confirm-overlay.open { display: flex; }
+    .confirm-box {
+      background: white; border-radius: var(--radius-lg); padding: 24px;
+      max-width: 360px; width: 100%; text-align: center;
+      box-shadow: var(--shadow-lg)(0,0,0,0.15);
+      animation: modal-in 0.2s ease-out;
+    }
+    .confirm-box p { margin-bottom: 20px; font-size: 14px; line-height: 1.6; color: var(--text-1); }
+    .confirm-box .modal-actions { justify-content: center; }
+
+    /* ===== Log Modal ===== */
+    .log-list { display: flex; flex-direction: column; gap: 8px; }
+    .log-item {
+      padding: 10px 12px; background: var(--bg);
+      border-radius: var(--radius-sm); border: 1px solid var(--border);
+    }
+    .log-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 4px;
+    }
+    .log-status {
+      font-size: 12px; font-weight: 600;
+      padding: 2px 8px; border-radius: var(--radius-sm);
+    }
+    .log-status.success { background: var(--accent-soft); color: var(--accent); }
+    .log-status.failed { background: var(--bg-card)0f0; color: var(--danger); }
+    .log-time { font-size: 11px; color: var(--text-3); }
+    .log-payload {
+      font-size: 11px; color: var(--text-2); font-family: 'SF Mono', Menlo, monospace;
+      background: var(--bg-card); padding: 6px 8px; border-radius: var(--radius-sm);
+      margin-top: 4px; word-break: break-all; max-height: 80px;
+      overflow-y: auto;
+    }
+    .log-duration { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+    .log-empty { text-align: center; color: var(--text-3); padding: 24px; font-size: 13px; }
+
+    /* ===== Created Info ===== */
+    .created-info {
+      background: var(--accent-soft); border-radius: 10px; padding: 14px;
+      margin-top: 16px; border: 1px solid var(--accent-ring);
+    }
+    .created-info-title {
+      font-size: 13px; font-weight: 600; color: var(--accent);
+      margin-bottom: 8px;
+    }
+    .created-info-row {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+    }
+    .created-info-label {
+      font-size: 11px; color: var(--text-2); min-width: 50px;
+    }
+    .created-info-value {
+      flex: 1; font-size: 12px; color: var(--text-1);
+      font-family: 'SF Mono', Menlo, monospace;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    /* ===== Skeleton ===== */
+    .skeleton-card {
+      background: var(--bg-card); border-radius: var(--radius); padding: 16px 18px; margin-bottom: 10px;
+      box-shadow: var(--shadow-sm)(0,0,0,0.05);
+      animation: shimmer 1.5s infinite;
+    }
+    @keyframes shimmer { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+    /* ===== Responsive ===== */
+    @media (max-width: 480px) {
+      .top-bar { padding: 0 12px; }
+      .main-content { padding: 56px 12px 24px; }
+      .trigger-card { padding: 14px; }
+      .modal { max-width: 100%; }
+    }
+    body.in-iframe .back-link { display: none !important; }
+
+    /* ===== Inline-extracted classes ===== */
+    .skeleton-h100 { height: 100px; }
+    .modal-med { max-width: 560px; }
+    .log-payload-error { color: var(--danger); border-color: #fdd; }
+  </style>
+  <script src="assets/libs/lucide.min.js"></script>
+</head>
+<body class="lume-page">
+
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <div class="top-bar-left">
+      <a href="chat.html" class="back-link">&larr; 返回</a>
+      <span class="page-title">触发器</span>
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="openCreateModal()">+ 新建触发器</button>
+  </div>
+
+  <!-- Device Tabs -->
+  <div class="device-bar hidden" id="deviceBar">
+    <div class="device-tabs" id="deviceTabs"></div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-box" id="toastBox"></div>
+
+  <!-- Confirm Dialog -->
+  <div class="confirm-overlay" id="confirmOverlay">
+    <div class="confirm-box">
+      <p id="confirmText"></p>
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="closeConfirm()">取消</button>
+        <button class="btn btn-danger" id="confirmBtn">删除</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Modal -->
+  <div class="modal-overlay" id="createModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="createModalTitle">新建触发器</h3>
+        <button class="modal-close" onclick="closeCreateModal()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">名称</label>
+          <input type="text" class="form-input" id="triggerName" placeholder="GitHub Issue 通知" maxlength="50">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">类型</label>
+          <div class="type-tabs">
+            <button class="type-tab active" data-type="webhook" onclick="setTriggerType('webhook')">Webhook</button>
+            <button class="type-tab" data-type="github" onclick="setTriggerType('github')">GitHub</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">目标 Agent</label>
+          <select class="form-select" id="triggerAgent">
+            <option value="main">main</option>
+            <option value="coder">coder</option>
+            <option value="ops">ops</option>
+            <option value="inventor">inventor</option>
+            <option value="pm">pm</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Prompt 模板</label>
+          <textarea class="form-textarea" id="triggerPrompt" placeholder="收到 GitHub webhook:&#10;{{payload}}" maxlength="2000"></textarea>
+          <div class="form-hint">可用变量：{{payload}} = 请求体 JSON，{{headers}} = 请求头摘要，{{body}} = 原始请求体</div>
+        </div>
+
+        <div id="createdInfo" class="hidden"></div>
+
+        <div class="modal-actions">
+          <button class="btn btn-outline" onclick="closeCreateModal()">取消</button>
+          <button class="btn btn-primary" id="submitBtn" onclick="createTrigger()">创建</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Log Modal -->
+  <div class="modal-overlay" id="logModal">
+    <div class="modal modal-med">
+      <div class="modal-header">
+        <h3 id="logModalTitle">执行日志</h3>
+        <button class="modal-close" onclick="closeLogModal()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="logModalBody">
+        <div class="log-empty">加载中...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main-content" id="mainContent">
+    <div id="triggerList">
+      <div class="skeleton-card skeleton-h100"></div>
+      <div class="skeleton-card skeleton-h100"></div>
+    </div>
+  </div>
+
+<script>
+// ===== State =====
+var triggers = [];
+var currentType = 'webhook';
+var confirmCallback = null;
+var currentServerId = null;
+
+// ===== Auth =====
+function getToken() {
+  return localStorage.getItem('lingxi_token');
+}
+
+function checkAuth() {
+  var token = getToken();
+  if (!token) {
+    window.location.href = 'index.html';
+    return false;
+  }
+  return true;
+}
+
+function authHeaders() {
+  var token = getToken();
+  return token ? { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
+               : { 'Content-Type': 'application/json' };
+}
+
+// ===== Toast =====
+function showToast(msg, type) {
+  var box = document.getElementById('toastBox');
+  var t = document.createElement('div');
+  t.className = 'toast' + (type ? ' ' + type : '');
+  t.textContent = msg;
+  box.appendChild(t);
+  setTimeout(function() { t.classList.add('out'); setTimeout(function() { t.remove(); }, 300); }, 3000);
+}
+
+// ===== Confirm =====
+function showConfirm(text, btnText, callback) {
+  document.getElementById('confirmText').textContent = text;
+  document.getElementById('confirmBtn').textContent = btnText || '确认';
+  confirmCallback = callback;
+  document.getElementById('confirmOverlay').classList.add('open');
+}
+function closeConfirm() {
+  document.getElementById('confirmOverlay').classList.remove('open');
+  confirmCallback = null;
+}
+document.getElementById('confirmBtn').onclick = function() {
+  if (confirmCallback) confirmCallback();
+  closeConfirm();
+};
+
+// ===== XSS Escape =====
+function escapeHtml(s) {
+  var div = document.createElement('div');
+  div.textContent = s;
+  return div.innerHTML;
+}
+
+// ===== Relative Time =====
+function relativeTime(isoStr) {
+  if (!isoStr) return '-';
+  var now = Date.now();
+  var then = new Date(isoStr).getTime();
+  var diff = now - then;
+  if (diff < 60000) return '刚刚';
+  if (diff < 3600000) return Math.floor(diff / 60000) + ' 分钟前';
+  if (diff < 86400000) return Math.floor(diff / 3600000) + ' 小时前';
+  if (diff < 604800000) return Math.floor(diff / 86400000) + ' 天前';
+  var d = new Date(isoStr);
+  return (d.getMonth()+1) + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+}
+
+// ===== API =====
+async function api(method, path, body) {
+  var opts = { method: method, headers: authHeaders() };
+  var url = '/api/triggers' + path;
+  if (method === 'GET') {
+    var sep = url.indexOf('?') === -1 ? '?' : '&';
+    if (currentServerId) url += sep + 'serverId=' + encodeURIComponent(currentServerId);
+  } else {
+    if (body && typeof body === 'object') {
+      body.serverId = currentServerId;
+    }
+  }
+  if (body) opts.body = JSON.stringify(body);
+  var res = await fetch(url, opts);
+  if (res.status === 401) {
+    localStorage.removeItem('lingxi_token');
+    window.location.href = 'index.html';
+    throw new Error('认证已失效，请重新登录');
+  }
+  var data = await res.json();
+  if (!res.ok) throw new Error(data.error || data.message || '请求失败');
+  if (data.success === false) throw new Error(data.error || '请求失败');
+  return data;
+}
+
+// ===== Device Management =====
+async function loadDevices() {
+  try {
+    var res = await fetch('/api/cron/servers', { headers: authHeaders() });
+    var data = await res.json();
+    if (data.success && data.servers && data.servers.length > 1) {
+      var tabs = document.getElementById('deviceTabs');
+      var bar = document.getElementById('deviceBar');
+      tabs.innerHTML = '';
+      data.servers.forEach(function(s) {
+        var tab = document.createElement('div');
+        tab.className = 'device-tab' + (s.isActive ? ' active' : '');
+        tab.setAttribute('data-server-id', s.id);
+        tab.innerHTML = escapeHtml(s.name || s.ip);
+        tab.onclick = function() {
+          tabs.querySelectorAll('.device-tab').forEach(function(t) { t.classList.remove('active'); });
+          tab.classList.add('active');
+          currentServerId = s.id;
+          loadTriggers();
+        };
+        tabs.appendChild(tab);
+      });
+      currentServerId = data.activeServerId || (data.servers[0] && data.servers[0].id);
+      bar.style.display = 'block';
+      document.getElementById('mainContent').classList.remove('no-device-bar');
+    } else {
+      document.getElementById('deviceBar').style.display = 'none';
+      document.getElementById('mainContent').classList.add('no-device-bar');
+      currentServerId = null;
+    }
+  } catch (e) {
+    document.getElementById('deviceBar').style.display = 'none';
+    document.getElementById('mainContent').classList.add('no-device-bar');
+  }
+}
+
+// ===== Load Triggers =====
+async function loadTriggers() {
+  try {
+    var data = await api('GET', '/list');
+    triggers = data.triggers || [];
+    renderTriggers();
+  } catch (e) {
+    var errMsg = e.message || '';
+    if (errMsg.indexOf('未配置服务器') !== -1) {
+      document.getElementById('triggerList').innerHTML =
+        '<div class="embed-section embed-empty-panel">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="empty-icon-lg"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>' +
+          '<p class="empty-title-lg">需要先配置设备</p>' +
+          '<p class="empty-desc">触发器需要连接到你的 AI 设备才能使用</p>' +
+          '<a href="chat.html" class="btn btn-primary btn-sm empty-action">前往配置</a>' +
+        '</div>';
+    } else {
+      showToast('加载失败: ' + errMsg, 'error');
+      document.getElementById('triggerList').innerHTML =
+        '<div class="empty-state"><p>加载失败</p><small>' + escapeHtml(errMsg) + '</small></div>';
+    }
+  }
+}
+
+// ===== Render Triggers =====
+function renderTriggers() {
+  var list = document.getElementById('triggerList');
+
+  if (triggers.length === 0) {
+    list.innerHTML =
+      '<div class="embed-section embed-empty-panel">' +
+        '<div class="empty-kb-icon">' +
+          '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 16.98l-5 5-5-5"/><path d="M13 2.98l5 5-5 5"/><path d="M8 7l5 5-5 5"/></svg>' +
+        '</div>' +
+        '<h3 class="empty-kb-title">还没有触发器</h3>' +
+        '<p class="empty-kb-desc">触发器让外部事件自动触发 Agent 执行任务</p>' +
+        '<p class="empty-kb-hint">例如：GitHub 新 Issue → Agent 自动分析 | 收到邮件 → Agent 摘要通知</p>' +
+        '<button type="button" onclick="openCreateModal()" class="btn-upload-first">创建第一个触发器</button>' +
+      '</div>';
+    return;
+  }
+
+  var html = '<div class="trigger-list">';
+  for (var i = 0; i < triggers.length; i++) {
+    var t = triggers[i];
+    var enabled = t.enabled !== false;
+    var cls = enabled ? '' : ' disabled';
+    var safeId = escapeHtml(t.triggerId);
+    var safeName = escapeHtml(t.name || '未命名');
+    var typeClass = t.type === 'github' ? 'github' : 'webhook';
+    var typeLabel = t.type === 'github' ? 'GitHub' : 'Webhook';
+
+    html += '<div class="trigger-card' + cls + '" id="card_' + safeId + '">';
+
+    // Header
+    html += '<div class="trigger-header">';
+    html += '<div class="trigger-info">';
+    html += '<div class="trigger-name">';
+    html += '<span class="trigger-name-text">' + safeName + '</span>';
+    html += '<span class="type-badge ' + typeClass + '">' + typeLabel + '</span>';
+    html += '</div>';
+    html += '<div class="trigger-meta">';
+    html += '<span>Agent: ' + escapeHtml(t.targetAgent || '-') + '</span>';
+    html += '</div>';
+    html += '</div>';
+
+    // Actions
+    html += '<div class="trigger-actions">';
+    html += '<label class="toggle-switch"><input type="checkbox"' + (enabled ? ' checked' : '') + ' data-action="toggle" data-id="' + safeId + '"><span class="toggle-slider"></span></label>';
+    html += '<button class="btn-icon" title="测试触发" data-action="test" data-id="' + safeId + '">';
+    html += '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+    html += '</button>';
+    html += '<button class="btn-icon" title="查看日志" data-action="logs" data-id="' + safeId + '" data-name="' + safeName + '">';
+    html += '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>';
+    html += '</button>';
+    html += '<button class="btn-icon danger" title="删除" data-action="remove" data-id="' + safeId + '" data-name="' + safeName + '">';
+    html += '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+    html += '</button>';
+    html += '</div>';
+    html += '</div>'; // trigger-header
+
+    // URL row
+    html += '<div class="trigger-url-row">';
+    html += '<div class="trigger-url">' + escapeHtml(t.webhookUrl || '') + '</div>';
+    html += '<button class="copy-btn" data-action="copy-url" data-url="' + escapeHtml(t.webhookUrl || '') + '">复制 URL</button>';
+    html += '</div>';
+
+    // Secret row
+    html += '<div class="trigger-secret-row">';
+    html += '<div class="trigger-secret" id="secret_' + safeId + '">' + escapeHtml(maskSecret(t.secret || '')) + '</div>';
+    html += '<button class="copy-btn" id="secretToggle_' + safeId + '" data-action="toggle-secret" data-id="' + safeId + '">显示</button>';
+    html += '</div>';
+
+    // Stats
+    html += '<div class="trigger-stats">';
+    html += '<span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="12 22 12 6"/><polyline points="5 12 12 5 19 12"/></svg>' + (t.triggerCount || 0) + ' 次触发</span>';
+    html += '<span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' + relativeTime(t.lastTriggeredAt) + '</span>';
+    html += '</div>';
+
+    html += '</div>'; // trigger-card
+  }
+  html += '</div>';
+  list.innerHTML = html;
+}
+
+function maskSecret(secret) {
+  if (!secret) return '';
+  if (secret.length <= 8) return '****';
+  return secret.substring(0, 4) + '****' + secret.substring(secret.length - 4);
+}
+
+var _shownSecrets = {};
+function toggleSecret(id) {
+  var el = document.getElementById('secret_' + id);
+  var btn = document.getElementById('secretToggle_' + id);
+  if (!el || !btn) return;
+  // Secret is already masked from server; just toggle display hint
+  if (_shownSecrets[id]) {
+    // Find original masked value from triggers data
+    var t = triggers.find(function(tr) { return tr.triggerId === id; });
+    el.textContent = maskSecret(t ? t.secret : '');
+    btn.textContent = '显示';
+    _shownSecrets[id] = false;
+  } else {
+    var t = triggers.find(function(tr) { return tr.triggerId === id; });
+    el.textContent = t ? (t.secret || '') : '';
+    btn.textContent = '隐藏';
+    _shownSecrets[id] = true;
+  }
+}
+
+function copyText(text) {
+  navigator.clipboard.writeText(text).then(function() {
+    showToast('已复制到剪贴板', 'success');
+  }).catch(function() {
+    showToast('复制失败', 'error');
+  });
+}
+
+// ===== Toggle Trigger =====
+async function toggleTrigger(triggerId, enabled) {
+  var card = document.getElementById('card_' + triggerId);
+  try {
+    await api('POST', '/update', { triggerId: triggerId, patch: { enabled: enabled } });
+    if (enabled) card.classList.remove('disabled');
+    else card.classList.add('disabled');
+    showToast(enabled ? '已启用' : '已禁用', 'success');
+  } catch (e) {
+    if (card) {
+      var cb = card.querySelector('.toggle-switch input');
+      if (cb) cb.checked = !enabled;
+    }
+    showToast('操作失败: ' + e.message, 'error');
+  }
+}
+
+// ===== Test Trigger =====
+async function testTrigger(triggerId) {
+  showToast('正在发送测试触发...', 'success');
+  try {
+    var res = await fetch('/api/triggers/test/' + triggerId, {
+      method: 'POST',
+      headers: authHeaders()
+    });
+    if (res.status === 401) {
+      localStorage.removeItem('lingxi_token');
+      window.location.href = 'index.html';
+      return;
+    }
+    var data = await res.json();
+    if (data.success) {
+      showToast('测试触发已发送', 'success');
+      setTimeout(loadTriggers, 2000);
+    } else {
+      showToast('测试失败: ' + (data.error || ''), 'error');
+    }
+  } catch (e) {
+    showToast('测试失败: ' + e.message, 'error');
+  }
+}
+
+// ===== Remove Trigger =====
+function removeTrigger(triggerId, name) {
+  showConfirm('确定删除触发器「' + name + '」？关联的日志也会一起删除。', '删除', async function() {
+    try {
+      await api('POST', '/remove', { triggerId: triggerId });
+      showToast('触发器已删除', 'success');
+      loadTriggers();
+    } catch (e) {
+      showToast('删除失败: ' + e.message, 'error');
+    }
+  });
+}
+
+// ===== Create Modal =====
+function openCreateModal() {
+  document.getElementById('createModal').classList.add('open');
+  document.getElementById('createdInfo').style.display = 'none';
+  document.getElementById('submitBtn').style.display = '';
+  document.getElementById('createModalTitle').textContent = '新建触发器';
+  resetForm();
+}
+function closeCreateModal() {
+  document.getElementById('createModal').classList.remove('open');
+}
+
+function resetForm() {
+  document.getElementById('triggerName').value = '';
+  document.getElementById('triggerAgent').value = 'main';
+  document.getElementById('triggerPrompt').value = '';
+  setTriggerType('webhook');
+}
+
+function setTriggerType(type) {
+  currentType = type;
+  document.querySelectorAll('.type-tab').forEach(function(tab) {
+    tab.classList.toggle('active', tab.dataset.type === type);
+  });
+  // GitHub 类型自动填充模板
+  if (type === 'github' && !document.getElementById('triggerPrompt').value.trim()) {
+    document.getElementById('triggerPrompt').value = '收到 GitHub webhook:\n{{payload}}';
+  }
+}
+
+// ===== Create Trigger =====
+async function createTrigger() {
+  var name = document.getElementById('triggerName').value.trim();
+  var targetAgent = document.getElementById('triggerAgent').value;
+  var promptTemplate = document.getElementById('triggerPrompt').value.trim();
+
+  if (!name) { showToast('请输入触发器名称', 'error'); return; }
+  if (!promptTemplate) { showToast('请输入 Prompt 模板', 'error'); return; }
+
+  var btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = '创建中...';
+
+  try {
+    var data = await api('POST', '/create', {
+      name: name,
+      type: currentType,
+      targetAgent: targetAgent,
+      promptTemplate: promptTemplate
+    });
+
+    var trigger = data.trigger || {};
+    showToast('触发器创建成功', 'success');
+
+    // 显示创建结果
+    document.getElementById('createModalTitle').textContent = '触发器已创建';
+    btn.style.display = 'none';
+
+    var infoHtml = '<div class="created-info">';
+    infoHtml += '<div class="created-info-title">请将以下信息配置到外部服务</div>';
+    infoHtml += '<div class="created-info-row">';
+    infoHtml += '<span class="created-info-label">URL:</span>';
+    infoHtml += '<span class="created-info-value">' + escapeHtml(trigger.webhookUrl || '') + '</span>';
+    infoHtml += '<button class="copy-btn" data-action="copy-url" data-url="' + escapeHtml(trigger.webhookUrl || '') + '">复制</button>';
+    infoHtml += '</div>';
+    infoHtml += '<div class="created-info-row">';
+    infoHtml += '<span class="created-info-label">Secret:</span>';
+    infoHtml += '<span class="created-info-value">' + escapeHtml(trigger.secret || '') + '</span>';
+    infoHtml += '<button class="copy-btn" data-action="copy-url" data-url="' + escapeHtml(trigger.secret || '') + '">复制</button>';
+    infoHtml += '</div>';
+    infoHtml += '</div>';
+
+    document.getElementById('createdInfo').innerHTML = infoHtml;
+    document.getElementById('createdInfo').style.display = 'block';
+
+    loadTriggers();
+  } catch (e) {
+    showToast('创建失败: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '创建';
+  }
+}
+
+// ===== Log Modal =====
+async function openLogModal(triggerId, name) {
+  document.getElementById('logModalTitle').textContent = escapeHtml(name) + ' - 执行日志';
+  document.getElementById('logModalBody').innerHTML = '<div class="log-empty">加载中...</div>';
+  document.getElementById('logModal').classList.add('open');
+
+  try {
+    var res = await fetch('/api/triggers/logs/' + triggerId, { headers: authHeaders() });
+    if (res.status === 401) {
+      localStorage.removeItem('lingxi_token');
+      window.location.href = 'index.html';
+      return;
+    }
+    var data = await res.json();
+    if (!data.success) throw new Error(data.error || '加载失败');
+
+    var logs = data.logs || [];
+    if (logs.length === 0) {
+      document.getElementById('logModalBody').innerHTML = '<div class="log-empty">暂无执行记录</div>';
+      return;
+    }
+
+    var html = '<div class="log-list">';
+    for (var i = 0; i < logs.length; i++) {
+      var log = logs[i];
+      var statusClass = log.status === 'success' ? 'success' : 'failed';
+      var statusLabel = log.status === 'success' ? '成功' : '失败';
+      html += '<div class="log-item">';
+      html += '<div class="log-header">';
+      html += '<span class="log-status ' + statusClass + '">' + statusLabel + '</span>';
+      html += '<span class="log-time">' + relativeTime(log.triggeredAt) + '</span>';
+      html += '</div>';
+      if (log.payload) {
+        html += '<div class="log-payload">' + escapeHtml(log.payload) + '</div>';
+      }
+      if (log.error) {
+        html += '<div class="log-payload log-payload-error">' + escapeHtml(log.error) + '</div>';
+      }
+      if (log.responseTime) {
+        html += '<div class="log-duration">耗时: ' + (log.responseTime < 1000 ? log.responseTime + 'ms' : (log.responseTime/1000).toFixed(1) + 's') + '</div>';
+      }
+      html += '</div>';
+    }
+    html += '</div>';
+    document.getElementById('logModalBody').innerHTML = html;
+  } catch (e) {
+    document.getElementById('logModalBody').innerHTML = '<div class="log-empty">加载失败: ' + escapeHtml(e.message) + '</div>';
+  }
+}
+function closeLogModal() {
+  document.getElementById('logModal').classList.remove('open');
+}
+
+// ===== Event Delegation for dynamic trigger buttons =====
+document.getElementById('triggerList').addEventListener('click', function(e) {
+  // Handle toggle checkbox via change event
+  var checkbox = e.target.closest('input[data-action="toggle"]');
+  if (checkbox) {
+    toggleTrigger(checkbox.dataset.id, checkbox.checked);
+    return;
+  }
+
+  var btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  var action = btn.dataset.action;
+  var id = btn.dataset.id;
+
+  switch(action) {
+    case 'toggle':
+      toggleTrigger(id, true);
+      break;
+    case 'test':
+      testTrigger(id);
+      break;
+    case 'logs':
+      openLogModal(id, btn.dataset.name || '');
+      break;
+    case 'remove':
+      removeTrigger(id, btn.dataset.name || '');
+      break;
+    case 'copy-url':
+      copyText(btn.dataset.url);
+      break;
+    case 'toggle-secret':
+      toggleSecret(id);
+      break;
+  }
+});
+
+// ===== Close on overlay click =====
+document.getElementById('createModal').addEventListener('click', function(e) {
+  if (e.target === this) { closeCreateModal(); return; }
+  var btn = e.target.closest('[data-action="copy-url"]');
+  if (btn && btn.dataset.url) { copyText(btn.dataset.url); }
+});
+document.getElementById('confirmOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeConfirm();
+});
+document.getElementById('logModal').addEventListener('click', function(e) {
+  if (e.target === this) closeLogModal();
+});
+
+// ===== Keyboard =====
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    closeCreateModal();
+    closeConfirm();
+    closeLogModal();
+  }
+});
+
+// ===== Init =====
+(async function init() {
+  if (!checkAuth()) return;
+  await loadDevices();
+  await loadTriggers();
+})();
+  if (window.parent !== window) document.body.classList.add("in-iframe");
+</script>
+<script>if(window.lucide)lucide.createIcons();</script>
+</body>
+</html>

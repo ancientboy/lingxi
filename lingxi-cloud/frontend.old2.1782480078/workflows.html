@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-i18n-page-title="wf.title">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Workflows — Lume</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23667eea'/><text x='16' y='22' text-anchor='middle' fill='white' font-size='16' font-weight='700'>L</text></svg>">
+  <link rel="stylesheet" href="assets/css/lume.css?v=20260625unify">
+  <link rel="stylesheet" href="assets/css/embed-pages.css?v=20260625b">
+  <script src="assets/js/embed-init.js?v=20260624y"></script>
+  <style>
+    body {
+      font-family: var(--font-body);
+      background: var(--bg);
+      min-height: 100vh;
+      font-size: 14px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      color: var(--text-1);
+    }
+
+    /* ===== Top Bar ===== */
+    .top-bar {
+      position: fixed; top: 0; left: 0; right: 0; height: 44px;
+      background: rgba(255,255,255,0.94); backdrop-filter: blur(12px);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 16px; z-index: 200;
+      border-bottom: 1px solid var(--border-sub);
+    }
+    .top-bar-left { display: flex; align-items: center; gap: 8px; }
+    .back-link {
+      display: flex; align-items: center; gap: 3px; padding: 4px 10px;
+      border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-2);
+      font-size: 12px; text-decoration: none; transition: all var(--transition);
+    }
+    .back-link:hover { background: var(--bg-hover); color: var(--text-1); }
+    .page-title { font-size: 15px; font-weight: 700; color: var(--text-1); }
+
+    /* ===== Main Content ===== */
+    .main-content {
+      max-width: 900px; margin: 0 auto;
+      padding: 60px 16px 32px;
+    }
+    .main-content.no-device-bar { padding-top: 60px; }
+
+    /* ===== Device Bar ===== */
+    .device-bar {
+      position: fixed; top: 44px; left: 0; right: 0;
+      background: rgba(255,255,255,0.96); backdrop-filter: blur(12px);
+      padding: 8px 16px; border-bottom: 1px solid var(--border-sub); z-index: 199;
+    }
+    .device-tabs {
+      display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px;
+      -webkit-overflow-scrolling: touch; scrollbar-width: none;
+    }
+    .device-tabs::-webkit-scrollbar { display: none; }
+    .device-tab {
+      padding: 6px 14px; border-radius: var(--radius-sm); font-size: 13px;
+      white-space: nowrap; cursor: pointer; transition: all var(--transition);
+      background: var(--bg); color: var(--text-2); border: 1px solid transparent;
+    }
+    .device-tab:hover { background: var(--accent-soft); color: var(--accent); }
+    .device-tab.active {
+      background: var(--accent); color: #fff; border-color: var(--accent);
+      box-shadow: 0 2px 8px rgba(102,126,234,0.25);
+    }
+    .device-tab .tab-status {
+      display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+      margin-right: 6px; vertical-align: middle;
+    }
+    .device-tab .tab-status.online { background: #43e97b; }
+    .device-tab .tab-status.offline { background: #ddd; }
+
+    /* ===== Section ===== */
+    .section { margin-bottom: 28px; }
+    .section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .section-title {
+      font-size: 16px; font-weight: 700; color: var(--text-1);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .section-title .count {
+      font-size: 12px; font-weight: 500; color: var(--text-2);
+      background: var(--accent-soft); border-radius: var(--radius); padding: 2px 8px;
+    }
+    .section-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 10px; border-radius: var(--radius); font-size: 11px; font-weight: 600;
+    }
+    .section-badge.available { background: var(--accent-soft); color: var(--accent); }
+    .section-badge.active { background: #ecfdf5; color: #10b981; }
+
+    /* ===== Card Grid ===== */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+      gap: 14px;
+    }
+
+    /* ===== Workflow Card ===== */
+    .wf-card {
+      background: var(--bg-card); border-radius: var(--radius); padding: 18px 20px;
+      box-shadow: var(--shadow-sm)(0,0,0,0.06);
+      border: 2px solid transparent;
+      transition: all var(--transition);
+    }
+    .wf-card:hover { box-shadow: var(--shadow-md)(0,0,0,0.08); transform: translateY(-1px); }
+    .wf-card.activated { border-color: #10b981; }
+
+    .wf-card-header {
+      display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+      margin-bottom: 10px;
+    }
+    .wf-card-title {
+      font-size: 15px; font-weight: 600; color: var(--text-1);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .wf-mode-badge {
+      flex-shrink: 0; padding: 3px 10px; border-radius: var(--radius);
+      font-size: 11px; font-weight: 600;
+    }
+    .wf-mode-badge.multi { background: var(--accent-soft); color: var(--accent); }
+    .wf-mode-badge.single { background: #fef3c7; color: #d97706; }
+
+    .wf-card-desc {
+      font-size: 13px; color: var(--text-2); margin-bottom: 12px;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    /* Agent Badges */
+    .wf-agent-list {
+      display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px;
+    }
+    .agent-badge {
+      display: inline-flex; align-items: center; gap: 3px;
+      padding: 2px 10px; border-radius: var(--radius); font-size: 11px; font-weight: 500;
+    }
+    .agent-badge.dev { background: #ede9fe; color: var(--accent); }
+    .agent-badge.content { background: #fef3c7; color: #d97706; }
+    .agent-badge.ops { background: #d1fae5; color: #059669; }
+    .agent-badge.personal { background: #ede9fe; color: #8b5cf6; }
+    .agent-badge.default { background: #f3f4f6; color: #6b7280; }
+
+    /* Step Progress */
+    .wf-steps {
+      display: flex; align-items: center; gap: 0; margin-bottom: 14px;
+      overflow: hidden;
+    }
+    .step-dot {
+      width: 8px; height: 8px; border-radius: 50%; background: #ddd; flex-shrink: 0;
+    }
+    .step-dot.filled { background: var(--accent); }
+    .step-line {
+      flex: 1; height: 2px; background: #eee; min-width: 4px;
+    }
+    .step-line.filled { background: var(--accent); }
+
+    /* Card Meta */
+    .wf-card-meta {
+      display: flex; align-items: center; gap: 14px;
+      font-size: 12px; color: var(--text-3); margin-bottom: 14px;
+    }
+    .wf-meta-item { display: flex; align-items: center; gap: 4px; }
+    .wf-meta-item svg { width: 13px; height: 13px; }
+
+    /* Card Footer */
+    .wf-card-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      padding-top: 12px; border-top: 1px solid #f5f5f5;
+    }
+    .wf-activated-label {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 12px; color: #10b981; font-weight: 500;
+    }
+    .wf-activated-label svg { width: 14px; height: 14px; }
+
+    /* Buttons */
+    .btn {
+      padding: 7px 16px; border: none; border-radius: var(--radius-sm);
+      font-size: 13px; cursor: pointer; font-weight: 500;
+      transition: all var(--transition); font-family: var(--font-display);
+    }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover { background: var(--accent-h); }
+    .btn-primary:disabled { background: #c4b5fd; cursor: not-allowed; }
+    .btn-danger-outline { background: white; color: var(--danger); border: 1px solid var(--danger); }
+    .btn-danger-outline:hover { background: var(--danger-soft); }
+    .btn-danger-outline:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-sm { padding: 5px 12px; font-size: 12px; }
+
+    /* ===== Active Card ===== */
+    .active-card {
+      background: var(--bg-card); border-radius: var(--radius); padding: 16px 20px;
+      box-shadow: var(--shadow-sm)(0,0,0,0.06);
+      border: 2px solid #10b981;
+      margin-bottom: 10px;
+      transition: all var(--transition);
+    }
+    .active-card:hover { box-shadow: var(--shadow-md)(0,0,0,0.08); transform: translateY(-1px); }
+    .active-card-header {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      margin-bottom: 8px;
+    }
+    .active-card-name {
+      font-size: 15px; font-weight: 600; color: var(--text-1);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .active-card-meta {
+      font-size: 12px; color: var(--text-3); display: flex; align-items: center; gap: 12px;
+    }
+    .active-card-meta svg { width: 13px; height: 13px; }
+    .active-card-footer {
+      display: flex; align-items: center; justify-content: flex-end;
+      margin-top: 12px; padding-top: 12px; border-top: 1px solid #f5f5f5;
+    }
+    .unknown-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: var(--radius); font-size: 11px;
+      background: #fef2f2; color: var(--danger); font-weight: 500;
+    }
+
+    /* ===== Empty State ===== */
+    .empty-state {
+      text-align: center; padding: 40px 24px; color: var(--text-3);
+    }
+    .empty-state p { font-size: 14px; margin-bottom: 4px; color: var(--text-2); }
+    .empty-state small { font-size: 12px; }
+
+    /* ===== Toast ===== */
+    .toast-container {
+      position: fixed; top: 56px; right: 16px; z-index: 1000;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .toast {
+      padding: 10px 18px; border-radius: var(--radius); font-size: 13px;
+      color: #fff; box-shadow: var(--shadow-md)(0,0,0,0.15);
+      animation: toast-in 0.3s ease; max-width: 320px;
+    }
+    .toast.success { background: #10b981; }
+    .toast.error { background: #f5576c; }
+    .toast.info { background: var(--accent); }
+    @keyframes toast-in {
+      from { opacity: 0; transform: translateX(40px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    /* ===== Expandable Detail Panel ===== */
+    .wf-card { cursor: pointer; }
+    .wf-card-header { cursor: pointer; }
+    .wf-detail {
+      display: none;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #f0f0f0;
+    }
+    .wf-card.expanded .wf-detail {
+      display: block;
+    }
+    .wf-detail-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--accent);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .wf-steps-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .wf-steps-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 6px 0;
+      font-size: 13px;
+      color: var(--text-2);
+    }
+    .wf-steps-list .step-num {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--accent-soft);
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+    .wf-steps-list .step-body {
+      flex: 1;
+      min-width: 0;
+    }
+    .wf-steps-list .step-name {
+      font-weight: 500;
+      color: var(--text-1);
+    }
+    .wf-steps-list .step-agent {
+      font-size: 11px;
+      color: var(--text-3);
+      margin-top: 1px;
+    }
+
+    /* ===== Loading ===== */
+    .loading-spinner {
+      text-align: center; padding: 40px; color: var(--text-3);
+    }
+    .spinner {
+      width: 28px; height: 28px; border: 3px solid #eee;
+      border-top-color: var(--accent); border-radius: 50%;
+      animation: spin 0.8s linear infinite; margin: 0 auto 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ===== Responsive ===== */
+    @media (max-width: 480px) {
+      .card-grid { grid-template-columns: 1fr; }
+      .main-content { padding: 60px 10px 24px; }
+    }
+  .wf-steps{margin:12px 0;padding:0;list-style:none}.wf-steps li{display:flex;align-items:flex-start;gap:10px;padding:6px 0;font-size:13px;color:#555}.wf-step-dot{width:24px;height:24px;border-radius:50%;background:#f0eeff;color:#3d6b62;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0}.wf-step-info{flex:1}.wf-step-name{font-weight:500;color:#2d3748}.wf-step-agent{font-size:11px;color:#999}.wf-detail{display:none;margin-top:12px;padding-top:12px;border-top:1px solid #f0f0f0}.wf-detail.open{display:block}.available-card{cursor:pointer}
+    body.in-iframe .back-link { display: none !important; }
+
+    /* ===== Inline-extracted classes ===== */
+    .badge-custom { font-size:11px; background:#e3f2fd; color:#1565c0; padding:2px 8px; border-radius:4px; margin-left:6px; }
+    .badge-confirmed { font-size:11px; background:#e8f5e9; color:#2e7d32; padding:2px 8px; border-radius:4px; margin-left:6px; }
+    .badge-pending { font-size:11px; background:#fff8e1; color:#f57f17; padding:2px 8px; border-radius:4px; margin-left:6px; }
+    .active-card-desc { font-size:12px; color:#888; margin-bottom:6px; }
+</style>
+  <script src="assets/js/i18n.js?v=20260608"></script>
+  <script src="assets/libs/lucide.min.js"></script>
+</head>
+<body class="lume-page">
+
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <div class="top-bar-left">
+      <a href="chat.html" class="back-link">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        返回
+      </a>
+      <span class="page-title">工作流管理</span>
+    </div>
+  </div>
+
+  <!-- Device Bar -->
+  <div class="device-bar" id="deviceBar" hidden>
+    <div class="device-tabs" id="deviceTabs"></div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main-content" id="mainContent">
+
+    <!-- Activated Section -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          已激活
+          <span class="count" id="activeCount">0</span>
+        </div>
+        <span class="section-badge active" id="activeBadge" hidden></span>
+      </div>
+      <div id="activeList">
+        <div class="loading-spinner" id="activeLoading">
+          <div class="spinner"></div>
+          <div>加载中…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Available Section -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          可用工作流
+          <span class="count" id="availableCount">0</span>
+        </div>
+      </div>
+      <div class="card-grid" id="availableList">
+        <div class="loading-spinner" id="availableLoading">
+          <div class="spinner"></div>
+          <div>加载中…</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script>
+  /* ===== 工具函数 ===== */
+  function escapeHtml(str) {
+    if (!str) return '';
+    var d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+  }
+
+  function getToken() {
+    return localStorage.getItem('lingxi_token') || '';
+  }
+
+  function apiFetch(url, options) {
+    options = options || {};
+    var headers = options.headers || {};
+    var token = getToken();
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    headers['Content-Type'] = headers['Content-Type'] || 'application/json';
+    options.headers = headers;
+    return fetch(url, options).then(async function(r) {
+    var text = await r.text();
+    try { return JSON.parse(text); }
+    catch(e) { return { success: false, error: '服务器返回非JSON: ' + r.status }; }
+  });
+  }
+
+  function showToast(msg, type) {
+    type = type || 'info';
+    var container = document.getElementById('toastContainer');
+    var el = document.createElement('div');
+    el.className = 'toast ' + type;
+    el.textContent = msg;
+    container.appendChild(el);
+    setTimeout(function() {
+      el.style.opacity = '0';
+      el.style.transform = 'translateX(40px)';
+      el.style.transition = 'all 0.3s';
+      setTimeout(function() { el.remove(); }, 300);
+    }, 3000);
+  }
+
+  function formatDate(iso) {
+    if (!iso) return '';
+    try {
+      var d = new Date(iso);
+      return d.getFullYear() + '-' +
+        String(d.getMonth() + 1).padStart(2, '0') + '-' +
+        String(d.getDate()).padStart(2, '0') + ' ' +
+        String(d.getHours()).padStart(2, '0') + ':' +
+        String(d.getMinutes()).padStart(2, '0');
+    } catch (e) { return iso; }
+  }
+
+  /* ===== Agent 颜色映射 ===== */
+  function getAgentBadgeClass(agentId) {
+    var devAgents = ['coder', 'reviewer', 'pm'];
+    var contentAgents = ['inventor', 'media', 'noter'];
+    var opsAgents = ['ops'];
+    var personalAgents = ['smart', 'personal'];
+    if (devAgents.indexOf(agentId) !== -1) return 'dev';
+    if (contentAgents.indexOf(agentId) !== -1) return 'content';
+    if (opsAgents.indexOf(agentId) !== -1) return 'ops';
+    if (personalAgents.indexOf(agentId) !== -1) return 'personal';
+    return 'default';
+  }
+
+  var AGENT_NAMES = {
+    pm: '产品', coder: '开发', reviewer: '审查',
+    noter: '文档', ops: '运营', inventor: '创意',
+    media: '多媒体', smart: '智家', personal: '个人'
+  };
+
+  /* ===== 状态 ===== */
+  var availableWorkflows = [];
+  var activatedIds = {};
+  var activatedList = [];
+  var currentServerId = null;
+  var OFFICIAL_IDS = new Set(['dev-standard', 'dev-quick', 'content-standard', 'data-analysis', 'gstack-sprint']);
+
+  /* ===== 设备栏 ===== */
+  async function loadDevices() {
+    try {
+      var data = await apiFetch('/api/cron/servers');
+      if (!data.success || !data.servers || data.servers.length === 0) {
+        document.getElementById('deviceBar').hidden = true;
+        var mc = document.getElementById('mainContent');
+        if (mc) mc.classList.add('no-device-bar');
+        currentServerId = null;
+        return;
+      }
+      var bar = document.getElementById('deviceBar');
+      bar.hidden = false;
+      document.getElementById('mainContent').classList.remove('no-device-bar');
+      var tabs = document.getElementById('deviceTabs');
+      tabs.innerHTML = '';
+      data.servers.forEach(function(s) {
+        var tab = document.createElement('div');
+        tab.className = 'device-tab' + (s.isActive ? ' active' : '');
+        var statusClass = s.status === 'running' ? 'online' : 'offline';
+        tab.innerHTML = '<span class="tab-status ' + statusClass + '"></span>' + escapeHtml(s.name || s.ip);
+        tab.onclick = function() {
+          tabs.querySelectorAll('.device-tab').forEach(function(t) { t.classList.remove('active'); });
+          tab.classList.add('active');
+          selectDevice(s.id);
+        };
+        tabs.appendChild(tab);
+      });
+      currentServerId = data.activeServerId || (data.servers[0] && data.servers[0].id);
+    } catch (e) {
+      document.getElementById('deviceBar').hidden = true;
+      currentServerId = null;
+    }
+  }
+
+  function selectDevice(serverId) {
+    currentServerId = serverId;
+    loadAll();
+  }
+
+  /* ===== 渲染：可用工作流 ===== */
+  function renderAvailable() {
+    var container = document.getElementById('availableList');
+    document.getElementById('availableCount').textContent = availableWorkflows.length;
+
+    if (availableWorkflows.length === 0) {
+      container.innerHTML = '<div class="empty-state"><p>暂无可用工作流</p><small>工作流定义文件位于 workflow-hub/workflows/ 目录</small></div>';
+      return;
+    }
+
+    var html = '';
+    availableWorkflows.forEach(function(wf) {
+      var isActivated = !!activatedIds[wf.id];
+      var modeLabel = wf.mode === 'single-agent' ? '单Agent' : '多Agent';
+      var modeClass = wf.mode === 'single-agent' ? 'single' : 'multi';
+
+      // Agent badges
+      var agentHtml = '';
+      (wf.agents || []).forEach(function(a) {
+        var cls = getAgentBadgeClass(a);
+        var name = AGENT_NAMES[a] || a;
+        agentHtml += '<span class="agent-badge ' + cls + '">' + escapeHtml(name) + '</span>';
+      });
+
+      // Steps detail (from backend)
+      var steps = wf.steps || [];
+      var stepCount = steps.length;
+
+      // Steps progress bar (top)
+      var stepsBarHtml = '';
+      if (stepCount > 0) {
+        for (var i = 0; i < stepCount; i++) {
+          if (i > 0) stepsBarHtml += '<div class="step-line"></div>';
+          stepsBarHtml += '<div class="step-dot"></div>';
+        }
+      }
+
+      // Steps detail list (expandable)
+      var stepsDetailHtml = '';
+      if (stepCount > 0) {
+        stepsDetailHtml += '<div class="wf-detail-title">▼ 工作原理</div>';
+        stepsDetailHtml += '<ul class="wf-steps-list">';
+        steps.forEach(function(s, idx) {
+          var agentName = AGENT_NAMES[s.agent] || s.agent || '';
+          stepsDetailHtml += '<li>' +
+            '<div class="step-num">' + (idx + 1) + '</div>' +
+            '<div class="step-body">' +
+              '<div class="step-name">' + escapeHtml(s.name) + '</div>' +
+              (agentName ? '<div class="step-agent">→ ' + escapeHtml(agentName) + (s.description ? ' ' + escapeHtml(s.description) : '') + '</div>' : '') +
+            '</div>' +
+          '</li>';
+        });
+        stepsDetailHtml += '</ul>';
+      }
+
+      html += '<div class="wf-card' + (isActivated ? ' activated' : '') + '" data-id="' + escapeHtml(wf.id) + '">' +
+        '<div class="wf-card-header">' +
+          '<div class="wf-card-title">' + escapeHtml(wf.name) + '</div>' +
+          '<span class="wf-mode-badge ' + modeClass + '">' + modeLabel + '</span>' +
+        '</div>' +
+        '<div class="wf-card-desc">' + escapeHtml(wf.description) + '</div>' +
+        '<div class="wf-agent-list">' + agentHtml + '</div>' +
+        (stepsBarHtml ? '<div class="wf-steps">' + stepsBarHtml + '</div>' : '') +
+        '<div class="wf-card-meta">' +
+          '<span class="wf-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' + escapeHtml(wf.estimatedDuration || '--') + '</span>' +
+          '<span class="wf-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>' + stepCount + ' 步骤</span>' +
+        '</div>' +
+        '<div class="wf-detail">' + stepsDetailHtml + '</div>' +
+        '<div class="wf-card-footer">' +
+          (isActivated
+            ? '<div class="wf-activated-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>已激活</div>'
+            : '<button class="btn btn-primary btn-sm" data-action="activate" data-id="' + escapeHtml(wf.id) + '">激活</button>'
+          ) +
+        '</div>' +
+      '</div>';
+    });
+
+    container.innerHTML = html;
+  }
+
+  /* ===== 渲染：已激活列表 ===== */
+  function toggleWfDetail(wfId){var d=document.getElementById("wfd-"+wfId);if(d)d.classList.toggle("open")}
+
+  function renderActivated() {
+    var container = document.getElementById('activeList');
+    document.getElementById('activeCount').textContent = activatedList.length;
+
+    if (activagedList.length === 0) {
+      container.innerHTML = '<div class="empty-state"><p>暂无已激活的工作流</p><small>从可用工作流中选择一个激活</small></div>';
+      return;
+    }
+
+    var html = '';
+    activatedList.forEach(function(item) {
+      var wfInfo = null;
+      for (var i = 0; i < availableWorkflows.length; i++) {
+        if (availableWorkflows[i].id === item.workflowId) {
+          wfInfo = availableWorkflows[i];
+          break;
+        }
+      }
+
+      var name = wfInfo ? escapeHtml(wfInfo.name) : '未知工作流';
+      var desc = wfInfo ? escapeHtml(wfInfo.description) : '';
+      var isUnknown = !wfInfo;
+
+      // 状态标记
+      var statusBadge = '';
+      if (item.custom) {
+        statusBadge = '<span class="badge-custom">自定义</span>';
+      } else if (item.fromDevice && !OFFICIAL_IDS.has(item.workflowId)) {
+        statusBadge = '<span class="badge-custom">自定义</span>';
+      } else if (item.fromDevice) {
+        statusBadge = '<span class="badge-confirmed">已确认</span>';
+      } else if (item.pending) {
+        statusBadge = '<span class="badge-pending">待确认</span>';
+      } else if (item.verified) {
+        statusBadge = '<span class="badge-confirmed">已确认</span>';
+      }
+
+      html += '<div class="active-card" data-wid="' + escapeHtml(item.workflowId) + '">' +
+        '<div class="active-card-header">' +
+          '<div class="active-card-name">' + name + statusBadge + '</div>' +
+          (isUnknown ? '<span class="unknown-badge">已删除</span>' : '') +
+        '</div>' +
+        (desc ? '<div class="active-card-desc">' + desc + '</div>' : '') +
+        '<div class="active-card-meta">' +
+          '<span class="wf-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>激活于 ' + formatDate(item.activatedAt) + '</span>' +
+        '</div>' +
+        '<div class="active-card-footer">' +
+          '<button class="btn btn-danger-outline btn-sm" data-action="deactivate" data-id="' + escapeHtml(item.workflowId) + '">停用</button>' +
+        '</div>' +
+      '</div>';
+    });
+
+    container.innerHTML = html;
+  }
+
+  /* ===== 数据加载 ===== */
+  async function loadAvailable() {
+    try {
+      var data = await apiFetch('/api/team/workflows/available');
+      if (data.success) {
+        availableWorkflows = data.workflows || [];
+      }
+    } catch (e) {
+      console.error('加载可用工作流失败:', e);
+      var el = document.getElementById('availableLoading');
+      if (el) el.style.display = 'none';
+    }
+  }
+
+  async function loadActivated() {
+    try {
+      var url = '/api/team/workflows/list';
+      if (currentServerId) url += '?serverId=' + encodeURIComponent(currentServerId);
+      var data = await apiFetch(url);
+      if (data.success) {
+        activatedList = data.workflows || [];
+        activatedIds = {};
+        activatedList.forEach(function(w) { activatedIds[w.workflowId] = true; });
+      }
+    } catch (e) {
+      console.error('加载已激活工作流失败:', e);
+      var el = document.getElementById('activeLoading');
+      if (el) el.style.display = 'none';
+    }
+  }
+
+  async function loadAll() {
+    var availEl = document.getElementById('availableLoading');
+    var activeEl = document.getElementById('activeLoading');
+    if (availEl) availEl.style.display = '';
+    if (activeEl) activeEl.style.display = '';
+
+    try {
+      await Promise.all([loadAvailable(), loadActivated()]);
+    } catch (e) {
+      console.error('加载失败:', e);
+    } finally {
+      if (availEl) availEl.style.display = 'none';
+      if (activeEl) activeEl.style.display = 'none';
+    }
+
+    renderAvailable();
+    renderActivated();
+  }
+
+  /* ===== 激活 / 停用 ===== */
+  async function activateWorkflow(wfId) {
+    try {
+      var data = await apiFetch('/api/team/workflows/activate', {
+        method: 'POST',
+        body: JSON.stringify({ workflowIds: [wfId], serverId: currentServerId || undefined })
+      });
+      if (data.success) {
+        showToast('工作流已激活', 'success');
+        await loadAll();
+      } else {
+        showToast(data.error || '激活失败', 'error');
+        await loadAll(); // re-render to reset button state
+      }
+    } catch (e) {
+      showToast('请求失败: ' + (e.message || '网络错误'), 'error');
+      await loadAll(); // re-render to reset button state
+    }
+  }
+
+  async function deactivateWorkflow(wfId) {
+    try {
+      var data = await apiFetch('/api/team/workflows/deactivate', {
+        method: 'POST',
+        body: JSON.stringify({ workflowId: wfId, serverId: currentServerId || undefined })
+      });
+      if (data.success) {
+        showToast('工作流已停用', 'success');
+        await loadAll();
+      } else {
+        showToast(data.error || '停用失败', 'error');
+      }
+    } catch (e) {
+      showToast('网络错误', 'error');
+    }
+  }
+
+  /* ===== 事件委托 ===== */
+  document.addEventListener('click', function(e) {
+    // 激活/停用按钮 — 不触发展开
+    var btn = e.target.closest('[data-action]');
+    if (btn) {
+      e.stopPropagation();
+      var action = btn.getAttribute('data-action');
+      var id = btn.getAttribute('data-id');
+      if (action === 'activate' && id) {
+        btn.disabled = true;
+        btn.textContent = '激活中…';
+        activateWorkflow(id);
+      } else if (action === 'deactivate' && id) {
+        btn.disabled = true;
+        btn.textContent = '停用中…';
+        deactivateWorkflow(id);
+      }
+      return;
+    }
+
+    // 卡片点击 → 展开/收起详情
+    var card = e.target.closest('.wf-card');
+    if (card) {
+      var detail = card.querySelector('.wf-detail');
+      if (detail) {
+        card.classList.toggle('expanded');
+      }
+    }
+  });
+
+  /* ===== 初始化 ===== */
+  (async function init() {
+    await loadDevices();
+    await loadAll();
+  })();
+  if (window.parent !== window) document.body.classList.add("in-iframe");
+  </script>
+<script>if(window.lucide)lucide.createIcons();</script>
+</body>
+</html>

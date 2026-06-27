@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" aria-label="Lume hive C2 twin cells">
+  <path d="M 20 16 L 26 16 L 29 20.5 L 26 25 L 20 25 L 17 20.5 Z" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/>
+  <path d="M 29 20.5 L 35 20.5 L 38 25 L 35 29.5 L 29 29.5 L 26 25 Z" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/>
+  <circle cx="23.5" cy="20.5" r="1.65" fill="currentColor" opacity="0.5"/>
+  <circle cx="32" cy="25" r="1.65" fill="currentColor" opacity="0.5"/>
+</svg>

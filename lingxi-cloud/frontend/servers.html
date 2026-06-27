@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Devices — Lume</title>
-  <link rel="stylesheet" href="assets/css/lume.css?v=20260625unify">
+  <link rel="stylesheet" href="assets/css/lume.css">
   <style>
     /* Top bar */
     .top-bar {
@@ -225,7 +225,7 @@ function showLoginRequired() {
 async function loadServers() {
   if (!userId) return;
   try {
-    var resp = await fetch(API + '/' + userId, { headers: authHeaders() });
+    var resp = await fetch(API + '/' + userId);
     var data = await resp.json();
     servers = data.servers || [];
     activeServerId = data.activeServerId;
@@ -304,9 +304,9 @@ function renderServers() {
   }).join('');
 }
 
-async function checkServer(id){showToast('Checking...');try{var r=await fetch(API+'/'+userId+'/'+id+'/check',{method:'POST',headers:authHeaders()});var d=await r.json();showToast(d.healthy?'Online':'Offline');loadServers();}catch(e){showToast('Failed');}}
-async function checkAll(){showToast('Checking all...');try{var r=await fetch(API+'/'+userId+'/check-all',{method:'POST',headers:authHeaders()});var d=await r.json();var on=d.results?d.results.filter(function(x){return x.healthy}).length:0;showToast(on+'/'+(d.results?d.results.length:0)+' online');loadServers();}catch(e){showToast('Failed');}}
-async function activateServer(id){try{var r=await fetch(API+'/'+userId+'/'+id+'/activate',{method:'POST',headers:authHeaders()});var d=await r.json();showToast(d.message);loadServers();localStorage.setItem('device_switched_at',Date.now().toString());try{var w=window.opener||window.parent;if(w&&w!==window)w.postMessage({type:'device-switched',serverId:id},'*');}catch(e){}}catch(e){showToast('Failed');}}
+async function checkServer(id){showToast('Checking...');try{var r=await fetch(API+'/'+userId+'/'+id+'/check',{method:'POST'});var d=await r.json();showToast(d.healthy?'Online':'Offline');loadServers();}catch(e){showToast('Failed');}}
+async function checkAll(){showToast('Checking all...');try{var r=await fetch(API+'/'+userId+'/check-all',{method:'POST'});var d=await r.json();var on=d.results?d.results.filter(function(x){return x.healthy}).length:0;showToast(on+'/'+(d.results?d.results.length:0)+' online');loadServers();}catch(e){showToast('Failed');}}
+async function activateServer(id){try{var r=await fetch(API+'/'+userId+'/'+id+'/activate',{method:'POST'});var d=await r.json();showToast(d.message);loadServers();localStorage.setItem('device_switched_at',Date.now().toString());try{var w=window.opener||window.parent;if(w&&w!==window)w.postMessage({type:'device-switched',serverId:id},'*');}catch(e){}}catch(e){showToast('Failed');}}
 
 function showAddModal(){document.getElementById('modalTitle').textContent='Add Device';document.getElementById('editServerId').value='';document.getElementById('fName').value='';document.getElementById('fIp').value='';document.getElementById('fPort').value='18789';document.getElementById('fToken').value='';document.getElementById('fSession').value='';document.getElementById('fDesc').value='';document.getElementById('serverModal').classList.add('active');}
 function editServer(id){var s=servers.find(function(x){return x.id===id});if(!s)return;document.getElementById('modalTitle').textContent='Edit Device';document.getElementById('editServerId').value=s.id;document.getElementById('fName').value=s.name||'';document.getElementById('fIp').value=s.ip||'';document.getElementById('fPort').value=s.openclawPort||18789;document.getElementById('fToken').value=s.openclawToken||'';document.getElementById('fSession').value=s.openclawSession||'';document.getElementById('fDesc').value=s.description||'';document.getElementById('serverModal').classList.add('active');}
@@ -316,10 +316,10 @@ async function saveServer(){
   var editId=document.getElementById('editServerId').value;
   var body={name:document.getElementById('fName').value,ip:document.getElementById('fIp').value,openclawPort:parseInt(document.getElementById('fPort').value)||18789,openclawToken:document.getElementById('fToken').value,openclawSession:document.getElementById('fSession').value,description:document.getElementById('fDesc').value};
   if(!body.ip){showToast('IP required');return;}
-  try{var r;if(editId)r=await fetch(API+'/'+userId+'/'+editId,{method:'PUT',headers:Object.assign({'Content-Type':'application/json'},authHeaders()),body:JSON.stringify(body)});else r=await fetch(API+'/'+userId,{method:'POST',headers:Object.assign({'Content-Type':'application/json'},authHeaders()),body:JSON.stringify(body)});var d=await r.json();if(r.ok){showToast(editId?'Updated':'Added');closeModal();loadServers();}else showToast(d.error||'Failed');}catch(e){showToast('Save failed');}}
+  try{var r;if(editId)r=await fetch(API+'/'+userId+'/'+editId,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});else r=await fetch(API+'/'+userId,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});var d=await r.json();if(r.ok){showToast(editId?'Updated':'Added');closeModal();loadServers();}else showToast(d.error||'Failed');}catch(e){showToast('Save failed');}
 }
 
-async function deleteServer(id){var s=servers.find(function(x){return x.id===id});if(!s)return;if(!confirm('Delete "'+(s.name||s.ip)+'"?'))return;try{var r=await fetch(API+'/'+userId+'/'+id,{method:'DELETE',headers:authHeaders()});if(r.ok){showToast('Deleted');loadServers();}}catch(e){showToast('Failed');}}
+async function deleteServer(id){var s=servers.find(function(x){return x.id===id});if(!s)return;if(!confirm('Delete "'+(s.name||s.ip)+'"?'))return;try{var r=await fetch(API+'/'+userId+'/'+id,{method:'DELETE'});if(r.ok){showToast('Deleted');loadServers();}}catch(e){showToast('Failed');}}
 
 function showToast(msg){var t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(function(){t.style.opacity='0';setTimeout(function(){t.remove();},300);},2500);}
 document.getElementById('serverModal').addEventListener('click',function(e){if(e.target===this)closeModal();});

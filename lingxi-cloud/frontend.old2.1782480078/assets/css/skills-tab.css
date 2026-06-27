@@ -1,0 +1,979 @@
+/* 技能库标签页样式 */
+
+.skills-view {
+  display: none;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--bg-white, #ffffff);
+  padding-top: 0;
+}
+
+.skills-view.active { display: flex; }
+.chat-container.hidden { display: none; }
+
+/* 全屏子视图顶栏：返回对话 + 关闭 */
+.view-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  flex-shrink: 0;
+  background: var(--bg-card, #fff);
+  border-bottom: 1px solid var(--border-sub, #f0f1f3);
+  min-height: 48px;
+  box-sizing: border-box;
+}
+
+.view-panel-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--border-sub, #e5e7eb);
+  border-radius: 8px;
+  background: var(--bg-main, #f7f7f8);
+  color: var(--text-2, #525252);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+
+.view-panel-back:hover {
+  background: var(--bg-hover, #ececec);
+  color: var(--text-1, #171717);
+  border-color: var(--border, #e5e7eb);
+}
+
+.view-panel-back svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.view-panel-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-1, #171717);
+  letter-spacing: -0.02em;
+}
+
+.view-panel-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-3, #737373);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+
+.view-panel-close:hover {
+  background: var(--bg-hover, #f3f4f6);
+  color: var(--text-1, #171717);
+}
+
+.view-panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.view-panel-body > iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  flex: 1;
+  min-height: 0;
+}
+
+.skills-categories {
+  display: flex;
+  gap: 8px;
+  padding: 16px 20px;
+  background: var(--bg-main, #f7f7f8);
+  border-bottom: 1px solid var(--border-default, #e5e7eb);
+  flex-wrap: wrap;
+}
+
+.category-chip {
+  padding: 8px 16px;
+  background: var(--bg-white, #ffffff);
+  border: 1px solid var(--border-default, #e5e7eb);
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.category-chip:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.category-chip.active {
+  background: var(--text-1, #171717);
+  color: #fff;
+  border-color: var(--text-1, #171717);
+}
+
+.category-icon { font-size: 16px; }
+.category-count { font-size: 11px; opacity: 0.8; }
+
+.skills-toolbar {
+  display: flex;
+  gap: 12px;
+  padding: 16px 20px;
+  background: var(--bg-white, #ffffff);
+  border-bottom: 1px solid var(--border-default, #e5e7eb);
+  align-items: center;
+}
+
+.skills-search {
+  flex: 1;
+  max-width: 400px;
+  padding: 10px 14px;
+  background: var(--bg-main, #f7f7f8);
+  border: 1px solid var(--border-default, #e5e7eb);
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--text-primary, #202123);
+}
+
+.skills-search:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.skills-filters { display: flex; gap: 6px; }
+
+.filter-chip {
+  padding: 8px 14px;
+  background: var(--bg-main, #f7f7f8);
+  border: 1px solid var(--border-default, #e5e7eb);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--text-secondary, #6b7280);
+}
+
+.filter-chip:hover {
+  border-color: var(--border, #e5e7eb);
+  color: var(--text-1, #171717);
+  background: var(--bg-hover, #f5f5f4);
+}
+
+.filter-chip.active {
+  background: var(--text-1, #171717);
+  color: #fff;
+  border-color: var(--text-1, #171717);
+}
+
+.skills-grid-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+  background: var(--bg-main, #f7f7f8);
+}
+
+.skills-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.skill-card {
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-sub, #f0f1f3);
+  border-radius: 14px;
+  padding: 16px;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  cursor: pointer;
+}
+
+.skill-card:hover {
+  border-color: var(--border, #e5e7eb);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+.skill-header {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.skill-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.skill-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.skill-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary, #202123);
+  margin-bottom: 4px;
+}
+
+.skill-desc {
+  font-size: 12px;
+  color: var(--text-secondary, #6b7280);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.skill-detail {
+  display: none;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-default, #e5e7eb);
+  font-size: 13px;
+  color: var(--text-secondary, #6b7280);
+  line-height: 1.6;
+}
+
+.skill-card.expanded .skill-detail {
+  display: block;
+}
+
+.skill-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-default, #e5e7eb);
+}
+
+.skill-meta {
+  font-size: 12px;
+  color: var(--text-secondary, #6b7280);
+}
+
+.skill-install-btn {
+  padding: 6px 14px;
+  background: var(--bg-card, #fff);
+  color: var(--text-2, #525252);
+  border: 1px solid var(--border-sub, #f0f1f3);
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  font-family: var(--font-display, 'DM Sans', sans-serif);
+}
+
+.skill-install-btn:hover {
+  background: var(--bg-hover, #f5f5f4);
+  color: var(--text-1, #171717);
+  border-color: var(--border, #e5e7eb);
+  transform: none;
+}
+
+.skills-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-secondary, #6b7280);
+}
+
+.skills-empty-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.skills-loading {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-secondary, #6b7280);
+}
+
+@media (max-width: 768px) {
+  .skills-categories {
+    padding: 12px;
+  }
+  
+  .category-chip {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+  
+  .skills-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 12px;
+  }
+  
+  .skills-search {
+    max-width: 100%;
+  }
+  
+  .skills-filters {
+    justify-content: center;
+  }
+  
+  .skills-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 官方技能徽章 */
+.builtin-badge {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+/* 已安装标记 */
+.skill-card.installed {
+  border-color: var(--border-sub, #f0f1f3);
+  background: var(--bg-card, #fff);
+}
+
+.skill-card.installed::before {
+  display: none;
+}
+
+/* 分类标签样式 */
+.category-chip {
+  position: relative;
+}
+
+.category-icon {
+  font-size: 16px;
+}
+
+.category-count {
+  font-size: 11px;
+  opacity: 0.7;
+  margin-left: 2px;
+}
+
+/* 技能卡片详情 */
+.skill-detail {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary, #6b7280);
+}
+
+.skill-card.expanded .skill-detail {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-default, #e5e7eb);
+}
+
+/* 技能元信息 */
+.skill-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 空状态 */
+.skills-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-secondary, #6b7280);
+}
+
+.skills-empty-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+/* 官方可用按钮样式 */
+.skill-install-btn.builtin-available {
+  background: var(--bg-hover, #f5f5f4);
+  color: var(--text-3, #737373);
+  border-color: var(--border-sub, #f0f1f3);
+  cursor: default;
+}
+
+.skill-install-btn.builtin-available:hover {
+  background: var(--bg-hover, #f5f5f4);
+  color: var(--text-3, #737373);
+}
+
+/* 已安装按钮样式 */
+.skill-install-btn.installed {
+  background: var(--bg-hover, #f5f5f4);
+  color: var(--text-3, #737373);
+  border-color: var(--border-sub, #f0f1f3);
+  cursor: default;
+}
+
+/* 技能卡片状态标记 */
+.skill-name::after {
+  margin-left: 6px;
+}
+
+/* 官方技能状态文字 */
+.builtin-status {
+  color: #10b981;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* 已安装状态文字 */
+.installed-status {
+  color: #10b981;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* 技能详情区块 */
+.skill-section {
+  margin-bottom: 16px;
+}
+
+.skill-section:last-child {
+  margin-bottom: 0;
+}
+
+.skill-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #202123);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.skill-section-content {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary, #6b7280);
+}
+
+/* 功能特性列表 */
+.skill-features-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.feature-item {
+  background: var(--accent-soft);
+  color: var(--accent);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* 使用示例 */
+.skill-example {
+  background: var(--bg-main, #f7f7f8);
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-secondary, #6b7280);
+  border-left: 3px solid var(--accent);
+  font-style: italic;
+}
+
+/* 安装命令框 */
+.skill-cmd-box {
+  background: #1f2937;
+  color: #10b981;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.skill-cmd-box:hover {
+  background: #374151;
+}
+
+.skill-cmd-box code {
+  flex: 1;
+}
+
+.copy-hint {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-left: 12px;
+}
+
+/* 官方技能状态文字 */
+.builtin-status {
+  color: #10b981;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* 已安装状态文字 */
+.installed-status {
+  color: #10b981;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Skill action buttons */
+.skill-actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.skill-badge { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 500; }
+.skill-badge.installed { background: var(--bg-hover, #f5f5f4); color: var(--text-2, #525252); border: 1px solid var(--border-sub, #f0f1f3); }
+.skill-btn { display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px; border: 1px solid var(--border-sub, #f0f1f3); border-radius: 8px; font-size: 11px; font-weight: 500; font-family: var(--font-display); cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; }
+.skill-btn.install { background: var(--bg-card, #fff); color: var(--text-2, #525252); }
+.skill-btn.install:hover { background: var(--bg-hover, #f5f5f4); color: var(--text-1, #171717); border-color: var(--border, #e5e7eb); transform: none; }
+.skill-btn.use { background: var(--bg-card, #fff); color: var(--text-2, #525252); border: 1px solid var(--border-sub, #f0f1f3); }
+.skill-btn.use:hover { background: var(--bg-hover, #f5f5f4); color: var(--text-1, #171717); border-color: var(--border, #e5e7eb); transform: none; }
+
+/* ===== New Skill Action Buttons ===== */
+.skill-status-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 10px; border-radius: 8px;
+  font-size: 11px; font-weight: 500; font-family: var(--font-display);
+}
+.skill-status-badge.builtin { background: var(--bg-hover, #f5f5f4); color: var(--text-3, #737373); border: 1px solid var(--border-sub, #f0f1f3); }
+.skill-status-badge.installed { background: var(--bg-hover, #f5f5f4); color: var(--text-2, #525252); border: 1px solid var(--border-sub, #f0f1f3); }
+
+.skill-use-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 5px 14px; border: 1px solid var(--border-sub, #f0f1f3); border-radius: 8px;
+  background: var(--bg-card, #fff); color: var(--text-2, #525252);
+  font-size: 11px; font-weight: 500; font-family: var(--font-display);
+  cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.skill-use-btn:hover { background: var(--bg-hover, #f5f5f4); color: var(--text-1, #171717); border-color: var(--border, #e5e7eb); transform: none; }
+
+.skill-install-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 5px 14px; border: 1px solid var(--border-sub, #f0f1f3); border-radius: 8px;
+  background: var(--bg-card, #fff); color: var(--text-2, #525252);
+  font-size: 11px; font-weight: 500; font-family: var(--font-display);
+  cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.skill-install-btn:hover { background: var(--bg-hover, #f5f5f4); color: var(--text-1, #171717); border-color: var(--border, #e5e7eb); transform: none; }
+
+.skill-icon {
+  width: 40px; height: 40px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ===== 设备管理 ===== */
+.view-panel-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.view-panel-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--font-display, 'DM Sans', sans-serif);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  border: 1px solid var(--border-sub, #e5e7eb);
+  background: var(--bg-main, #f7f7f8);
+  color: var(--text-2, #525252);
+}
+
+.view-panel-btn:hover {
+  background: var(--bg-hover, #ececec);
+  color: var(--text-1, #171717);
+}
+
+.view-panel-btn-primary {
+  border: none;
+  background: var(--text-1, #171717);
+  color: #fff;
+}
+
+.view-panel-btn-primary:hover {
+  background: #2a2a2a;
+  color: #fff;
+}
+
+.devices-panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--bg-main, #f7f7f8);
+  padding: 20px 24px 28px;
+}
+
+.devices-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+}
+
+.device-card {
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border-sub, #f0f1f3);
+  border-radius: 14px;
+  padding: 16px 16px 14px;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.device-card:hover {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+}
+
+.device-card.is-active {
+  border-color: var(--text-1, #171717);
+  box-shadow: 0 0 0 1px var(--text-1, #171717);
+}
+
+.device-card-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.device-card-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 11px;
+  background: var(--bg-main, #f7f7f8);
+  border: 1px solid var(--border-sub, #f0f1f3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--text-3, #737373);
+}
+
+.device-card.is-active .device-card-icon {
+  background: var(--bg-hover, #f5f5f4);
+  color: var(--text-1, #171717);
+  border-color: var(--border, #e5e7eb);
+}
+
+.device-card-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.device-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.device-card-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-1, #171717);
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+}
+
+.device-card-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--bg-hover, #f5f5f4);
+  color: var(--text-2, #525252);
+  border: 1px solid var(--border-sub, #e5e7eb);
+}
+
+.device-card.is-active .device-card-badge {
+  background: var(--text-1, #171717);
+  color: #fff;
+  border-color: transparent;
+}
+
+.device-card-endpoint {
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--text-3, #737373);
+  margin-bottom: 2px;
+}
+
+.device-card-desc {
+  font-size: 12px;
+  color: var(--text-3, #737373);
+  line-height: 1.4;
+}
+
+.device-card-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-2, #525252);
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+.device-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.device-status-dot.running { background: #22c55e; box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2); }
+.device-status-dot.offline { background: #a3a3a3; }
+.device-status-dot.pending { background: #f59e0b; }
+.device-status-dot.unhealthy { background: #f97316; }
+
+.device-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-sub, #f0f1f3);
+}
+
+.device-action-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font-display, 'DM Sans', sans-serif);
+  cursor: pointer;
+  border: 1px solid var(--border-sub, #e5e7eb);
+  background: var(--bg-main, #f7f7f8);
+  color: var(--text-2, #525252);
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.device-action-btn:hover {
+  background: var(--bg-hover, #ececec);
+  color: var(--text-1, #171717);
+}
+
+.device-action-btn-primary {
+  border: none;
+  background: var(--text-1, #171717);
+  color: #fff;
+}
+
+.device-action-btn-primary:hover {
+  background: #2a2a2a;
+  color: #fff;
+}
+
+.device-action-btn-danger {
+  color: #dc2626;
+  border-color: #fecaca;
+  background: #fff;
+}
+
+.device-action-btn-danger:hover {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+
+.devices-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 56px 24px;
+  color: var(--text-3, #737373);
+}
+
+.devices-empty-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 14px;
+  color: var(--text-3, #a3a3a3);
+}
+
+.devices-empty-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-1, #171717);
+  margin-bottom: 6px;
+}
+
+.devices-empty-desc {
+  font-size: 13px;
+  color: var(--text-3, #737373);
+  margin-bottom: 16px;
+}
+
+/* 设备表单弹窗 */
+.server-form-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 15, 15, 0.32);
+  backdrop-filter: blur(6px);
+}
+
+.server-form-overlay.show {
+  display: flex;
+}
+
+.server-form-modal {
+  width: 100%;
+  max-width: 480px;
+  background: var(--bg-card, #fff);
+  border-radius: 16px;
+  border: 1px solid var(--border-sub, #f0f1f3);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.14);
+}
+
+.server-form-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border-sub, #f0f1f3);
+}
+
+.server-form-header h3 {
+  font-size: 17px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text-1, #171717);
+}
+
+.server-form-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-3, #737373);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.server-form-close:hover {
+  background: var(--bg-hover, #f5f5f4);
+  color: var(--text-1, #171717);
+}
+
+.server-form-body {
+  padding: 20px 22px 22px;
+}
+
+.server-form-field {
+  margin-bottom: 14px;
+}
+
+.server-form-field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2, #525252);
+  margin-bottom: 6px;
+}
+
+.server-form-field input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 10px;
+  font-size: 14px;
+  outline: none;
+  box-sizing: border-box;
+  background: var(--bg-main, #f7f7f8);
+  color: var(--text-1, #171717);
+}
+
+.server-form-field input:focus {
+  border-color: var(--text-1, #171717);
+  background: #fff;
+}
+
+.server-form-hint {
+  font-size: 11px;
+  color: var(--text-3, #737373);
+  margin-top: 4px;
+}
+
+.server-form-row {
+  display: flex;
+  gap: 12px;
+}
+
+.server-form-row .server-form-field {
+  flex: 1;
+}
+
+.server-form-row .server-form-field.narrow {
+  flex: 0 0 100px;
+}
+
+.server-form-submit {
+  width: 100%;
+  padding: 12px;
+  margin-top: 4px;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: var(--font-display, 'DM Sans', sans-serif);
+  cursor: pointer;
+  background: var(--text-1, #171717);
+  color: #fff;
+}
+
+.server-form-submit:hover {
+  background: #2a2a2a;
+}
+
+@media (max-width: 640px) {
+  .devices-panel-body { padding: 16px; }
+  .devices-grid { grid-template-columns: 1fr; }
+  .view-panel-header { flex-wrap: wrap; gap: 8px; }
+  .view-panel-header-actions { width: 100%; justify-content: flex-end; }
+}

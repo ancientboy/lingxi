@@ -1,0 +1,96 @@
+/**
+ * Lume standalone mark — C1-13 hive nest animation
+ */
+
+.lume-mark {
+  color: var(--brand-mark, #3d6b62);
+  display: block;
+  flex-shrink: 0;
+}
+
+/* 圆角徽标容器 — 与 Lume 字标同量级 */
+.lume-mark-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: #f7f4ef;
+  border-radius: 22%;
+  line-height: 0;
+}
+
+.lume-mark-badge--sm {
+  width: 36px;
+  height: 36px;
+}
+
+.lume-mark-badge--sm .lume-mark {
+  width: 26px;
+  height: 26px;
+}
+
+.lume-mark-badge--md {
+  width: 48px;
+  height: 48px;
+}
+
+.lume-mark-badge--md .lume-mark {
+  width: 34px;
+  height: 34px;
+}
+
+.lume-mark-badge--lg {
+  width: 56px;
+  height: 56px;
+}
+
+.lume-mark-badge--lg .lume-mark {
+  width: 40px;
+  height: 40px;
+}
+
+.lume-mark--animate .lume-mark-nest {
+  transform-origin: 24px 23px;
+  transform-box: fill-box;
+}
+
+.lume-mark--animate .lume-mark-partner-dot {
+  transform-origin: 27.2px 23.8px;
+  transform-box: fill-box;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .lume-mark--animate .lume-mark-nest {
+    animation: lume-nest-breathe 3.2s ease-in-out infinite;
+  }
+
+  .lume-mark--animate .lume-mark-partner-dot {
+    animation: lume-partner-peek 2.8s ease-in-out infinite;
+  }
+
+  .lume-mark--animate .lume-mark-smile {
+    animation: lume-smile-soft 3.2s ease-in-out infinite;
+  }
+}
+
+@keyframes lume-nest-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+}
+
+@keyframes lume-partner-peek {
+  0%, 100% { transform: translate(0, 0); opacity: 0.45; }
+  50% { transform: translate(0.6px, -0.5px); opacity: 0.72; }
+}
+
+@keyframes lume-smile-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.88; }
+}
+
+.login-brand-mark,
+.sidebar-brand-mark {
+  line-height: 0;
+  display: flex;
+  align-items: center;
+}

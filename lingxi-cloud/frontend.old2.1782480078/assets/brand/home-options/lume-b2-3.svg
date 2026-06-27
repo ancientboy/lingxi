@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" aria-label="Lume B2-3 hex broken ring">
+  <path d="M 17.5 27.5 L 17.5 16.5 L 24 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M 30.5 16.5 L 30.5 27.5 L 24 31" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="24" cy="24" r="2.8" fill="currentColor"/>
+  <circle cx="30.5" cy="16.5" r="1.65" fill="currentColor" opacity="0.85"/>
+  <circle cx="16.5" cy="31" r="1.5" fill="currentColor" opacity="0.65"/>
+</svg>

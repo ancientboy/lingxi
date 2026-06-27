@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" aria-label="C1-11 sleepy at home">
+  <path d="M 24 13 L 32 18 L 32 28 L 24 33 L 16 28 L 16 18 Z" stroke="currentColor" stroke-width="1.85" stroke-linejoin="round"/>
+  <path d="M 18 23 Q 20.5 24.5 23 23" stroke="currentColor" stroke-width="1.55" stroke-linecap="round"/>
+  <path d="M 25 23 Q 27.5 24.5 30 23" stroke="currentColor" stroke-width="1.55" stroke-linecap="round"/>
+  <path d="M 20 27.5 Q 24 29.5 28 27.5" stroke="currentColor" stroke-width="1.45" stroke-linecap="round"/>
+</svg>

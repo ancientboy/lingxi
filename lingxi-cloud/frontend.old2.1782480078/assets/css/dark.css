@@ -1,0 +1,446 @@
+/**
+ * Lume - Dark Theme Override
+ * Replaces hardcoded colors with CSS variables
+ */
+
+/* ===== Dark Token Overrides ===== */
+body {
+  background: #202123;
+  color: #ececf1;
+}
+
+/* Sidebar */
+.sidebar {
+  background: #171717;
+  border-right-color: #2d2d2d;
+}
+
+.sidebar-brand {
+  border-bottom-color: #2d2d2d;
+}
+
+.sidebar-brand:hover {
+  background: #2d2d2d;
+}
+
+.sidebar-brand-name {
+  color: var(--text-inv);
+}
+
+.sidebar-header {
+  border-bottom-color: #2d2d2d;
+}
+
+.sidebar-new-chat {
+  background: var(--accent);
+}
+
+.sidebar-new-chat:hover {
+  background: var(--accent-h);
+}
+
+.sidebar-shortcut-btn {
+  color: var(--text-2);
+}
+
+.sidebar-shortcut-btn:hover {
+  background: #2a2a2a;
+  color: var(--border);
+}
+
+.sidebar-close {
+  background: #2d2d2d;
+  color: var(--text-3);
+}
+
+.sidebar-section-title {
+  color: var(--text-2);
+}
+
+.sidebar-session {
+  color: var(--text-inv);
+}
+
+.sidebar-session:hover {
+  background: #2d2d2d;
+}
+
+.sidebar-session.active {
+  background: var(--accent-soft);
+}
+
+.sidebar-session-title {
+  color: var(--text-inv);
+}
+
+.sidebar-session-time {
+  color: var(--text-2);
+}
+
+.sidebar-session-delete {
+  color: var(--text-2);
+}
+
+.sidebar-session-delete:hover {
+  color: var(--danger);
+}
+
+.sidebar-tools {
+  border-top-color: #2d2d2d;
+  border-bottom-color: #2d2d2d;
+}
+
+.sidebar-tool-item {
+  color: var(--text-inv);
+}
+
+.sidebar-tool-item:hover {
+  background: #2d2d2d;
+}
+
+.sidebar-footer {
+  background: #171717;
+}
+
+.sidebar-user-trigger {
+  color: var(--text-inv);
+}
+
+.sidebar-user-trigger:hover {
+  background: #2d2d2d;
+}
+
+.sidebar-user-name {
+  color: var(--text-inv);
+}
+
+.sidebar-user-menu {
+  background: #171717;
+  border-color: #2d2d2d;
+}
+
+.sidebar-menu-item {
+  color: var(--text-inv);
+}
+
+.sidebar-menu-item:hover {
+  background: #2d2d2d;
+}
+
+.sidebar-menu-item.danger {
+  color: var(--danger);
+}
+
+.sidebar-menu-item.danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.sidebar-divider {
+  background: #2d2d2d;
+}
+
+/* Sidebar overlay */
+.sidebar-overlay {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+/* Sidebar resizer */
+.sidebar-resizer:hover,
+.sidebar-resizer.dragging {
+  background: var(--accent);
+}
+
+/* Navbar */
+.navbar {
+  background: #343541;
+  border-bottom-color: #4d4d4f;
+}
+
+.logo {
+  color: var(--text-inv);
+}
+
+.status-dot {
+  background: var(--danger);
+}
+
+.status-dot.connected {
+  background: var(--accent);
+}
+
+/* Sidebar toggle */
+.sidebar-toggle {
+  color: var(--text-inv);
+}
+
+.sidebar-toggle:hover {
+  background: #444654;
+}
+
+/* Theme toggle */
+.theme-toggle-btn {
+  background: #2d2d2d;
+  color: var(--text-inv);
+}
+
+.theme-toggle-btn:hover {
+  background: #3d3d3d;
+}
+
+/* Agent switcher */
+.agent-switcher {
+  background: #343541;
+  border-color: #4d4d4f;
+}
+
+.agent-switcher:hover {
+  background: #444654;
+}
+
+.agent-avatar-mini {
+  color: var(--text-inv);
+}
+
+.agent-switcher-arrow {
+  color: var(--text-2);
+}
+
+/* Agent dropdown */
+.agent-dropdown {
+  background: #343541;
+  border-color: #4d4d4f;
+}
+
+.agent-dropdown-item:hover {
+  background: #444654;
+}
+
+.agent-dropdown-item.active {
+  background: var(--accent-soft);
+}
+
+.agent-dropdown-item .emoji {
+  background: #444654;
+}
+
+.agent-dropdown-item .info h4 {
+  color: var(--text-inv) !important;
+}
+
+.agent-dropdown-item .info p {
+  color: var(--text-3) !important;
+}
+
+.agent-dropdown-item .emoji svg {
+  color: var(--accent);
+}
+
+/* User avatar */
+.user-avatar-circle {
+  background: var(--accent);
+}
+
+/* Dropdown menu */
+.dropdown-content {
+  background: #343541;
+  border-color: #4d4d4f;
+}
+
+.dropdown-header {
+  color: var(--text-inv);
+  border-bottom-color: #4d4d4f;
+}
+
+.dropdown-item {
+  color: var(--text-inv);
+}
+
+.dropdown-item:hover {
+  background: #444654;
+}
+
+.dropdown-item.danger:hover {
+  background: #4a2020;
+}
+
+.dropdown-divider {
+  background: #4d4d4f;
+}
+
+/* Welcome screen */
+.welcome-title {
+  color: var(--text-inv);
+}
+
+.welcome-desc {
+  color: var(--text-3);
+}
+
+.team-tag {
+  background: #343541;
+  border-color: #4d4d4f;
+  color: var(--text-inv);
+}
+
+/* Message bubbles */
+.message .avatar {
+  background: var(--accent);
+}
+
+.message.user .avatar {
+  background: #5436da;
+}
+
+.message .bubble {
+  background: #343541;
+  border-color: #4d4d4f;
+  color: var(--text-inv);
+}
+
+.message.user .bubble {
+  background: #444654;
+}
+
+/* Input area */
+.input-area {
+  background: #343541;
+  border-color: #4d4d4f;
+}
+
+.quick-btn {
+  background: #444654;
+  border-color: #4d4d4f;
+  color: #c5c5d2;
+}
+
+.quick-btn:hover {
+  background: #545464;
+  border-color: #5d5d5f;
+}
+
+.input-field {
+  background: #202123;
+  border-color: #4d4d4f;
+  color: var(--text-inv);
+}
+
+.input-field:focus {
+  border-color: var(--accent);
+}
+
+.input-field::placeholder {
+  color: var(--text-2);
+}
+
+.send-btn {
+  background: var(--accent);
+}
+
+.send-btn:hover {
+  background: var(--accent-h);
+}
+
+.send-btn.stopping {
+  background: transparent;
+  color: var(--danger);
+}
+
+.send-btn.stopping:hover {
+  background: transparent;
+  color: #dc2626;
+}
+
+/* Modals */
+.modal-overlay {
+  background: rgba(0,0,0,0.6);
+}
+
+.modal {
+  background: #343541;
+}
+
+.modal-header {
+  border-bottom-color: #4d4d4f;
+}
+
+.modal-header h3 {
+  color: var(--text-inv);
+}
+
+.close-btn {
+  background: #444654;
+  color: var(--text-3);
+}
+
+.form-group label {
+  color: var(--text-inv);
+}
+
+.form-group input {
+  background: #202123;
+  border-color: #4d4d4f;
+  color: var(--text-inv);
+}
+
+.submit-btn {
+  background: var(--accent);
+}
+
+/* Team members */
+.team-member {
+  background: #343541;
+}
+
+.team-member-name {
+  color: var(--text-inv);
+}
+
+.team-member-role {
+  color: var(--text-3);
+}
+
+.remove-btn {
+  border-color: #4d4d4f;
+  color: var(--text-3);
+}
+
+.agent-chip {
+  background: #343541;
+  border-color: #4d4d4f;
+  color: var(--text-inv);
+}
+
+.agent-chip:hover {
+  background: #444654;
+  border-color: var(--accent);
+}
+
+/* Session list */
+.session-item:hover {
+  background: #444654;
+}
+
+.session-item.active {
+  background: var(--accent-soft);
+}
+
+.session-avatar {
+  background: #444654;
+}
+
+.session-name {
+  color: var(--text-inv);
+}
+
+.session-preview {
+  color: var(--text-3);
+}
+
+/* Scrollbar */
+.messages::-webkit-scrollbar-thumb {
+  background: #4d4d4f;
+}
+
+.messages::-webkit-scrollbar-thumb:hover {
+  background: #5d5d5f;
+}

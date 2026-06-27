@@ -1,0 +1,258 @@
+/**
+ * 办公区 agent-workspace 壳层 — Tab 栏 + 原生 Tab 内容区
+ */
+
+/* 与 iframe 子页一致：整页浅灰底，避免白边 + 灰块「双层」 */
+body {
+  background: var(--bg-main, #f7f7f8) !important;
+}
+
+/* Tab 栏：可滚动 + 中性激活态 */
+.tab-bar {
+  justify-content: flex-start !important;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 0 8px;
+  gap: 2px;
+}
+
+.tab-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.tab-item {
+  flex: 0 0 auto !important;
+  min-width: 56px;
+  padding: 6px 10px !important;
+  border-bottom: none !important;
+  border-radius: 8px;
+  margin: 4px 0;
+}
+
+.tab-item:hover {
+  background: var(--bg-hover, #f5f5f4);
+}
+
+.tab-item.active {
+  background: var(--bg-hover, #f5f5f4) !important;
+  border-bottom: none !important;
+}
+
+.tab-item.active .tab-label {
+  color: var(--text-1, #171717) !important;
+  font-weight: 600;
+}
+
+.tab-item.active .tab-svg,
+.tab-item.active [data-lucide] {
+  color: var(--text-1, #171717) !important;
+}
+
+/* 概览 3D 画布区域 */
+.office-container {
+  height: calc(100vh - 88px);
+  margin-top: 88px;
+  overflow: hidden;
+  position: relative;
+  background: var(--bg-main, #f7f7f8);
+}
+
+html.is-embedded .office-container {
+  height: calc(100vh - 44px);
+  margin-top: 44px;
+}
+
+/* 原生 Tab：灰底铺满整宽（与 iframe-container 一致） */
+#tabManage,
+#tabTemplates,
+#tabLogs {
+  background: var(--bg-main, #f7f7f8);
+  min-height: calc(100vh - 88px);
+}
+
+html.is-embedded #tabManage,
+html.is-embedded #tabTemplates,
+html.is-embedded #tabLogs {
+  min-height: calc(100vh - 44px);
+}
+
+/* 原生 Tab 内容区 — 仅限制内容宽度，不再单独铺一层背景 */
+.manage-panel,
+.templates-panel,
+.logs-panel {
+  margin-top: 88px !important;
+  padding: 20px 24px 32px !important;
+  max-width: 960px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  background: transparent !important;
+  min-height: 0 !important;
+  box-sizing: border-box;
+}
+
+html.is-embedded .manage-panel,
+html.is-embedded .templates-panel,
+html.is-embedded .logs-panel {
+  margin-top: 44px !important;
+}
+
+.manage-panel .section-title,
+.templates-panel .section-title,
+.logs-panel .section-title {
+  font-family: var(--font-display, 'DM Sans', sans-serif);
+  letter-spacing: -0.02em;
+}
+
+/* 成员卡片 — 对齐设备管理 */
+.member-card {
+  background: var(--bg-card, #fff) !important;
+  border: 1px solid var(--border-sub, #f0f1f3) !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+  margin-bottom: 10px !important;
+  padding: 14px 16px !important;
+}
+
+.member-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06) !important;
+  transform: none !important;
+}
+
+.member-badge {
+  background: var(--text-1, #171717) !important;
+  color: #fff !important;
+  border-radius: 999px !important;
+  padding: 3px 10px !important;
+}
+
+.member-remove {
+  border-color: #fecaca !important;
+  color: #dc2626 !important;
+  border-radius: 8px !important;
+  font-weight: 500;
+}
+
+.member-remove:hover {
+  background: #fef2f2 !important;
+}
+
+.add-section {
+  background: var(--bg-card, #fff) !important;
+  border: 1px solid var(--border-sub, #f0f1f3) !important;
+  border-radius: 12px !important;
+  margin-top: 16px !important;
+}
+
+.agent-chip {
+  border: 1px solid var(--border-sub, #f0f1f3) !important;
+  background: var(--bg-main, #f7f7f8) !important;
+  border-radius: 999px !important;
+}
+
+.agent-chip:hover {
+  border-color: var(--text-1, #171717) !important;
+  background: var(--bg-hover, #f5f5f4) !important;
+  color: var(--text-1, #171717) !important;
+}
+
+/* 模板卡片 */
+.template-grid {
+  gap: 12px !important;
+}
+
+.tpl-card {
+  background: var(--bg-card, #fff) !important;
+  border: 1px solid var(--border-sub, #f0f1f3) !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+}
+
+.tpl-card:hover {
+  border-color: var(--border, #e5e7eb) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06) !important;
+  transform: none !important;
+}
+
+.tpl-category-tabs {
+  display: flex !important;
+  gap: 6px !important;
+  flex-wrap: wrap;
+  border-bottom: none !important;
+  margin-bottom: 16px !important;
+}
+
+.tpl-category-tabs::after {
+  display: none !important;
+}
+
+.tpl-category-tab {
+  padding: 8px 14px !important;
+  border: 1px solid var(--border-sub, #f0f1f3) !important;
+  border-radius: 8px !important;
+  background: var(--bg-card, #fff) !important;
+  color: var(--text-2, #525252) !important;
+  font-family: var(--font-display, 'DM Sans', sans-serif);
+}
+
+.tpl-category-tab:hover {
+  background: var(--bg-hover, #f5f5f4) !important;
+  color: var(--text-1, #171717) !important;
+}
+
+.tpl-category-tab.active {
+  background: var(--text-1, #171717) !important;
+  color: #fff !important;
+  border-color: var(--text-1, #171717) !important;
+}
+
+/* 去掉旧版绿色下划线 */
+.tpl-category-tab.active::after {
+  display: none !important;
+  content: none !important;
+}
+
+.tpl-apply-btn,
+.btn-confirm-save {
+  background: var(--text-1, #171717) !important;
+  color: #fff !important;
+}
+
+.tpl-apply-btn:hover,
+.btn-confirm-save:hover {
+  background: #2a2a2a !important;
+  opacity: 1 !important;
+}
+
+/* 日志列表 */
+.log-item {
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border-sub, #f0f1f3);
+  border-radius: 10px;
+  padding: 10px 12px !important;
+  margin-bottom: 8px;
+  border-bottom: none !important;
+}
+
+.log-agent {
+  color: var(--text-1, #171717) !important;
+}
+
+.badge-live {
+  color: var(--text-2, #525252) !important;
+  background: var(--bg-hover, #f5f5f4) !important;
+  border-color: var(--border-sub, #f0f1f3) !important;
+}
+
+/* iframe 高度 */
+.iframe-container {
+  margin-top: 88px;
+  height: calc(100vh - 88px) !important;
+  background: var(--bg-main, #f7f7f8);
+}
+
+html.is-embedded .iframe-container {
+  margin-top: 44px !important;
+  height: calc(100vh - 44px) !important;
+}

@@ -1,0 +1,67 @@
+/**
+ * Lume macOS desktop — Cursor / Web three-column layout.
+ * Native left (260px) | Web chat center | Native right workspace (300px).
+ */
+html.lume-desktop .mobile-chat-header {
+  display: none !important;
+}
+
+/* Native Flutter left sidebar */
+html.lume-desktop #sidebar-container,
+html.lume-desktop #sidebar,
+html.lume-desktop .sidebar-resizer,
+html.lume-desktop .sidebar-overlay,
+html.lume-desktop .sidebar-edge-expand,
+html.lume-desktop .edge-expand-left {
+  display: none !important;
+}
+
+html.lume-desktop main.main-content,
+html.lume-desktop .main-content {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+/* Native Flutter right workspace — hide web right rail */
+html.lume-desktop #right-rail-container,
+html.lume-desktop #rightSidebar,
+html.lume-desktop .right-sidebar,
+html.lume-desktop .right-sidebar-edge-expand,
+html.lume-desktop .edge-expand-right {
+  display: none !important;
+}
+
+html.lume-desktop body.right-sidebar-expanded .notification-panel {
+  right: 16px !important;
+}
+
+/* Native composer */
+html.lume-desktop #composeDock,
+html.lume-desktop .home-suggestions {
+  display: none !important;
+}
+
+html.lume-desktop .chat-container {
+  padding-bottom: 0 !important;
+}
+
+html.lume-desktop .chat-scroll,
+html.lume-desktop .messages {
+  max-width: var(--content-max, 720px);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+html.lume-desktop .compose-dock {
+  max-width: var(--content-max, 720px);
+}
+
+/* Embedded tool views fill center when switchView opens them */
+html.lume-desktop .skills-view.active,
+html.lume-desktop #skillsView.active,
+html.lume-desktop #serversView.active,
+html.lume-desktop #workspaceView.active,
+html.lume-desktop #cronView.active,
+html.lume-desktop #loopsView.active {
+  display: flex !important;
+}
