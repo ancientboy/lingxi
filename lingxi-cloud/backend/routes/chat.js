@@ -1,7 +1,41 @@
 import { Router } from 'express';
-import { getUser } from '../utils/db.js';
+import { getUser, getDB } from '../utils/db.js';
 import { recordUsage } from '../utils/user_utils.js';
-import { callModelAPI } from '../utils/model_api.js';
+
+const PROXY_LITE_URL = process.env.PROXY_LITE_URL || 'http://127.0.0.1:13000';
+
+/** 统一流式代理 → ai-proxy-lite */
+async function streamChat(message, userId, systemPrompt, model, res) {
+  const body = {
+    model: model || 'auto',
+    messages: [
+      ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
+      { role: 'user', content: message },
+    ],
+    stream: true,
+    'extra-body': { userId },
+  };
+  const resp = await fetch(`${PROXY_LITE_URL}/v1/chat/completions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`ai-proxy-lite ${resp.status}: ${text.substring(0, 200)}`);
+  }
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    res.write(decoder.decode(value));
+  }
+  res.end();
+}
 
 const router = Router();
 
@@ -38,8 +72,8 @@ const ROLE_MAP = {
 };
 
 /**
- * 免费用户 / 无设备用户的聊天 API
- * 支持角色切换（通过 system prompt 模拟多 Agent）
+ * 聊天 API（流式）
+ * 所有用户统一走 ai-proxy-lite
  */
 router.post('/simple', async (req, res) => {
   try {
@@ -58,24 +92,20 @@ router.post('/simple', async (req, res) => {
       return res.status(404).json({ error: '用户不存在' });
     }
 
-    // 🔧 不再限制只有免费用户，有设备的用户也可以用（作为 fallback）
-    // 不再检查每日限制 — 无限次使用
-
-    // 获取角色 system prompt
     const roleKey = ROLE_MAP[role] || 'lingxi';
     const systemPrompt = ROLE_PROMPTS[roleKey] || ROLE_PROMPTS.lingxi;
 
-    // 调用模型 API（带 system prompt）
-    const response = await callModelAPI(message || '请描述这张图片', imageUrl, systemPrompt);
+    // 构建消息内容
+    let content = message;
+    if (imageUrl) {
+      content = [
+        { type: 'text', text: message || '请描述这张图片' },
+        { type: 'image_url', image_url: { url: imageUrl } },
+      ];
+    }
 
-    // 记录使用次数（仅统计，不限制）
     await recordUsage(userId);
-
-    res.json({
-      success: true,
-      response: response,
-      role: roleKey
-    });
+    await streamChat(content, userId, systemPrompt, 'auto', res);
   } catch (error) {
     console.error('免费用户对话错误:', error);
     res.status(500).json({ error: error.message });
@@ -99,15 +129,23 @@ router.get('/roles', (req, res) => {
   res.json({ roles });
 });
 
-export default router;
-// HTTP 发送兜底
+// HTTP 发送（所有用户统一走 ai-proxy-lite 流式）
 router.post('/send', async (req, res) => {
   try {
-    const { message, userId } = req.body;
+    const { message, userId, role, model } = req.body;
     if (!message) return res.status(400).json({ error: '消息不能为空' });
-    const result = await callModelAPI(message, null, null);
-    res.json({ success: true, response: result });
+
+    const roleKey = ROLE_MAP[role] || 'lingxi';
+    const systemPrompt = ROLE_PROMPTS[roleKey] || ROLE_PROMPTS.lingxi;
+    await streamChat(message, userId, systemPrompt, model, res);
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    console.error('[chat/send] 错误:', e.message);
+    if (!res.headersSent) {
+      res.status(500).json({ error: e.message });
+    } else {
+      res.end();
+    }
   }
 });
+
+export default router;

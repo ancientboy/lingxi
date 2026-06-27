@@ -2376,17 +2376,57 @@ window.deleteSessionWithRefresh = async function(sessionKey) {
 async function sendViaHTTP(text) {
   const loadingId = addTyping();
   try {
+    const role = window.currentAgentId || 'lingxi';
+    const model = window.userServerInfo?.preferredModel || 'auto';
     const res = await fetch(`${API_BASE}/api/chat/send`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         message: text,
-        userId: user?.id || 'web-user'
+        userId: user?.id || 'web-user',
+        role,
+        model,
       })
     });
 
     removeTyping();
 
+    // 流式响应（付费用户）
+    const contentType = res.headers.get('Content-Type') || '';
+    if (contentType.includes('text/event-stream')) {
+      // 创建流式消息容器
+      const runId = 'http-stream-' + Date.now();
+      let fullText = '';
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = line.slice(6).trim();
+          if (data === '[DONE]') continue;
+          try {
+            const json = JSON.parse(data);
+            const delta = json.choices?.[0]?.delta?.content || '';
+            if (delta) {
+              fullText += delta;
+              updateStreamingMessage(fullText, runId);
+            }
+          } catch (_) {}
+        }
+      }
+      finalizeStreamingMessage(fullText, runId, { model: model || 'auto' });
+      return;
+    }
+
+    // 非流式响应（免费用户 / 降级）
     if (res.ok) {
       const data = await res.json();
       addMessage('assistant', data.response || '收到~', '灵犀');

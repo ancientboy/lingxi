@@ -106,7 +106,8 @@ function isModelCoolingDown(routerModel) {
 // 智能选择最佳可用模型
 function selectLumeAutoModel(clientIp) {
   // 1. 查用户套餐
-  const candidates = LUME_AUTO_MODELS.pro; // 所有用户统一模型列表
+  const tier = 'pro'; // 所有用户统一 pro 级别
+  const candidates = LUME_AUTO_MODELS[tier] || LUME_AUTO_MODELS.pro;
 
   // 2. 避让最近失败的模型
   for (const model of candidates) {
