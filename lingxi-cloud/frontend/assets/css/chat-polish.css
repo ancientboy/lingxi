@@ -5,8 +5,8 @@
 
 :root {
   /* 克制品牌色：低饱和墨绿，避免「荧光工具感」 */
-  --accent: #3d6b62;
-  --accent-h: #2f554d;
+  --accent: #1a1a1a;
+  --accent-h: #333333;
   --accent-soft: rgba(61, 107, 98, 0.06);
   --accent-ring: rgba(61, 107, 98, 0.14);
 
@@ -727,7 +727,7 @@
   color: var(--text-3); background: var(--bg-hover);
   transition: color 0.12s, background 0.12s;
 }
-.model-dropdown-add:hover { color: var(--accent, #3d6b62); background: var(--bg-main); }
+.model-dropdown-add:hover { color: var(--accent, #1a1a1a); background: var(--bg-main); }
 
 .model-dropdown-search input::placeholder {
   color: var(--text-3);

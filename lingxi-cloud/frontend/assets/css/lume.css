@@ -22,10 +22,10 @@
   --text-3:      #a3a3a3;
   --text-inv:    #ffffff;
 
-  --accent:      #3d6b62;
-  --accent-h:    #2f554d;
-  --accent-soft: rgba(61,107,98,0.08);
-  --accent-ring: rgba(61,107,98,0.14);
+  --accent:      #1a1a1a;
+  --accent-h:    #333333;
+  --accent-soft: rgba(0,0,0,0.05);
+  --accent-ring: rgba(0,0,0,0.08);
 
   --danger:      #ef4444;
   --danger-soft: #fef2f2;
@@ -289,7 +289,7 @@ tr:hover td { background: var(--bg-hover); }
 
 /* Button hover lift */
 .btn { transition: all 0.2s ease; }
-.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(61,107,98,0.25); }
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
 .btn-primary:active { transform: translateY(0); }
 .btn-secondary:hover { transform: translateY(-1px); box-shadow: var(--shadow-sm); }
 

@@ -18,6 +18,11 @@ async function tryConnectLume() {
   return false;
 }
 
+// 无条件注册事件监听
+if (typeof LumeRpc !== 'undefined') {
+  LumeRpc.onEvent((msg) => handleLumeEvent(msg));
+}
+
 function initLumeChatMode() {
   if (!window.USE_LUME || !LumeRpc.isConnected()) {
     console.warn('[Lume] 未连接，跳过 initLumeChatMode');
@@ -28,8 +33,6 @@ function initLumeChatMode() {
     statusDot = statusEl.querySelector('.status-dot');
     if (statusDot) statusDot.className = 'status-dot connected';
   }
-
-  LumeRpc.onEvent((msg) => handleLumeEvent(msg));
 
   void loadLumeSessions();
 

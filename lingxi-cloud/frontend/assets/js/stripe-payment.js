@@ -88,7 +88,7 @@ async function initPaymentElement(clientSecret, onSuccess) {
     appearance: {
       theme: 'stripe',
       variables: {
-        colorPrimary: '#3d6b62',
+        colorPrimary: '#1a1a1a',
         colorBackground: '#ffffff',
         colorText: '#202123',
         borderRadius: '8px',

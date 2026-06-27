@@ -3,10 +3,10 @@
  * Import in lume.css and chat.css (chat may override layout tokens only)
  */
 :root {
-  --accent:      #3d6b62;
-  --accent-h:    #2f554d;
-  --accent-soft: rgba(61, 107, 98, 0.08);
-  --accent-ring: rgba(61, 107, 98, 0.14);
-  --accent-muted: rgba(61, 107, 98, 0.45);
-  --accent-gradient: linear-gradient(135deg, #3d6b62 0%, #2f554d 100%);
+  --accent:      #1a1a1a;
+  --accent-h:    #333333;
+  --accent-soft: rgba(0,0,0,0.05);
+  --accent-ring: rgba(0,0,0,0.08);
+  --accent-muted: rgba(0,0,0,0.3);
+  --accent-gradient: linear-gradient(135deg, #1a1a1a 0%, #333333 100%);
 }

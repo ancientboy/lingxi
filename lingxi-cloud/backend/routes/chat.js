@@ -100,3 +100,14 @@ router.get('/roles', (req, res) => {
 });
 
 export default router;
+// HTTP 发送兜底
+router.post('/send', async (req, res) => {
+  try {
+    const { message, userId } = req.body;
+    if (!message) return res.status(400).json({ error: '消息不能为空' });
+    const result = await callModelAPI(message, null, null);
+    res.json({ success: true, response: result });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});

@@ -3688,7 +3688,7 @@
               body: JSON.stringify({ model: info.testModel, messages: [{ role: 'user', content: 'Hi' }], max_tokens: 5 }),
               signal: AbortSignal.timeout(10000)
             });
-            if (resp.ok) { el.textContent = '✓ 连接成功'; el.style.color = '#10a37f'; }
+            if (resp.ok) { el.textContent = '✓ 连接成功'; el.style.color = '#1a1a1a'; }
             else { var err = await resp.text(); el.textContent = '✗ ' + resp.status + ' ' + err.slice(0,60); el.style.color = '#ef4444'; }
           } catch(e) { el.textContent = '✗ 连接失败: ' + e.message; el.style.color = '#ef4444'; }
         }},
@@ -3765,7 +3765,7 @@
 
   <script src="assets/js/lume-dialog.js?v=20260627e"></script>
   <script src="assets/js/lume-rpc.js?v=20260627e"></script>
-  <script src="assets/js/chat-lume.js?v=20260627e"></script>
+  <script src="assets/js/chat-lume.js?v=20260627c"></script>
   <script src="assets/js/chat.js?v=20260627e"></script>
 
     <!-- 统一组件加载器 -->
