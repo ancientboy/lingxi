@@ -98,6 +98,7 @@ const MODEL_PROVIDER_MAP = {
   'zhipu/':              'zhipu',                // 智谱直连
   'glm-cn/':             'zhipu',                // glm-cn 也走智谱
   'dmxapi/':             'dmxapi',               // DMXAPI 直连
+  'opencode-go/':        'opencode-go',          // OpenCode Go 直连
   'alibaba-cloud/':      'aliyun',               // 阿里百炼 Coding
 };
 

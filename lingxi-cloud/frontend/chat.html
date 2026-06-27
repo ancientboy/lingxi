@@ -3424,6 +3424,8 @@
       return cachedModels.find(function(m) { return m.id === modelId; });
     }
 
+    let cachedCategories = [];
+
     async function loadModels() {
       await detectFreeUser();
       try {
@@ -3432,29 +3434,55 @@
         if (token) {
           try { const p = JSON.parse(atob(token.split('.')[1])); if (p.userId) params.set('userId', p.userId); } catch(e) {}
         }
+        params.set('detectOpenClaw', 'true');
         const res = await fetch(window.location.origin + '/api/models/list?' + params, {
           headers: token ? { Authorization: 'Bearer ' + token } : {}
         });
         const data = await res.json();
-        if (data.providers && data.providers.length) {
+        
+        // 新分类结构
+        if (data.categories) {
+          cachedCategories = data.categories;
           cachedModels = [];
-          for (const pv of data.providers) {
-            for (const m of pv.models) {
-              cachedModels.push({
-                id: m.id, name: m.name, provider: pv.provider, providerName: pv.name,
-                desc: '', tier: m.tier || 'free', capabilities: m.capabilities || ['text'],
-                contextWindow: m.contextWindow || 0
-              });
+          for (const cat of data.categories) {
+            for (const pv of cat.providers) {
+              for (const m of pv.models) {
+                cachedModels.push({
+                  id: m.id, name: m.name, provider: pv.provider, providerName: pv.name,
+                  category: cat.key, categoryLabel: cat.label,
+                  desc: '', tier: m.tier || 'free', capabilities: m.capabilities || ['text'],
+                  contextWindow: m.contextWindow || 0
+                });
+              }
             }
           }
+          if (data.bindableProviders) PROVIDER_LIST = data.bindableProviders;
           if (data.preference && data.preference !== 'auto') {
             var saved = localStorage.getItem(MODEL_KEY);
             if (!saved || saved === 'auto') localStorage.setItem(MODEL_KEY, data.preference);
           }
           return;
         }
+        
+        // 旧结构兼容
+        if (data.providers && data.providers.length) {
+          cachedCategories = [{ key: 'lume', label: 'Lume 官方', providers: data.providers }];
+          cachedModels = [];
+          for (const pv of data.providers) {
+            for (const m of pv.models) {
+              cachedModels.push({
+                id: m.id, name: m.name, provider: pv.provider, providerName: pv.name,
+                category: 'lume', categoryLabel: 'Lume 官方',
+                desc: '', tier: m.tier || 'free', capabilities: m.capabilities || ['text'],
+                contextWindow: m.contextWindow || 0
+              });
+            }
+          }
+          return;
+        }
       } catch (e) { console.warn('[models] fetch failed'); }
       cachedModels = FALLBACK_MODELS.slice();
+      cachedCategories = [];
     }
 
     async function initModelSelector() {
@@ -3558,31 +3586,40 @@
         ? '<div class="model-dropdown-footer"><a href="subscription.html" target="_blank">升级订阅解锁全部模型</a></div>'
         : '';
 
-      // 构建按 provider 分组的完整列表（不搜索时显示分组）
+      // 构建按分类+provider 分组的完整列表（不搜索时显示分组）
       var fullListHtml = '';
       if (!q) {
         var autoItem = '<div class="model-dropdown-item' + (currentModel === 'auto' ? ' active' : '') + '" data-model-id="auto" role="option">' +
           '<div class="model-item-main"><span class="model-item-name">Auto</span><span class="model-item-tag">智能选择最优模型</span></div><span class="model-check">✓</span></div>';
         fullListHtml = autoItem + '<div class="model-dropdown-divider"></div>';
-        var grouped = {};
-        for (var i = 0; i < cachedModels.length; i++) {
-          var cm = cachedModels[i]; if (cm.id === 'auto') continue;
-          var pn = cm.providerName || cm.provider;
-          if (!grouped[pn]) grouped[pn] = [];
-          grouped[pn].push(cm);
-        }
-        var pkeys = Object.keys(grouped);
-        for (var gi = 0; gi < pkeys.length; gi++) {
-          var pk = pkeys[gi];
-          fullListHtml += '<div style="padding:6px 10px 2px;font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.5px;">' + esc(pk) + '</div>';
-          var pmodels = grouped[pk];
-          for (var mi = 0; mi < pmodels.length; mi++) {
-            var pm = pmodels[mi];
-            var plocked = pm.tier === 'pro' && isFreeUser;
-            var pactive = pm.id === currentModel;
-            fullListHtml += '<div class="model-dropdown-item' + (pactive ? ' active' : '') + (plocked ? ' locked' : '') + '" data-model-id="' + esc(pm.id) + '">' +
-              '<div class="model-item-main"><span class="model-item-name">' + esc(pm.name) + '</span><span class="model-item-tag">' + esc(pm.desc || '') + '</span></div>' +
-              (plocked ? '<span class="model-lock"><i data-lucide="lock" class="icon-sm"></i></span>' : '<span class="model-check">✓</span>') + '</div>';
+        
+        // 按 category → provider 双层分组
+        for (var ci = 0; ci < cachedCategories.length; ci++) {
+          var cat = cachedCategories[ci];
+          // 分类标题
+          fullListHtml += '<div style="padding:8px 10px 3px;font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.8px;border-bottom:1px solid var(--border-sub);margin-bottom:2px;">' + esc(cat.label) + '</div>';
+          
+          for (var pi = 0; pi < cat.providers.length; pi++) {
+            var pv = cat.providers[pi];
+            // provider 子标题（只在分类内有多个 provider 时显示）
+            if (cat.providers.length > 1) {
+              fullListHtml += '<div style="padding:4px 10px 1px;font-size:11px;font-weight:600;color:var(--text-3);">' + esc(pv.name) + '</div>';
+            }
+            
+            for (var mi = 0; mi < pv.models.length; mi++) {
+              var pm = pv.models[mi];
+              var modelId = pm.id;
+              // 查找 cachedModels 获取额外信息
+              var cm = cachedModels.find(function(m) { return m.id === modelId; });
+              var pmTier = (cm && cm.tier) || pm.tier || 'free';
+              var plocked = pmTier === 'pro' && isFreeUser;
+              var pactive = modelId === currentModel;
+              fullListHtml += '<div class="model-dropdown-item' + (pactive ? ' active' : '') + (plocked ? ' locked' : '') + '" data-model-id="' + esc(modelId) + '">' +
+                '<div class="model-item-main"><span class="model-item-name">' + esc(pm.name) + '</span>' +
+                (cat.providers.length <= 1 ? '<span class="model-item-tag">' + esc(pv.name) + '</span>' : '') +
+                '</div>' +
+                (plocked ? '<span class="model-lock"><i data-lucide="lock" class="icon-sm"></i></span>' : '<span class="model-check">✓</span>') + '</div>';
+            }
           }
         }
       }
@@ -3654,17 +3691,20 @@
     }
 
     // ===== API Key 弹窗 =====
-    // 供应商 ID 必须和后端 ai-proxy-lite PROVIDERS key 一致
+    // 供应商列表（后端 /api/models/list 的 bindableProviders 会动态覆盖）
     var PROVIDER_LIST = [
-      { id: 'bailian-token-plan', name: '百炼', testUrl: 'https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1/chat/completions', testModel: 'qwen3.7-plus',
+      { id: 'bailian-token-plan', name: '百炼', testModel: 'qwen3.7-plus',
         models: ['qwen3.7-plus','qwen3.7-max','qwen3.6-plus','qwen3.6-flash','deepseek-v4-pro','kimi-k2.7-code'],
-        getKeyUrl: 'https://bailian.console.aliyun.com/?apiKey=1#/api-key' },
-      { id: 'zhipu', name: '智谱', testUrl: 'https://open.bigmodel.cn/api/coding/paas/v4/chat/completions', testModel: 'glm-5',
+        getKeyUrl: 'https://bailian.console.aliyun.com/?apiKey=1' },
+      { id: 'zhipu', name: '智谱', testModel: 'glm-5',
         models: ['glm-5.2','glm-5','glm-4.7'],
         getKeyUrl: 'https://open.bigmodel.cn/usercenter/apikeys' },
-      { id: 'dmxapi', name: 'DMXAPI', testUrl: 'https://www.dmxapi.cn/v1/chat/completions', testModel: 'glm-4-flash',
+      { id: 'dmxapi', name: 'DMXAPI', testModel: 'glm-4-flash',
         models: ['glm-4-flash','GLM-4.5-Flash','Qwen3-8B'],
         getKeyUrl: 'https://www.dmxapi.cn/' },
+      { id: 'opencode-go', name: 'OpenCode Go', testModel: 'glm-5.2',
+        models: ['glm-5.2','glm-5.1','gpt-4o','gpt-5.2','claude-sonnet-4.6'],
+        getKeyUrl: 'https://opencodego.com' },
     ];
 
     window.openSettingsKeyPanel = function() {

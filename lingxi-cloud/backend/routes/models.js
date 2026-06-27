@@ -21,20 +21,26 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const dbPath = join(__dirname, '..', 'data', 'db.json');
 
-// 默认官方模型池
+// 默认官方模型池（Lume 提供）
 const DEFAULT_MODEL_POOL = [
   // 百炼 Token Plan（直连）
-  { id: 'bailian/qwen3.7-plus', name: '千问3.7 Plus', provider: 'bailian-token-plan', providerName: '百炼', capabilities: ['text', 'image', 'reasoning'], contextWindow: 1000000, maxTokens: 65536, tier: 'pro', enabled: true, official: true },
-  { id: 'bailian/qwen3.7-max', name: '千问3.7 Max', provider: 'bailian-token-plan', providerName: '百炼', capabilities: ['text', 'reasoning'], contextWindow: 1000000, maxTokens: 65536, tier: 'pro', enabled: true, official: true },
-  { id: 'bailian/qwen3.6-plus', name: '千问3.6 Plus', provider: 'bailian-token-plan', providerName: '百炼', capabilities: ['text', 'image', 'reasoning'], contextWindow: 1000000, maxTokens: 65536, tier: 'pro', enabled: true, official: true },
-  { id: 'bailian/qwen3.6-flash', name: '千问3.6 Flash', provider: 'bailian-token-plan', providerName: '百炼', capabilities: ['text', 'image'], contextWindow: 1000000, maxTokens: 32768, tier: 'free', enabled: true, official: true },
-  { id: 'bailian/deepseek-v4-pro', name: 'DeepSeek V4 Pro', provider: 'bailian-token-plan', providerName: '百炼', capabilities: ['text', 'reasoning'], contextWindow: 163840, maxTokens: 32768, tier: 'pro', enabled: true, official: true },
-  { id: 'bailian/kimi-k2.7-code', name: 'Kimi K2.7 Code', provider: 'bailian-token-plan', providerName: '百炼', capabilities: ['text', 'image', 'reasoning'], contextWindow: 262144, maxTokens: 32768, tier: 'pro', enabled: true, official: true },
+  { id: 'bailian/qwen3.7-plus', name: '千问3.7 Plus', provider: 'bailian-token-plan', providerName: '百炼', category: 'lume', capabilities: ['text', 'image', 'reasoning'], contextWindow: 1000000, maxTokens: 65536, tier: 'pro', enabled: true, official: true },
+  { id: 'bailian/qwen3.7-max', name: '千问3.7 Max', provider: 'bailian-token-plan', providerName: '百炼', category: 'lume', capabilities: ['text', 'reasoning'], contextWindow: 1000000, maxTokens: 65536, tier: 'pro', enabled: true, official: true },
+  { id: 'bailian/qwen3.6-plus', name: '千问3.6 Plus', provider: 'bailian-token-plan', providerName: '百炼', category: 'lume', capabilities: ['text', 'image', 'reasoning'], contextWindow: 1000000, maxTokens: 65536, tier: 'pro', enabled: true, official: true },
+  { id: 'bailian/qwen3.6-flash', name: '千问3.6 Flash', provider: 'bailian-token-plan', providerName: '百炼', category: 'lume', capabilities: ['text', 'image'], contextWindow: 1000000, maxTokens: 32768, tier: 'free', enabled: true, official: true },
+  { id: 'bailian/deepseek-v4-pro', name: 'DeepSeek V4 Pro', provider: 'bailian-token-plan', providerName: '百炼', category: 'lume', capabilities: ['text', 'reasoning'], contextWindow: 163840, maxTokens: 32768, tier: 'pro', enabled: true, official: true },
+  { id: 'bailian/kimi-k2.7-code', name: 'Kimi K2.7 Code', provider: 'bailian-token-plan', providerName: '百炼', category: 'lume', capabilities: ['text', 'image', 'reasoning'], contextWindow: 262144, maxTokens: 32768, tier: 'pro', enabled: true, official: true },
   // 智谱直连
-  { id: 'zhipu/glm-5.2', name: 'GLM-5.2', provider: 'zhipu', providerName: '智谱', capabilities: ['text', 'reasoning'], contextWindow: 200000, maxTokens: 8192, tier: 'free', enabled: true, official: true },
-  // GitHub Copilot（经 9Router）
-  { id: 'gh/gpt-4o', name: 'GPT-4o', provider: '9router', providerName: 'GitHub Copilot', capabilities: ['text', 'image'], contextWindow: 128000, maxTokens: 4096, tier: 'free', enabled: true, official: true },
-  { id: 'gh/gpt-4.1', name: 'GPT-4.1', provider: '9router', providerName: 'GitHub Copilot', capabilities: ['text', 'image'], contextWindow: 128000, maxTokens: 32768, tier: 'free', enabled: true, official: true },
+  { id: 'zhipu/glm-5.2', name: 'GLM-5.2', provider: 'zhipu', providerName: '智谱', category: 'lume', capabilities: ['text', 'reasoning'], contextWindow: 200000, maxTokens: 8192, tier: 'free', enabled: true, official: true },
+  // 9Router — GitHub Copilot 模型
+  { id: 'gh/gpt-4o', name: 'GPT-4o', provider: '9router', providerName: 'GitHub Copilot', category: 'lume', capabilities: ['text', 'image'], contextWindow: 128000, maxTokens: 4096, tier: 'free', enabled: true, official: true },
+  { id: 'gh/gpt-4.1', name: 'GPT-4.1', provider: '9router', providerName: 'GitHub Copilot', category: 'lume', capabilities: ['text', 'image'], contextWindow: 128000, maxTokens: 32768, tier: 'free', enabled: true, official: true },
+  { id: 'gh/gpt-5.2', name: 'GPT-5.2', provider: '9router', providerName: 'GitHub Copilot', category: 'lume', capabilities: ['text', 'image', 'reasoning'], contextWindow: 128000, maxTokens: 32768, tier: 'pro', enabled: true, official: true },
+  { id: 'gh/claude-sonnet-4.6', name: 'Claude Sonnet 4.6', provider: '9router', providerName: 'GitHub Copilot', category: 'lume', capabilities: ['text', 'image'], contextWindow: 200000, maxTokens: 8192, tier: 'pro', enabled: true, official: true },
+  // 9Router — Cursor 模型
+  { id: 'cu/claude-4.5-sonnet', name: 'Claude 4.5 Sonnet', provider: '9router', providerName: 'Cursor', category: 'lume', capabilities: ['text', 'image'], contextWindow: 200000, maxTokens: 8192, tier: 'pro', enabled: true, official: true },
+  { id: 'cu/claude-4.5-sonnet-thinking', name: 'Claude 4.5 Thinking', provider: '9router', providerName: 'Cursor', category: 'lume', capabilities: ['text', 'reasoning'], contextWindow: 200000, maxTokens: 8192, tier: 'pro', enabled: true, official: true },
+  { id: 'cu/gpt-5.3-codex', name: 'GPT-5.3 Codex', provider: '9router', providerName: 'Cursor', category: 'lume', capabilities: ['text', 'image', 'reasoning'], contextWindow: 128000, maxTokens: 8192, tier: 'pro', enabled: true, official: true },
 ];
 
 // 读取/写入 db.json
@@ -97,6 +103,22 @@ async function detectUserOpenClawModels(userServer) {
   }
 }
 
+// 可绑定的供应商列表（用户可在前端绑定自己的 key）
+const BINDABLE_PROVIDERS = [
+  { id: 'bailian-token-plan', name: '百炼', testModel: 'qwen3.7-plus',
+    models: ['qwen3.7-plus','qwen3.7-max','qwen3.6-plus','qwen3.6-flash','deepseek-v4-pro','kimi-k2.7-code'],
+    getKeyUrl: 'https://bailian.console.aliyun.com/?apiKey=1' },
+  { id: 'zhipu', name: '智谱', testModel: 'glm-5',
+    models: ['glm-5.2','glm-5','glm-4.7'],
+    getKeyUrl: 'https://open.bigmodel.cn/usercenter/apikeys' },
+  { id: 'dmxapi', name: 'DMXAPI', testModel: 'glm-4-flash',
+    models: ['glm-4-flash','GLM-4.5-Flash','Qwen3-8B'],
+    getKeyUrl: 'https://www.dmxapi.cn/' },
+  { id: 'opencode-go', name: 'OpenCode Go', testModel: 'glm-5.2',
+    models: ['glm-5.2','glm-5.1','gpt-4o','gpt-5.2','claude-sonnet-4.6'],
+    getKeyUrl: 'https://opencodego.com' },
+];
+
 router.get('/list', async (req, res) => {
   try {
     const { userId, detectOpenClaw } = req.query;
@@ -113,58 +135,76 @@ router.get('/list', async (req, res) => {
       preference = user?.modelPreference || null;
     }
     
-    // 获取用户自定义 Key（如果有）
+    // 获取用户自定义 Key
     const userKeys = userId ? db.userKeys?.[userId] || {} : {};
     
-    // 按 provider 分组
-    const providers = {};
+    // === 分类构建 ===
+    
+    // 1. Lume 官方模型（按 providerName 分组）
+    const lumeProviders = {};
     for (const m of officialModels) {
-      const p = m.provider;
-      if (!providers[p]) {
-        providers[p] = { name: m.providerName, provider: p, models: [] };
+      const pn = m.providerName || m.provider;
+      if (!lumeProviders[pn]) {
+        lumeProviders[pn] = { name: pn, provider: m.provider, category: 'lume', models: [] };
       }
-      providers[p].models.push({
-        id: m.id,
-        name: m.name,
+      lumeProviders[pn].models.push({
+        id: m.id, name: m.name,
         capabilities: m.capabilities || ['text'],
-        contextWindow: m.contextWindow,
-        maxTokens: m.maxTokens,
+        contextWindow: m.contextWindow, maxTokens: m.maxTokens,
         tier: m.tier || 'free',
-        hasUserKey: !!userKeys[p]
       });
     }
     
-    // 检测用户 OpenClaw 已配置的模型（可选）
-    let openclawModels = null;
+    // 2. 用户自有 Key 模型（只显示绑定了 key 的 provider）
+    const userKeyProviders = [];
+    for (const prov of BINDABLE_PROVIDERS) {
+      const hasKey = userKeys[prov.id] && userKeys[prov.id].some(k => k.enabled !== false);
+      if (!hasKey) continue;
+      userKeyProviders.push({
+        name: prov.name + ' (自有)',
+        provider: prov.id,
+        category: 'userKey',
+        models: prov.models.map(mid => ({
+          id: prov.id + '/' + mid,
+          name: mid,
+          capabilities: ['text'],
+          tier: 'user',
+        })),
+      });
+    }
+    
+    // 3. OpenClaw 自有模型
+    let openclawProviders = [];
     if (detectOpenClaw === 'true' && userId) {
-      const user = db.users?.find(u => u.id === userId);
       const server = db.userServers?.find(s => s.userId === userId && s.status === 'running');
       if (server) {
-        openclawModels = await detectUserOpenClawModels(server);
-        if (openclawModels?.length) {
-          // 将用户 OpenClaw 模型合并到 providers 列表
-          for (const m of openclawModels) {
-            const p = m.provider;
-            if (!providers[p]) {
-              providers[p] = { name: m.providerName, provider: p, models: [] };
-            }
-            // 避免重复添加
-            if (!providers[p].models.find(em => em.id === m.id)) {
-              providers[p].models.push({
-                ...m,
-                hasUserKey: true  // 用户 OpenClaw 已配置，视为有 key
-              });
-            }
+        const ocModels = await detectUserOpenClawModels(server);
+        if (ocModels?.length) {
+          // 按 providerName 分组
+          const ocGroups = {};
+          for (const m of ocModels) {
+            const pn = m.providerName || m.provider;
+            if (!ocGroups[pn]) ocGroups[pn] = { name: pn + ' (OpenClaw)', provider: m.provider, category: 'openclaw', models: [] };
+            ocGroups[pn].models.push({
+              id: m.id, name: m.name,
+              capabilities: m.capabilities || ['text'],
+              tier: 'user',
+            });
           }
+          openclawProviders = Object.values(ocGroups);
         }
       }
     }
     
     res.json({
       preference,
-      providers: Object.values(providers),
+      categories: [
+        { key: 'lume', label: 'Lume 官方', providers: Object.values(lumeProviders) },
+        { key: 'userKey', label: '我的 Key', providers: userKeyProviders },
+        { key: 'openclaw', label: 'OpenClaw', providers: openclawProviders },
+      ].filter(c => c.providers.length > 0),
+      bindableProviders: BINDABLE_PROVIDERS,
       userKeys: Object.keys(userKeys),
-      hasOpenClawModels: !!openclawModels?.length
     });
   } catch (e) {
     console.error('[models] list error:', e.message);
