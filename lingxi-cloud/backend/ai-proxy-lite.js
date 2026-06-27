@@ -90,61 +90,27 @@ function selectLumeAutoModel(clientIp) {
   return model;
 }
 
-// 模型映射：用户请求的模型名 → 9Router 对应的付费模型名
-// 所有请求都走 9Router，由 9Router 进行 provider 调度和 fallback
-const OPENCODE_GO_PRIMARY = 'glm-cn/glm-5.2';
-const OPENCODE_GO_SECONDARY = 'glm-cn/glm-5.2';
-
-const MODEL_MAP_TO_9ROUTER = {
-  // Lume 智能模型（由后端自动选择）
-  'auto': null,  // 特殊处理，由 selectLumeAutoModel() 动态决定
-  // GPT 系列 → GitHub Copilot
-  'gpt-4o':             OPENCODE_GO_PRIMARY,
-  'gpt-4o-mini':        OPENCODE_GO_PRIMARY,
-  'gpt-4':              OPENCODE_GO_PRIMARY,
-  'gpt-4.1':            OPENCODE_GO_PRIMARY,
-  'gpt-5.2':            OPENCODE_GO_PRIMARY,           // GitHub Copilot（国内可用，替代 Cursor）
-  // Claude 系列 → GitHub Copilot（国内可用，替代 Cursor）
-  'claude-4.5-sonnet':  OPENCODE_GO_PRIMARY,
-  'claude-4.6-sonnet':  OPENCODE_GO_PRIMARY,
-  'claude-4.5-opus':    OPENCODE_GO_PRIMARY,
-  // 智谱 GLM 系列 → glm-cn (Coding Plan 付费)
-  'glm-5.2':            OPENCODE_GO_PRIMARY,
-  'glm-5':              'glm-cn/glm-5.2',
-  'glm-4.7':            OPENCODE_GO_PRIMARY,
-  'glm-4.6':            OPENCODE_GO_PRIMARY,
-  'glm-4.5-air':        OPENCODE_GO_PRIMARY,
-  'glm-4-flash':        OPENCODE_GO_PRIMARY,
-  'glm-4-plus':         OPENCODE_GO_PRIMARY,
-  'glm-4-long':         OPENCODE_GO_PRIMARY,
-  'glm-4':              OPENCODE_GO_PRIMARY,
-  'glm-4v':             OPENCODE_GO_PRIMARY,
-  'glm-3-turbo':        OPENCODE_GO_PRIMARY,
-  'chatglm-turbo':      OPENCODE_GO_PRIMARY,
-  'kimi-k2.6':          OPENCODE_GO_SECONDARY,
-  'kimi-k2.5':          'kimi/kimi-k2.7',
-  // 阿里云 qwen 系列 → 映射到智谱等价模型（百炼已停用）
-  'qwen-max':           OPENCODE_GO_PRIMARY,
-  'qwen-plus':          OPENCODE_GO_PRIMARY,
-  'qwen-turbo':         OPENCODE_GO_PRIMARY,
-  'qwen-flash':         OPENCODE_GO_PRIMARY,
-  'qwen-long':          OPENCODE_GO_PRIMARY,
-  'qwen3-235b-a22b':    OPENCODE_GO_PRIMARY,
-  'qwen3-30b-a3b':      OPENCODE_GO_PRIMARY,
-  'qwen3-coder-plus':   OPENCODE_GO_PRIMARY,
-  // DMXAPI 免费模型 → 映射到 Copilot 免费模型
-  'GLM-4.5-Flash':      OPENCODE_GO_PRIMARY,
-  'Qwen3-8B':           OPENCODE_GO_PRIMARY,
-  'glm-4-flash':        OPENCODE_GO_PRIMARY,
+// ============ Provider 直连路由表 ============
+// 模型前缀 → provider ID（proxy-keys.json 里的 key）
+// 匹配到的直接走对应 provider，不经过 9Router
+const MODEL_PROVIDER_MAP = {
+  'bailian/':            'bailian-token-plan',   // 百炼 Token Plan 直连
+  'zhipu/':              'zhipu',                // 智谱直连
+  'glm-cn/':             'zhipu',                // glm-cn 也走智谱
+  'alibaba-cloud/':      'aliyun',               // 阿里百炼 Coding
 };
 
-// 9Router 限流时的免费 fallback 模型（优先级从高到低）
+// 9Router 只处理 gh/ cu/ kimi/ 等模型
+const OPENCODE_GO_PRIMARY = 'glm-cn/glm-5.2';
+
+const MODEL_MAP_TO_9ROUTER = {
+  'auto': null,
+};
+
+// 9Router fallback（仅 9Router 模型不可用时降级）
 const ROUTER_FALLBACK_MODELS = [
-  'glm-cn/glm-5.2',               // GLM-5.2（备选）
-  'bailian/qwen3.7-plus',         // 千问3.7 Plus（备选）
-  'gh/gpt-4o',                    // GitHub Copilot
-  'gh/gpt-5-mini',                // 快速免费
-  'openrouter/openrouter/free',   // 兜底
+  'gh/gpt-4o',
+  'gh/gpt-5-mini',
 ];
 
 // ============ 模型上下文窗口表 ============
@@ -241,6 +207,32 @@ function resolveUserInfo(req) {
 }
 
 
+// 用户自有 Key 缓存: { userId: { provider: [keys] } }
+let userKeysMap = {};
+
+/** 加载用户自有 API Key */
+function loadUserKeys() {
+  try {
+    const raw = fs.readFileSync(DB_FILE, 'utf8');
+    const db = JSON.parse(raw);
+    userKeysMap = db.userKeys || {};
+    const userCount = Object.keys(userKeysMap).length;
+    const keyCount = Object.values(userKeysMap).reduce((sum, keys) => sum + Object.keys(keys).length, 0);
+    console.log(`[用户Key] 已加载 ${userCount} 个用户, ${keyCount} 个自有 Key`);
+  } catch (e) {
+    userKeysMap = {};
+  }
+}
+
+/** 获取用户自有 Key */
+function getUserKey(userId, provider) {
+  if (!userId || !userKeysMap[userId]) return null;
+  const keys = userKeysMap[userId][provider];
+  if (!keys || !keys.length) return null;
+  const enabled = keys.filter(k => k.enabled !== false);
+  return enabled.length > 0 ? enabled[0].key : null;
+}
+
 function loadUserPreferences() {
   try {
     const raw = fs.readFileSync(DB_FILE, 'utf8');
@@ -265,6 +257,7 @@ function loadUserPreferences() {
     }
     userModelMap = umap;
     console.log(`[用户偏好] 已加载 ${Object.keys(map)} 个 IP-用户映射, ${Object.keys(umap).length} 个 userId 偏好`);
+    loadUserKeys();
   } catch (e) {
     console.log('[用户偏好] 加载失败，使用默认路由:', e.message);
   }
@@ -345,57 +338,32 @@ function getUserPreferredModel(clientIp, requestedModel, req = null) {
 }
 
 // 将用户模型名映射为 9Router 模型名
+// 将模型名映射为实际路由模型
 function mapTo9RouterModel(model, clientIp) {
   if (!model) return OPENCODE_GO_PRIMARY;
 
-  // 已经是 9Router 路径格式，直通
-  if (model.startsWith('ocg/')) {
-    return model;  // OpenCode Go 路径
-  }
-  if (model.startsWith('gh/')) {
-    return model;  // GitHub Copilot 路径
-  }
-  if (model.startsWith('openrouter/')) {
-    return model;  // OpenRouter 路径
-  }
-  if (model.startsWith('glm-cn/')) {
-    return model;  // GLM 中国直连路径
-  }
-  if (model === 'cu/default') {
-    return 'cu/default';  // Cursor Auto
-  }
+  // auto → 智能选择
   if (model === 'auto') {
     return selectLumeAutoModel(clientIp || 'unknown');
   }
 
-  let cleanModel = model;
-  if (cleanModel.includes('/')) {
-    const parts = cleanModel.split('/');
-    cleanModel = parts[parts.length - 1];
+  // 已经是路径格式，直通
+  if (model.startsWith('bailian/') ||
+      model.startsWith('zhipu/') ||
+      model.startsWith('glm-cn/') ||
+      model.startsWith('gh/') ||
+      model.startsWith('cu/') ||
+      model.startsWith('kimi/') ||
+      model.startsWith('openrouter/')) {
+    return model;
   }
 
-  if (cleanModel === 'auto') {
-    return selectLumeAutoModel(clientIp || 'unknown');
-  }
+  // 裸模型名 → 尝试匹配已知前缀
+  if (model.startsWith('glm-')) return 'glm-cn/' + model;
+  if (model.startsWith('qwen')) return 'bailian/' + model;
+  if (model.startsWith('gpt-') || model.startsWith('claude-')) return 'gh/' + model;
 
-  if (MODEL_MAP_TO_9ROUTER[cleanModel] && MODEL_MAP_TO_9ROUTER[cleanModel] !== null) {
-    return MODEL_MAP_TO_9ROUTER[cleanModel];
-  }
-  if (MODEL_MAP_TO_9ROUTER[model] && MODEL_MAP_TO_9ROUTER[model] !== null) {
-    return MODEL_MAP_TO_9ROUTER[model];
-  }
-
-  const m = cleanModel.toLowerCase();
-  if (m.includes('kimi')) return OPENCODE_GO_SECONDARY;
-  if (m.startsWith('gpt-')) return OPENCODE_GO_PRIMARY;
-  if (m.startsWith('claude')) return OPENCODE_GO_PRIMARY;
-  if (m.startsWith('glm-5')) return OPENCODE_GO_PRIMARY;
-  if (m.startsWith('glm-4')) return OPENCODE_GO_PRIMARY;
-  if (m.startsWith('glm')) return OPENCODE_GO_PRIMARY;
-  if (m.startsWith('qwen3') || m.includes('235b') || m.includes('coder')) return OPENCODE_GO_PRIMARY;
-  if (m.startsWith('qwen')) return OPENCODE_GO_PRIMARY;
-  if (m.startsWith('chatglm')) return OPENCODE_GO_PRIMARY;
-
+  // 兜底
   return OPENCODE_GO_PRIMARY;
 }
 
@@ -631,24 +599,54 @@ async function unifiedRoute(providerId, req, res) {
   
   reqBody.model = selectedModel;
   
-  // === 🎯 百炼模型直连（不经过 9Router）===
-  if (selectedModel.startsWith('bailian/')) {
-    const realModel = selectedModel.replace(/^bailian\//, '');
+  // === 🎯 Provider 直连路由（百炼/智谱不走 9Router）===
+  let directProvider = null;
+  for (const [prefix, providerId] of Object.entries(MODEL_PROVIDER_MAP)) {
+    if (selectedModel.startsWith(prefix)) {
+      directProvider = providerId;
+      break;
+    }
+  }
+  
+  if (directProvider) {
+    // 去掉前缀，取实际模型名
+    const realModel = selectedModel.split('/').slice(1).join('/') || selectedModel;
     reqBody.model = realModel;
-    console.log(`[百炼直连] ${clientIp} → ${realModel}（跳过 9Router）`);
-    // 构造伪 req 传给 proxyRequest
-    const bailianReq = {
+    
+    // 检查用户是否有自己的 key
+    const userInfo = resolveUserInfo(req);
+    const userId = userInfo?.userId;
+    const userOwnKey = getUserKey(userId, directProvider);
+    
+    if (userOwnKey) {
+      console.log(`[直连] ${clientIp} (${userInfo.nickname}) → ${realModel} via 用户自有 ${directProvider} key`);
+    } else {
+      console.log(`[直连] ${clientIp} → ${realModel} via Lume ${directProvider}`);
+    }
+    
+    const directReq = {
       url: '/v1/chat/completions',
       method: 'POST',
       [Symbol.asyncIterator]: async function*() { yield JSON.stringify(reqBody); }
     };
-    const bailianProvider = PROVIDERS['bailian-token-plan'] ? 'bailian-token-plan' : 'aliyun';
+    
     try {
-      await proxyRequest(bailianProvider, bailianReq, res);
-      recordRequest(clientIp, bailianProvider, originalModel, 200);
+      // 如果用户有自己的 key，临时注入到 PROVIDERS
+      if (userOwnKey) {
+        const userProviderId = `user-${userId}-${directProvider}`;
+        PROVIDERS[userProviderId] = {
+          ...PROVIDERS[directProvider],
+          keys: [{ key: userOwnKey, enabled: true }],
+        };
+        await proxyRequest(userProviderId, directReq, res);
+        delete PROVIDERS[userProviderId];
+      } else {
+        await proxyRequest(directProvider, directReq, res);
+      }
+      recordRequest(clientIp, directProvider, originalModel, 200);
       return;
     } catch (e) {
-      console.error(`[百炼直连] 失败: ${e.message}，降级到 9Router`);
+      console.error(`[直连] ${directProvider} 失败: ${e.message}，降级到 9Router`);
       reqBody.model = selectedModel;
     }
   }
@@ -1248,7 +1246,7 @@ async function proxyRequest(providerId, req, res, _retryState = null) {
 
   const baseUrl = provider.baseUrl;
   let targetPath = req.url.replace(/^\/(api\/ai\/)?(aliyun|zhipu|dmxapi)/, '');
-  if (providerId === 'aliyun' || providerId === 'zhipu' || providerId === 'dmxapi' || providerId === 'bailian-token-plan') {
+  if (providerId === 'aliyun' || providerId === 'zhipu' || providerId === 'dmxapi' || providerId === 'bailian-token-plan' || providerId.startsWith('user-')) {
     targetPath = targetPath.replace(/\/v[14]\//, '/');
   }
   const url = new URL(baseUrl + targetPath);
