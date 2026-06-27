@@ -701,10 +701,14 @@
 
 .model-dropdown-search {
   padding: 10px 10px 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .model-dropdown-search input {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   padding: 8px 10px;
   border: none;
   border-radius: 8px;
@@ -714,6 +718,16 @@
   color: var(--text-1);
   outline: none;
 }
+
+.model-dropdown-add {
+  flex-shrink: 0;
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 6px; cursor: pointer;
+  color: var(--text-3); background: var(--bg-hover);
+  transition: color 0.12s, background 0.12s;
+}
+.model-dropdown-add:hover { color: var(--accent, #10a37f); background: var(--bg-main); }
 
 .model-dropdown-search input::placeholder {
   color: var(--text-3);

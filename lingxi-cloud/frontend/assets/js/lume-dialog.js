@@ -151,7 +151,31 @@
     bindOverlay();
   }
 
+  function showLumeCustomDialog(title, html, buttons) {
+    const overlay = getOverlay();
+    if (!overlay) return;
+    const titleEl = document.getElementById('lumeDialogTitle');
+    const msgEl = document.getElementById('lumeDialogMessage');
+    const footer = document.getElementById('lumeDialogFooter');
+    if (!titleEl || !msgEl || !footer) return;
+    titleEl.textContent = title;
+    msgEl.innerHTML = html;
+    footer.innerHTML = '';
+    (buttons || [{ text: '关闭', cls: 'lume-dialog-btn-primary', action: function() { closeLumeDialog(false); } }]).forEach(function(b) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'lume-dialog-btn ' + (b.cls || 'lume-dialog-btn-primary');
+      btn.textContent = b.text;
+      btn.addEventListener('click', function() { if (b.action) b.action(); });
+      footer.appendChild(btn);
+    });
+    overlay.hidden = false;
+    overlay.setAttribute('aria-hidden', 'false');
+    overlay.classList.add('show');
+  }
+
   window.showLumeDialog = showLumeDialog;
+  window.showLumeCustomDialog = showLumeCustomDialog;
   window.showLumeAlert = showLumeAlert;
   window.showLumeConfirm = showLumeConfirm;
   window.showLumeToast = showLumeToast;

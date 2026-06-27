@@ -168,8 +168,33 @@ app.use('/api/healthcheck', healthcheckRoutes);
 import agentWorkspaceRoutes from './routes/agent-workspace.js';
 app.use('/api/agent-workspace', agentWorkspaceRoutes);
 
-import downloadsRoutes from './routes/downloads.js';
-app.use('/api/downloads', downloadsRoutes);
+import downloadsRoutes from "./routes/downloads.js";
+app.use("/api/downloads", downloadsRoutes);
+
+// ===== 补注册缺失路由 =====
+import cronRoutes from './routes/cron.js';
+app.use('/api/cron', cronRoutes);
+
+import loopsRoutes from './routes/loops.js';
+app.use('/api/loops', loopsRoutes);
+
+import teamRoutes from './routes/team.js';
+app.use('/api/team', teamRoutes);
+
+import knowledgeRoutes from './routes/knowledge.js';
+app.use('/api/knowledge', knowledgeRoutes);
+
+import marketRoutes from './routes/market.js';
+app.use('/api/market', marketRoutes);
+
+import memoryRoutes from './routes/memory.js';
+app.use('/api/memory', memoryRoutes);
+
+import triggersRoutes from './routes/triggers.js';
+app.use('/api/triggers', triggersRoutes);
+
+import fileExplorerRoutes from './routes/file-explorer.js';
+app.use('/api/file-explorer', fileExplorerRoutes);
 
 // 用户模型列表（前端模型选择器用）
 app.get('/api/user-models', (req, res) => {

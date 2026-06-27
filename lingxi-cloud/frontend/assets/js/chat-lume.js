@@ -151,6 +151,17 @@ function handleLumeEvent(msg) {
     incrementalUpdateSession(msg.payload);
     return;
   }
+  // agent 事件：OpenClaw Gateway 流式响应
+  if (msg.event === 'agent') {
+    const p = msg.payload || msg;
+    if (p.stream === 'assistant') {
+      const text = p.data?.text || p.data?.content || '';
+      if (text && typeof updateStreamingMessage === 'function') {
+        updateStreamingMessage(text, p.runId || 'lume-stream');
+      }
+    }
+    return;
+  }
   if (msg.event !== 'chat') return;
   const p = msg.payload || {};
   const state = p.state || 'final';

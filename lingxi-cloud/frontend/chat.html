@@ -9,32 +9,32 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/lume-brand.css?v=20260627b">
+  <link rel="stylesheet" href="assets/css/lume-brand.css?v=20260627c">
   <script src="https://js.stripe.com/v3/"></script>
-  <script src="assets/js/lume-brand.js?v=20260627b"></script>
-  <link rel="stylesheet" href="assets/css/chat.css?v=20260627b">
-  <link rel="stylesheet" href="assets/css/chat-polish.css?v=20260627b">
-  <link rel="stylesheet" href="assets/css/right-rail.css?v=20260627b">
-  <link rel="stylesheet" href="assets/css/scroll-context.css?v=20260627b">
+  <script src="assets/js/lume-brand.js?v=20260627c"></script>
+  <link rel="stylesheet" href="assets/css/chat.css?v=20260627c">
+  <link rel="stylesheet" href="assets/css/chat-polish.css?v=20260627c">
+  <link rel="stylesheet" href="assets/css/right-rail.css?v=20260627c">
+  <link rel="stylesheet" href="assets/css/scroll-context.css?v=20260627c">
   <link rel="stylesheet" href="assets/css/dark.css" id="darkTheme" disabled>
-  <link rel="stylesheet" href="assets/css/subscription.css?v=20260627b">
-  <link rel="stylesheet" href="assets/css/stripe-payment.css?v=20260627b">
-  <link rel="stylesheet" href="assets/css/skills-tab.css?v=20260627b">
-  <link rel="stylesheet" href="assets/css/lume-dialog.css?v=20260627b">
+  <link rel="stylesheet" href="assets/css/subscription.css?v=20260627c">
+  <link rel="stylesheet" href="assets/css/stripe-payment.css?v=20260627c">
+  <link rel="stylesheet" href="assets/css/skills-tab.css?v=20260627c">
+  <link rel="stylesheet" href="assets/css/lume-dialog.css?v=20260627c">
   <script>
     if (new URLSearchParams(location.search).get('desktop') === '1') {
       document.documentElement.classList.add('lume-desktop');
     }
   </script>
-  <link rel="stylesheet" href="assets/css/desktop-app.css?v=20260627b">
+  <link rel="stylesheet" href="assets/css/desktop-app.css?v=20260627c">
   <!-- Lucide Icons - 使用 cdnjs 备用源 -->
   <script src="assets/libs/lucide.min.js"></script>
   <!-- Markdown 渲染 -->
   <script src="assets/libs/marked.min.js"></script>
   <!-- i18n 双语系统 -->
-  <script src="assets/js/i18n.js?v=20260627b"></script>
+  <script src="assets/js/i18n.js?v=20260627c"></script>
   <!-- 文件预览模块 -->
-  <script src="components/file-preview.js?v=20260627b"></script>
+  <script src="components/file-preview.js?v=20260627c"></script>
   <!-- 工作流进度组件 -->
   <style>
     /* 顶部导航链接 */
@@ -3417,7 +3417,7 @@
     function getModelTag(m) {
       if (!m) return '';
       if (m.id === 'auto') return '';
-      return m.desc || m.provider || '';
+      return m.desc || m.providerName || m.provider || '';
     }
 
     function findModel(modelId) {
@@ -3428,15 +3428,32 @@
       await detectFreeUser();
       try {
         const token = localStorage.getItem('lingxi_token');
-        const res = await fetch(window.location.origin + '/api/user-models', {
+        const params = new URLSearchParams();
+        if (token) {
+          try { const p = JSON.parse(atob(token.split('.')[1])); if (p.userId) params.set('userId', p.userId); } catch(e) {}
+        }
+        const res = await fetch(window.location.origin + '/api/models/list?' + params, {
           headers: token ? { Authorization: 'Bearer ' + token } : {}
         });
         const data = await res.json();
-        if (data.availableModels && data.availableModels.length) {
-          cachedModels = data.availableModels;
+        if (data.providers && data.providers.length) {
+          cachedModels = [];
+          for (const pv of data.providers) {
+            for (const m of pv.models) {
+              cachedModels.push({
+                id: m.id, name: m.name, provider: pv.provider, providerName: pv.name,
+                desc: '', tier: m.tier || 'free', capabilities: m.capabilities || ['text'],
+                contextWindow: m.contextWindow || 0
+              });
+            }
+          }
+          if (data.preference && data.preference !== 'auto') {
+            var saved = localStorage.getItem(MODEL_KEY);
+            if (!saved || saved === 'auto') localStorage.setItem(MODEL_KEY, data.preference);
+          }
           return;
         }
-      } catch (e) {}
+      } catch (e) { console.warn('[models] fetch failed'); }
       cachedModels = FALLBACK_MODELS.slice();
     }
 
@@ -3541,9 +3558,41 @@
         ? '<div class="model-dropdown-footer"><a href="subscription.html" target="_blank">升级订阅解锁全部模型</a></div>'
         : '';
 
+      // 构建按 provider 分组的完整列表（不搜索时显示分组）
+      var fullListHtml = '';
+      if (!q) {
+        var autoItem = '<div class="model-dropdown-item' + (currentModel === 'auto' ? ' active' : '') + '" data-model-id="auto" role="option">' +
+          '<div class="model-item-main"><span class="model-item-name">Auto</span><span class="model-item-tag">智能选择最优模型</span></div><span class="model-check">✓</span></div>';
+        fullListHtml = autoItem + '<div class="model-dropdown-divider"></div>';
+        var grouped = {};
+        for (var i = 0; i < cachedModels.length; i++) {
+          var cm = cachedModels[i]; if (cm.id === 'auto') continue;
+          var pn = cm.providerName || cm.provider;
+          if (!grouped[pn]) grouped[pn] = [];
+          grouped[pn].push(cm);
+        }
+        var pkeys = Object.keys(grouped);
+        for (var gi = 0; gi < pkeys.length; gi++) {
+          var pk = pkeys[gi];
+          fullListHtml += '<div style="padding:6px 10px 2px;font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.5px;">' + esc(pk) + '</div>';
+          var pmodels = grouped[pk];
+          for (var mi = 0; mi < pmodels.length; mi++) {
+            var pm = pmodels[mi];
+            var plocked = pm.tier === 'pro' && isFreeUser;
+            var pactive = pm.id === currentModel;
+            fullListHtml += '<div class="model-dropdown-item' + (pactive ? ' active' : '') + (plocked ? ' locked' : '') + '" data-model-id="' + esc(pm.id) + '">' +
+              '<div class="model-item-main"><span class="model-item-name">' + esc(pm.name) + '</span><span class="model-item-tag">' + esc(pm.desc || '') + '</span></div>' +
+              (plocked ? '<span class="model-lock"><i data-lucide="lock" class="icon-sm"></i></span>' : '<span class="model-check">✓</span>') + '</div>';
+          }
+        }
+      }
+
       dropdown.innerHTML =
-        '<div class="model-dropdown-search">' +
-          '<input type="text" id="modelSearchInput" placeholder="搜索模型" autocomplete="off" value="' + esc(modelSearchQuery) + '">' +
+        '<div class="model-dropdown-search" style="display:flex;align-items:center;gap:4px;">' +
+          '<input type="text" id="modelSearchInput" placeholder="搜索模型" autocomplete="off" value="' + esc(modelSearchQuery) + '" style="flex:1;min-width:0;">' +
+          '<div class="model-dropdown-add" title="链接供应商 API" onclick="event.stopPropagation();window.openSettingsKeyPanel();return false;">' +
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>' +
+          '</div>' +
         '</div>' +
         '<div class="model-dropdown-toggles">' +
           '<div class="model-toggle-row">' +
@@ -3555,8 +3604,8 @@
           '</div>' +
         '</div>' +
         '<div class="model-dropdown-divider"></div>' +
-        '<div class="model-dropdown-list" id="modelDropdownList">' + listHtml + '</div>' +
-        footerHtml;
+        '<div class="model-dropdown-list" id="modelDropdownList">' + (q ? listHtml : fullListHtml) + '</div>' +
+        (q ? footerHtml : '');
 
       const searchInput = document.getElementById('modelSearchInput');
       if (searchInput) {
@@ -3604,6 +3653,63 @@
       modelDropdownOpen = false;
     }
 
+    // ===== API Key 弹窗 =====
+    var PROVIDER_LIST = [
+      { id: 'zhipu', name: '智谱 AI', testUrl: 'https://open.bigmodel.cn/api/coding/paas/v4/chat/completions', testModel: 'glm-5' },
+      { id: 'alibaba-cloud', name: '阿里云百炼', testUrl: 'https://coding.dashscope.aliyuncs.com/v1/chat/completions', testModel: 'qwen3-max-2026-01-23' },
+      { id: 'bailian-token-plan', name: '百炼 Token Plan', testUrl: 'https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1/chat/completions', testModel: 'qwen3.7-plus' },
+      { id: '9router', name: '九路由', testUrl: 'http://localhost:20128/v1/chat/completions', testModel: 'kimi/kimi-k2.7' },
+      { id: 'github-copilot', name: 'GitHub Copilot', testUrl: null, testModel: null }
+    ];
+
+    window.openSettingsKeyPanel = function() {
+      var items = PROVIDER_LIST.map(function(p) {
+        return '<button class="lume-dialog-btn lume-dialog-btn-ghost" style="display:block;width:100%;margin-bottom:6px;text-align:left;padding:10px 14px;" onclick="showKeyInput(\'' + p.id + '\',\'' + esc(p.name) + '\')">' +
+          esc(p.name) + '<span style="float:right;color:var(--text-3);">→</span></button>';
+      }).join('');
+      showLumeCustomDialog('链接供应商 API', '<p style="font-size:13px;color:var(--text-3);margin-bottom:12px;">选择一个供应商，输入 API Key，可先测试连接。</p>' + items,
+        [{ text: '取消', cls: 'lume-dialog-btn-ghost', action: function() { closeLumeDialog(false); } }]);
+    };
+
+    window.showKeyInput = function(providerId, providerName) {
+      var info = PROVIDER_LIST.find(function(p) { return p.id === providerId; });
+      var html = '<p style="font-size:13px;color:var(--text-3);margin-bottom:8px;">' + esc(providerName) + ' API Key</p>' +
+        '<input type="text" id="apiKeyInput" placeholder="粘贴 API Key..." style="width:100%;padding:8px 10px;font-size:13px;border:1px solid var(--border-sub);border-radius:8px;background:var(--bg-1);color:var(--text-1);box-sizing:border-box;margin-bottom:8px;">' +
+        '<div id="apiKeyTestResult" style="font-size:12px;margin-bottom:4px;min-height:20px;"></div>';
+      showLumeCustomDialog(esc(providerName) + ' API Key', html, [
+        { text: '测试连接', cls: 'lume-dialog-btn-primary', action: async function() {
+          var key = document.getElementById('apiKeyInput').value.trim();
+          if (!key || !info.testUrl) return;
+          var el = document.getElementById('apiKeyTestResult');
+          el.textContent = '测试中...'; el.style.color = 'var(--text-3)';
+          try {
+            var resp = await fetch(info.testUrl, {
+              method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+              body: JSON.stringify({ model: info.testModel, messages: [{ role: 'user', content: 'Hi' }], max_tokens: 5 }),
+              signal: AbortSignal.timeout(10000)
+            });
+            if (resp.ok) { el.textContent = '✓ 连接成功'; el.style.color = '#10a37f'; }
+            else { var err = await resp.text(); el.textContent = '✗ ' + resp.status + ' ' + err.slice(0,60); el.style.color = '#ef4444'; }
+          } catch(e) { el.textContent = '✗ 连接失败: ' + e.message; el.style.color = '#ef4444'; }
+        }},
+        { text: '保存', cls: 'lume-dialog-btn-primary', action: async function() {
+          var key = document.getElementById('apiKeyInput').value.trim();
+          if (!key) return;
+          try {
+            var t = localStorage.getItem('lingxi_token');
+            if (!t) return;
+            var p = JSON.parse(atob(t.split('.')[1]));
+            var uid = p.userId || p.sub;
+            if (!uid) return;
+            await fetch('/api/models/user/keys', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({userId:uid,provider:providerId,key:key}) });
+          } catch(e) {}
+          closeLumeDialog(false);
+          loadModels().then(function() { updateModelPill(localStorage.getItem(MODEL_KEY) || 'auto'); });
+        }},
+        { text: '取消', cls: 'lume-dialog-btn-ghost', action: function() { closeLumeDialog(false); } }
+      ]);
+    };
+
     window.selectModel = async function(modelId) {
       if (modelId && (modelId.startsWith('ocg/') || modelId.startsWith('opencode-go/'))) {
         modelId = 'auto';
@@ -3616,13 +3722,14 @@
       try {
         const token = localStorage.getItem('lingxi_token');
         if (token) {
-          await fetch(window.location.origin + '/api/user-models/preference', {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          await fetch(window.location.origin + '/api/models/preference', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               Authorization: 'Bearer ' + token
             },
-            body: JSON.stringify({ model: modelId === 'auto' ? null : modelId })
+            body: JSON.stringify({ userId: payload.userId || payload.sub, modelId: modelId })
           });
         }
       } catch (e) {}
@@ -3656,16 +3763,16 @@
   })();
   </script>
 
-  <script src="assets/js/lume-dialog.js?v=20260627b"></script>
-  <script src="assets/js/lume-rpc.js?v=20260627b"></script>
-  <script src="assets/js/chat-lume.js?v=20260627b"></script>
-  <script src="assets/js/chat.js?v=20260627b"></script>
+  <script src="assets/js/lume-dialog.js?v=20260627c"></script>
+  <script src="assets/js/lume-rpc.js?v=20260627c"></script>
+  <script src="assets/js/chat-lume.js?v=20260627c"></script>
+  <script src="assets/js/chat.js?v=20260627c"></script>
 
     <!-- 统一组件加载器 -->
-    <script src="components/load-components.js?v=20260627b"></script>
-  <script src="assets/js/skills-tab.js?v=20260627b"></script>
-    <script src="assets/js/subscription.js?v=20260627b"></script>
-  <script src="assets/js/stripe-payment.js?v=20260627b"></script>
+    <script src="components/load-components.js?v=20260627c"></script>
+  <script src="assets/js/skills-tab.js?v=20260627c"></script>
+    <script src="assets/js/subscription.js?v=20260627c"></script>
+  <script src="assets/js/stripe-payment.js?v=20260627c"></script>
 
   <div class="lume-dialog-overlay" id="lumeDialogOverlay" hidden aria-hidden="true">
     <div class="lume-dialog" role="dialog" aria-modal="true" aria-labelledby="lumeDialogTitle">
