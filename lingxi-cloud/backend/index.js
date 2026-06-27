@@ -165,6 +165,12 @@ app.use('/api/lume', lumeWsRoutes);
 import healthcheckRoutes from './routes/healthcheck.js';
 app.use('/api/healthcheck', healthcheckRoutes);
 
+import agentWorkspaceRoutes from './routes/agent-workspace.js';
+app.use('/api/agent-workspace', agentWorkspaceRoutes);
+
+import downloadsRoutes from './routes/downloads.js';
+app.use('/api/downloads', downloadsRoutes);
+
 // 用户模型列表（前端模型选择器用）
 app.get('/api/user-models', (req, res) => {
   res.json({
