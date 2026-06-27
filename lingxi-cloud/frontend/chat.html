@@ -3732,15 +3732,36 @@
           for (var mi = 0; mi < pv.models.length; mi++) {
             var pm = pv.models[mi];
             var isHidden = hiddenModels[pm.id];
-            html += '<label style="display:flex;align-items:center;gap:8px;padding:5px 4px;cursor:pointer;font-size:13px;">' +
-              '<input type="checkbox" data-model-id="' + esc(pm.id) + '"' + (!isHidden ? ' checked' : '') + ' style="cursor:pointer;">' +
+            html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 4px;font-size:13px;">' +
               '<span>' + esc(pm.name) + '</span>' +
-              '</label>';
+              '<label style="position:relative;display:inline-block;width:32px;height:18px;flex-shrink:0;cursor:pointer;">' +
+                '<input type="checkbox" data-model-id="' + esc(pm.id) + '"' + (!isHidden ? ' checked' : '') + ' style="opacity:0;width:0;height:0;position:absolute;">' +
+                '<span class="mg-toggle-slider" style="position:absolute;inset:0;background:' + (isHidden ? 'var(--border-sub)' : 'var(--accent)') + ';border-radius:9px;transition:background .2s;"></span>' +
+                '<span class="mg-toggle-knob" style="position:absolute;top:2px;left:' + (isHidden ? '2px' : '16px') + ';width:14px;height:14px;background:#fff;border-radius:50%;transition:left .2s;"></span>' +
+              '</label>' +
+            '</div>';
           }
         }
       }
       html += '</div>';
-      html += '<p style="font-size:11px;color:var(--text-3);margin-top:8px;">取消勾选的模型将不会显示在模型选择器中。</p>';
+      html += '<p style="font-size:11px;color:var(--text-3);margin-top:8px;">关闭的模型不会显示在模型选择器中。</p>';
+      
+      // 延迟绑定 toggle 动画
+      setTimeout(function() {
+        document.querySelectorAll('input[data-model-id]').forEach(function(cb) {
+          cb.addEventListener('change', function() {
+            var slider = cb.parentElement.querySelector('.mg-toggle-slider');
+            var knob = cb.parentElement.querySelector('.mg-toggle-knob');
+            if (cb.checked) {
+              slider.style.background = 'var(--accent)';
+              knob.style.left = '16px';
+            } else {
+              slider.style.background = 'var(--border-sub)';
+              knob.style.left = '2px';
+            }
+          });
+        });
+      }, 50);
       
       showLumeCustomDialog('模型管理', html, [
         { text: '保存', cls: 'lume-dialog-btn-primary', action: function() {
