@@ -67,65 +67,33 @@ function getRouterApiKey() {
 // 所有用户统一走同一模型列表，不区分 free/pro
 const LUME_AUTO_MODELS = {
   free: [
-    'glm-cn/glm-5.1',             // GLM-5.1 智谱直连（首选）
-    'bailian/qwen3.7-plus',        // 千问3.7 Plus
+    'bailian/qwen3.7-plus',        // 千问3.7 Plus（首选）
+    'glm-cn/glm-5.2',              // GLM-5.2 智谱直连
     'gh/gpt-4o',                   // GitHub Copilot
     'gh/gpt-5-mini',               // 快速
   ],
   pro: [
-    'glm-cn/glm-5.1',             // GLM-5.1 智谱直连（首选）
-    'bailian/qwen3.7-plus',        // 千问3.7 Plus
+    'bailian/qwen3.7-plus',        // 千问3.7 Plus（首选）
+    'glm-cn/glm-5.2',              // GLM-5.2 智谱直连
     'gh/gpt-4o',                   // GitHub Copilot
     'gh/gpt-5-mini',               // 快速
   ],
 };
 
-// 记录每个模型的最近失败时间，用于智能避让
-const modelFailures = new Map(); // model -> { lastFail, count, cooldownUntil }
 
-function markModelFailed(routerModel) {
-  const now = Date.now();
-  const existing = modelFailures.get(routerModel) || { lastFail: 0, count: 0, cooldownUntil: 0 };
-  existing.lastFail = now;
-  existing.count++;
-  // 失败 1 次冷却 2 分钟，失败 2+ 次冷却 10 分钟
-  existing.cooldownUntil = now + (existing.count >= 2 ? 10 * 60 * 1000 : 2 * 60 * 1000);
-  modelFailures.set(routerModel, existing);
-}
 
-function isModelCoolingDown(routerModel) {
-  const fail = modelFailures.get(routerModel);
-  if (!fail) return false;
-  if (Date.now() > fail.cooldownUntil) {
-    modelFailures.delete(routerModel); // 冷却结束，清除记录
-    return false;
-  }
-  return true;
-}
-
-// 智能选择最佳可用模型
+// 智能选择最佳可用模型（固定顺序，无冷却）
 function selectLumeAutoModel(clientIp) {
-  // 1. 查用户套餐
-  const tier = 'pro'; // 所有用户统一 pro 级别
-  const candidates = LUME_AUTO_MODELS[tier] || LUME_AUTO_MODELS.pro;
-
-  // 2. 避让最近失败的模型
-  for (const model of candidates) {
-    if (!isModelCoolingDown(model)) {
-      console.log(`[Lume Auto] ${clientIp} (${tier}) → ${model}`);
-      return model;
-    }
-  }
-
-  // 3. 全部冷却中，用第一个（最小冷却时间）
-  console.warn(`[Lume Auto] ${clientIp} 所有模型冷却中，强制使用 ${candidates[0]}`);
-  return candidates[0];
+  const candidates = LUME_AUTO_MODELS.pro;
+  const model = candidates[0];
+  console.log(`[Lume Auto] ${clientIp} → ${model}`);
+  return model;
 }
 
 // 模型映射：用户请求的模型名 → 9Router 对应的付费模型名
 // 所有请求都走 9Router，由 9Router 进行 provider 调度和 fallback
-const OPENCODE_GO_PRIMARY = 'glm-cn/glm-5.1';
-const OPENCODE_GO_SECONDARY = 'glm-cn/glm-5.1';
+const OPENCODE_GO_PRIMARY = 'glm-cn/glm-5.2';
+const OPENCODE_GO_SECONDARY = 'glm-cn/glm-5.2';
 
 const MODEL_MAP_TO_9ROUTER = {
   // Lume 智能模型（由后端自动选择）
@@ -141,8 +109,8 @@ const MODEL_MAP_TO_9ROUTER = {
   'claude-4.6-sonnet':  OPENCODE_GO_PRIMARY,
   'claude-4.5-opus':    OPENCODE_GO_PRIMARY,
   // 智谱 GLM 系列 → glm-cn (Coding Plan 付费)
-  'glm-5.1':            OPENCODE_GO_PRIMARY,
-  'glm-5':              'glm-cn/glm-5.1',
+  'glm-5.2':            OPENCODE_GO_PRIMARY,
+  'glm-5':              'glm-cn/glm-5.2',
   'glm-4.7':            OPENCODE_GO_PRIMARY,
   'glm-4.6':            OPENCODE_GO_PRIMARY,
   'glm-4.5-air':        OPENCODE_GO_PRIMARY,
@@ -172,7 +140,7 @@ const MODEL_MAP_TO_9ROUTER = {
 
 // 9Router 限流时的免费 fallback 模型（优先级从高到低）
 const ROUTER_FALLBACK_MODELS = [
-  'glm-cn/glm-5.1',               // GLM-5.1（首选）
+  'glm-cn/glm-5.2',               // GLM-5.2（备选）
   'bailian/qwen3.7-plus',         // 千问3.7 Plus（备选）
   'gh/gpt-4o',                    // GitHub Copilot
   'gh/gpt-5-mini',                // 快速免费
@@ -181,7 +149,7 @@ const ROUTER_FALLBACK_MODELS = [
 
 // ============ 模型上下文窗口表 ============
 const MODEL_CONTEXT_WINDOWS = {
-  'glm-cn/glm-5.1': 200000,
+  'glm-cn/glm-5.2': 200000,
   'bailian/qwen3.7-plus': 128000,
   'bailian/qwen3.6-flash': 128000,
   'gh/gpt-4o':           64000,
@@ -194,7 +162,7 @@ const MODEL_CONTEXT_WINDOWS = {
 // 按 token 大小自动选择合适的模型
 // 如果请求估算 token 超过当前模型上下文，自动升级到大上下文模型
 const LARGE_CONTEXT_MODELS = [
-  { model: 'glm-cn/glm-5.1',      context: 200000 },
+  { model: 'glm-cn/glm-5.2',      context: 200000 },
   { model: 'bailian/qwen3.7-plus', context: 128000 },
   { model: 'gh/gpt-4o',           context: 128000 },
 ];
@@ -240,7 +208,7 @@ function selectModelByTokenCount(estimatedTokens, preferredModel) {
 
 // ============ 用户模型偏好 ============
 // 从灵犀云数据库加载：IP → userId → preferredModel
-// preferredModel 是用户在灵犀云前端选择的模型（如 "gpt-4o"、"glm-5.1"）
+// preferredModel 是用户在灵犀云前端选择的模型（如 "gpt-4o"、"glm-5.2"）
 const DB_FILE = join(__dirname, 'data/db.json');
 let ipUserMap = {};   // { ip: { userId, nickname, preferredModel } }
 let userModelMap = {}; // { userId: preferredModel }
@@ -476,7 +444,6 @@ async function proxyVia9Router(reqBody, reqUrl, clientIp, res, fallbackIndex = -
           const isTokenOverflow = statusCode === 400 && /model_max_prompt_tokens_exceeded|prompt token count/i.test(errBody);
           if (isTokenOverflow) {
             console.warn(`[9Router] ⚠️ ${routerModel} 上下文不足 (token overflow)，升级模型`);
-            markModelFailed(routerModel);
           }
           const shouldRetry = statusCode === 429 || statusCode >= 500 ||
             (statusCode === 400 && /model_not_supported|not supported|模型不存在|1211|model_max_prompt_tokens_exceeded|prompt token count/i.test(errBody));
@@ -484,8 +451,6 @@ async function proxyVia9Router(reqBody, reqUrl, clientIp, res, fallbackIndex = -
             reject(new Error(`9Router returned ${statusCode}: ${errBody.substring(0, 200)}`));
             return;
           }
-          // 标记模型失败（用于 Lume Auto 智能避让）
-          markModelFailed(routerModel);
           
           const nextFallback = fallbackIndex + 1;
           if (nextFallback < ROUTER_FALLBACK_MODELS.length) {
@@ -509,7 +474,6 @@ async function proxyVia9Router(reqBody, reqUrl, clientIp, res, fallbackIndex = -
       // 429/5xx + 流式 → 无法降级（已经开始写了），只记日志
       if ((statusCode === 429 || statusCode >= 500) && isStream) {
         console.error(`[9Router] ❌ 流式请求 ${routerModel} 返回 ${statusCode}，无法降级`);
-        markModelFailed(routerModel);
       }
       
       if (statusCode !== 200 && !res) {
@@ -574,7 +538,7 @@ async function proxyVia9Router(reqBody, reqUrl, clientIp, res, fallbackIndex = -
 // 支持图片输入的模型列表
 const VISION_MODELS = new Set([
   'gh/gpt-4o', 'gh/gpt-4.1', 'gh/gpt-5-mini', 'gh/gpt-4o-mini',
-  'glm-cn/glm-5.1', 'bailian/qwen3.7-plus', 'gh/gpt-4o',
+  'glm-cn/glm-5.2', 'bailian/qwen3.7-plus', 'gh/gpt-4o',
 ]);
 
 function isVisionModel(model) {
@@ -590,7 +554,7 @@ function selectVisionModel(clientIp) {
   }
   // 默认首选 deepseek-v4-pro（支持图片 + 大上下文 128K+）
   // 不再首选 gh/gpt-4o，上下文只有 64K，大请求容易 400
-  return 'glm-cn/glm-5.1';
+  return 'glm-cn/glm-5.2';
 }
 
 function detectImageInRequest(reqBody) {
@@ -1685,8 +1649,8 @@ const server = http.createServer(async (req, res) => {
       availableModels: [
         { id: 'auto', name: 'Auto', provider: '系统', desc: '智能选择最优模型', tier: 'free' },
         { id: 'bailian/deepseek-v4-pro', name: 'DeepSeek V4 Pro', provider: '百炼', desc: '最强性价比', tier: 'free' },
-        { id: 'glm-cn/glm-5.1', name: 'GLM-5.1', provider: '智谱', desc: '中文最强', tier: 'free' },
-        { id: 'glm-cn/glm-5.1', name: 'GLM-5.1 主力', provider: '智谱直连', desc: '智谱大号直接干', tier: 'pro' },
+        { id: 'glm-cn/glm-5.2', name: 'GLM-5.2', provider: '智谱', desc: '中文最强', tier: 'free' },
+        { id: 'glm-cn/glm-5.2', name: 'GLM-5.2 主力', provider: '智谱直连', desc: '智谱大号直接干', tier: 'pro' },
         { id: 'gh/gpt-4o', name: 'GPT-4o', provider: 'OpenAI', desc: 'GPT经典', tier: 'pro' },
         { id: 'gh/gpt-4.1', name: 'GPT-4.1', provider: 'OpenAI', desc: '强推理', tier: 'pro' },
         { id: 'gh/gpt-5-mini', name: 'GPT-5-Mini', provider: 'OpenAI', desc: '快速免费', tier: 'free' },
@@ -1756,14 +1720,14 @@ const server = http.createServer(async (req, res) => {
 function getAvailableModelsList() {
   return [
     { id: 'auto', name: 'Auto', provider: '系统', desc: '智能选择最优模型', tier: 'free' },
-    { id: 'glm-cn/glm-5.1', name: 'GLM-5.1 主力', provider: '智谱直连', desc: '智谱大号直接干', tier: 'pro' },
+    { id: 'glm-cn/glm-5.2', name: 'GLM-5.2 主力', provider: '智谱直连', desc: '智谱大号直接干', tier: 'pro' },
     { id: 'cu/default', name: 'Cursor Auto', provider: 'Cursor', desc: 'Cursor 智能选模', tier: 'pro' },
     { id: 'cu/gpt-5.5-high-fast', name: 'GPT-5.5 Fast', provider: 'Cursor', desc: '极速旗舰', tier: 'pro' },
     { id: 'cu/gpt-5.5-high', name: 'GPT-5.5', provider: 'Cursor', desc: '顶级推理', tier: 'pro' },
     { id: 'cu/claude-4.6-opus-max', name: 'Claude 4.6 Opus Max', provider: 'Cursor', desc: '最强 Claude', tier: 'pro' },
     { id: 'cu/claude-4.6-sonnet-medium-thinking', name: 'Claude 4.6 Sonnet Think', provider: 'Cursor', desc: '新一代推理', tier: 'pro' },
     { id: 'cu/claude-4.6-opus-max-thinking', name: 'Claude 4.6 Opus Think', provider: 'Cursor', desc: '最强推理链', tier: 'pro' },
-    { id: 'glm-cn/glm-5.1', name: 'GLM-5.1', provider: '智谱', desc: '中文最强', tier: 'free' },
+    { id: 'glm-cn/glm-5.2', name: 'GLM-5.2', provider: '智谱', desc: '中文最强', tier: 'free' },
     { id: 'bailian/deepseek-v4-pro', name: 'DeepSeek V4 Pro', provider: '百炼', desc: '最强性价比', tier: 'free' },
     { id: 'gh/gpt-5-mini', name: 'GPT-5-Mini', provider: 'OpenAI', desc: '快速免费', tier: 'free' },
     { id: 'gh/gpt-4o', name: 'GPT-4o', provider: 'OpenAI', desc: 'GPT经典', tier: 'pro' },
