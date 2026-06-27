@@ -9,15 +9,11 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://js.stripe.com/v3/"></script>
   <link rel="stylesheet" href="assets/css/chat.css?v=20260612fix">
-  <link rel="stylesheet" href="assets/css/lume-tokens.css">
-  <link rel="stylesheet" href="assets/css/lume-brand.css">
   <link rel="stylesheet" href="assets/css/dark.css" id="darkTheme" disabled>
   <link rel="stylesheet" href="assets/css/subscription.css">
   <link rel="stylesheet" href="assets/css/stripe-payment.css">
-  <link rel="stylesheet" href="assets/css/right-rail.css?v=20260627a">
   <link rel="stylesheet" href="assets/css/skills-tab.css?v=20260602a">
   <link rel="stylesheet" href="assets/css/file-preview.css">
-  <script src="assets/js/lume-brand.js"></script>
   <!-- Lucide Icons - 使用 cdnjs 备用源 -->
   <script src="assets/libs/lucide.min.js"></script>
   <!-- Markdown 渲染 -->
@@ -272,7 +268,7 @@
   <div class="sidebar-resizer" id="sidebarResizer"></div>
 
   <!-- 主内容区 -->
-  <main class="main-content has-right-rail" id="mainContent">
+  <main class="main-content" id="mainContent">
     <!-- 导航栏容器 -->
     <div id="navbar-container"></div>
 
@@ -2167,29 +2163,6 @@
         sidebar.classList.toggle('collapsed');
         mainContent.classList.toggle('expanded');
       }
-    }
-
-    function toggleRightSidebar() {
-      const rs = document.getElementById('rightSidebar');
-      const mainContent = document.getElementById('mainContent');
-      const expandBtn = document.getElementById('rightSidebarExpandBtn');
-      if (!rs) return;
-      rs.classList.toggle('collapsed');
-      if (rs.classList.contains('collapsed')) {
-        mainContent.classList.remove('has-right-rail');
-        if (expandBtn) expandBtn.hidden = false;
-      } else {
-        mainContent.classList.add('has-right-rail');
-        if (expandBtn) expandBtn.hidden = true;
-      }
-      try { localStorage.setItem('rightSidebarCollapsed', rs.classList.contains('collapsed') ? '1' : '0'); } catch(e) {}
-    }
-
-    function updateRightSidebarToggleUi() {
-      const rs = document.getElementById('rightSidebar');
-      const expandBtn = document.getElementById('rightSidebarExpandBtn');
-      if (!rs || !expandBtn) return;
-      expandBtn.hidden = !rs.classList.contains('collapsed');
     }
 
     function initSidebarResizer() {

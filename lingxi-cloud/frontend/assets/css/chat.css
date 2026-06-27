@@ -5,8 +5,6 @@
  * Inspired by: Claude / Linear / Notion
  */
 
-@import url('lume-tokens.css');
-
 /* ===== DESIGN TOKENS ===== */
 :root {
   --bg:          #fafaf9;
@@ -23,7 +21,11 @@
   --text-3:      #a3a3a3;
   --text-inv:    #ffffff;
 
-  /* accent from lume-tokens.css */
+  /* 默认主题：绿色 */
+  --accent:      #10a37f;
+  --accent-h:    #0d8a6a;
+  --accent-soft: rgba(16,163,127,0.08);
+  --accent-ring: rgba(16,163,127,0.25);
 
   --radius:      12px;
   --radius-sm:   8px;
@@ -39,6 +41,14 @@
   --font-body:    'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 
   --sidebar-w:   260px;
+}
+
+/* 爱马仕橙主题（通过 JS 切换 data-theme 激活） */
+:root[data-theme="hermes"], body[data-theme="hermes"] {
+  --accent:      #E87040;
+  --accent-h:    #D45A2A;
+  --accent-soft: rgba(232,112,64,0.08);
+  --accent-ring: rgba(232,112,64,0.25);
 }
 
 /* ===== RESET ===== */
@@ -79,13 +89,14 @@ body::-webkit-scrollbar { display: none; }
 
 .sidebar-brand-icon {
   width: 34px; height: 34px;
-  border-radius: 10px;
-  display: block;
-  flex-shrink: 0;
+  background: var(--accent); border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  color: white; font-family: var(--font-display); font-weight: 700; font-size: 15px;
   box-shadow: 0 2px 8px var(--accent-ring);
   transition: transform 0.2s;
 }
 .sidebar-brand:hover .sidebar-brand-icon { transform: scale(1.05); }
+.sidebar-brand-icon svg { width: 18px; height: 18px; }
 
 .sidebar-brand-name {
   font-family: var(--font-display);
@@ -708,17 +719,6 @@ body::-webkit-scrollbar { display: none; }
 .usage-quota-percent { font-size: 18px; font-weight: 700; color: var(--accent); }
 .usage-quota-bar { height: 8px; background: var(--accent-soft); border-radius: 4px; overflow: hidden; margin-bottom: 10px; }
 .usage-quota-fill { height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.3s; }
-.usage-quota-label { display: flex; align-items: center; gap: 6px; }
-.usage-section { margin-bottom: 16px; }
-.usage-section-title {
-  display: flex; align-items: center; gap: 6px;
-  font-size: 13px; font-weight: 600; color: var(--text-1);
-  margin-bottom: 10px; font-family: var(--font-display);
-}
-.usage-modal-title {
-  display: flex; align-items: center; gap: 8px;
-  font-family: var(--font-display);
-}
 
 /* ===== DOCUMENT PREVIEW ===== */
 .document-preview-card {
@@ -767,275 +767,37 @@ body::-webkit-scrollbar { display: none; }
 /* ===== HIDDEN ===== */
 .hidden { display: none !important; }
 
-/* ===== RESPONSIVE / MOBILE APP SHELL ===== */
-@media (max-width: 1024px) {
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
   .sidebar { transform: translateX(-100%); width: 280px; }
   .sidebar.show { transform: translateX(0); }
   .sidebar-resizer { display: none; }
-  .main-content {
-    margin-left: 0;
-    margin-right: 0 !important;
-    display: flex;
-    flex-direction: column;
-    height: 100dvh;
-    min-height: 100dvh;
-    max-height: 100dvh;
-    overflow: hidden;
-  }
-  .main-content.has-right-rail {
-    margin-right: 0 !important;
-  }
-  .mobile-chat-header {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-shrink: 0;
-    min-height: 52px;
-    padding: env(safe-area-inset-top, 0) 10px 0;
-    border-bottom: 1px solid var(--border-sub);
-    background: rgba(255, 255, 255, 0.96);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    z-index: 50;
-  }
-  .mobile-chat-header-btn {
-    width: 40px;
-    height: 40px;
-    border: none;
-    border-radius: 10px;
-    background: transparent;
-    color: var(--text-2);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    flex-shrink: 0;
-    transition: background 0.15s, color 0.15s;
-  }
-  .mobile-menu-btn {
-    width: 48px;
-    height: 44px;
-    flex-direction: column;
-    gap: 2px;
-    border-radius: 12px;
-    background: var(--bg-hover);
-  }
-  .mobile-menu-label {
-    font-size: 10px;
-    font-weight: 600;
-    line-height: 1;
-    color: var(--text-2);
-  }
-  .mobile-chat-header-title-wrap {
-    flex: 1;
-    min-width: 0;
-    text-align: center;
-    padding: 0 4px;
-  }
-  .mobile-chat-header-title {
-    font-family: var(--font-display);
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--text-1);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    letter-spacing: -0.02em;
-    line-height: 1.25;
-  }
-  .mobile-chat-header-sub {
-    font-size: 11px;
-    color: var(--text-3);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    line-height: 1.3;
-    margin-top: 2px;
-  }
-  .mobile-notif-btn {
-    position: relative;
-  }
-  .mobile-header-badge {
-    position: absolute;
-    top: 2px;
-    right: 2px;
-    min-width: 16px;
-    height: 16px;
-    padding: 0 4px;
-    font-size: 10px;
-    line-height: 16px;
-    border-radius: 8px;
-    background: #ef4444;
-    color: #fff;
-    text-align: center;
-  }
-  .mobile-chat-header-btn:hover,
-  .mobile-chat-header-btn:active {
-    background: var(--bg-hover);
-    color: var(--text-1);
-  }
-  .sidebar-close {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    margin-left: auto;
-    border: none;
-    border-radius: 8px;
-    background: transparent;
-    color: var(--text-3);
-    cursor: pointer;
-  }
-  .sidebar-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px 12px;
-  }
-  .sidebar-new-chat {
-    flex: 1;
-  }
-  .sidebar-collapse-btn {
-    display: none;
-  }
-  .chat-container {
-    flex: 1;
-    min-height: 0;
-    height: auto !important;
-    max-height: none;
-    padding: 4px 12px 0;
-    max-width: none;
-  }
-  .chat-container.is-home {
-    padding-top: 1vh;
-    padding-bottom: 8px;
-  }
-  .chat-container:not(.is-home) .chat-scroll {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-  .compose-dock {
-    flex-shrink: 0;
-    padding-bottom: env(safe-area-inset-bottom, 0);
-    background: linear-gradient(to top, var(--bg, #f8f9fa) 70%, transparent);
-  }
-  .chat-container:not(.is-home) .compose-dock {
-    position: sticky;
-    bottom: 0;
-    z-index: 20;
-  }
-  .home-suggestions {
-    max-height: 28vh;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    justify-content: flex-start;
-    margin-top: 10px;
-    padding-bottom: 4px;
-  }
-  .welcome-mobile-tip {
-    font-size: 13px;
-    line-height: 1.55;
-    color: var(--text-3);
-    margin-top: 14px;
-    padding: 0 8px;
-  }
-  .notification-bell {
-    display: none !important;
-  }
-  .input-top .send-btn {
-    flex-shrink: 0;
-    width: 36px;
-    height: 36px;
-    min-width: 36px;
-  }
-  .input-top .send-btn:not(.hidden) {
-    display: flex !important;
-    align-items: center;
-    justify-content: center;
-  }
-  .session-loading {
-    color: var(--text-3);
-    animation: session-pulse 1.2s ease-in-out infinite;
-  }
-  @keyframes session-pulse {
-    0%, 100% { opacity: 0.55; }
-    50% { opacity: 1; }
-  }
+  .main-content { margin-left: 0; }
+  .chat-container { padding: 14px 12px 10px; }
   .navbar { display: none !important; }
   .checkin-text, .checkin-points { display: none; }
   .user-name { display: none; }
-  .welcome { padding: 16px 8px; }
-  .welcome-title { font-size: 22px; }
+  .welcome { padding: 40px 14px; }
+  .welcome-title { font-size: 20px; }
   .templates-grid { grid-template-columns: 1fr; }
-  .input-field::placeholder {
-    font-size: 14px;
-  }
-}
-
-body.mobile-chat-ui .sidebar { transform: translateX(-100%); width: 280px; }
-body.mobile-chat-ui .sidebar.show { transform: translateX(0); }
-body.mobile-chat-ui .sidebar-resizer { display: none; }
-body.mobile-chat-ui .main-content {
-  margin-left: 0;
-  margin-right: 0 !important;
-  display: flex;
-  flex-direction: column;
-  height: 100dvh;
-  min-height: 100dvh;
-  max-height: 100dvh;
-  overflow: hidden;
-}
-body.mobile-chat-ui .mobile-chat-header { display: flex !important; }
-body.mobile-chat-ui .notification-bell { display: none !important; }
-body.mobile-chat-ui .navbar { display: none !important; }
-body.mobile-chat-ui .chat-container {
-  flex: 1;
-  min-height: 0;
-  height: auto !important;
-  max-width: none;
-}
-body.mobile-chat-ui .chat-container:not(.is-home) .chat-scroll {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-.mobile-chat-header {
-  display: none;
 }
 
 @media (max-width: 640px) {
   .usage-stats-cards { grid-template-columns: repeat(2, 1fr); }
 }
 
-/* Scroll to bottom button — 位于输入框上方 */
-.compose-scroll-btn-row {
-  display: flex;
-  justify-content: center;
-  padding-bottom: 10px;
-  pointer-events: none;
-}
-
-.compose-scroll-btn-row .scroll-bottom-btn {
-  pointer-events: auto;
-}
-
+/* Scroll to bottom button - fixed above input bar */
 .scroll-bottom-btn {
-  position: relative;
+  position: sticky; bottom: 0; left: 50%; transform: translateX(-50%);
   width: 34px; height: 34px; border-radius: 50%;
   background: var(--bg-card); border: 1px solid var(--border);
   box-shadow: var(--shadow-md); cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   color: var(--text-2); z-index: 10;
   transition: all 0.2s ease;
-  margin: 0;
-  transform: none;
+  margin: 0 auto -34px auto; /* sit right above input bar */
 }
-.scroll-bottom-btn:hover { background: var(--bg-hover); color: var(--accent); transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+.scroll-bottom-btn:hover { background: var(--bg-hover); color: var(--accent); transform: translateX(-50%) translateY(-2px); box-shadow: var(--shadow-lg); }
 .scroll-bottom-btn.hidden { display: none; }
 
 /* Skill Tags in input */
@@ -1159,8 +921,8 @@ body.mobile-chat-ui .chat-container:not(.is-home) .chat-scroll {
   user-select: none;
 }
 .bubble-meta .meta-model {
-  background: var(--accent-soft);
-  color: var(--accent, #3d6b62);
+  background: var(--accent-soft, rgba(16,163,127,0.08));
+  color: var(--accent, #10a37f);
   padding: 2px 6px;
   border-radius: 4px;
   font-weight: 500;
