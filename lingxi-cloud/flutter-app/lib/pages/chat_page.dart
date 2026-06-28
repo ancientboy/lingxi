@@ -178,9 +178,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   String? _currentSessionKey;
   String? _selectedModel = 'auto';
   bool _showModelDropdown = false;
+  String _modelSearchQuery = '';
+  bool _autoToggle = true;
   
   // 模型列表（从 API 动态加载，fallback 用硬编码）
   List<Map<String, String>> _models = [];
+  // 分类 → provider → models 双层分组（对齐 Web cachedCategories）
+  List<Map<String, dynamic>> _modelCategories = [];
 
   // 硬编码 fallback（与后端 /api/user-models 对齐 — 2026.06.28 精简版）
   static const List<Map<String, String>> _fallbackModels = [
@@ -4067,80 +4071,284 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     );
   }
 
-  // 模型下拉面板（对齐 Web model-dropdown）
+  // 模型下拉面板（对齐 Web model-dropdown — 分类+供应商分组）
   Widget _buildModelDropdown(bool isDarkMode, bool isFreeUser) {
+    final bgColor = isDarkMode ? const Color(0xFF2D2D30) : Constants.surfaceColor;
+    final borderColor = isDarkMode ? const Color(0xFF404040) : Constants.borderDefault;
+    final textPrimary = isDarkMode ? const Color(0xFFECECF1) : Constants.textPrimaryColor;
+    final textSecondary = isDarkMode ? const Color(0xFF8E8EA0) : Constants.textSecondaryColor;
+    final textTertiary = isDarkMode ? const Color(0xFF6E6E80) : Constants.textTertiaryColor;
+
     return Container(
       margin: const EdgeInsets.fromLTRB(8, 0, 8, 6),
-      constraints: const BoxConstraints(maxHeight: 360),
+      constraints: const BoxConstraints(maxHeight: 420),
       decoration: BoxDecoration(
-        color: isDarkMode ? const Color(0xFF2D2D30) : Constants.surfaceColor,
+        color: bgColor,
         borderRadius: BorderRadius.circular(Constants.radiusMd),
-        border: Border.all(
-          color: isDarkMode ? const Color(0xFF404040) : Constants.borderDefault,
-        ),
+        border: Border.all(color: borderColor),
         boxShadow: [
           BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 16, offset: const Offset(0, 4)),
         ],
       ),
-      child: SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ── 搜索框 + 绑定供应商 Key 按钮 ──
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    autofocus: true,
+                    style: TextStyle(fontSize: 13, color: textPrimary),
+                    decoration: InputDecoration(
+                      hintText: '搜索模型',
+                      hintStyle: TextStyle(fontSize: 13, color: textTertiary),
+                      prefixIcon: Icon(Icons.search, size: 16, color: textTertiary),
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      filled: true,
+                      fillColor: isDarkMode ? const Color(0xFF404040) : Constants.bgInput,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    onChanged: (v) => setState(() { _modelSearchQuery = v; }),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                // 绑定供应商 Key 入口
+                GestureDetector(
+                  onTap: () {
+                    setState(() { _showModelDropdown = false; });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('请在 Web 端设置中绑定供应商 API Key'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    width: 32, height: 32,
+                    decoration: BoxDecoration(
+                      color: isDarkMode ? const Color(0xFF404040) : Constants.bgInput,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.add, size: 16, color: textTertiary),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // ── Auto toggle ──
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Row(
+              children: [
+                Text('Auto', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: textSecondary)),
+                const Spacer(),
+                Switch(
+                  value: _selectedModel == 'auto',
+                  onChanged: (val) {
+                    if (val) {
+                      setState(() {
+                        _selectedModel = 'auto';
+                        _showModelDropdown = false;
+                      });
+                      _saveModelPreference('auto');
+                    }
+                  },
+                  activeColor: Constants.primaryColor,
+                  inactiveThumbColor: Constants.textTertiaryColor,
+                  inactiveTrackColor: Constants.borderDefault,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ],
+            ),
+          ),
+          Divider(height: 1, color: borderColor),
+          // ── 模型列表（分组 or 搜索结果）──
+          Expanded(
+            child: _modelSearchQuery.trim().isNotEmpty
+              ? _buildSearchResultList(isDarkMode, isFreeUser)
+              : _buildGroupedList(isDarkMode, isFreeUser),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 分组列表（category → provider → models）
+  Widget _buildGroupedList(bool isDarkMode, bool isFreeUser) {
+    final textPrimary = isDarkMode ? const Color(0xFFECECF1) : Constants.textPrimaryColor;
+    final textTertiary = isDarkMode ? const Color(0xFF6E6E80) : Constants.textTertiaryColor;
+    final borderColor = isDarkMode ? const Color(0xFF404040) : Constants.borderDefault;
+
+    if (_modelCategories.isEmpty) {
+      // 无分类数据时，fallback 到平铺列表
+      return SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          children: _models.map((m) {
-          final isActive = m['id'] == _selectedModel;
-          final isPro = m['tier'] == 'pro';
-          final isLocked = isPro && isFreeUser; // 免费用户锁 pro 模型
-          return GestureDetector(
-            onTap: isLocked ? null : () {
-              setState(() {
-                _selectedModel = m['id']!;
-                _showModelDropdown = false;
-              });
-              _saveModelPreference(m['id']!);
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: isActive
-                  ? Constants.primaryColor.withOpacity(0.08)
-                  : Colors.transparent,
-                borderRadius: BorderRadius.circular(Constants.radiusSm),
+          children: _models.where((m) => m['id'] != 'auto').map((m) => _buildModelItem(m, isDarkMode, isFreeUser)).toList(),
+        ),
+      );
+    }
+
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Auto 项
+          _buildModelItem({'id': 'auto', 'name': 'Auto', 'desc': '智能选择最优模型', 'tier': 'free'}, isDarkMode, isFreeUser),
+          Divider(height: 1, color: borderColor),
+          // 按 category → provider 分组
+          for (final cat in _modelCategories) ...[
+            // 分类标题
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 3),
+              child: Text(
+                (cat['label'] ?? cat['key'] ?? '').toString().toUpperCase(),
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: textTertiary,
+                  letterSpacing: 0.8,
+                ),
               ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${m['name']}${isLocked ? ' 🔒' : (isPro ? ' ⭐' : '')}',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: isLocked
-                              ? (isDarkMode ? Colors.white24 : Constants.textTertiaryColor)
-                              : (isDarkMode ? const Color(0xFFECECF1) : Constants.textPrimaryColor),
-                          ),
-                        ),
-                        const SizedBox(height: 1),
-                        Text(
-                          isLocked ? '订阅可用' : (m['desc'] ?? ''),
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: isLocked
-                              ? const Color(0xFFEAB308)
-                              : (isDarkMode ? const Color(0xFF6E6E80) : Constants.textTertiaryColor),
-                          ),
-                        ),
-                      ],
-                    ),
+            ),
+            for (final pv in (cat['providers'] as List? ?? [])) ...[
+              // provider 子标题（只在分类内有多个 provider 时显示）
+              if (((cat['providers'] as List).length) > 1)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 4, 10, 1),
+                  child: Text(
+                    (pv['name'] ?? '').toString(),
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textTertiary),
                   ),
-                  if (isActive)
-                    Icon(Icons.check, size: 16, color: Constants.primaryColor),
+                ),
+              for (final pm in (pv['models'] as List? ?? []))
+                _buildModelItemFromApi(pm, pv, cat, isDarkMode, isFreeUser),
+            ],
+          ],
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  // 搜索结果列表
+  Widget _buildSearchResultList(bool isDarkMode, bool isFreeUser) {
+    final q = _modelSearchQuery.trim().toLowerCase();
+    final filtered = _models.where((m) {
+      if (m['id'] == 'auto') return false;
+      final hay = '${m['name']} ${m['desc'] ?? ''}'.toLowerCase();
+      return hay.contains(q);
+    }).toList();
+
+    if (filtered.isEmpty) {
+      return Center(
+        child: Text('无匹配模型', style: TextStyle(fontSize: 13, color: Constants.textTertiaryColor)),
+      );
+    }
+
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: filtered.map((m) => _buildModelItem(m, isDarkMode, isFreeUser)).toList(),
+      ),
+    );
+  }
+
+  // 单个模型项（从 flat _models 构建）
+  Widget _buildModelItem(Map<String, String> m, bool isDarkMode, bool isFreeUser) {
+    final isActive = m['id'] == _selectedModel;
+    final isPro = m['tier'] == 'pro';
+    final isLocked = isPro && isFreeUser;
+    final textPrimary = isDarkMode ? const Color(0xFFECECF1) : Constants.textPrimaryColor;
+    final textTertiary = isDarkMode ? const Color(0xFF6E6E80) : Constants.textTertiaryColor;
+
+    return GestureDetector(
+      onTap: isLocked ? null : () {
+        setState(() {
+          _selectedModel = m['id']!;
+          _showModelDropdown = false;
+        });
+        _saveModelPreference(m['id']!);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        color: isActive ? Constants.primaryColor.withOpacity(0.06) : Colors.transparent,
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(m['name'] ?? '', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isLocked ? textTertiary : textPrimary)),
+                      if (m['desc']!.isNotEmpty) ...[
+                        const SizedBox(width: 6),
+                        Text(m['desc']!, style: TextStyle(fontSize: 11, color: textTertiary)),
+                      ],
+                    ],
+                  ),
                 ],
               ),
             ),
-          );
-        }).toList(),
+            if (isLocked)
+              Icon(Icons.lock, size: 14, color: Constants.textTertiaryColor)
+            else if (isActive)
+              Icon(Icons.check, size: 16, color: Constants.primaryColor),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 单个模型项（从 API category/provider 结构构建）
+  Widget _buildModelItemFromApi(dynamic pm, dynamic pv, dynamic cat, bool isDarkMode, bool isFreeUser) {
+    final modelId = (pm['id'] ?? '').toString();
+    final modelName = (pm['name'] ?? '').toString();
+    final tier = (pm['tier'] ?? 'free').toString();
+    final isActive = modelId == _selectedModel;
+    final isLocked = tier == 'pro' && isFreeUser;
+    final textPrimary = isDarkMode ? const Color(0xFFECECF1) : Constants.textPrimaryColor;
+    final textTertiary = isDarkMode ? const Color(0xFF6E6E80) : Constants.textTertiaryColor;
+    final multiProviders = (cat['providers'] as List).length > 1;
+
+    return GestureDetector(
+      onTap: isLocked ? null : () {
+        setState(() {
+          _selectedModel = modelId;
+          _showModelDropdown = false;
+        });
+        _saveModelPreference(modelId);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        color: isActive ? Constants.primaryColor.withOpacity(0.06) : Colors.transparent,
+        child: Row(
+          children: [
+            Expanded(
+              child: Row(
+                children: [
+                  Text(modelName, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isLocked ? textTertiary : textPrimary)),
+                  if (!multiProviders && (pv['name'] ?? '').isNotEmpty) ...[
+                    const SizedBox(width: 6),
+                    Text((pv['name'] ?? '').toString(), style: TextStyle(fontSize: 11, color: textTertiary)),
+                  ],
+                ],
+              ),
+            ),
+            if (isLocked)
+              Icon(Icons.lock, size: 14, color: Constants.textTertiaryColor)
+            else if (isActive)
+              Icon(Icons.check, size: 16, color: Constants.primaryColor),
+          ],
         ),
       ),
     );
@@ -4168,7 +4376,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     }
   }
 
-  // 从 API 动态加载模型列表（与 Web 版对齐）
+  // 从 API 动态加载模型列表（与 Web 版对齐，优先 /api/models/list）
   Future<void> _loadModelsFromApi() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -4176,13 +4384,118 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       final headers = <String, String>{};
       if (token != null) headers['Authorization'] = 'Bearer $token';
 
-      final res = await http.get(
+      // 优先尝试新的分类接口 /api/models/list
+      try {
+        final res = await http.get(
+          Uri.parse('${Constants.baseUrl}/api/models/list?detectOpenClaw=true'),
+          headers: headers,
+        ).timeout(const Duration(seconds: 5));
+
+        if (res.statusCode == 200) {
+          final data = jsonDecode(res.body);
+          final List<dynamic> categories = data['categories'] ?? [];
+          if (categories.isNotEmpty) {
+            // 解析分类结构
+            final List<Map<String, dynamic>> parsedCats = categories.map<Map<String, dynamic>>((cat) {
+              return {
+                'key': (cat['key'] ?? '').toString(),
+                'label': (cat['label'] ?? '').toString(),
+                'providers': (cat['providers'] as List? ?? []).map<Map<String, dynamic>>((pv) {
+                  return {
+                    'provider': (pv['provider'] ?? '').toString(),
+                    'name': (pv['name'] ?? '').toString(),
+                    'models': (pv['models'] as List? ?? []).map<Map<String, String>>((m) {
+                      return {
+                        'id': (m['id'] ?? '').toString(),
+                        'name': (m['name'] ?? '').toString(),
+                        'tier': (m['tier'] ?? 'free').toString(),
+                      };
+                    }).toList(),
+                  };
+                }).toList(),
+              };
+            }).toList();
+
+            // 扁平化模型列表
+            final flatModels = <Map<String, String>>[
+              {'id': 'auto', 'name': 'Auto', 'desc': '智能选择最优模型', 'tier': 'free'},
+            ];
+            for (final cat in parsedCats) {
+              for (final pv in (cat['providers'] as List)) {
+                for (final m in (pv['models'] as List)) {
+                  flatModels.add({
+                    'id': (m['id'] ?? '').toString(),
+                    'name': (m['name'] ?? '').toString(),
+                    'desc': (pv['name'] ?? '').toString(),
+                    'tier': (m['tier'] ?? 'free').toString(),
+                  });
+                }
+              }
+            }
+
+            if (mounted) {
+              setState(() {
+                _modelCategories = parsedCats;
+                _models = flatModels;
+              });
+            }
+            return;
+          }
+
+          // 旧结构兼容：providers 数组
+          final List<dynamic> providers = data['providers'] ?? [];
+          if (providers.isNotEmpty) {
+            final singleCat = <Map<String, dynamic>>[{
+              'key': 'lume',
+              'label': 'Lume 官方',
+              'providers': providers.map<Map<String, dynamic>>((pv) {
+                return {
+                  'provider': (pv['provider'] ?? '').toString(),
+                  'name': (pv['name'] ?? '').toString(),
+                  'models': (pv['models'] as List? ?? []).map<Map<String, String>>((m) {
+                    return {
+                      'id': (m['id'] ?? '').toString(),
+                      'name': (m['name'] ?? '').toString(),
+                      'tier': (m['tier'] ?? 'free').toString(),
+                    };
+                  }).toList(),
+                };
+              }).toList(),
+            }];
+            final flatModels = <Map<String, String>>[
+              {'id': 'auto', 'name': 'Auto', 'desc': '智能选择最优模型', 'tier': 'free'},
+            ];
+            for (final pv in providers) {
+              for (final m in (pv['models'] as List? ?? [])) {
+                flatModels.add({
+                  'id': (m['id'] ?? '').toString(),
+                  'name': (m['name'] ?? '').toString(),
+                  'desc': (pv['name'] ?? '').toString(),
+                  'tier': (m['tier'] ?? 'free').toString(),
+                });
+              }
+            }
+            if (mounted) {
+              setState(() {
+                _modelCategories = singleCat;
+                _models = flatModels;
+              });
+            }
+            return;
+          }
+        }
+      } catch (e) {
+        debugPrint('⚠️ /api/models/list 失败，尝试旧接口: $e');
+      }
+
+      // 回退到旧接口 /api/user-models
+      final res2 = await http.get(
         Uri.parse('${Constants.baseUrl}/api/user-models'),
         headers: headers,
       ).timeout(const Duration(seconds: 5));
 
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
+      if (res2.statusCode == 200) {
+        final data = jsonDecode(res2.body);
         final List<dynamic> apiModels = data['availableModels'] ?? [];
         if (apiModels.isNotEmpty) {
           final models = apiModels.map<Map<String, String>>((m) => {

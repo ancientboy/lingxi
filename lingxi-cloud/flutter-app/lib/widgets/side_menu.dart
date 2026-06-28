@@ -19,6 +19,7 @@ import 'package:lingxicloud/pages/workspace_page.dart';
 import 'package:lingxicloud/pages/file_explorer_page.dart';
 import 'package:lingxicloud/pages/servers_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:lingxicloud/widgets/hive_logo.dart';
 
 class SideMenu extends StatelessWidget {
   final bool asDrawer;
@@ -34,84 +35,137 @@ class SideMenu extends StatelessWidget {
   }
 
   Widget _buildContent(BuildContext context) {
-    return Column(
-      children: [
-        // 品牌区域
-        Container(
-          padding: EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Constants.surfaceColor,
-            border: Border(
-              bottom: BorderSide(color: Constants.borderDefault, width: 1),
-            ),
-          ),
-          child: SafeArea(
-            child: Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: Color(0xFFF7F4EF),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Center(
-                    child: Image.asset(
-                      'assets/images/lume_logo.png',
-                      width: 26,
-                      height: 26,
-                      errorBuilder: (_, __, ___) => Icon(
-                        Icons.auto_awesome,
+    return Consumer<AppProvider>(
+      builder: (context, appProvider, child) {
+        final user = appProvider.user;
+        final credits = user?.points ?? 0;
+        return Column(
+          children: [
+            // 品牌区域 — 蜂巢 logo
+            Container(
+              padding: EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Constants.surfaceColor,
+                border: Border(
+                  bottom: BorderSide(color: Constants.borderDefault, width: 1),
+                ),
+              ),
+              child: SafeArea(
+                child: Row(
+                  children: [
+                    // 蜂巢 logo badge
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: Color(0xFFF7F4EF),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: CustomPaint(
+                        painter: HiveLogoPainter(),
+                        size: Size(26, 26),
+                      ),
+                    ),
+                    SizedBox(width: 10),
+                    Text(
+                      'Lume',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w500,
                         color: Constants.textPrimaryColor,
-                        size: 20,
+                        letterSpacing: -0.3,
+                        fontFamily: 'Georgia',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            Spacer(),
+
+            // 用户区域 — credits pill 样式
+            Divider(height: 1, color: Constants.borderDefault.withOpacity(0.5)),
+            Padding(
+              padding: EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  // 头像
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: Constants.primaryColor,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        (user?.nickname ?? 'U').isNotEmpty
+                          ? user!.nickname![0].toUpperCase()
+                          : 'U',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                SizedBox(width: 10),
-                Text(
-                  'Lume',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w500,
-                    color: Constants.textPrimaryColor,
-                    letterSpacing: -0.3,
-                    fontFamily: 'Georgia',
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          user?.nickname ?? 'User',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: Constants.textPrimaryColor,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        SizedBox(height: 2),
+                        // Credits pill
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Color(0xFFF3F1EC),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.diamond_outlined, size: 12, color: Constants.textSecondaryColor),
+                              SizedBox(width: 3),
+                              Text(
+                                '$credits',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: Constants.textSecondaryColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
-        ),
-
-
-
-        // 底部版本信息
-        Divider(height: 1, color: Constants.textLightColor.withOpacity(0.2)),
-        Padding(
-          padding: EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Icon(Icons.info_outlined, color: Constants.textSecondaryColor, size: 16),
-              SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
                   Text(
-                    'Version ${Constants.appVersion}',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Constants.textSecondaryColor),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    '灵犀云 AI Assistant',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Constants.textLightColor),
+                    'v${Constants.appVersion}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Constants.textLightColor,
+                    ),
                   ),
                 ],
               ),
-            ],
-          ),
-        ),
-      ],
+            ),
+          ],
+        );
+      },
     );
   }
 

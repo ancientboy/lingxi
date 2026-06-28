@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class Constants {
   // API 配置
@@ -17,7 +16,6 @@ class Constants {
   static const String storageUserId = 'user_id';
   static const String storageUserName = 'user_name';
   static const String storageUserEmail = 'user_email';
-  static const String storageAccentTheme = 'lingxi_accent_theme';
   static const String storageLumeTestMode = 'lingxi_lume_test_mode';
   
   // 应用配置
@@ -26,45 +24,25 @@ class Constants {
   static const String appDescription = 'AI Agent 智能助手平台';
 
   // ===== 主题色管理 =====
-  // 对齐 Web 端：翡翠绿作为 accent，暖黑作为主按钮
-  static const Color _green = Color(0xFF10a37f);
-  static const Color _greenH = Color(0xFF0d8a6a);
-  static const Color _hermes = Color(0xFFE87040);
-  static const Color _hermesH = Color(0xFFD45A2A);
+  // 对齐 Web master：统一墨黑 #1A1A1A 作为品牌主色
+  static const Color primaryColor = Color(0xFF1A1A1A);     // 墨黑
+  static const Color secondaryColor = Color(0xFF333333);    // 次级灰黑
+  static final ValueNotifier<Color> primaryColorNotifier = ValueNotifier(Color(0xFF1A1A1A));
+  static final ValueNotifier<Color> secondaryColorNotifier = ValueNotifier(Color(0xFF333333));
 
-  // 当前主题色（动态）
-  static const Color primaryColor = _green;
-  static const Color secondaryColor = _greenH;
-  static final ValueNotifier<Color> primaryColorNotifier = ValueNotifier(_green);
-  static final ValueNotifier<Color> secondaryColorNotifier = ValueNotifier(_greenH);
-
-  // 主题名列表
+  // 主题名列表（已精简为单一墨黑主题）
   static const List<Map<String, String>> accentThemes = [
-    {'key': 'default', 'name': '翡翠绿'},
-    {'key': 'hermes', 'name': '爱马仕橙'},
+    {'key': 'default', 'name': '墨黑'},
   ];
 
-  // 切换主题色
-  static Future<void> setAccentTheme(String key) async {
-    final isHermes = key == 'hermes';
-    primaryColorNotifier.value = isHermes ? _hermes : _green;
-    secondaryColorNotifier.value = isHermes ? _hermesH : _greenH;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(storageAccentTheme, key);
-  }
+  // 切换主题色（保留接口兼容，实际只有墨黑）
+  static Future<void> setAccentTheme(String key) async {}
 
   // 初始化主题色
-  static Future<void> initAccentTheme() async {
-    final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getString(storageAccentTheme) ?? 'default';
-    await setAccentTheme(saved);
-  }
+  static Future<void> initAccentTheme() async {}
 
   // 获取当前主题 key
-  static Future<String> getAccentKey() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(storageAccentTheme) ?? 'default';
-  }
+  static Future<String> getAccentKey() async => 'default';
 
   // ===== 设计令牌（对齐 Web 端 index.html / chat.css 暖色调） =====
 
