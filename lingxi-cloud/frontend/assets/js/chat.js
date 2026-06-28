@@ -394,16 +394,21 @@ function updateScrollContextBar() {
 }
 
 function getTeamDrawerAgents() {
-  if (user?.team?.members?.length) {
-    return user.team.members.map((m) => ({
-      id: m.id,
-      name: m.name || m.id,
-      icon: m.icon || 'bot',
-      desc: m.desc || m.role || 'AI 助手',
-    }));
-  }
-  const ids = user?.agents?.length ? user.agents : ['lingxi'];
+  // 优先用 user.agents 列表，如果没有则从 AGENT_INFO 获取所有预定义的 agent
+  let ids = user?.agents?.length ? user.agents : Object.keys(AGENT_INFO);
+  const teamMembers = user?.team?.members;
   return ids.map((id) => {
+    // 先从 team.members 找详细信息
+    const member = teamMembers?.find((m) => m.id === id);
+    if (member) {
+      return {
+        id: member.id,
+        name: member.name || member.id,
+        icon: member.icon || 'bot',
+        desc: member.desc || member.role || 'AI 助手',
+      };
+    }
+    // 回退到 AGENT_INFO
     const info = AGENT_INFO[id] || { name: id, icon: 'bot', desc: 'AI 助手' };
     return { id, name: info.name, icon: info.icon, desc: info.desc };
   });
@@ -2169,18 +2174,68 @@ function renderSessionList() {
 
 // 创建新会话
 async function createNewSession() {
-  closeSessionModal();
+  try {
+    console.log('🆕 创建新会话...');
+    
+    // 1. 关闭会话选择弹窗（如果存在）
+    if (typeof closeSessionModal === 'function') {
+      closeSessionModal();
+    }
 
-  // 生成新的会话 key（使用从后端获取的 session prefix）
-  const newSessionKey = `${SESSION_PREFIX}:chat_${Date.now()}`;
-  syncCurrentSessionKey(newSessionKey);
-  console.log('🆕 创建新会话:', currentSessionKey);
-
-  // 清空聊天，显示欢迎界面
-  renderWelcomeHome(AGENT_INFO[currentAgentId] || AGENT_INFO.lingxi);
-
-  // 会话会在第一次发送消息时自动创建
-  console.log('新会话已准备就绪，等待发送第一条消息');
+    // 2. 重置生成状态
+    isGenerating = false;
+    currentRunId = null;
+    
+    // 3. 清空图片
+    selectedImage = null;
+    if (typeof removeSelectedImage === 'function') {
+      removeSelectedImage();
+    }
+    
+    // 4. 清空输入框
+    const input = document.getElementById('inputField');
+    if (input) {
+      input.value = '';
+      input.style.height = 'auto';
+    }
+    
+    // 5. 生成新的会话 key（确保 SESSION_PREFIX 有效）
+    const prefix = SESSION_PREFIX || 'agent:main';
+    const newSessionKey = `${prefix}:chat_${Date.now()}`;
+    syncCurrentSessionKey(newSessionKey);
+    console.log('🆕 新会话 key:', currentSessionKey);
+    
+    // 6. 显示欢迎界面（会清空消息并调用 setHomeMode(true)）
+    renderWelcomeHome(AGENT_INFO[currentAgentId] || AGENT_INFO.lingxi);
+    
+    // 7. 更新发送按钮状态
+    if (typeof updateSendButton === 'function') {
+      updateSendButton();
+    }
+    if (typeof updateInputButtons === 'function') {
+      updateInputButtons();
+    }
+    
+    // 8. 更新侧边栏选中状态（取消旧的高亮）
+    if (typeof renderSessionList === 'function') {
+      renderSessionList();
+    }
+    
+    // 9. 聚焦输入框
+    if (input) {
+      setTimeout(() => input.focus(), 100);
+    }
+    
+    console.log('✅ 新会话已准备就绪，等待发送第一条消息');
+  } catch (error) {
+    console.error('❌ 创建新会话失败:', error);
+    // 降级处理：至少清空输入框
+    const input = document.getElementById('inputField');
+    if (input) {
+      input.value = '';
+      input.focus();
+    }
+  }
 }
 
 window.createNewSession = createNewSession;

@@ -313,6 +313,7 @@ router.get('/me', async (req, res) => {
       id: user.id,
       nickname: user.nickname,
       agents: user.agents || [],
+      team: user.team || null,
       instanceStatus: user.instanceStatus,
       createdAt: user.createdAt,
       hasPassword: !!user.passwordHash,

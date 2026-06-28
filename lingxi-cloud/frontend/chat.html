@@ -2309,8 +2309,29 @@
         const opening = !sidebar.classList.contains('show');
         sidebar.classList.toggle('show');
         if (overlay) overlay.classList.toggle('show');
-        if (opening && typeof refreshSessionsForSidebar === 'function') {
-          void refreshSessionsForSidebar();
+        // 打开侧边栏时，如果 session 列表为空，主动加载
+        if (opening) {
+          console.log('📂 打开侧边栏，检查 session 列表...');
+          const allSessions = window.sessions || [];
+          console.log('📊 window.sessions 长度:', allSessions.length);
+          console.log('🔍 refreshSessionListOnly:', typeof refreshSessionListOnly);
+          console.log('🔍 loadLumeSessions:', typeof loadLumeSessions);
+          console.log('🔍 loadSidebarSessions:', typeof loadSidebarSessions);
+          if (allSessions.length === 0) {
+            console.log('🔄 session 列表为空，尝试加载...');
+            if (typeof refreshSessionListOnly === 'function') {
+              void refreshSessionListOnly();
+            } else if (typeof loadLumeSessions === 'function') {
+              void loadLumeSessions();
+            } else {
+              console.error('❌ 加载函数都不存在！');
+            }
+          } else {
+            console.log('✅ 已有 session 数据，直接渲染');
+            if (typeof loadSidebarSessions === 'function') {
+              loadSidebarSessions();
+            }
+          }
         }
       } else {
         // 桌面端：收起/展开
@@ -2562,21 +2583,55 @@
       }
     }
 
-    function newChat() {
-      if (typeof closeMobileSidebar === 'function') closeMobileSidebar();
-      if (typeof switchView === 'function') {
-        switchView('chat');
+    async function newChat() {
+      console.log('🆕 newChat() 被调用');
+      
+      try {
+        // 1. 关闭移动端侧边栏
+        if (typeof closeMobileSidebar === 'function') closeMobileSidebar();
+        
+        // 2. 切换到聊天视图
+        if (typeof switchView === 'function') switchView('chat');
+        
+        // 3. 重置状态
+        isGenerating = false;
+        currentRunId = null;
+        
+        // 4. 生成新会话 key
+        const prefix = (typeof SESSION_PREFIX === 'string' && SESSION_PREFIX) || 'agent:main';
+        const newKey = `${prefix}:chat_${Date.now()}`;
+        if (typeof syncCurrentSessionKey === 'function') {
+          syncCurrentSessionKey(newKey);
+        } else {
+          window.currentSessionKey = newKey;
+        }
+        
+        // 5. 清空输入框
+        const input = document.getElementById('inputField');
+        if (input) { input.value = ''; input.style.height = 'auto'; }
+        
+        // 6. 清空消息区域（和 switchAgent 一样先清空）
+        const messages = document.getElementById('messages');
+        if (messages) messages.innerHTML = '';
+        
+        // 7. 显示欢迎界面（和 switchAgent→updateWelcomeForAgent 一样）
+        if (typeof updateWelcomeForAgent === 'function') {
+          updateWelcomeForAgent(currentAgentId || 'lingxi');
+        } else if (typeof renderWelcomeHome === 'function') {
+          renderWelcomeHome(AGENT_INFO[currentAgentId] || AGENT_INFO.lingxi);
+        }
+        
+        // 8. 清除侧边栏选中状态
+        document.querySelectorAll('.sidebar-session').forEach(el => el.classList.remove('active'));
+        
+        // 9. 更新 header 和按钮
+        if (typeof updateMobileChatHeader === 'function') updateMobileChatHeader();
+        if (typeof updateInputButtons === 'function') updateInputButtons();
+        
+        console.log('✅ newChat() 完成, key:', newKey);
+      } catch (error) {
+        console.error('❌ newChat() 失败:', error);
       }
-      if (typeof createNewSession === 'function') {
-        createNewSession();
-      } else {
-        console.warn('createNewSession 未就绪');
-      }
-      document.querySelectorAll('.sidebar-session').forEach(el => {
-        el.classList.remove('active');
-      });
-      if (typeof updateMobileChatHeader === 'function') updateMobileChatHeader();
-      if (typeof updateInputButtons === 'function') updateInputButtons();
     }
     window.newChat = newChat;
 
@@ -3892,7 +3947,7 @@
   <script src="assets/js/lume-dialog.js?v=20260627e"></script>
   <script src="assets/js/lume-rpc.js?v=20260627f"></script>
   <script src="assets/js/chat-lume.js?v=20260627g"></script>
-  <script src="assets/js/chat.js?v=20260627e"></script>
+  <script src="assets/js/chat.js?v=20260628c"></script>
 
     <!-- 统一组件加载器 -->
     <script src="components/load-components.js?v=20260627e"></script>
