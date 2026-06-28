@@ -30,9 +30,9 @@ class _MainShellState extends State<MainShell> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? Color(0xFF1A1A2E) : Colors.white;
-    final selectedColor = Constants.primaryColor;
-    final unselectedColor = isDark ? Colors.white38 : Colors.black38;
+    final bgColor = isDark ? Color(0xFF1A1A1A) : Constants.surfaceColor;
+    final selectedColor = Constants.textPrimaryColor;
+    final unselectedColor = isDark ? Colors.white38 : Constants.textTertiaryColor;
 
     return Scaffold(
       body: IndexedStack(
@@ -47,16 +47,9 @@ class _MainShellState extends State<MainShell> {
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: bgColor,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: Offset(0, -2),
-            ),
-          ],
           border: Border(
             top: BorderSide(
-              color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.06),
+              color: isDark ? Color(0xFF404040) : Constants.borderDefault,
               width: 0.5,
             ),
           ),

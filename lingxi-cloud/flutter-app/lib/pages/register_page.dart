@@ -86,22 +86,11 @@ class _RegisterPageState extends State<RegisterPage> {
       if (data['success'] == true) {
         // 开始倒计时
         setState(() {
-          const _countdown = 60;
+          _countdown = 60;
         });
         
         // 倒计时定时器
-        Future.delayed(Duration(seconds: 1), () {
-          if (mounted) {
-            setState(() {
-              _countdown--;
-            });
-            if (_countdown > 0) {
-              Future.delayed(Duration(seconds: 1), () {
-                // 递归调用继续倒计时
-              });
-            }
-          }
-        });
+        _startCountdown();
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -137,6 +126,19 @@ class _RegisterPageState extends State<RegisterPage> {
         });
       }
     }
+  }
+
+  void _startCountdown() {
+    Future.doWhile(() async {
+      await Future.delayed(Duration(seconds: 1));
+      if (mounted && _countdown > 0) {
+        setState(() {
+          _countdown--;
+        });
+        return true;
+      }
+      return false;
+    });
   }
 
   // 注册
@@ -220,85 +222,113 @@ class _RegisterPageState extends State<RegisterPage> {
 
   @override
   Widget build(BuildContext context) {
+    // 对齐 Web 端：暖色调奶油白背景
+    const bgColor = Color(0xFFFBFAF8);
+    const textPrimary = Color(0xFF1A1A1A);
+    const textSecondary = Color(0xFF525252);
+    const textTertiary = Color(0xFF8A8A8A);
+    const borderColor = Color(0xFFE8E6E1);
+    const inputBg = Color(0xFFF3F1EC);
+
     return Scaffold(
+      backgroundColor: bgColor,
       appBar: AppBar(
-        title: Text('注册'),
-        backgroundColor: Constants.primaryColor,
-        foregroundColor: Colors.white,
-      ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Constants.primaryColor,
-              Color(0xFF4F46E5),
-            ],
-          ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back_ios_new_rounded, color: textPrimary, size: 20),
+          onPressed: () => Navigator.of(context).pop(),
         ),
+        title: Text(
+          '注册',
+          style: TextStyle(color: textPrimary, fontSize: 17, fontWeight: FontWeight.w600),
+        ),
+        centerTitle: true,
+      ),
+      body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: EdgeInsets.all(24),
-            child: Container(
-              width: 400,
-              padding: EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 20,
-                    offset: Offset(0, 10),
-                  ),
-                ],
-              ),
+            padding: EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: 400),
               child: Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Icon(
-                      Icons.person_add,
-                      size: 64,
-                      color: Constants.primaryColor,
-                    ),
-                    SizedBox(height: 16),
-                    Text(
-                      '创建账号',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: Constants.primaryColor,
+                    // Logo
+                    Center(
+                      child: Column(
+                        children: [
+                          Container(
+                            width: 56,
+                            height: 56,
+                            decoration: BoxDecoration(
+                              color: Color(0xFFF7F4EF),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Center(
+                              child: Image.asset(
+                                'assets/images/lume_logo.png',
+                                width: 40,
+                                height: 40,
+                                errorBuilder: (_, __, ___) => Icon(
+                                  Icons.person_add_rounded,
+                                  size: 28,
+                                  color: textPrimary,
+                                ),
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            '创建 Lume 账号',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w500,
+                              color: textPrimary,
+                              letterSpacing: -0.3,
+                              fontFamily: 'Georgia',
+                            ),
+                          ),
+                          SizedBox(height: 6),
+                          Text(
+                            '加入你的 AI 团队',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: textSecondary,
+                            ),
+                          ),
+                        ],
                       ),
-                      textAlign: TextAlign.center,
                     ),
-                    SizedBox(height: 32),
+                    SizedBox(height: 36),
 
-                    // 邀请码（可选）
-                    TextFormField(
+                    // 邀请码
+                    _buildInputField(
                       controller: _inviteCodeController,
-                      decoration: InputDecoration(
-                        labelText: '邀请码（可选）',
-                        prefixIcon: Icon(Icons.card_giftcard, color: Constants.primaryColor),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
+                      label: '邀请码（可选）',
+                      hint: '输入邀请码',
+                      icon: Icons.card_giftcard_outlined,
+                      bgColor: bgColor,
+                      borderColor: borderColor,
+                      inputBg: inputBg,
+                      textPrimary: textPrimary,
+                      textTertiary: textTertiary,
                     ),
                     SizedBox(height: 16),
 
                     // 昵称
-                    TextFormField(
+                    _buildInputField(
                       controller: _nicknameController,
-                      decoration: InputDecoration(
-                        labelText: '昵称',
-                        prefixIcon: Icon(Icons.person, color: Constants.primaryColor),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
+                      label: '昵称',
+                      hint: '请输入昵称',
+                      icon: Icons.person_outline_rounded,
+                      bgColor: bgColor,
+                      borderColor: borderColor,
+                      inputBg: inputBg,
+                      textPrimary: textPrimary,
+                      textTertiary: textTertiary,
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
                           return '请输入昵称';
@@ -312,16 +342,16 @@ class _RegisterPageState extends State<RegisterPage> {
                     SizedBox(height: 16),
 
                     // 邮箱
-                    TextFormField(
+                    _buildInputField(
                       controller: _emailController,
-                      decoration: InputDecoration(
-                        labelText: '邮箱',
-                        prefixIcon: Icon(Icons.email, color: Constants.primaryColor),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        hintText: 'your@email.com',
-                      ),
+                      label: '邮箱',
+                      hint: 'your@email.com',
+                      icon: Icons.email_outlined,
+                      bgColor: bgColor,
+                      borderColor: borderColor,
+                      inputBg: inputBg,
+                      textPrimary: textPrimary,
+                      textTertiary: textTertiary,
                       keyboardType: TextInputType.emailAddress,
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
@@ -336,75 +366,80 @@ class _RegisterPageState extends State<RegisterPage> {
                     ),
                     SizedBox(height: 16),
 
-                    // 发送验证码按钮
+                    // 验证码行
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Expanded(
-                          child: Text(
-                            '验证码',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 14,
-                            ),
+                          child: _buildInputField(
+                            controller: _verifyCodeController,
+                            label: '验证码',
+                            hint: '6 位验证码',
+                            icon: Icons.security_outlined,
+                            bgColor: bgColor,
+                            borderColor: borderColor,
+                            inputBg: inputBg,
+                            textPrimary: textPrimary,
+                            textTertiary: textTertiary,
+                            keyboardType: TextInputType.number,
+                            maxLength: 6,
                           ),
                         ),
-                        ElevatedButton(
-                          onPressed: _countdown > 0 ? null : _sendVerificationCode,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Constants.primaryColor,
-                            foregroundColor: Colors.white,
-                            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
+                        SizedBox(width: 10),
+                        SizedBox(
+                          height: 48,
+                          child: ElevatedButton(
+                            onPressed: _countdown > 0 ? null : _sendVerificationCode,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: textPrimary,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              padding: EdgeInsets.symmetric(horizontal: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              disabledBackgroundColor: textPrimary.withOpacity(0.4),
                             ),
-                          ),
-                          child: Text(
-                            _isSendingCode 
-                                ? '发送中...' 
-                                : (_countdown > 0 ? '${_countdown}秒后重发' : '发送验证码'),
+                            child: Text(
+                              _isSendingCode
+                                  ? '发送中...'
+                                  : (_countdown > 0 ? '${_countdown}s' : '发送'),
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ),
                         ),
                       ],
                     ),
-                    SizedBox(height: 8),
-
-                    // 验证码输入框
-                    TextFormField(
-                      controller: _verifyCodeController,
-                      decoration: InputDecoration(
-                        labelText: '验证码',
-                        prefixIcon: Icon(Icons.security, color: Constants.primaryColor),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        hintText: '输入 6 位验证码',
-                      ),
-                      keyboardType: TextInputType.number,
-                      maxLength: 6,
-                    ),
                     SizedBox(height: 16),
 
                     // 密码
-                    TextFormField(
+                    _buildInputField(
                       controller: _passwordController,
+                      label: '密码',
+                      hint: '至少 6 位',
+                      icon: Icons.lock_outline_rounded,
                       obscureText: _obscurePassword,
-                      decoration: InputDecoration(
-                        labelText: '密码',
-                        prefixIcon: Icon(Icons.lock, color: Constants.primaryColor),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                      bgColor: bgColor,
+                      borderColor: borderColor,
+                      inputBg: inputBg,
+                      textPrimary: textPrimary,
+                      textTertiary: textTertiary,
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_off_rounded
+                              : Icons.visibility_rounded,
+                          color: textTertiary,
+                          size: 20,
                         ),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                            color: Constants.primaryColor,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _obscurePassword = !_obscurePassword;
-                            });
-                          },
-                        ),
+                        onPressed: () {
+                          setState(() {
+                            _obscurePassword = !_obscurePassword;
+                          });
+                        },
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
@@ -416,42 +451,65 @@ class _RegisterPageState extends State<RegisterPage> {
                         return null;
                       },
                     ),
-                    SizedBox(height: 24),
+                    SizedBox(height: 28),
 
                     // 注册按钮
-                    ElevatedButton(
-                      onPressed: _isLoading ? null : _register,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Constants.primaryColor,
-                        foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _register,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: textPrimary,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          disabledBackgroundColor: textPrimary.withOpacity(0.5),
                         ),
-                      ),
-                      child: _isLoading
-                          ? SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        child: _isLoading
+                            ? SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                ),
+                              )
+                            : Text(
+                                '注册',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.3,
+                                ),
                               ),
-                            )
-                          : Text(
-                              '注册',
-                              style: TextStyle(fontSize: 18),
-                            ),
+                      ),
                     ),
-                    SizedBox(height: 16),
+                    SizedBox(height: 24),
 
                     // 返回登录
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: Text(
-                        '已有账号？去登录',
-                        style: TextStyle(color: Constants.primaryColor),
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          '已有账号？',
+                          style: TextStyle(color: textTertiary, fontSize: 14),
+                        ),
+                        GestureDetector(
+                          onTap: () => Navigator.of(context).pop(),
+                          child: Text(
+                            '去登录',
+                            style: TextStyle(
+                              color: textPrimary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -460,6 +518,75 @@ class _RegisterPageState extends State<RegisterPage> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildInputField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required IconData icon,
+    required Color bgColor,
+    required Color borderColor,
+    required Color inputBg,
+    required Color textPrimary,
+    required Color textTertiary,
+    bool obscureText = false,
+    Widget? suffixIcon,
+    String? Function(String?)? validator,
+    TextInputType? keyboardType,
+    int? maxLength,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: textPrimary,
+          ),
+        ),
+        SizedBox(height: 8),
+        TextFormField(
+          controller: controller,
+          obscureText: obscureText,
+          keyboardType: keyboardType,
+          maxLength: maxLength,
+          style: TextStyle(
+            fontSize: 15,
+            color: textPrimary,
+          ),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(color: textTertiary, fontSize: 15),
+            prefixIcon: Icon(icon, color: textTertiary, size: 20),
+            suffixIcon: suffixIcon,
+            filled: true,
+            fillColor: inputBg,
+            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            counterText: '', // 隐藏 maxLength 计数
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: borderColor, width: 1),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: borderColor, width: 1),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: textPrimary, width: 1.5),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Color(0xFFDC3545), width: 1),
+            ),
+          ),
+          validator: validator,
+        ),
+      ],
     );
   }
 }

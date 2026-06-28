@@ -445,7 +445,7 @@ class MessageBubble extends StatelessWidget {
   }
 }
 
-/// 自定义代码块渲染器
+/// 自定义代码块渲染器（带语言标签 + 复制按钮）
 class _CodeBlockBuilder extends MarkdownElementBuilder {
   final bool isDarkMode;
   _CodeBlockBuilder({required this.isDarkMode});
@@ -458,21 +458,108 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
     TextStyle? __,
   ) {
     final code = element.textContent;
+    // 提取语言标签（从 class 属性）
+    final langClass = element.attributes['class'] ?? '';
+    final lang = langClass.replaceFirst('language-', '').trim();
+    final showLang = lang.isNotEmpty && lang != 'text';
+
     return Container(
-      margin: EdgeInsets.symmetric(vertical: 6),
-      padding: EdgeInsets.all(12),
+      margin: EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
         color: Color(0xFF1E1E2E),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: isDarkMode ? Color(0xFF3D3D40) : Color(0xFF2D2D30),
           width: 0.5,
         ),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
+          // 顶部栏：语言标签 + 复制按钮
+          if (showLang || true) // 始终显示顶栏
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Color(0xFF2D2D3D),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(10),
+                  topRight: Radius.circular(10),
+                ),
+                border: Border(
+                  bottom: BorderSide(
+                    color: Color(0xFF3D3D4D),
+                    width: 0.5,
+                  ),
+                ),
+              ),
+              child: Row(
+                children: [
+                  // 语言标签
+                  if (showLang)
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Color(0xFF3D3D4D),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        lang.toUpperCase(),
+                        style: TextStyle(
+                          color: Color(0xFF8E8EA0),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          fontFamily: 'SF Mono',
+                        ),
+                      ),
+                    ),
+                  Spacer(),
+                  // 复制按钮
+                  Builder(
+                    builder: (ctx) => GestureDetector(
+                      onTap: () {
+                        Clipboard.setData(ClipboardData(text: code));
+                        ScaffoldMessenger.of(ctx).showSnackBar(
+                          SnackBar(
+                            content: Text('代码已复制'),
+                            duration: Duration(seconds: 1),
+                            behavior: SnackBarBehavior.floating,
+                            margin: EdgeInsets.only(bottom: 80, left: 16, right: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            backgroundColor: Color(0xFF10A37F),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Color(0xFF3D3D4D),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.copy_rounded, size: 12, color: Color(0xFF8E8EA0)),
+                            SizedBox(width: 4),
+                            Text(
+                              '复制',
+                              style: TextStyle(
+                                color: Color(0xFF8E8EA0),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          // 代码内容
+          Padding(
+            padding: EdgeInsets.all(14),
             child: SelectableText(
               code,
               style: TextStyle(

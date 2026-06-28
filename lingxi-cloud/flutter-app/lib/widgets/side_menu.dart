@@ -40,38 +40,45 @@ class SideMenu extends StatelessWidget {
         Container(
           padding: EdgeInsets.all(16),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Constants.primaryColor, Color(0xFF4F46E5)],
+            color: Constants.surfaceColor,
+            border: Border(
+              bottom: BorderSide(color: Constants.borderDefault, width: 1),
             ),
           ),
           child: SafeArea(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(8),
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: Color(0xFFF7F4EF),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Center(
+                    child: Image.asset(
+                      'assets/images/lume_logo.png',
+                      width: 26,
+                      height: 26,
+                      errorBuilder: (_, __, ___) => Icon(
+                        Icons.auto_awesome,
+                        color: Constants.textPrimaryColor,
+                        size: 20,
                       ),
-                      child: Icon(Icons.auto_awesome, color: Colors.white, size: 24),
                     ),
-                    SizedBox(width: 12),
-                    Text(
-                      '灵犀云',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-
+                SizedBox(width: 10),
+                Text(
+                  'Lume',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w500,
+                    color: Constants.textPrimaryColor,
+                    letterSpacing: -0.3,
+                    fontFamily: 'Georgia',
+                  ),
+                ),
               ],
             ),
           ),

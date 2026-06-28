@@ -42,22 +42,30 @@ class _SplashPageState extends State<SplashPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Constants.primaryColor,
+      backgroundColor: Constants.backgroundColor,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            // Lume Logo
             Container(
               width: 80,
               height: 80,
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
+                color: Color(0xFFF7F4EF),
+                borderRadius: BorderRadius.circular(20),
               ),
-              child: Icon(
-                Icons.auto_awesome,
-                size: 40,
-                color: Constants.primaryColor,
+              child: Center(
+                child: Image.asset(
+                  'assets/images/lume_logo.png',
+                  width: 56,
+                  height: 56,
+                  errorBuilder: (_, __, ___) => Icon(
+                    Icons.auto_awesome,
+                    size: 40,
+                    color: Constants.primaryColor,
+                  ),
+                ),
               ),
             ),
             SizedBox(height: 24),
@@ -65,8 +73,10 @@ class _SplashPageState extends State<SplashPage> {
               'Lume',
               style: TextStyle(
                 fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
+                fontWeight: FontWeight.w500,
+                color: Constants.textPrimaryColor,
+                letterSpacing: -0.5,
+                fontFamily: 'Georgia',
               ),
             ),
             SizedBox(height: 48),
@@ -74,7 +84,7 @@ class _SplashPageState extends State<SplashPage> {
               width: 24,
               height: 24,
               child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                valueColor: AlwaysStoppedAnimation<Color>(Constants.textTertiaryColor),
                 strokeWidth: 3,
               ),
             ),

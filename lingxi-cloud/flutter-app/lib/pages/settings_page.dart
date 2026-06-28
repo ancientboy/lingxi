@@ -162,9 +162,21 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDarkMode ? Color(0xFF1A1A1A) : Constants.backgroundColor;
+    final cardColor = isDarkMode ? Color(0xFF2D2D30) : Constants.surfaceColor;
+    final borderColor = isDarkMode ? Color(0xFF404040) : Constants.borderDefault;
+    final textColor = isDarkMode ? Colors.white : Constants.textPrimaryColor;
+    final subColor = isDarkMode ? Colors.white54 : Constants.textSecondaryColor;
+
     return Scaffold(
+      backgroundColor: bgColor,
       appBar: AppBar(
         title: const Text('设置'),
+        backgroundColor: bgColor,
+        foregroundColor: textColor,
+        elevation: 0,
+        scrolledUnderElevation: 0,
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -176,33 +188,37 @@ class _SettingsPageState extends State<SettingsPage> {
                 return const SizedBox.shrink();
               }
               final user = appProvider.user!;
-              final isDarkMode = Theme.of(context).brightness == Brightness.dark;
               return Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: isDarkMode ? const Color(0xFF2D2D2D) : Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(Constants.radiusMd),
+                  border: Border.all(color: borderColor, width: 1),
                 ),
                 child: Column(
                   children: [
-                    CircleAvatar(
-                      radius: 40,
-                      backgroundColor: Constants.primaryColor.withOpacity(0.1),
-                      child: Text(
-                        user.nickname.isNotEmpty
-                            ? user.nickname.substring(0, 1).toUpperCase()
-                            : 'U',
-                        style: TextStyle(
-                          fontSize: 40,
-                          fontWeight: FontWeight.bold,
-                          color: Constants.primaryColor,
+                    Container(
+                      width: 72,
+                      height: 72,
+                      decoration: BoxDecoration(
+                        color: Color(0xFFF7F4EF),
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: Center(
+                        child: Image.asset(
+                          'assets/images/lume_logo.png',
+                          width: 48,
+                          height: 48,
+                          errorBuilder: (_, __, ___) => Text(
+                            user.nickname.isNotEmpty
+                                ? user.nickname.substring(0, 1).toUpperCase()
+                                : 'U',
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                              color: Constants.textPrimaryColor,
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -211,19 +227,14 @@ class _SettingsPageState extends State<SettingsPage> {
                       user.nickname,
                       style: TextStyle(
                         fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: isDarkMode ? Colors.white : null,
+                        fontWeight: FontWeight.w600,
+                        color: textColor,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       '积分: ${user.points}',
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodyMedium
-                          ?.copyWith(
-                            color: isDarkMode ? Colors.white70 : Constants.textSecondaryColor,
-                          ),
+                      style: TextStyle(color: subColor, fontSize: 14),
                     ),
                   ],
                 ),
@@ -232,11 +243,12 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           const SizedBox(height: 24),
           // 设置项
-          const Text(
+          Text(
             '通用设置',
             style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: subColor,
             ),
           ),
           const SizedBox(height: 8),
@@ -269,11 +281,12 @@ class _SettingsPageState extends State<SettingsPage> {
             },
           ),
           const SizedBox(height: 24),
-          const Text(
+          Text(
             '聊天设置',
             style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: subColor,
             ),
           ),
           const SizedBox(height: 8),
@@ -294,11 +307,12 @@ class _SettingsPageState extends State<SettingsPage> {
             },
           ),
           const SizedBox(height: 24),
-          const Text(
+          Text(
             '账户',
             style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: subColor,
             ),
           ),
           const SizedBox(height: 8),
@@ -324,10 +338,10 @@ class _SettingsPageState extends State<SettingsPage> {
             child: Column(
               children: [
                 Text(
-                  'Lume v1.0.0',
+                  'Lume v${Constants.appVersion}',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Theme.of(context).brightness == Brightness.dark ? Colors.white38 : Constants.textLightColor,
+                    color: subColor,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -337,7 +351,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     '浙ICP备2026013667号-2A',
                     style: TextStyle(
                       fontSize: 11,
-                      color: Theme.of(context).brightness == Brightness.dark ? Colors.white38 : Constants.textLightColor,
+                      color: subColor,
                       decoration: TextDecoration.underline,
                     ),
                   ),
@@ -409,30 +423,32 @@ class _SettingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDarkMode ? Color(0xFF2D2D30) : Constants.surfaceColor;
+    final borderColor = isDarkMode ? Color(0xFF404040) : Constants.borderDefault;
+    final textColor = isDarkMode ? Colors.white : Constants.textPrimaryColor;
+    final subColor = isDarkMode ? Colors.white54 : Constants.textSecondaryColor;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDarkMode ? const Color(0xFF2D2D2D) : Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: cardColor,
+        borderRadius: BorderRadius.circular(Constants.radiusSm),
+        border: Border.all(color: borderColor, width: 1),
       ),
       child: ListTile(
+        contentPadding: EdgeInsets.zero,
         leading: Icon(
           icon,
-          color: isDestructive ? Constants.errorColor : Constants.textPrimaryColor,
+          color: isDestructive ? Constants.errorColor : textColor,
+          size: 22,
         ),
         title: Text(
           title,
           style: TextStyle(
             fontWeight: FontWeight.w500,
-            color: isDarkMode ? Colors.white : null,
+            fontSize: 15,
+            color: textColor,
           ),
         ),
         trailing: Row(
@@ -441,17 +457,12 @@ class _SettingCard extends StatelessWidget {
             if (subtitle != null)
               Text(
                 subtitle!,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.copyWith(
-                      color: isDarkMode ? Colors.white70 : Constants.textSecondaryColor,
-                    ),
+                style: TextStyle(color: subColor, fontSize: 13),
               ),
             const SizedBox(width: 8),
             Icon(
               Icons.chevron_right_outlined,
-              color: isDarkMode ? Colors.white30 : Constants.textLightColor,
+              color: subColor,
               size: 20,
             ),
           ],

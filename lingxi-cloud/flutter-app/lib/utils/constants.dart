@@ -22,10 +22,11 @@ class Constants {
   
   // 应用配置
   static const String appName = 'Lume';
-  static const String appVersion = '1.0.0';
+  static const String appVersion = '1.5.0';
   static const String appDescription = 'AI Agent 智能助手平台';
 
   // ===== 主题色管理 =====
+  // 对齐 Web 端：翡翠绿作为 accent，暖黑作为主按钮
   static const Color _green = Color(0xFF10a37f);
   static const Color _greenH = Color(0xFF0d8a6a);
   static const Color _hermes = Color(0xFFE87040);
@@ -65,35 +66,37 @@ class Constants {
     return prefs.getString(storageAccentTheme) ?? 'default';
   }
 
-  // ===== 设计令牌（对齐 Web 端 chat.css） =====
+  // ===== 设计令牌（对齐 Web 端 index.html / chat.css 暖色调） =====
 
-  // 背景色
-  static const Color backgroundColor = Color(0xFFF7F7F8);    // --bg-main
-  static const Color surfaceColor = Colors.white;             // --bg-white
-  static const Color bgSidebar = Color(0xFFF9FAFB);           // --bg-sidebar
-  static const Color bgHover = Color(0xFFF3F3F4);             // --bg-hover
-  static const Color bgBubbleUser = Color(0xFFF0F0F1);        // --bg-bubble-user
+  // 背景色（暖色调，对齐 Web --bg: #fbfaf8）
+  static const Color backgroundColor = Color(0xFFFBFAF8);    // --bg-main (暖白)
+  static const Color surfaceColor = Colors.white;             // --bg-card
+  static const Color bgSidebar = Color(0xFFF9F8F5);           // --bg-sidebar (暖灰)
+  static const Color bgHover = Color(0xFFF5F4F1);             // --bg-hover
+  static const Color bgBubbleUser = Color(0xFF1A1A1A);        // --bg-bubble-user (暖黑)
   static const Color bgBubbleBot = Colors.white;              // --bg-bubble
+  static const Color bgPanel = Color(0xFFF3F1EC);             // --bg-panel (输入区)
+  static const Color bgInput = Color(0xFFF3F1EC);             // 输入框背景
 
-  // 文字色
-  static const Color textPrimaryColor = Color(0xFF1A1A2E);    // --text-primary
-  static const Color textSecondaryColor = Color(0xFF6B7280);  // --text-secondary
-  static const Color textTertiaryColor = Color(0xFF9CA3AF);   // --text-tertiary
-  static const Color textPlaceholderColor = Color(0xFF9CA3AF); // placeholder
-  static const Color textLightColor = Color(0xFF9CA3AF);      // alias for textTertiaryColor (backward compat)
+  // 文字色（对齐 Web --text-*）
+  static const Color textPrimaryColor = Color(0xFF1A1A1A);    // --text-1
+  static const Color textSecondaryColor = Color(0xFF525252);  // --text-2
+  static const Color textTertiaryColor = Color(0xFF8A8A8A);   // --text-3
+  static const Color textPlaceholderColor = Color(0xFF8A8A8A); // placeholder
+  static const Color textLightColor = Color(0xFF8A8A8A);      // alias (backward compat)
   
-  // 边框
-  static const Color borderDefault = Color(0xFFE5E5E5);
-  static const Color borderLight = Color(0xFFF0F0F1);
+  // 边框（对齐 Web --border: #e8e6e1）
+  static const Color borderDefault = Color(0xFFE8E6E1);
+  static const Color borderLight = Color(0xFFF0EFEC);
 
   // 功能色
-  static const Color errorColor = Color(0xFFEF4444);
+  static const Color errorColor = Color(0xFFDC3545);
   
   // 圆角（对齐 Web --radius-*）
-  static const double radiusSm = 8.0;
-  static const double radiusMd = 12.0;
+  static const double radiusSm = 10.0;
+  static const double radiusMd = 14.0;
   static const double radiusLg = 20.0;
-  static const double radiusXl = 24.0;
+  static const double radiusXl = 28.0;
   
   // 字体（对齐 Web font-family 栈）
   static const String fontFamilyIOS = 'SF Pro Text';

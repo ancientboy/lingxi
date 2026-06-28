@@ -182,34 +182,27 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   // 模型列表（从 API 动态加载，fallback 用硬编码）
   List<Map<String, String>> _models = [];
 
-  // 硬编码 fallback（与后端 /api/user-models 对齐）
+  // 硬编码 fallback（与后端 /api/user-models 对齐 — 2026.06.28 精简版）
   static const List<Map<String, String>> _fallbackModels = [
-    {'id': 'auto', 'name': 'Auto', 'desc': '智能选择最优模型', 'tier': 'free'},
-    {'id': 'glm-cn/glm-5.1', 'name': 'GLM-5.1 主力', 'desc': '智谱大号直接干', 'tier': 'pro'},
-    {'id': 'cu/default', 'name': 'Cursor Auto', 'desc': 'Cursor 智能选模', 'tier': 'pro'},
-    {'id': 'cu/gpt-5.5-high-fast', 'name': 'GPT-5.5 Fast', 'desc': '极速旗舰', 'tier': 'pro'},
-    {'id': 'cu/gpt-5.5-high', 'name': 'GPT-5.5', 'desc': '顶级推理', 'tier': 'pro'},
-    {'id': 'cu/claude-4.6-opus-max', 'name': 'Claude 4.6 Opus Max', 'desc': '最强 Claude', 'tier': 'pro'},
-    {'id': 'cu/claude-4.6-sonnet-medium-thinking', 'name': 'Claude 4.6 Sonnet Think', 'desc': '新一代推理', 'tier': 'pro'},
-    {'id': 'cu/claude-4.6-opus-max-thinking', 'name': 'Claude 4.6 Opus Think', 'desc': '最强推理链', 'tier': 'pro'},
-    {'id': 'ocg/glm-5.1', 'name': 'GLM-5.1', 'desc': '中文最强', 'tier': 'free'},
-    {'id': 'ocg/deepseek-v4-pro', 'name': 'DeepSeek V4 Pro', 'desc': '最强性价比', 'tier': 'free'},
-    {'id': 'gh/gpt-5-mini', 'name': 'GPT-5-Mini', 'desc': '快速免费', 'tier': 'free'},
-    {'id': 'gh/gpt-4o', 'name': 'GPT-4o', 'desc': 'GPT经典', 'tier': 'pro'},
-    {'id': 'gh/gpt-4.1', 'name': 'GPT-4.1', 'desc': '强推理', 'tier': 'pro'},
-    {'id': 'ocg/kimi-k2.6', 'name': 'Kimi-K2.6', 'desc': '长上下文', 'tier': 'free'},
-    {'id': 'openrouter/openrouter/free', 'name': 'Free', 'desc': '免费兜底', 'tier': 'free'},
-    {'id': 'cu/gpt-5.2', 'name': 'GPT-5.2', 'desc': 'OpenAI 旗舰', 'tier': 'pro'},
-    {'id': 'cu/gpt-5.2-codex', 'name': 'GPT-5.2 Codex', 'desc': '代码专精', 'tier': 'pro'},
-    {'id': 'cu/gpt-5.3-codex', 'name': 'GPT-5.3 Codex', 'desc': '最新代码', 'tier': 'pro'},
-    {'id': 'cu/claude-4.5-sonnet', 'name': 'Claude 4.5 Sonnet', 'desc': 'Anthropic 平衡', 'tier': 'pro'},
-    {'id': 'cu/claude-4.5-haiku', 'name': 'Claude 4.5 Haiku', 'desc': 'Anthropic 快速', 'tier': 'pro'},
-    {'id': 'cu/claude-4.5-opus', 'name': 'Claude 4.5 Opus', 'desc': 'Anthropic 高级', 'tier': 'pro'},
-    {'id': 'cu/claude-4.5-opus-high', 'name': 'Claude 4.5 Opus High', 'desc': 'Anthropic 旗舰', 'tier': 'pro'},
-    {'id': 'cu/claude-4.5-sonnet-thinking', 'name': 'Claude 4.5 Sonnet Think', 'desc': '带推理链', 'tier': 'pro'},
-    {'id': 'cu/claude-4.5-opus-high-thinking', 'name': 'Claude 4.5 Opus Think', 'desc': '旗舰推理链', 'tier': 'pro'},
-    {'id': 'cu/gemini-3-flash-preview', 'name': 'Gemini 3 Flash', 'desc': 'Google 预览', 'tier': 'pro'},
-    {'id': 'cu/kimi-k2.5', 'name': 'Kimi K2.5', 'desc': '月之暗面', 'tier': 'pro'},
+    // ===== Lume 官方 — 百炼 =====
+    {'id': 'auto', 'name': 'Auto', 'desc': '智能选择最优模型', 'tier': 'free', 'group': 'lume'},
+    {'id': 'bailian/qwen3.7-plus', 'name': '千问3.7 Plus', 'desc': '百炼旗舰', 'tier': 'pro', 'group': 'lume'},
+    {'id': 'bailian/qwen3.7-max', 'name': '千问3.7 Max', 'desc': '百炼最强', 'tier': 'pro', 'group': 'lume'},
+    {'id': 'bailian/qwen3.6-plus', 'name': '千问3.6 Plus', 'desc': '视觉推理', 'tier': 'pro', 'group': 'lume'},
+    {'id': 'bailian/qwen3.6-flash', 'name': '千问3.6 Flash', 'desc': '快速免费', 'tier': 'free', 'group': 'lume'},
+    {'id': 'bailian/deepseek-v4-pro', 'name': 'DeepSeek V4 Pro', 'desc': '推理性价比', 'tier': 'pro', 'group': 'lume'},
+    {'id': 'bailian/kimi-k2.7-code', 'name': 'Kimi K2.7 Code', 'desc': '代码专精', 'tier': 'pro', 'group': 'lume'},
+    // ===== Lume 官方 — 智谱 =====
+    {'id': 'zhipu/glm-5.2', 'name': 'GLM-5.2', 'desc': '智谱旗舰', 'tier': 'free', 'group': 'lume'},
+    // ===== Lume 官方 — GitHub Copilot =====
+    {'id': 'gh/gpt-4o', 'name': 'GPT-4o', 'desc': 'GPT 经典', 'tier': 'free', 'group': 'lume'},
+    {'id': 'gh/gpt-4.1', 'name': 'GPT-4.1', 'desc': '强推理', 'tier': 'free', 'group': 'lume'},
+    {'id': 'gh/gpt-5.2', 'name': 'GPT-5.2', 'desc': 'OpenAI 旗舰', 'tier': 'pro', 'group': 'lume'},
+    {'id': 'gh/claude-sonnet-4.6', 'name': 'Claude Sonnet 4.6', 'desc': 'Anthropic 平衡', 'tier': 'pro', 'group': 'lume'},
+    // ===== Lume 官方 — Cursor =====
+    {'id': 'cu/claude-4.5-sonnet', 'name': 'Claude 4.5 Sonnet', 'desc': 'Cursor 代理', 'tier': 'pro', 'group': 'lume'},
+    {'id': 'cu/claude-4.5-sonnet-thinking', 'name': 'Claude 4.5 Thinking', 'desc': '带推理链', 'tier': 'pro', 'group': 'lume'},
+    {'id': 'cu/gpt-5.3-codex', 'name': 'GPT-5.3 Codex', 'desc': '最新代码', 'tier': 'pro', 'group': 'lume'},
   ];
   
   // 会话分组展开/收缩状态

@@ -19,10 +19,11 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     final dk = Theme.of(context).brightness == Brightness.dark;
-    final bg = dk ? Color(0xFF1A1A2E) : Color(0xFFF5F5F7);
-    final cardColor = dk ? Color(0xFF252540) : Colors.white;
-    final textColor = dk ? Colors.white : Colors.black87;
-    final subColor = dk ? Colors.white54 : Colors.black45;
+    final bg = dk ? Color(0xFF1A1A1A) : Constants.backgroundColor;
+    final cardColor = dk ? Color(0xFF2D2D30) : Constants.surfaceColor;
+    final textColor = dk ? Colors.white : Constants.textPrimaryColor;
+    final subColor = dk ? Colors.white54 : Constants.textSecondaryColor;
+    final borderColor = dk ? Color(0xFF404040) : Constants.borderDefault;
 
     return Scaffold(
       backgroundColor: bg,
@@ -45,14 +46,18 @@ class _ProfilePageState extends State<ProfilePage> {
                     Container(
                       width: 72, height: 72,
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(colors: [Constants.primaryColor, Constants.secondaryColor]),
+                        color: Color(0xFFF7F4EF),
                         borderRadius: BorderRadius.circular(20),
-                        boxShadow: [BoxShadow(color: Constants.primaryColor.withOpacity(0.3), blurRadius: 12, offset: Offset(0, 4))],
                       ),
                       child: Center(
-                        child: Text(
-                          nickname.isNotEmpty ? nickname[0].toUpperCase() : 'U',
-                          style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
+                        child: Image.asset(
+                          'assets/images/lume_logo.png',
+                          width: 48,
+                          height: 48,
+                          errorBuilder: (_, __, ___) => Text(
+                            nickname.isNotEmpty ? nickname[0].toUpperCase() : 'U',
+                            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Constants.textPrimaryColor),
+                          ),
                         ),
                       ),
                     ),
@@ -94,7 +99,11 @@ class _ProfilePageState extends State<ProfilePage> {
               // Points card
               Container(
                 padding: EdgeInsets.all(16),
-                decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(14), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8)]),
+                decoration: BoxDecoration(
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(Constants.radiusMd),
+                  border: Border.all(color: borderColor, width: 1),
+                ),
                 child: Row(
                   children: [
                     Container(
@@ -151,7 +160,11 @@ class _ProfilePageState extends State<ProfilePage> {
               // Logout
               Container(
                 width: double.infinity,
-                decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(14)),
+                decoration: BoxDecoration(
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(Constants.radiusMd),
+                  border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Color(0xFF404040) : Constants.borderDefault, width: 1),
+                ),
                 child: Material(
                   color: Colors.transparent,
                   borderRadius: BorderRadius.circular(14),
@@ -205,7 +218,11 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget _menuItem(IconData icon, String title, String subtitle, Color color, Color cardColor, Color textColor, Color subColor, VoidCallback onTap) {
     return Container(
       margin: EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(14)),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(Constants.radiusMd),
+        border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Color(0xFF404040) : Constants.borderDefault, width: 1),
+      ),
       child: Material(
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(14),
@@ -238,7 +255,11 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget _menuSwitch(IconData icon, String title, Color cardColor, Color textColor, Color subColor, bool value, ValueChanged<bool> onChanged) {
     return Container(
       margin: EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(14)),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(Constants.radiusMd),
+        border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Color(0xFF404040) : Constants.borderDefault, width: 1),
+      ),
       child: Padding(
         padding: EdgeInsets.all(14),
         child: Row(

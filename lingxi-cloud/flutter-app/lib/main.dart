@@ -85,75 +85,118 @@ class MyApp extends StatelessWidget {
             navigatorObservers: [routeObserver],
             theme: ThemeData(
               useMaterial3: true,
+              scaffoldBackgroundColor: Constants.backgroundColor,
               colorScheme: ColorScheme.fromSeed(
                 seedColor: Constants.primaryColor,
                 brightness: Brightness.light,
+                surface: Constants.surfaceColor,
+                background: Constants.backgroundColor,
               ),
               appBarTheme: AppBarTheme(
                 centerTitle: true,
                 elevation: 0,
+                backgroundColor: Constants.backgroundColor,
+                foregroundColor: Constants.textPrimaryColor,
               ),
               cardTheme: CardTheme(
-                elevation: 2,
+                elevation: 0,
+                color: Constants.surfaceColor,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(Constants.radiusMd),
+                  side: BorderSide(color: Constants.borderDefault, width: 1),
                 ),
               ),
               inputDecorationTheme: InputDecorationTheme(
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(Constants.radiusSm),
+                  borderSide: BorderSide(color: Constants.borderDefault),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(Constants.radiusSm),
+                  borderSide: BorderSide(color: Constants.borderDefault),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(Constants.radiusSm),
+                  borderSide: BorderSide(color: Constants.textPrimaryColor, width: 1.5),
                 ),
                 filled: true,
-                fillColor: Colors.grey[100],
+                fillColor: Constants.bgInput,
               ),
               elevatedButtonTheme: ElevatedButtonThemeData(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Constants.primaryColor,
+                  backgroundColor: Constants.textPrimaryColor,
                   foregroundColor: Colors.white,
+                  elevation: 0,
                   padding: EdgeInsets.symmetric(
                     horizontal: 24,
-                    vertical: 12,
+                    vertical: 14,
                   ),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(Constants.radiusSm),
                   ),
                 ),
+              ),
+              dividerTheme: DividerThemeData(
+                color: Constants.borderDefault,
+                thickness: 1,
               ),
             ),
             darkTheme: ThemeData(
               useMaterial3: true,
+              scaffoldBackgroundColor: Color(0xFF1A1A1A),
               colorScheme: ColorScheme.fromSeed(
                 seedColor: Constants.primaryColor,
                 brightness: Brightness.dark,
+                surface: Color(0xFF2D2D30),
+                background: Color(0xFF1A1A1A),
               ),
               appBarTheme: AppBarTheme(
                 centerTitle: true,
                 elevation: 0,
+                backgroundColor: Color(0xFF1A1A1A),
+                foregroundColor: Colors.white,
               ),
               cardTheme: CardTheme(
-                elevation: 2,
+                elevation: 0,
+                color: Color(0xFF2D2D30),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(Constants.radiusMd),
+                  side: BorderSide(color: Color(0xFF404040), width: 1),
                 ),
               ),
               inputDecorationTheme: InputDecorationTheme(
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(Constants.radiusSm),
+                  borderSide: BorderSide(color: Color(0xFF404040)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(Constants.radiusSm),
+                  borderSide: BorderSide(color: Color(0xFF404040)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(Constants.radiusSm),
+                  borderSide: BorderSide(color: Constants.primaryColor, width: 1.5),
                 ),
                 filled: true,
+                fillColor: Color(0xFF2D2D30),
               ),
               elevatedButtonTheme: ElevatedButtonThemeData(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Constants.primaryColor,
                   foregroundColor: Colors.white,
+                  elevation: 0,
                   padding: EdgeInsets.symmetric(
                     horizontal: 24,
-                    vertical: 12,
+                    vertical: 14,
                   ),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(Constants.radiusSm),
                   ),
                 ),
+              ),
+              dividerTheme: DividerThemeData(
+                color: Color(0xFF404040),
+                thickness: 1,
               ),
             ),
             themeMode: appProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
