@@ -3,6 +3,9 @@
  */
 window.USE_LUME = false;
 
+// 流式累积状态：runId -> { fullText, lastTextLen }
+const _lumeStreamState = {};
+
 async function tryConnectLume() {
   if (typeof LumeRpc === 'undefined') { console.warn('[Lume] LumeRpc 未定义'); return false; }
   try {
@@ -97,6 +100,27 @@ async function loadLumeSessions() {
 }
 
 /**
+ * 只刷新会话列表，不触发 loadChatHistory（避免清空当前聊天消息）
+ */
+async function refreshSessionListOnly() {
+  try {
+    if (typeof LumeRpc !== 'undefined' && !LumeRpc.isConnected()) return;
+    const res = await LumeRpc.sendRequest('sessions.list', {
+      limit: 50,
+      includeLastMessage: true,
+      includeDerivedTitles: true,
+    }, 35000);
+    if (res.ok && res.payload?.sessions) {
+      window.sessions = res.payload.sessions.map(normalizeLumeSession);
+      if (typeof renderSessionList === 'function') renderSessionList();
+      if (typeof loadSidebarSessions === 'function') loadSidebarSessions();
+    }
+  } catch (e) {
+    console.warn('[Lume] refreshSessionListOnly 失败:', e);
+  }
+}
+
+/**
  * 增量更新单个 session（来自 sessions.updated 事件）
  * 避免全量拉取会话列表，只更新对应 session 并置顶
  */
@@ -109,7 +133,7 @@ function incrementalUpdateSession(payload) {
   const preview = payload.lastMessagePreview;
 
   if (!window.sessions || !Array.isArray(window.sessions)) {
-    loadLumeSessions();
+    refreshSessionListOnly();
     return;
   }
 
@@ -134,9 +158,10 @@ function incrementalUpdateSession(payload) {
     if (typeof renderSessionList === 'function') renderSessionList();
     if (typeof loadSidebarSessions === 'function') loadSidebarSessions();
   } else {
-    // 不在本地列表中 → fallback 全量拉取
-    console.log('[Lume] session 不在本地列表，fallback 全量刷新');
-    loadLumeSessions();
+    // 不在本地列表中 → fallback 全量拉取会话列表
+    // 但不清空当前聊天消息（只刷新侧栏列表）
+    console.log('[Lume] session 不在本地列表，刷新会话列表（不清空消息）');
+    refreshSessionListOnly();
   }
 }
 
@@ -160,10 +185,44 @@ function handleLumeEvent(msg) {
   // agent 事件：OpenClaw Gateway 流式响应
   if (msg.event === 'agent') {
     const p = msg.payload || msg;
+    const runId = p.runId || 'lume-stream';
+
     if (p.stream === 'assistant') {
-      const text = p.data?.text || p.data?.content || '';
-      if (text && typeof updateStreamingMessage === 'function') {
-        updateStreamingMessage(text, p.runId || 'lume-stream');
+      // Gateway 发送 data.text（全量累积）+ data.delta（本次增量）
+      // 但工具调用后 data.text 会重置，所以前端自己用 delta 累积
+      if (p.data?.delta) {
+        // 增量模式：用 delta 拼接
+        if (!_lumeStreamState[runId]) {
+          _lumeStreamState[runId] = { fullText: '', lastTextLen: 0 };
+        }
+        const state = _lumeStreamState[runId];
+        const incomingText = p.data.text || '';
+
+        // 检测 text 是否重置（工具调用后会从头开始）
+        if (incomingText.length < state.lastTextLen) {
+          // text 重置了，把之前的累积保存
+          state.fullText += '\n';
+        }
+
+        state.fullText += p.data.delta;
+        state.lastTextLen = incomingText.length;
+
+        let displayText = state.fullText;
+        // Strip <think>...</think> tags
+        displayText = displayText.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+        displayText = displayText.replace(/<think>[\s\S]*$/g, '').trim();
+
+        if (displayText && typeof updateStreamingMessage === 'function') {
+          updateStreamingMessage(displayText, runId);
+        }
+      } else if (p.data?.text) {
+        // 没有 delta，直接用 text（兼容旧格式）
+        let text = p.data.text;
+        text = text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+        text = text.replace(/<think>[\s\S]*$/g, '').trim();
+        if (text && typeof updateStreamingMessage === 'function') {
+          updateStreamingMessage(text, runId);
+        }
       }
     }
     return;
@@ -176,8 +235,14 @@ function handleLumeEvent(msg) {
     return;
   }
   const runId = p.runId || p.messageId || 'lume-stream';
+  console.log('[Lume] chat event state:', state, 'runId:', runId);
   if (state === 'delta' || state === 'block') {
-    const text = p.message || p.text || p.delta || '';
+    let text = p.message || p.text || p.delta || '';
+    // Strip <think>...</think> tags from streaming content
+    text = text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+    // Also handle incomplete <think> tags
+    text = text.replace(/<think>[\s\S]*$/g, '').trim();
+    console.log('[Lume] chat delta text:', text.substring(0, 50));
     if (text && typeof updateStreamingMessage === 'function') {
       updateStreamingMessage(text, runId);
     }
@@ -185,7 +250,18 @@ function handleLumeEvent(msg) {
   }
   if (state === 'final') {
     if (typeof removeTyping === 'function') removeTyping();
-    const text = p.message || p.text || '';
+    // 优先用流式累积的文本（包含工具调用前后的完整内容）
+    let text = '';
+    if (_lumeStreamState[runId]?.fullText) {
+      text = _lumeStreamState[runId].fullText;
+      delete _lumeStreamState[runId];
+    } else {
+      text = p.message || p.text || '';
+    }
+    // Strip <think>...</think> tags from final content
+    text = text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+    // Also handle incomplete <think> tags
+    text = text.replace(/<think>[\s\S]*$/g, '').trim();
     if (text && typeof finalizeStreamingMessage === 'function') {
       finalizeStreamingMessage(text, runId, p.modelInfo);
     } else if (text && typeof addMessage === 'function') {

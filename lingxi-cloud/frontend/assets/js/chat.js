@@ -2414,9 +2414,11 @@ async function sendViaHTTP(text) {
           if (data === '[DONE]') continue;
           try {
             const json = JSON.parse(data);
-            const delta = json.choices?.[0]?.delta?.content || '';
-            if (delta) {
-              fullText += delta;
+            const choice = json.choices?.[0];
+            const contentDelta = choice?.delta?.content || '';
+            // 忽略 reasoning_content —— 后端已分离，前端只显示 content
+            if (contentDelta) {
+              fullText += contentDelta;
               updateStreamingMessage(fullText, runId);
             }
           } catch (_) {}

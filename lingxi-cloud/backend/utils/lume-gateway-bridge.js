@@ -21,6 +21,11 @@ function lumeRes(id, ok, payload, error) {
 }
 
 function normalizeChatEvent(msg) {
+  if (msg.type === 'event' && (msg.event === 'chat' || msg.event === 'agent')) {
+    const p = msg.payload || {};
+    const textPreview = (p.message || p.text || p.data?.text || p.data?.content || '').substring(0, 80);
+    console.log(`[Bridge] event=${msg.event} state=${p.state} stream=${p.stream} runId=${p.runId} textLen=${(p.message || p.text || p.data?.text || p.data?.content || '').length} text="${textPreview}"`);
+  }
   if (msg.type !== 'event' || msg.event !== 'chat') return msg;
   const payload = msg.payload || {};
   const state = payload.state;
