@@ -60,7 +60,7 @@ android {
 
     defaultConfig {
         applicationId "cn.lumeword.app"
-        minSdkVersion 23
+        minSdkVersion 24
         targetSdkVersion flutter.targetSdkVersion
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
@@ -73,10 +73,9 @@ android {
 
     buildTypes {
         release {
-            // 混淆开启但保留必要的规则
-            minifyEnabled true
-            shrinkResources true
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            // 先关闭混淆排除问题
+            minifyEnabled false
+            shrinkResources false
             signingConfig signingConfigs.release
         }
     }
