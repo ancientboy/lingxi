@@ -79,7 +79,7 @@ class _ServersPageState extends State<ServersPage> {
         LumeWebSocketService().disconnect();
       } catch (_) {}
 
-      // Reconnect WebSocket（清除缓存，强制重新获取新设备信息）
+      // 重连 WebSocket（仅 Gateway，不再自动连 Lume）
       try {
         final ws = WebSocketService();
         ws.reset();  // 清除旧的 URL/token 缓存
@@ -87,10 +87,7 @@ class _ServersPageState extends State<ServersPage> {
         await ws.connect();
       } catch (_) {}
 
-      // 重连 Lume（connect-info 跟随新活跃设备）
-      try {
-        await LumeWebSocketService().reconnectForDevice();
-      } catch (_) {}
+      // 不再主动重连 Lume（Gateway 优先策略）
 
       if (mounted) {
         setState(() => _activeServerId = serverId);

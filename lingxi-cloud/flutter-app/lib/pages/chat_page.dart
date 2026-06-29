@@ -466,16 +466,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     final isFreeUser = user?.subscription?['plan'] == 'free' || user?.subscription?['plan'] == null;
     if (isFreeUser) return;
     if (!_isPaidUser(user)) return;
-    final lume = LumeWebSocketService();
-    if (!lume.isConnected && !lume.isConnecting) {
-      _initLumeWebSocket();
-      return;
-    }
-    if (!_lumeReady) {
-      final ws = WebSocketService();
-      if (!ws.isConnected && !ws.isConnecting) {
-        _ensureGatewayFallback(reason: '重连');
-      }
+    // Gateway 优先：确保 Gateway 连接，不主动连 Lume
+    final ws = WebSocketService();
+    if (!ws.isConnected && !ws.isConnecting) {
+      debugPrint('📋 onAppProviderUpdate: 重连 Gateway');
+      _initWebSocket();
     }
   }
 
@@ -1091,19 +1086,14 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         return;
       }
       if (data['type'] == 'connected') {
-        // Lume 已连通，断开 Gateway，保持单连接
-        final gw = WebSocketService();
-        if (gw.isConnected || gw.isConnecting) {
-          debugPrint('🔌 Lume 已连接，断开 Gateway 备用连接');
-          gw.disconnect();
-        }
+        // Lume 已连通，但不断开 Gateway（保持双连接稳定性）
         _gatewaySessionDeferTimer?.cancel();
         _replaceSessionsOnNextParse = true;
         setState(() {
           _lumeConnected = true;
           _lumeStatus = '已连接';
           _wsConnected = true;
-          _wsStatus = 'Lume已连接';
+          _wsStatus = _lumeReady ? 'Lume已连接' : 'Gateway已连接';
         });
         Future.microtask(() => _onWsReadyLoadSessions(source: 'Lume'));
         return;
