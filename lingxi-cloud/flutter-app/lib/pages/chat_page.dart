@@ -10,6 +10,7 @@ import 'package:lingxicloud/pages/test_page.dart';
 import 'package:lingxicloud/pages/login_page.dart';
 import 'package:lingxicloud/pages/workspace_page.dart';
 import 'package:lingxicloud/pages/file_explorer_page.dart';
+import 'package:lingxicloud/pages/cron_page.dart';
 import 'package:lingxicloud/services/websocket_service.dart';
 import 'package:lingxicloud/services/lume_websocket_service.dart';
 import 'package:lingxicloud/services/rpc_ws.dart';
@@ -180,6 +181,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   bool _showModelDropdown = false;
   String _modelSearchQuery = '';
   bool _autoToggle = true;
+  bool _showRightSidebar = false;  // 右侧边栏显示状态
   
   // 模型列表（从 API 动态加载，fallback 用硬编码）
   List<Map<String, String>> _models = [];
@@ -3179,6 +3181,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           children: [
             if (isWide) _buildSidebar(isDarkMode),
             Expanded(child: _buildMainContent()),
+            if (isWide && _showRightSidebar) _buildRightSidebar(isDarkMode),
           ],
         ),
       ),
@@ -3230,10 +3233,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           child: _buildConnectionIndicator(),
         ),
         IconButton(
-          icon: const Icon(Icons.folder_outlined, size: 22),
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => FileExplorerPage()),
-          ),
+          icon: const Icon(Icons.view_sidebar_outlined, size: 22),
+          onPressed: _toggleRightSidebar,
         ),
       ],
     );
@@ -3272,6 +3273,113 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           Text(
             label,
             style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _toggleRightSidebar() {
+    setState(() {
+      _showRightSidebar = !_showRightSidebar;
+    });
+  }
+
+  // 模型管理对话框
+  void _showModelManagerDialog(bool isDarkMode) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.settings_outlined, color: Constants.primaryColor),
+            SizedBox(width: 8),
+            Text('模型管理'),
+          ],
+        ),
+        content: const Text('模型管理功能请在 Web 端设置中操作，\n\n你可以：\n• 启用/禁用模型\n• 调整模型显示顺序\n• 管理模型分类'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('关闭'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 绑定供应商 Key 对话框
+  void _showBindKeyDialog(bool isDarkMode) {
+    final textPrimary = isDarkMode ? const Color(0xFFECECF1) : Constants.textPrimaryColor;
+    final textSecondary = isDarkMode ? const Color(0xFF8E8EA0) : Constants.textSecondaryColor;
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.vpn_key_outlined, color: Constants.primaryColor),
+            SizedBox(width: 8),
+            Text('绑定供应商 Key'),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('支持以下供应商：', style: TextStyle(color: textSecondary, fontSize: 13)),
+              const SizedBox(height: 12),
+              _buildProviderItem('百炼', 'qwen3.7-plus', 'https://bailian.console.aliyun.com/?apiKey=***'),
+              _buildProviderItem('智谱', 'glm-5', 'https://open.bigmodel.cn/usercenter/apikeys'),
+              _buildProviderItem('DMXAPI', 'glm-4-flash', 'https://www.dmxapi.cn/'),
+              _buildProviderItem('OpenCode Go', 'glm-5.2', 'https://opencodego.com'),
+              const SizedBox(height: 12),
+              Text('绑定 Key 后，可使用对应供应商的模型。', style: TextStyle(color: textSecondary, fontSize: 12)),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('关闭'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProviderItem(String name, String testModel, String getKeyUrl) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: Constants.primaryColor,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                Text('测试模型: $testModel', style: TextStyle(fontSize: 11, color: Constants.textTertiaryColor)),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              final uri = Uri.parse(getKeyUrl);
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+              }
+            },
+            child: const Text('获取 Key', style: TextStyle(fontSize: 12)),
           ),
         ],
       ),
@@ -4119,16 +4227,27 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   ),
                 ),
                 const SizedBox(width: 6),
-                // 绑定供应商 Key 入口
+                // 模型管理按钮（⚙️）
                 GestureDetector(
                   onTap: () {
                     setState(() { _showModelDropdown = false; });
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('请在 Web 端设置中绑定供应商 API Key'),
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
+                    _showModelManagerDialog(isDarkMode);
+                  },
+                  child: Container(
+                    width: 32, height: 32,
+                    decoration: BoxDecoration(
+                      color: isDarkMode ? const Color(0xFF404040) : Constants.bgInput,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.settings_outlined, size: 16, color: textTertiary),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                // 绑定供应商 Key 入口（➕）
+                GestureDetector(
+                  onTap: () {
+                    setState(() { _showModelDropdown = false; });
+                    _showBindKeyDialog(isDarkMode);
                   },
                   child: Container(
                     width: 32, height: 32,
@@ -4386,8 +4505,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
       // 优先尝试新的分类接口 /api/models/list
       try {
+        // 获取 userId 用于返回用户自有 Key 和 OpenClaw 分类
+        final userId = prefs.getString(Constants.storageUserId) ?? '';
         final res = await http.get(
-          Uri.parse('${Constants.baseUrl}/api/models/list?detectOpenClaw=true'),
+          Uri.parse('${Constants.baseUrl}/api/models/list?detectOpenClaw=true&userId=$userId'),
           headers: headers,
         ).timeout(const Duration(seconds: 5));
 
@@ -4740,6 +4861,344 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   ),
           ),
         ],
+      ),
+    );
+  }
+
+  // ===== 右侧边栏（与 Web 端工作台对齐） =====
+  Widget _buildRightSidebar(bool isDarkMode) {
+    final bgColor = isDarkMode ? const Color(0xFF1E1E1E) : Constants.bgSidebar;
+    final borderColor = isDarkMode ? const Color(0xFF333333) : Constants.borderDefault;
+    final textColor = isDarkMode ? Colors.white : Constants.textPrimaryColor;
+    final subTextColor = isDarkMode ? Colors.white54 : Constants.textSecondaryColor;
+    final cardColor = isDarkMode ? const Color(0xFF2A2A2A) : Constants.surfaceColor;
+
+    // 当前 agent 的快捷技能
+    final currentAgentData = _agents[_currentAgent];
+    final examples = (currentAgentData?['examples'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeInOut,
+      width: 280,
+      decoration: BoxDecoration(
+        color: bgColor,
+        border: Border(left: BorderSide(color: borderColor, width: 1)),
+      ),
+      child: Column(
+        children: [
+          // --- 顶部标题栏 ---
+          Container(
+            padding: const EdgeInsets.fromLTRB(14, 12, 8, 8),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: borderColor, width: 0.5)),
+            ),
+            child: Row(
+              children: [
+                Text(
+                  '工作台',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: textColor,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                const Spacer(),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: _toggleRightSidebar,
+                    child: Padding(
+                      padding: const EdgeInsets.all(6),
+                      child: Icon(
+                        Icons.chevron_right,
+                        size: 18,
+                        color: subTextColor,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // --- 工具快捷入口 ---
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            child: Column(
+              children: [
+                _rightToolTile(
+                  icon: Icons.business_outlined,
+                  label: '办公区',
+                  isDarkMode: isDarkMode,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => WorkspacePage()),
+                    );
+                  },
+                ),
+                _rightToolTile(
+                  icon: Icons.devices_outlined,
+                  label: '设备',
+                  isDarkMode: isDarkMode,
+                  onTap: () {},
+                ),
+                _rightToolTile(
+                  icon: Icons.extension_outlined,
+                  label: '技能库',
+                  isDarkMode: isDarkMode,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => SkillsPage()),
+                    );
+                  },
+                ),
+                _rightToolTile(
+                  icon: Icons.folder_outlined,
+                  label: '文件',
+                  isDarkMode: isDarkMode,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => FileExplorerPage()),
+                    );
+                  },
+                ),
+                _rightToolTile(
+                  icon: Icons.schedule,
+                  label: '定时',
+                  isDarkMode: isDarkMode,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => CronPage()),
+                    );
+                  },
+                ),
+                _rightToolTile(
+                  icon: Icons.loop,
+                  label: 'Loop',
+                  isDarkMode: isDarkMode,
+                  onTap: () {},
+                ),
+                _rightToolTile(
+                  icon: Icons.notifications_outlined,
+                  label: '通知',
+                  isDarkMode: isDarkMode,
+                  onTap: () {},
+                ),
+              ],
+            ),
+          ),
+
+          Divider(height: 1, color: borderColor),
+
+          // --- 对话智能体列表 ---
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 4),
+            child: Row(
+              children: [
+                Text(
+                  '对话',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: subTextColor,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const Spacer(),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(4),
+                    onTap: () {
+                      // TODO: 打开添加智能体弹窗
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(2),
+                      child: Icon(Icons.add, size: 14, color: subTextColor),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              children: _agents.entries.map((entry) {
+                final id = entry.key;
+                final data = entry.value;
+                final isActive = id == _currentAgent;
+                final agentIcon = data['icon'] as IconData? ?? Icons.chat_outlined;
+                final agentName = data['name']?.toString() ?? id;
+                final agentRole = data['role']?.toString() ?? '';
+
+                return Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () {
+                      if (!isActive) {
+                        setState(() {
+                          _currentAgent = id;
+                        });
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isActive
+                            ? (isDarkMode ? const Color(0xFF2A2A2A) : Constants.bgHover)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              color: cardColor,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: borderColor, width: 0.5),
+                            ),
+                            child: Icon(agentIcon, size: 15, color: textColor),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  agentName,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                                    color: textColor,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                if (agentRole.isNotEmpty)
+                                  Text(
+                                    agentRole,
+                                    style: TextStyle(fontSize: 11, color: subTextColor),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+
+          // --- 快捷技能 ---
+          if (examples.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: borderColor, width: 0.5)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '快捷技能',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: subTextColor,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: examples.take(4).map((ex) {
+                      final desc = ex['desc']?.toString() ?? '';
+                      final text = ex['text']?.toString() ?? '';
+                      return Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(999),
+                          onTap: () {
+                            // 填充快捷技能文本到输入框
+                            _controller.text = text;
+                            _controller.selection = TextSelection.fromPosition(
+                              TextPosition(offset: text.length),
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: borderColor, width: 0.5),
+                              borderRadius: BorderRadius.circular(999),
+                              color: cardColor,
+                            ),
+                            child: Text(
+                              desc.isNotEmpty ? desc : (text.length > 12 ? '${text.substring(0, 12)}...' : text),
+                              style: TextStyle(fontSize: 12, color: textColor),
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // 右侧边栏工具行
+  Widget _rightToolTile({
+    required IconData icon,
+    required String label,
+    required bool isDarkMode,
+    required VoidCallback onTap,
+  }) {
+    final textColor = isDarkMode ? Colors.white70 : Constants.textSecondaryColor;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          child: Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: isDarkMode ? const Color(0xFF2A2A2A) : Constants.surfaceColor,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isDarkMode ? const Color(0xFF333333) : Constants.borderDefault,
+                    width: 0.5,
+                  ),
+                ),
+                child: Icon(icon, size: 15, color: textColor),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                label,
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: textColor),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -6796,12 +7255,13 @@ class _MessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // 对齐 Web 端气泡样式
+    // Web 端用户气泡是暖灰色 bg-hover，不是黑色
     final bgColor = isUser
-        ? (isDarkMode ? const Color(0xFF444654) : Constants.primaryColor)
+        ? (isDarkMode ? const Color(0xFF444654) : Constants.bgHover)
         : (isDarkMode ? const Color(0xFF343541) : Constants.surfaceColor);
     final textColor = isDarkMode 
         ? const Color(0xFFECECF1) 
-        : (isUser ? Colors.white : Constants.textPrimaryColor);
+        : Constants.textPrimaryColor;  // 用户和 AI 都是深色文字
     final iconColor = isDarkMode ? const Color(0xFF10A37F) : Constants.primaryColor;
 
     // 安全获取 agent 信息

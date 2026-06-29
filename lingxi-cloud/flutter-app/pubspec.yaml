@@ -70,6 +70,6 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: false
-  image_path: "assets/images/lume_logo.png"
-  adaptive_icon_background: "#10A37F"
-  adaptive_icon_foreground: "assets/images/lume_logo.png"
+  image_path: "assets/images/hive_icon.png"
+  adaptive_icon_background: "#FBFAF8"
+  adaptive_icon_foreground: "assets/images/hive_icon.png"
