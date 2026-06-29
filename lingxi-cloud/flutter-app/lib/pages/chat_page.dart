@@ -352,14 +352,18 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     final isFreeUser = user?.subscription?['plan'] == 'free' || user?.subscription?['plan'] == null;
 
     if (isFreeUser) {
-      debugPrint('📋 免费用户，跳过 Gateway WebSocket');
+      debugPrint('📋 免费用户，跳过 WebSocket');
     } else {
       Future.microtask(() async {
         try {
-          debugPrint('📋 初始化连接（Lume 优先，失败再降级 Gateway）');
+          debugPrint('📋 初始化连接（Gateway 优先）');
           WebSocketService().clearListeners();
+          _initWebSocket();
+          // Gateway 连接后，异步尝试 Lume 增强（失败不影响主功能）
           await _loadLumeTestPref();
-          _initLumeWebSocket();
+          if (_lumeTestEnabled) {
+            _initLumeWebSocket();
+          }
         } catch (e, stack) {
           debugPrint('❌ WebSocket 初始化异常: $e\nStack: $stack');
           if (mounted) setState(() { _wsStatus = '连接初始化失败'; _wsError = e.toString(); });
@@ -378,11 +382,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
   bool get _lumeReady => LumeWebSocketService().isConnected;
 
-  /// 历史/会话优先走 Lume 插件，否则降级 Gateway
+  /// RPC 请求优先走 Gateway，Lume 作为后备
   dynamic _rpcWs() {
+    final gw = WebSocketService();
+    if (gw.isConnected) return gw;
     final lume = LumeWebSocketService();
     if (lume.isConnected) return lume;
-    return WebSocketService();
+    return gw; // 返回默认
   }
 
   bool get _canUseWsRpc {
@@ -1261,6 +1267,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         } catch (e) {
           debugPrint('❌ 加载会话列表失败: $e');
         }
+      });
+    } else if (!ws.isConnecting) {
+      // 🔥 主动连接 Gateway
+      debugPrint('🔌 Gateway 未连接，主动连接...');
+      ws.connect().catchError((e) {
+        debugPrint('❌ Gateway 连接失败: $e');
       });
     }
     
@@ -2174,6 +2186,18 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     // 超过一周，显示绝对时间
     final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
     return '${date.month}月${date.day}日';
+  }
+
+  /// 欢迎页问候语（与 Web 端对齐）
+  String _getWelcomeGreeting(String agentName) {
+    final hour = DateTime.now().hour;
+    String timeGreeting;
+    if (hour < 6) timeGreeting = '夜深了';
+    else if (hour < 12) timeGreeting = '早上好';
+    else if (hour < 14) timeGreeting = '中午好';
+    else if (hour < 18) timeGreeting = '下午好';
+    else timeGreeting = '晚上好';
+    return '$timeGreeting，我是 $agentName';
   }
   
 
@@ -3177,6 +3201,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         key: _scaffoldKey,
         appBar: _buildAppBar(isWide),
         drawer: isWide ? null : Drawer(child: _buildSidebar(isDarkMode)),
+        endDrawer: isWide ? null : Drawer(child: _buildRightSidebar(isDarkMode)),
         body: Row(
           children: [
             if (isWide) _buildSidebar(isDarkMode),
@@ -3280,9 +3305,26 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
 
   void _toggleRightSidebar() {
-    setState(() {
-      _showRightSidebar = !_showRightSidebar;
-    });
+    final isWide = MediaQuery.of(context).size.width > 768;
+    if (isWide) {
+      // 宽屏：直接切换状态
+      setState(() {
+        _showRightSidebar = !_showRightSidebar;
+      });
+    } else {
+      // 窄屏：使用 endDrawer
+      if (_showRightSidebar) {
+        Navigator.of(context).pop();
+        setState(() {
+          _showRightSidebar = false;
+        });
+      } else {
+        _scaffoldKey.currentState?.openEndDrawer();
+        setState(() {
+          _showRightSidebar = true;
+        });
+      }
+    }
   }
 
   // 模型管理对话框
@@ -3627,8 +3669,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   // 构建欢迎界面和使用示例
   Widget _buildWelcomeExamples(Map<String, dynamic>? agentInfo, bool isDarkMode) {
     final agentName = agentInfo?['name']?.toString() ?? 'AI';
-    final agentIcon = agentInfo?['icon'] as IconData?;
     final examples = (agentInfo?['examples'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+    
+    final greeting = _getWelcomeGreeting(agentName);
+    final desc = agentInfo?['desc']?.toString() ?? '向灵犀或你的团队提问';
     
     return Center(
       child: SingleChildScrollView(
@@ -3636,87 +3680,57 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Agent 图标和名称
-            if (agentIcon != null)
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: Constants.primaryColor.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(agentIcon, size: 40, color: Constants.primaryColor),
-              ),
-            const SizedBox(height: 16),
+            // 欢迎标题（无大图标，对齐 Web 端）
             Text(
-              '开始与 $agentName 对话',
+              greeting,
               style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: isDarkMode ? Colors.white : Colors.black87,
+                fontSize: 24,
+                fontWeight: FontWeight.w600,
+                color: isDarkMode ? Colors.white : Constants.textPrimaryColor,
+                letterSpacing: -0.3,
               ),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
-              agentInfo?['role']?.toString() ?? '',
+              desc,
               style: TextStyle(
                 fontSize: 14,
-                color: isDarkMode ? Colors.white54 : Colors.grey,
+                color: isDarkMode ? Colors.white54 : Constants.textSecondaryColor,
               ),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
             // 使用示例
             if (examples.isNotEmpty) ...[
-              Text(
-                '试试这些',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: isDarkMode ? Colors.white70 : Colors.grey.shade700,
-                ),
-              ),
-              const SizedBox(height: 16),
               Wrap(
-                spacing: 12,
-                runSpacing: 12,
+                spacing: 10,
+                runSpacing: 10,
                 alignment: WrapAlignment.center,
                 children: examples.map((ex) {
+                  final desc = ex['desc']?.toString() ?? '';
+                  final text = ex['text']?.toString() ?? '';
                   return GestureDetector(
                     onTap: () {
-                      _controller.text = ex['text']?.toString() ?? '';
+                      _controller.text = text;
                       _sendMessage();
                     },
                     child: Container(
-                      constraints: const BoxConstraints(maxWidth: 280),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      constraints: const BoxConstraints(maxWidth: 260),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(
-                        color: isDarkMode ? Colors.white.withOpacity(0.05) : Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(12),
+                        color: isDarkMode ? Colors.white.withOpacity(0.05) : Constants.surfaceColor,
+                        borderRadius: BorderRadius.circular(999),
                         border: Border.all(
-                          color: isDarkMode ? Colors.white10 : Colors.grey.shade200,
+                          color: isDarkMode ? Colors.white10 : Constants.borderDefault,
                         ),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            ex['text']?.toString() ?? '',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: isDarkMode ? Colors.white : Colors.black87,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            ex['desc']?.toString() ?? '',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Constants.primaryColor,
-                            ),
-                          ),
-                        ],
+                      child: Text(
+                        desc.isNotEmpty ? desc : (text.length > 20 ? '${text.substring(0, 20)}...' : text),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: isDarkMode ? Colors.white70 : Constants.textSecondaryColor,
+                        ),
                       ),
                     ),
                   );
@@ -4934,7 +4948,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   label: '办公区',
                   isDarkMode: isDarkMode,
                   onTap: () {
-                    Navigator.of(context).push(
+                    Navigator.of(context, rootNavigator: true).push(
                       MaterialPageRoute(builder: (_) => WorkspacePage()),
                     );
                   },
@@ -4950,7 +4964,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   label: '技能库',
                   isDarkMode: isDarkMode,
                   onTap: () {
-                    Navigator.of(context).push(
+                    Navigator.of(context, rootNavigator: true).push(
                       MaterialPageRoute(builder: (_) => SkillsPage()),
                     );
                   },
@@ -4960,7 +4974,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   label: '文件',
                   isDarkMode: isDarkMode,
                   onTap: () {
-                    Navigator.of(context).push(
+                    Navigator.of(context, rootNavigator: true).push(
                       MaterialPageRoute(builder: (_) => FileExplorerPage()),
                     );
                   },
@@ -4970,7 +4984,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   label: '定时',
                   isDarkMode: isDarkMode,
                   onTap: () {
-                    Navigator.of(context).push(
+                    Navigator.of(context, rootNavigator: true).push(
                       MaterialPageRoute(builder: (_) => CronPage()),
                     );
                   },
@@ -5042,8 +5056,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                     borderRadius: BorderRadius.circular(8),
                     onTap: () {
                       if (!isActive) {
+                        // 切换Agent时，如果有消息，保存当前会话并创建新会话
+                        if (_messages.isNotEmpty) {
+                          _saveCurrentSession();
+                        }
                         setState(() {
                           _currentAgent = id;
+                          _messages = [];  // 清空消息，开始新会话
                         });
                       }
                     },
