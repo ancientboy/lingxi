@@ -359,11 +359,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           debugPrint('📋 初始化连接（Gateway 优先）');
           WebSocketService().clearListeners();
           _initWebSocket();
-          // Gateway 连接后，异步尝试 Lume 增强（失败不影响主功能）
-          await _loadLumeTestPref();
-          if (_lumeTestEnabled) {
-            _initLumeWebSocket();
-          }
+          // Gateway 连接成功后不再自动连 Lume（避免双通道冲突）
+          // Lume 仅在 Gateway 失败时作为降级方案
         } catch (e, stack) {
           debugPrint('❌ WebSocket 初始化异常: $e\nStack: $stack');
           if (mounted) setState(() { _wsStatus = '连接初始化失败'; _wsError = e.toString(); });
@@ -2347,18 +2344,31 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           });
         }
         
-        // 🔌 后台切回：Lume 优先，失败再 Gateway
-        final lume = LumeWebSocketService();
-        debugPrint('📱 设备/前台恢复，重新连接 Lume...');
-        lume.reconnectForDevice().then((_) {
-          if (!mounted) return;
-          if (lume.isConnected) {
-            WebSocketService().disconnect();
-            _onWsReadyLoadSessions(source: 'resume-Lume');
-          } else {
-            _ensureGatewayFallback(reason: '前台恢复');
-          }
-        });
+        // 🔌 后台切回：Gateway 优先（与 initState 一致）
+        final ws = WebSocketService();
+        if (!ws.isConnected && !ws.isConnecting) {
+          debugPrint('📱 前台恢复，重连 Gateway...');
+          ws.connect().then((_) {
+            if (!mounted) return;
+            if (ws.isConnected) {
+              _onWsReadyLoadSessions(source: 'resume-Gateway');
+            }
+          }).catchError((e) {
+            debugPrint('❌ Gateway 重连失败: $e');
+            // Gateway 失败才尝试 Lume
+            final lume = LumeWebSocketService();
+            if (!lume.isConnected && !lume.isConnecting) {
+              lume.reconnectForDevice().then((_) {
+                if (mounted && lume.isConnected) {
+                  _onWsReadyLoadSessions(source: 'resume-Lume-fallback');
+                }
+              });
+            }
+          });
+        } else if (ws.isConnected) {
+          debugPrint('📱 Gateway 已连接，刷新会话');
+          _onWsReadyLoadSessions(source: 'resume-already');
+        }
         
         // 恢复会话内容（消息被清空时重新加载）
         if (_currentSessionKey == null && _messages.isEmpty) {
@@ -3095,19 +3105,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     debugPrint('📤 发送消息: sessionKey=$targetSessionKey, message=${text.substring(0, text.length > 50 ? 50 : text.length)}');
     
     debugPrint('📤 完整参数: $params');
-    final lume = LumeWebSocketService();
-    if (lume.isConnected) {
-      debugPrint('📤 通过 Lume 插件发送');
-      lume.sendMessage(
-        text.isNotEmpty ? text : '请识别这张图片',
-        agentId: _currentAgent,
-        sessionKey: targetSessionKey,
-        attachments: params['attachments'] as List<Map<String, dynamic>>?,
-      );
-    } else {
-      debugPrint('📤 通过 Gateway 发送');
-      ws.sendRequest('chat.send', params);
-    }
+    debugPrint('📤 通过 Gateway 发送');
+    ws.sendRequest('chat.send', params);
     
     // 🆕 自动更新 session label（如果是第一条消息或有意义的消息）
     if (_currentSessionKey != null && text.isNotEmpty) {
