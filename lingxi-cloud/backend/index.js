@@ -97,7 +97,7 @@ import chatRoutes from './routes/chat.js';
 app.use('/api/chat', chatRoutes);
 
 // 管理接口（生成邀请码等）
-import adminRoutes from './routes/admin.js';
+import adminRoutes from './routes/admin/index.js';
 app.use('/api/admin', adminRoutes);
 
 // Gateway 代理（安全获取连接信息）

@@ -3327,104 +3327,170 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     }
   }
 
-  // 模型管理对话框
+  // 模型管理对话框 — 开关式（对齐 Web 端）
+  Map<String, bool> _hiddenModels = {};
+
   void _showModelManagerDialog(bool isDarkMode) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.settings_outlined, color: Constants.primaryColor),
-            SizedBox(width: 8),
-            Text('模型管理'),
-          ],
-        ),
-        content: const Text('模型管理功能请在 Web 端设置中操作，\n\n你可以：\n• 启用/禁用模型\n• 调整模型显示顺序\n• 管理模型分类'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('关闭'),
-          ),
-        ],
-      ),
-    );
-  }
+    // 加载隐藏模型偏好
+    _loadHiddenModels().then((_) {
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (dialogContext) {
+          return StatefulBuilder(builder: (ctx, setDialogState) {
+            final textPrimary = isDarkMode ? Colors.white : Constants.textPrimaryColor;
+            final textSecondary = isDarkMode ? Colors.white54 : Constants.textSecondaryColor;
+            final borderColor = isDarkMode ? const Color(0xFF333333) : Constants.borderDefault;
+            final bgColor = isDarkMode ? const Color(0xFF1E1E1E) : Constants.backgroundColor;
 
-  // 绑定供应商 Key 对话框
-  void _showBindKeyDialog(bool isDarkMode) {
-    final textPrimary = isDarkMode ? const Color(0xFFECECF1) : Constants.textPrimaryColor;
-    final textSecondary = isDarkMode ? const Color(0xFF8E8EA0) : Constants.textSecondaryColor;
-    
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.vpn_key_outlined, color: Constants.primaryColor),
-            SizedBox(width: 8),
-            Text('绑定供应商 Key'),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('支持以下供应商：', style: TextStyle(color: textSecondary, fontSize: 13)),
-              const SizedBox(height: 12),
-              _buildProviderItem('百炼', 'qwen3.7-plus', 'https://bailian.console.aliyun.com/?apiKey=***'),
-              _buildProviderItem('智谱', 'glm-5', 'https://open.bigmodel.cn/usercenter/apikeys'),
-              _buildProviderItem('DMXAPI', 'glm-4-flash', 'https://www.dmxapi.cn/'),
-              _buildProviderItem('OpenCode Go', 'glm-5.2', 'https://opencodego.com'),
-              const SizedBox(height: 12),
-              Text('绑定 Key 后，可使用对应供应商的模型。', style: TextStyle(color: textSecondary, fontSize: 12)),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('关闭'),
-          ),
-        ],
-      ),
-    );
-  }
+            // 收集所有模型（从 _models 或 _fallbackModels）
+            final allModels = _models.isNotEmpty ? _models : _fallbackModels;
 
-  Widget _buildProviderItem(String name, String testModel, String getKeyUrl) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: Constants.primaryColor,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                Text('测试模型: $testModel', style: TextStyle(fontSize: 11, color: Constants.textTertiaryColor)),
+            return AlertDialog(
+              backgroundColor: bgColor,
+              title: Row(
+                children: [
+                  Icon(Icons.settings_outlined, color: textPrimary, size: 20),
+                  const SizedBox(width: 8),
+                  Text('模型管理', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: textPrimary)),
+                ],
+              ),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: allModels.length,
+                        itemBuilder: (ctx, i) {
+                          final m = allModels[i];
+                          final modelId = m['id'] ?? '';
+                          final modelName = m['name'] ?? modelId;
+                          final tier = m['tier'] ?? 'free';
+                          final isHidden = _hiddenModels[modelId] == true;
+
+                          return Container(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(modelName, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: textPrimary)),
+                                      if (modelId != modelName)
+                                        Text(modelId, style: TextStyle(fontSize: 11, color: textSecondary)),
+                                    ],
+                                  ),
+                                ),
+                                if (tier == 'pro')
+                                  Container(
+                                    margin: const EdgeInsets.only(right: 8),
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Constants.primaryColor.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text('Pro', style: TextStyle(fontSize: 10, color: textSecondary)),
+                                  ),
+                                // Toggle 开关
+                                GestureDetector(
+                                  onTap: () {
+                                    setDialogState(() {
+                                      _hiddenModels[modelId] = !isHidden;
+                                    });
+                                  },
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 200),
+                                    width: 36,
+                                    height: 20,
+                                    decoration: BoxDecoration(
+                                      color: isHidden
+                                          ? (isDarkMode ? const Color(0xFF333333) : const Color(0xFFE0E0E0))
+                                          : Constants.primaryColor,
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: AnimatedAlign(
+                                      duration: const Duration(milliseconds: 200),
+                                      alignment: isHidden ? Alignment.centerLeft : Alignment.centerRight,
+                                      child: Container(
+                                        width: 16,
+                                        height: 16,
+                                        margin: const EdgeInsets.all(2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text('关闭的模型不会显示在模型选择器中。',
+                      style: TextStyle(fontSize: 11, color: textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: Text('取消', style: TextStyle(color: textSecondary)),
+                ),
+                TextButton(
+                  onPressed: () {
+                    _saveHiddenModels();
+                    Navigator.pop(dialogContext);
+                  },
+                  child: Text('保存', style: TextStyle(color: Constants.primaryColor, fontWeight: FontWeight.w600)),
+                ),
               ],
-            ),
-          ),
-          TextButton(
-            onPressed: () async {
-              final uri = Uri.parse(getKeyUrl);
-              if (await canLaunchUrl(uri)) {
-                await launchUrl(uri, mode: LaunchMode.externalApplication);
-              }
-            },
-            child: const Text('获取 Key', style: TextStyle(fontSize: 12)),
-          ),
-        ],
-      ),
+            );
+          });
+        },
+      );
+    });
+  }
+
+  Future<void> _loadHiddenModels() async {
+    final prefs = await SharedPreferences.getInstance();
+    final str = prefs.getString('lingxi_hidden_models');
+    if (str != null) {
+      try {
+        final map = jsonDecode(str) as Map<String, dynamic>;
+        _hiddenModels = map.map((k, v) => MapEntry(k, v as bool));
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _saveHiddenModels() async {
+    final prefs = await SharedPreferences.getInstance();
+    prefs.setString('lingxi_hidden_models', jsonEncode(_hiddenModels));
+  }
+
+  // 供应商列表（与 Web 端 PROVIDER_LIST 对齐）
+  static const List<Map<String, dynamic>> _providerList = [
+    {'id': 'bailian-token-plan', 'name': '百炼', 'testModel': 'qwen3.7-plus', 'getKeyUrl': 'https://bailian.console.aliyun.com/?apiKey=***'},
+    {'id': 'zhipu', 'name': '智谱', 'testModel': 'glm-5', 'getKeyUrl': 'https://open.bigmodel.cn/usercenter/apikeys'},
+    {'id': 'dmxapi', 'name': 'DMXAPI', 'testModel': 'glm-4-flash', 'getKeyUrl': 'https://www.dmxapi.cn/'},
+    {'id': 'opencode-go', 'name': 'OpenCode Go', 'testModel': 'glm-5.2', 'getKeyUrl': 'https://opencodego.com'},
+  ];
+
+  // 绑定供应商 Key 对话框 — 完整输入+测试+保存
+  void _showBindKeyDialog(bool isDarkMode) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return _BindKeyDialog(isDarkMode: isDarkMode, providerList: _providerList);
+      },
     );
   }
 
@@ -7872,5 +7938,245 @@ class _SpinningRingState extends State<_SpinningRing> with SingleTickerProviderS
         ),
       ),
     );
+  }
+}
+
+// ===== 供应商 Key 绑定对话框 =====
+class _BindKeyDialog extends StatefulWidget {
+  final bool isDarkMode;
+  final List<Map<String, dynamic>> providerList;
+
+  const _BindKeyDialog({required this.isDarkMode, required this.providerList});
+
+  @override
+  State<_BindKeyDialog> createState() => _BindKeyDialogState();
+}
+
+class _BindKeyDialogState extends State<_BindKeyDialog> {
+  String? _selectedProvider;
+  final _keyController = TextEditingController();
+  String _testResult = '';
+  Color _testResultColor = const Color(0xFF999999);
+  bool _testing = false;
+
+  @override
+  void dispose() {
+    _keyController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = widget.isDarkMode;
+    final textPrimary = isDark ? Colors.white : Constants.textPrimaryColor;
+    final textSecondary = isDark ? Colors.white54 : Constants.textSecondaryColor;
+    final bgColor = isDark ? const Color(0xFF1E1E1E) : Constants.backgroundColor;
+    final borderColor = isDark ? const Color(0xFF333333) : Constants.borderDefault;
+    final inputBg = isDark ? const Color(0xFF2A2A2A) : Constants.bgInput;
+
+    if (_selectedProvider != null) {
+      final provider = widget.providerList.firstWhere((p) => p['id'] == _selectedProvider);
+      final providerName = provider['name'] as String;
+      final getKeyUrl = provider['getKeyUrl'] as String?;
+
+      return AlertDialog(
+        backgroundColor: bgColor,
+        title: Text('$providerName API Key',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: textPrimary)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('$providerName API Key',
+              style: TextStyle(fontSize: 13, color: textSecondary)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _keyController,
+              style: TextStyle(fontSize: 13, color: textPrimary),
+              decoration: InputDecoration(
+                hintText: '粘贴 API Key...',
+                hintStyle: TextStyle(fontSize: 13, color: textSecondary),
+                filled: true,
+                fillColor: inputBg,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: borderColor),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: borderColor),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Constants.primaryColor),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (_testResult.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(_testResult, style: TextStyle(fontSize: 12, color: _testResultColor)),
+              ),
+            if (getKeyUrl != null)
+              GestureDetector(
+                onTap: () async {
+                  final uri = Uri.parse(getKeyUrl);
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  }
+                },
+                child: Text('获取 API Key →',
+                  style: TextStyle(fontSize: 12, color: Constants.primaryColor)),
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: _testing ? null : () {
+              setState(() {
+                _selectedProvider = null;
+                _keyController.clear();
+                _testResult = '';
+              });
+            },
+            child: Text('返回', style: TextStyle(color: textSecondary)),
+          ),
+          TextButton(
+            onPressed: _testing ? null : () => _testKey(provider),
+            child: Text('测试连接', style: TextStyle(color: Constants.primaryColor)),
+          ),
+          TextButton(
+            onPressed: _testing ? null : () => _saveKey(provider),
+            child: Text('保存', style: TextStyle(color: Constants.primaryColor, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      );
+    }
+
+    // 供应商选择列表
+    return AlertDialog(
+      backgroundColor: bgColor,
+      title: Text('链接供应商 API',
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: textPrimary)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('选择供应商，输入 API Key 绑定你的自有模型。绑定后将优先使用你的 Key 调用。',
+            style: TextStyle(fontSize: 13, color: textSecondary)),
+          const SizedBox(height: 12),
+          ...widget.providerList.map((p) {
+            return Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 6),
+              child: OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: textPrimary,
+                  side: BorderSide(color: borderColor),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  alignment: Alignment.centerLeft,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _selectedProvider = p['id'] as String;
+                    _keyController.clear();
+                    _testResult = '';
+                  });
+                },
+                child: Row(
+                  children: [
+                    Text(p['name'] as String,
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: textPrimary)),
+                    const Spacer(),
+                    Text('${p['testModel']}',
+                      style: TextStyle(fontSize: 11, color: textSecondary)),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text('取消', style: TextStyle(color: textSecondary)),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _testKey(Map<String, dynamic> provider) async {
+    final key = _keyController.text.trim();
+    if (key.isEmpty) return;
+
+    setState(() {
+      _testing = true;
+      _testResult = '测试中...';
+      _testResultColor = const Color(0xFF999999);
+    });
+
+    try {
+      final apiService = ApiService();
+      final resp = await apiService.post('/api/models/user/keys/test', data: {
+        'provider': provider['id'],
+        'key': key,
+        'testModel': provider['testModel'],
+      }).timeout(const Duration(seconds: 15));
+
+      final data = resp.data;
+      if (data is Map && data['ok'] == true) {
+        setState(() {
+          _testResult = '✓ 连接成功' + (data['model'] != null ? ' (${data['model']})' : '');
+          _testResultColor = const Color(0xFF10a37f);
+        });
+      } else {
+        setState(() {
+          _testResult = '✗ ${data?['error'] ?? '测试失败'}';
+          _testResultColor = const Color(0xFFEF4444);
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _testResult = '✗ 连接失败: $e';
+        _testResultColor = const Color(0xFFEF4444);
+      });
+    } finally {
+      setState(() { _testing = false; });
+    }
+  }
+
+  Future<void> _saveKey(Map<String, dynamic> provider) async {
+    final key = _keyController.text.trim();
+    if (key.isEmpty) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString(Constants.storageUserId) ?? '';
+      if (userId.isEmpty) {
+        setState(() {
+          _testResult = '✗ 未获取到用户信息';
+          _testResultColor = const Color(0xFFEF4444);
+        });
+        return;
+      }
+
+      final apiService = ApiService();
+      await apiService.post('/api/models/user/keys', data: {
+        'userId': userId,
+        'provider': provider['id'],
+        'key': key,
+      });
+
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      setState(() {
+        _testResult = '✗ 保存失败: $e';
+        _testResultColor = const Color(0xFFEF4444);
+      });
+    }
   }
 }

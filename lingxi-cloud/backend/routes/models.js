@@ -32,6 +32,9 @@ const DEFAULT_MODEL_POOL = [
   { id: 'bailian/kimi-k2.7-code', name: 'Kimi K2.7 Code', provider: 'bailian-token-plan', providerName: '百炼', category: 'lume', capabilities: ['text', 'image', 'reasoning'], contextWindow: 262144, maxTokens: 32768, tier: 'pro', enabled: true, official: true },
   // 智谱直连
   { id: 'zhipu/glm-5.2', name: 'GLM-5.2', provider: 'zhipu', providerName: '智谱', category: 'lume', capabilities: ['text', 'reasoning'], contextWindow: 200000, maxTokens: 8192, tier: 'free', enabled: true, official: true },
+  { id: 'zhipu/glm-5', name: 'GLM-5', provider: 'zhipu', providerName: '智谱', category: 'lume', capabilities: ['text', 'reasoning'], contextWindow: 200000, maxTokens: 8192, tier: 'free', enabled: true, official: true },
+  { id: 'zhipu/glm-4.7', name: 'GLM-4.7', provider: 'zhipu', providerName: '智谱', category: 'lume', capabilities: ['text'], contextWindow: 200000, maxTokens: 8192, tier: 'free', enabled: true, official: true },
+  { id: 'zhipu/glm-4-air', name: 'GLM-4-Air', provider: 'zhipu', providerName: '智谱', category: 'lume', capabilities: ['text'], contextWindow: 128000, maxTokens: 4096, tier: 'free', enabled: true, official: true },
   // 9Router — GitHub Copilot 模型
   { id: 'gh/gpt-4o', name: 'GPT-4o', provider: '9router', providerName: 'GitHub Copilot', category: 'lume', capabilities: ['text', 'image'], contextWindow: 128000, maxTokens: 4096, tier: 'free', enabled: true, official: true },
   { id: 'gh/gpt-4.1', name: 'GPT-4.1', provider: '9router', providerName: 'GitHub Copilot', category: 'lume', capabilities: ['text', 'image'], contextWindow: 128000, maxTokens: 32768, tier: 'free', enabled: true, official: true },
@@ -126,7 +129,28 @@ router.get('/list', async (req, res) => {
     
     // 官方模型池
     const pool = db.modelPool || DEFAULT_MODEL_POOL;
-    const officialModels = pool.filter(m => m.enabled !== false);
+    
+    // 从 proxy-keys.json 读取 enabledModels 白名单
+    let enabledMap = {};
+    try {
+      const pk = JSON.parse(fs.readFileSync(path.join(__dirname, '../../data/proxy-keys.json'), 'utf-8'));
+      for (const [provId, provData] of Object.entries(pk)) {
+        if (provData.enabledModels && provData.enabledModels.length > 0) {
+          enabledMap[provId] = provData.enabledModels;
+        }
+      }
+    } catch(_) {}
+    
+    const officialModels = pool.filter(m => {
+      if (m.enabled === false) return false;
+      const em = enabledMap[m.provider];
+      if (em) {
+        // 去掉供应商前缀再匹配（如 zhipu/glm-5.2 → glm-5.2）
+        const shortId = m.id.includes('/') ? m.id.split('/').slice(1).join('/') : m.id;
+        return em.includes(m.id) || em.includes(shortId);
+      }
+      return true;
+    });
     
     // 获取用户偏好
     let preference = null;

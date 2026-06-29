@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lume Admin</title>
+<link rel="stylesheet" href="assets/css/lume.css"><link rel="stylesheet" href="assets/css/lume-tokens.css"><link rel="stylesheet" href="assets/css/lume-dialog.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-body);background:var(--bg);color:var(--text-1);min-height:100vh}
+.top-bar{background:var(--bg-card);border-bottom:1px solid var(--border-sub);padding:12px 24px;display:flex;align-items:center;gap:12px}
+.top-bar h1{font-size:16px;font-weight:700}
+.container{max-width:1120px;margin:0 auto;padding:24px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+@media(max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:500px){.grid{grid-template-columns:1fr}}
+.card{background:var(--bg-card);border:1px solid var(--border-sub);border-radius:12px;padding:14px;cursor:pointer;transition:all .15s;position:relative}
+.card:hover{border-color:var(--accent);box-shadow:0 2px 12px rgba(0,0,0,.04)}
+.card-name{font-size:14px;font-weight:600;margin-bottom:2px}
+.card-url{font-size:10px;color:var(--text-3);word-break:break-all;margin-bottom:6px;line-height:1.3}
+.card-status{position:absolute;top:12px;right:12px;width:8px;height:8px;border-radius:50%}
+.status-ok{background:#10a37f}.status-err{background:var(--border)}
+.card-keys{font-size:11px;color:var(--text-3)}
+.provider-badge{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;margin-bottom:8px}
+.back-btn{font-size:12px;padding:5px 12px;border:1px solid var(--border);border-radius:6px;cursor:pointer;background:var(--bg);color:var(--text-2)}
+.detail-title{font-size:18px;font-weight:700;display:flex;align-items:center;gap:10px}
+.detail-url{font-size:12px;color:var(--text-3);margin:4px 0 16px}
+.section-box{border:1px solid var(--border-sub);border-radius:10px;padding:12px 14px;margin-bottom:14px}
+.section-box-title{font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text-1);display:flex;align-items:center;gap:6px}
+.section-box-count{font-size:11px;color:var(--text-3);font-weight:400}
+.m-row{display:flex;flex-wrap:wrap;gap:6px}
+.m-card{background:var(--bg);border:1px solid var(--border-sub);border-radius:8px;padding:7px 10px;display:flex;align-items:center;gap:8px;transition:all .12s}
+.m-card:hover{border-color:var(--accent)}
+.m-id{font-family:monospace;font-size:11px;color:var(--text-2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.m-status{font-size:10px;padding:2px 6px;border-radius:4px;white-space:nowrap}
+.m-toggle{position:relative;width:32px;height:18px;border-radius:9px;cursor:pointer;transition:background .2s;flex-shrink:0}
+.m-toggle.on{background:#10a37f}.m-toggle.off{background:var(--border)}
+.m-toggle::after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.m-toggle.on::after{transform:translateX(14px)}
+.key-item{display:flex;align-items:center;gap:8px;font-size:12px;padding:7px 0;border-top:1px solid var(--border-sub)}
+.key-masked{font-family:monospace;font-size:11px;color:var(--text-3);flex:1}
+.add-row{display:flex;gap:6px;margin-top:10px}
+.add-row input{flex:1;padding:6px 8px;font-size:12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text-1)}
+.btn{font-size:11px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;cursor:pointer;background:var(--bg);color:var(--text-2);white-space:nowrap;transition:all .12s}
+.btn:hover{background:var(--bg-hover)}.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}.btn-danger{color:#ef4444;border-color:#ef4444;padding:3px 8px}
+.tools{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+.loading{color:var(--text-3);font-size:13px;padding:16px;text-align:center}
+</style>
+</head>
+<body>
+<div class="top-bar"><span data-lume-mark="28" style="display:inline-block;width:28px;height:28px"></span><h1>Lume Admin</h1><a href="chat.html" class="back-btn" style="margin-left:auto">← 聊天</a></div>
+<div class="container" id="app"><div class="loading">加载中...</div></div>
+<div class="lume-dialog-overlay" id="lumeDialogOverlay" hidden><div class="lume-dialog"><h2 class="lume-dialog-title" id="lumeDialogTitle"></h2><p class="lume-dialog-message" id="lumeDialogMessage"></p><div class="lume-dialog-footer" id="lumeDialogFooter"></div></div></div>
+<script src="assets/js/lume-brand.js"></script><script src="assets/js/lume-dialog.js"></script>
+<script>
+const T=localStorage.getItem('lingxi_token')||localStorage.getItem('token');
+const API='/api/admin/models';
+let cp=new URLSearchParams(location.search).get('provider');
+let pc={};
+const IM={zhipu:'智',aliyun:'百','bailian-token-plan':'百',openrouter:'OR',openai:'AI',anthropic:'An',dmxapi:'DM',router:'R'};
+const CM={zhipu:'#1677ff',aliyun:'#ff6a00','bailian-token-plan':'#ff6a00',openrouter:'#6366f1',openai:'#10a37f',anthropic:'#d97757',dmxapi:'#8b5cf6',router:'#2da44e'};
+const GL={gh:'GitHub Copilot',cu:'Cursor','glm-cn':'GLM \u667a\u8c31',kimi:'Kimi'};
+
+async function call(m,path,body){
+  const o={method:m,headers:{'Content-Type':'application/json','Authorization':'Bearer '+T}};
+  if(body)o.body=JSON.stringify(body);
+  const r=await fetch(API+path,o);
+  if(r.status===403){await showLumeAlert('\u9700\u7ba1\u7406\u5458\u6743\u9650',{title:'\u6743\u9650\u4e0d\u8db3'});return null}
+  if(r.status===401){await showLumeAlert('\u767b\u5f55\u8fc7\u671f',{title:'\u8bf7\u91cd\u65b0\u767b\u5f55'});return null}
+  return r.json();
+}
+
+async function getProviders(){if(Object.keys(pc).length)return pc;const d=await call('GET','/keys');if(d)pc=d.providers||d||{};return pc}
+
+async function renderHome(){
+  const pv=await getProviders();let h='';
+  for(const[id,p]of Object.entries(pv)){const ks=p.keys||[],en=ks.filter(k=>k.enabled!==false).length,us=ks.reduce((s,k)=>s+(k.usage||0),0),st=en>0?'status-ok':'status-err',ic=IM[id]||'?',cl=CM[id]||'#666';
+    h+=`<div class="card" onclick="goDetail('${id}')"><div class="card-status ${st}"></div><div class="provider-badge" style="background:${cl}">${ic}</div><div class="card-name">${p.name||id}</div><div class="card-url">${p.baseUrl||''}</div><div class="card-keys">${en}/${ks.length} Key &middot; ${us.toLocaleString()} \u8c03\u7528</div></div>`}
+  document.getElementById('app').innerHTML=`<div style="font-size:13px;font-weight:600;margin-bottom:12px;color:var(--text-2)">API Key Providers</div><div class="grid">${h||'<div class="loading">\u65e0\u4f9b\u5e94\u5546</div>'}</div>`;
+}
+
+async function renderDetail(p){
+  cp=p;const pv=await getProviders(),d=pv[p]||{},ks=d.keys||[],ic=IM[p]||'?',cl=CM[p]||'#666';
+  document.getElementById('app').innerHTML=`
+    <button class="back-btn" onclick="goHome()" style="margin-bottom:16px">\u2190 \u8fd4\u56de</button>
+    <div class="detail-title"><span class="provider-badge" style="display:inline-flex;background:${cl}">${ic}</span>${d.name||p}</div>
+    <div class="detail-url">${d.baseUrl||''}</div>
+    <div style="margin-bottom:16px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px">API Keys (${ks.length})</div>
+      ${ks.map((k,i)=>`<div class="key-item"><span>#${i+1}</span><span class="key-masked">${k.keyPreview||k.key||'-'}</span><span style="font-size:11px;color:var(--text-3);margin-right:8px">${(k.usage||0).toLocaleString()}\u6b21</span><button class="btn" onclick="toggleKey('${p}',${i})">${k.enabled!==false?'\u505c':'\u542f'}</button><button class="btn btn-danger" onclick="deleteKey('${p}',${i})">\u00d7</button></div>`).join('')}
+      <div class="add-row"><input id="inp-${p}" placeholder="\u7c98\u8d34 Key..."><button class="btn btn-primary" onclick="addKey('${p}')">\u6dfb\u52a0</button></div>
+     </div>
+    <div id="enabled-${p}" style="margin-bottom:14px;border:1px solid var(--border-sub);border-radius:10px;padding:12px 14px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text-2)">已启用模型 <span style="font-size:11px;color:var(--text-3);font-weight:400" id="enabled-count-${p}"></span></div>
+      <div class="m-row" id="enabled-list-${p}"><span style="font-size:12px;color:var(--text-3)">加载中...</span></div>
+    </div>
+    <div class="tools">
+      <button class="btn" onclick="testKey('${p}')">🔍 测试连接</button>
+      <button class="btn" onclick="loadModels('${p}')">🔄 刷新</button>
+    </div>
+    <div id="models-${p}"><div class="loading">\u52a0\u8f7d\u4e2d...</div></div>`;
+  loadModels(p);
+}
+
+window.loadModels=async function(p){
+  const el=document.getElementById('models-'+p);if(!el)return;
+  el.innerHTML='<div class="loading">\u52a0\u8f7d\u4e2d...</div>';
+  const d=await call('POST','/provider-models',{provider:p});
+  if(d&&d.success&&d.models){
+    const gs={};d.models.forEach(m=>{const g=m.owned_by||'other';if(!gs[g])gs[g]=[];gs[g].push(m)});
+    let h='';
+    for(const[g,ms]of Object.entries(gs)){
+      const lb=GL[g]||g;
+      h+=`<div class="section-box"><div class="section-box-title">${lb} <span class="section-box-count">${ms.length} \u6a21\u578b</span><button class="btn btn-sm" onclick="event.stopPropagation();testGroup('${p}','${g}')" style="margin-left:8px;font-size:10px">\u5168\u90e8\u6d4b\u8bd5</button></div><div class="m-row">`;
+      ms.forEach(m=>{const sid='ms-'+p+'-'+m.id.replace(/[^a-zA-Z0-9]/g,'_'),s=m.id.replace(g+'/',''),en=d.enabledModels?d.enabledModels.includes(m.id):true;
+        h+=`<div class=\"m-card\" data-provider=\"${p}\" data-model=\"${m.id.replace(/\"/g,'&quot;')}\"><span class=\"m-id\">${s}</span><span class=\"m-status m-pen\" id=\"${sid}\">\u672a\u6d4b</span><div class=\"m-toggle ${en?'on':'off'}\" onclick=\"event.stopPropagation();toggleModelCard(this)\"></div><button class=\"btn btn-sm\" onclick=\"testOneCard(this)\" style=\"font-size:10px\">\u6d4b</button></div>`});
+      h+='</div></div>';
+    }
+    updateEnabled(p,d);el.innerHTML=h||'<div class="loading">\u6682\u65e0\u6a21\u578b</div>';
+  }else{el.innerHTML='<div class="loading">\u83b7\u53d6\u5931\u8d25</div>'}
+};
+
+window.testKey=async function(p){const d=await call('POST','/test-key',{provider:p});if(!d)return;await showLumeAlert(d.success?'✅ '+d.message:'❌ '+d.error,{title:d.success?'连接成功':'测试失败'})};
+
+window.testGroup=async function(p,g){const el=document.getElementById('models-'+p);if(!el)return;const cs=el.querySelectorAll('.section-box');for(const bx of cs){const title=bx.querySelector('.section-box-title');if(title&&title.textContent.includes(GL[g]||g)){const cards=bx.querySelectorAll('.m-card');for(const c of cards){const m=c.dataset.model,st=c.querySelector('.m-status');st.textContent='...';st.className='m-status m-pen';const d=await call('POST','/test-model',{provider:p,model:m});if(!d){st.textContent='\u5931\u8d25';st.className='m-status m-err';continue}st.textContent=d.success?'\u2713 '+d.message:'\u2717 '+d.error;st.className='m-status '+(d.success?'m-ok':'m-err')}break}}};
+
+window.toggleModelCard=function(el){var c=el.closest('.m-card');el.classList.toggle('on');el.classList.toggle('off');toggleModel(c.dataset.provider,c.dataset.model)};
+window.toggleModel=async function(p,m){const d=await call('POST','/toggle-model',{provider:p,model:m});if(d){pc={};renderDetail(p)}};
+window.updateEnabled=function(p,d){var el=document.getElementById('enabled-list-'+p),edn=d.enabledModels||[];document.getElementById('enabled-count-'+p).textContent=edn.length+' 个';el.innerHTML=edn.length?edn.map(function(m){return '<div class=\"m-card\"><span class=\"m-id\">'+m+'</span></div>'}).join(''):'<span style=\"font-size:12px;color:var(--text-3)\">暂无</span>'};
+
+window.testOneCard=function(btn){const c=btn.closest('.m-card');testOneModel(c.dataset.provider,c.dataset.model)};
+window.testOneModel=async function(p,m){const sid='ms-'+p+'-'+m.replace(/[^a-zA-Z0-9]/g,'_'),el=document.getElementById(sid);if(!el)return;el.textContent='...';el.className='m-status m-pen';const d=await call('POST','/test-model',{provider:p,model:m});el.textContent=d&&d.success?'\u2713 '+d.message:'\u2717 '+(d?d.error:'\u5931\u8d25');el.className='m-status '+(d&&d.success?'m-ok':'m-err')};
+window.testAllModels=async function(p){const el=document.getElementById('models-'+p);if(!el)return;const cs=el.querySelectorAll('.m-card');for(const c of cs){const m=c.dataset.model,st=c.querySelector('.m-status');st.textContent='...';st.className='m-status m-pen';const d=await call('POST','/test-model',{provider:p,model:m});if(!d){st.textContent='\u5931\u8d25';st.className='m-status m-err';continue}st.textContent=d.success?'\u2713 '+d.message:'\u2717 '+d.error;st.className='m-status '+(d.success?'m-ok':'m-err')}};
+
+window.addKey=async function(p){const k=document.getElementById('inp-'+p).value.trim();if(!k)return;await call('POST','/keys/'+p,{key:k});pc={};renderDetail(p)};
+window.deleteKey=async function(p,i){if(!confirm('\u5220\u9664\uff1f'))return;await call('DELETE','/keys/'+p+'/'+i);pc={};renderDetail(p)};
+window.toggleKey=async function(p,i){await call('PUT','/keys/'+p+'/'+i+'/toggle');pc={};renderDetail(p)};
+window.goDetail=function(p){history.pushState(null,'','?provider='+p);renderDetail(p)};
+window.goHome=function(){history.pushState(null,'',location.pathname);cp=null;renderHome()};
+
+if(cp)renderDetail(cp);else renderHome();
+</script>
+</body>
+</html>

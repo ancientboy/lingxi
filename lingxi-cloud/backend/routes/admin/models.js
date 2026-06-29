@@ -4,7 +4,8 @@
 
 import { Router } from 'express';
 import jwt from 'jsonwebtoken';
-import fs from 'fs';
+import fsSync from 'fs';
+import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { getDB } from '../../utils/db.js';
@@ -467,5 +468,14 @@ router.put('/credit-rates', authMiddleware, adminMiddleware, (req, res) => {
     res.status(500).json({ success: false, error: '服务器错误' });
   }
 });
+
+
+var _tm = { zhipu: "glm-5", aliyun: "qwen-turbo", "bailian-token-plan": "qwen3.7-plus", openrouter: "openai/gpt-4o-mini", openai: "gpt-4o-mini", anthropic: "claude-3-haiku-20240307", dmxapi: "qwen-flash", router: "kimi/kimi-k2.7" };
+function _ku(pr) { var pk = JSON.parse(fsSync.readFileSync(path.join(__dirname, "../../data/proxy-keys.json"), "utf-8")), d = pk[pr]; if (!d || !d.keys) return null; var k = d.keys.find(function(x) { return x.enabled !== false; }); return k && k.key ? { key: k.key, url: (d.baseUrl || "").replace(/\/+$/, ""), enabled: d.enabledModels || null } : null; }
+
+router.post("/test-key", authMiddleware, adminMiddleware, async (req, res) => { try { var p = req.body.provider; if (!p) return res.json({success:false,error:"no provider"}); var ku = _ku(p); if (!ku) return res.json({success:false,error:"no key"}); var m = _tm[p] || "gpt-4o-mini"; var r = await fetch(ku.url+"/chat/completions",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+ku.key},body:JSON.stringify({model:m,messages:[{role:"user",content:"Hi"}],max_tokens:5}),signal:AbortSignal.timeout(10000)}); res.json(r.ok?{success:true,message:p+" OK ("+m+")"}:{success:false,error:r.status===429?"\u9650\u6d41":"HTTP "+r.status}); } catch(e) { res.json({success:false,error:e.message}); } });
+router.post("/test-model", authMiddleware, adminMiddleware, async (req, res) => { try { var p=req.body.provider,m=req.body.model; if(!p||!m)return res.json({success:false,error:"no p/m"}); var ku=_ku(p); if(!ku)return res.json({success:false,error:"no key"}); var r=await fetch(ku.url+"/chat/completions",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+ku.key},body:JSON.stringify({model:m,messages:[{role:"user",content:"Hi"}],max_tokens:5}),signal:AbortSignal.timeout(10000)}); res.json(r.ok?{success:true,message:"OK"}:{success:false,error:r.status===429?"\u9650\u6d41":"HTTP "+r.status}); } catch(e) { res.json({success:false,error:e.message}); } });
+router.post("/provider-models", authMiddleware, adminMiddleware, async (req, res) => { try { var p=req.body.provider; if(!p)return res.json({success:false,models:[]}); var ku=_ku(p); if(!ku)return res.json({success:false,models:[]}); var r=await fetch(ku.url+"/models",{headers:{"Authorization":"Bearer "+ku.key},signal:AbortSignal.timeout(10000)}); if(r.ok){var d=await r.json();res.json({success:true,models:(d.data||d||[]),enabledModels:ku.enabled||[]});}else{res.json({success:false,models:[]});} } catch(e){res.json({success:false,models:[]});} });
+router.post("/toggle-model", authMiddleware, adminMiddleware, async (req, res) => { try { var p=req.body.provider,m=req.body.model; if(!p||!m)return res.json({success:false}); var pk=JSON.parse(fsSync.readFileSync(path.join(__dirname,"../../data/proxy-keys.json"),"utf-8")),d=pk[p]; if(!d)return res.json({success:false}); if(!d.enabledModels)d.enabledModels=[]; var i=d.enabledModels.indexOf(m); i>=0?d.enabledModels.splice(i,1):d.enabledModels.push(m); fsSync.writeFileSync(path.join(__dirname,"../../data/proxy-keys.json"),JSON.stringify(pk,null,2),"utf-8"); res.json({success:true,enabled:i<0}); } catch(e){res.json({success:false});} });
 
 export default router;

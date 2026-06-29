@@ -62,6 +62,17 @@ function getRouterApiKey() {
 }
 
 
+
+
+var ROUTER_ENABLED_MODELS = null;
+function _refreshEnabled() {
+  try { var pk = JSON.parse(require('fs').readFileSync('/home/admin/.openclaw/workspace/lingxi-cloud/backend/data/proxy-keys.json','utf-8')); var rc = pk.router || {}; ROUTER_ENABLED_MODELS = rc.enabledModels || null; } catch(_) {}
+}
+function _isEnabled(model) {
+  if (!ROUTER_ENABLED_MODELS) return true;
+  return ROUTER_ENABLED_MODELS.indexOf(model) >= 0;
+}
+_refreshEnabled();
 // ============ Lume 智能模型选择 ============
 // 当用户请求 model="auto" 时，根据时段/套餐/负载自动选择最佳模型
 // 所有用户统一走同一模型列表，不区分 free/pro
@@ -84,8 +95,7 @@ const LUME_AUTO_MODELS = {
 
 // 智能选择最佳可用模型（固定顺序，无冷却）
 function selectLumeAutoModel(clientIp) {
-  const candidates = LUME_AUTO_MODELS.pro;
-  const model = candidates[0];
+  _refreshEnabled(); const candidates = LUME_AUTO_MODELS.pro; var model = candidates[0]; for (var i = 0; i < candidates.length; i++) { if (_isEnabled(candidates[i])) { model = candidates[i]; break; } }
   console.log(`[Lume Auto] ${clientIp} → ${model}`);
   return model;
 }
