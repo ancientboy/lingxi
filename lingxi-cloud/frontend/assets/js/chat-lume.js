@@ -1,5 +1,5 @@
 /**
- * Web 聊天 — Lume 模式（付费用户优先，不连 Gateway）
+ * Web 聊天 — Gateway WebSocket 优先，Lume 插件可选回退
  */
 window.USE_LUME = false;
 
@@ -40,7 +40,13 @@ function initLumeChatMode() {
     if (statusDot) statusDot.className = 'status-dot connected';
   }
 
-  void loadLumeSessions();
+  // 首屏优先加载当前会话历史；侧边栏列表延后异步刷新，避免手机端进页面空等 sessions.list。
+  if (typeof ensureCurrentSessionLoaded === 'function') {
+    void ensureCurrentSessionLoaded('initLumeChatMode');
+  } else if (typeof loadChatHistory === 'function') {
+    void loadChatHistory();
+  }
+  setTimeout(() => { void loadLumeSessions(); }, 300);
 
   // health.subscribe 已改为按需，不再自动订阅（减少无用网络请求）
 }
@@ -86,11 +92,7 @@ async function loadLumeSessions() {
       } catch (e) {
         console.warn('[Lume] loadSessions 失败（侧栏可能尚未加载）:', e);
       }
-      if (typeof resolveInitialSession === 'function') {
-        await resolveInitialSession();
-      } else if (typeof loadChatHistory === 'function') {
-        await loadChatHistory();
-      }
+      // 列表刷新只更新侧边栏，不反向触发当前会话加载/切换。
     } else {
       console.warn('[Lume] sessions.list 无数据:', res);
     }
@@ -165,6 +167,28 @@ function incrementalUpdateSession(payload) {
   }
 }
 
+function _syncEventSessionKey(payload) {
+  // 只同步真正聊天事件的 sessionKey。
+  // sessions.updated / sessions.list 等事件也会带 key，不能用来改写当前会话。
+  const key = payload?.sessionKey;
+  if (key && typeof syncCurrentSessionKey === 'function') {
+    syncCurrentSessionKey(key);
+  }
+}
+
+function _finishLumeGeneration(runId, text, modelInfo) {
+  if (typeof removeTyping === 'function') removeTyping();
+  if (typeof isGenerating !== 'undefined') isGenerating = false;
+  if (typeof currentRunId !== 'undefined') currentRunId = null;
+  if (typeof updateSendButton === 'function') updateSendButton();
+  if (text && typeof finalizeStreamingMessage === 'function') {
+    finalizeStreamingMessage(text, runId, modelInfo);
+  } else if (text && typeof addMessage === 'function') {
+    addMessage('assistant', text, '灵犀');
+  }
+  if (typeof refreshSessionListOnly === 'function') refreshSessionListOnly();
+}
+
 function handleLumeEvent(msg) {
   if (msg.event === 'device.switched') {
     console.log('[Lume] device.switched → 重新加载会话与历史');
@@ -185,44 +209,42 @@ function handleLumeEvent(msg) {
   // agent 事件：OpenClaw Gateway 流式响应
   if (msg.event === 'agent') {
     const p = msg.payload || msg;
-    const runId = p.runId || 'lume-stream';
+    const runId = p.runId || p.messageId || 'lume-stream';
+    _syncEventSessionKey(p);
 
     if (p.stream === 'assistant') {
-      // Gateway 发送 data.text（全量累积）+ data.delta（本次增量）
-      // 但工具调用后 data.text 会重置，所以前端自己用 delta 累积
       if (p.data?.delta) {
-        // 增量模式：用 delta 拼接
         if (!_lumeStreamState[runId]) {
           _lumeStreamState[runId] = { fullText: '', lastTextLen: 0 };
         }
         const state = _lumeStreamState[runId];
         const incomingText = p.data.text || '';
-
-        // 检测 text 是否重置（工具调用后会从头开始）
-        if (incomingText.length < state.lastTextLen) {
-          // text 重置了，把之前的累积保存
-          state.fullText += '\n';
-        }
-
+        if (incomingText.length < state.lastTextLen) state.fullText += '\n';
         state.fullText += p.data.delta;
         state.lastTextLen = incomingText.length;
 
         let displayText = state.fullText;
-        // Strip <think>...</think> tags
         displayText = displayText.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
         displayText = displayText.replace(/<think>[\s\S]*$/g, '').trim();
-
         if (displayText && typeof updateStreamingMessage === 'function') {
           updateStreamingMessage(displayText, runId);
         }
       } else if (p.data?.text) {
-        // 没有 delta，直接用 text（兼容旧格式）
         let text = p.data.text;
         text = text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
         text = text.replace(/<think>[\s\S]*$/g, '').trim();
         if (text && typeof updateStreamingMessage === 'function') {
           updateStreamingMessage(text, runId);
         }
+      }
+
+      const done = p.data?.done === true || p.done === true || p.state === 'final' || p.state === 'completed' || p.status === 'completed';
+      if (done) {
+        let text = _lumeStreamState[runId]?.fullText || p.data?.text || p.text || '';
+        delete _lumeStreamState[runId];
+        text = String(text).replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+        text = text.replace(/<think>[\s\S]*$/g, '').trim();
+        _finishLumeGeneration(runId, text, p.modelInfo || p.data?.modelInfo);
       }
     }
     return;
@@ -249,8 +271,7 @@ function handleLumeEvent(msg) {
     return;
   }
   if (state === 'final') {
-    if (typeof removeTyping === 'function') removeTyping();
-    // 优先用流式累积的文本（包含工具调用前后的完整内容）
+    _syncEventSessionKey(p);
     let text = '';
     if (_lumeStreamState[runId]?.fullText) {
       text = _lumeStreamState[runId].fullText;
@@ -258,15 +279,9 @@ function handleLumeEvent(msg) {
     } else {
       text = p.message || p.text || '';
     }
-    // Strip <think>...</think> tags from final content
     text = text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
-    // Also handle incomplete <think> tags
     text = text.replace(/<think>[\s\S]*$/g, '').trim();
-    if (text && typeof finalizeStreamingMessage === 'function') {
-      finalizeStreamingMessage(text, runId, p.modelInfo);
-    } else if (text && typeof addMessage === 'function') {
-      addMessage('assistant', text, '灵犀');
-    }
+    _finishLumeGeneration(runId, text, p.modelInfo);
     return;
   }
 }
@@ -278,7 +293,21 @@ async function sendMessageViaLume(text) {
     // 将前端 agent key 转换为 OpenClaw 认识的 agentId
     const agentKey = window.currentAgentId || 'lingxi';
     const ocAgentId = (typeof AGENT_INFO !== 'undefined' && AGENT_INFO[agentKey]?.agentId) || agentKey;
-    await LumeRpc.sendChat(text, currentSessionKey, ocAgentId);
+    if (typeof syncCurrentSessionKey === 'function') syncCurrentSessionKey(currentSessionKey);
+    currentRunId = 'lume-stream-' + Date.now();
+    isGenerating = true;
+    if (typeof updateSendButton === 'function') updateSendButton();
+    const sendResult = await LumeRpc.sendChat(text, currentSessionKey, ocAgentId);
+    if (sendResult?.sessionKey && typeof syncCurrentSessionKey === 'function') {
+      syncCurrentSessionKey(sendResult.sessionKey);
+    } else if (typeof syncCurrentSessionKey === 'function') {
+      syncCurrentSessionKey(currentSessionKey);
+    }
+    if (sendResult?.done || sendResult?.state === 'final' || sendResult?.state === 'completed') {
+      const resultText = sendResult.text || sendResult.message || '';
+      if (resultText) _finishLumeGeneration(currentRunId || 'lume-stream', resultText, sendResult.modelInfo);
+      else _finishLumeGeneration(currentRunId || 'lume-stream', '', sendResult.modelInfo);
+    }
 
     if (window.sessions && currentSessionKey) {
       const currentSession = window.sessions.find((s) => s.key === currentSessionKey);
@@ -301,6 +330,9 @@ async function sendMessageViaLume(text) {
   } catch (e) {
     console.error('[Lume] 发送失败:', e);
     if (typeof removeTyping === 'function') removeTyping();
+    if (typeof isGenerating !== 'undefined') isGenerating = false;
+    if (typeof currentRunId !== 'undefined') currentRunId = null;
+    if (typeof updateSendButton === 'function') updateSendButton();
     return false;
   }
 }

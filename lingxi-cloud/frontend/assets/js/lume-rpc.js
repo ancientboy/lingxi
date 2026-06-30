@@ -248,7 +248,7 @@ const LumeRpc = (function () {
       userId = info.userId || desktopUserId || userId;
       secret = info.secret || desktopSecret || null;
       authHandledByProxy = info.authHandled === true;
-      activeTransport = info.transport === 'lume' ? 'lume' : 'lume';
+      activeTransport = info.transport === 'gateway' ? 'gateway' : 'lume';
       const wsUrl = info.wsUrl;
       if (!wsUrl) {
         connecting = false;
@@ -399,11 +399,8 @@ const LumeRpc = (function () {
       agentId: agentId || 'main',
       idempotencyKey: 'lume-' + Date.now(),
     };
-    if (activeTransport === 'gateway') {
-      await sendRequest('chat.send', params, 20000);
-      return;
-    }
-    await sendRequest('chat.send', params, 20000);
+    const res = await sendRequest('chat.send', params, 10 * 60 * 1000);
+    return res?.payload || res;
   }
 
   function onEvent(fn) {

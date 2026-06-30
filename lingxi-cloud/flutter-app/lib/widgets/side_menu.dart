@@ -433,11 +433,11 @@ class _SessionsDialogState extends State<_SessionsDialog> {
     });
 
     try {
-      // Lume 优先拉取会话列表
+      // Gateway 优先拉取会话列表，避免切换设备后被 Lume 抢占连接
       if (!rpcConnected) {
-        final lume = LumeWebSocketService();
-        if (!lume.isConnecting) {
-          await lume.connect().catchError((_) {});
+        final ws = WebSocketService();
+        if (!ws.isConnecting) {
+          await ws.connect().catchError((_) {});
         }
         await Future.delayed(const Duration(milliseconds: 800));
       }
@@ -464,7 +464,7 @@ class _SessionsDialogState extends State<_SessionsDialog> {
         return;
       }
 
-      debugPrint('📋 发送 sessions.list (Lume 优先)');
+      debugPrint('📋 发送 sessions.list (Gateway 优先)');
       final res = await rpcSendAwait('sessions.list', {
         'limit': 50,
         'includeLastMessage': true,

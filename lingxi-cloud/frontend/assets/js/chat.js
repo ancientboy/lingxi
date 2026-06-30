@@ -87,9 +87,15 @@ window.addEventListener('pageshow', () => {
     console.log('🖥️ 检测到设备切换（pageshow），重新加载...');
     if (ws) { try { ws.onclose = null; ws.close(); } catch(e) {} }
     setTimeout(() => location.reload(), 300);
+    return;
   }
+  void reconcileCurrentSessionOnResume('pageshow');
 });
 document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    _hiddenAt = Date.now();
+    return;
+  }
   if (document.visibilityState === 'visible') {
     const current = localStorage.getItem('device_switched_at') || '0';
     if (current !== _lastDeviceSwitchHandled) {
@@ -98,7 +104,9 @@ document.addEventListener('visibilitychange', () => {
       console.log('🖥️ 检测到设备切换（visibilitychange），重新加载...');
       if (ws) { try { ws.onclose = null; ws.close(); } catch(e) {} }
       setTimeout(() => location.reload(), 300);
+      return;
     }
+    void reconcileCurrentSessionOnResume('visibilitychange');
   }
 });
 
@@ -637,12 +645,26 @@ function updateMobileSessionsState() {
   if (container) container.classList.toggle('mobile-has-sessions', count > 0);
 }
 
+
+function getExplicitSessionKeyFromUrl() {
+  try {
+    const url = new URL(window.location.href);
+    const direct = url.searchParams.get('sessionKey') || url.searchParams.get('session');
+    if (direct) return direct;
+    const hash = new URLSearchParams(String(window.location.hash || '').replace(/^#/, ''));
+    return hash.get('sessionKey') || hash.get('session');
+  } catch (_) {
+    return null;
+  }
+}
+
 function getSessionCandidateKeys() {
   const sessions = window.sessions || [];
   const keys = [];
   const add = (k) => {
     if (k && !keys.includes(k)) keys.push(k);
   };
+  add(getExplicitSessionKeyFromUrl());
   add(localStorage.getItem('currentSessionKey'));
   add(window.currentSessionKey);
   add(currentSessionKey);
@@ -661,6 +683,77 @@ function syncCurrentSessionKey(key) {
     console.warn('无法保存 currentSessionKey:', e);
   }
   if (typeof updateMobileChatHeader === 'function') updateMobileChatHeader();
+}
+
+
+let _currentSessionAutoloading = false;
+
+async function ensureCurrentSessionLoaded(reason = 'autoload', options = {}) {
+  if (_currentSessionAutoloading) return;
+  if (!currentSessionKey) return;
+  const refreshList = options.refreshList !== false;
+  _currentSessionAutoloading = true;
+  try {
+    console.log('📲 自动加载当前会话:', reason, currentSessionKey);
+    if (typeof LumeRpc !== 'undefined' && !LumeRpc.isConnected()) {
+      const ok = await LumeRpc.connect().catch(() => false);
+      if (ok) window.USE_LUME = true;
+    }
+    if (typeof loadChatHistory === 'function') {
+      await loadChatHistory();
+    }
+    if (refreshList) {
+      if (typeof refreshSessionListOnly === 'function') {
+        refreshSessionListOnly();
+      } else if (typeof loadLumeSessions === 'function') {
+        // 只在没有轻量刷新函数时兜底，避免列表刷新反向切会话。
+        loadLumeSessions();
+      }
+    }
+  } catch (e) {
+    console.warn('自动加载当前会话失败:', e);
+  } finally {
+    _currentSessionAutoloading = false;
+  }
+}
+
+let _hiddenAt = 0;
+let _resumeReconciling = false;
+
+async function reconcileCurrentSessionOnResume(reason = 'resume') {
+  if (_resumeReconciling) return;
+  if (!currentSessionKey) return;
+  _resumeReconciling = true;
+  try {
+    console.log('🔄 前台恢复，补齐当前会话:', reason, currentSessionKey);
+    if (window.USE_LUME && typeof LumeRpc !== 'undefined' && !LumeRpc.isConnected()) {
+      try { await LumeRpc.connect(); } catch (e) { console.warn('恢复连接失败:', e); }
+    }
+
+    // 后台/断线期间可能漏掉 final 事件：回来后以服务端历史为准补齐。
+    if (typeof loadChatHistory === 'function') {
+      await loadChatHistory();
+    }
+
+    // 如果历史已补齐但生成状态还卡着，强制恢复输入框。
+    if (isGenerating) {
+      const hiddenMs = _hiddenAt ? Date.now() - _hiddenAt : 0;
+      if (hiddenMs > 1500 || reason === 'pageshow' || reason === 'focus') {
+        isGenerating = false;
+        currentRunId = null;
+        if (typeof removeTyping === 'function') removeTyping();
+        if (typeof updateSendButton === 'function') updateSendButton();
+      }
+    }
+
+    if (typeof refreshSessionListOnly === 'function') {
+      refreshSessionListOnly();
+    }
+  } catch (e) {
+    console.warn('前台恢复补齐失败:', e);
+  } finally {
+    _resumeReconciling = false;
+  }
 }
 
 let user = null;
@@ -833,14 +926,18 @@ async function init() {
   // 使用用户ID生成主会话key
   SESSION_KEY = SESSION_PREFIX;  // 格式：agent:main:user_xxx
 
-  // 🆕 从 localStorage 恢复上次会话（如果存在）
+  // 官方式会话恢复策略：URL 显式 session > 本地保存 session > 默认 main。
+  const explicitSessionKey = getExplicitSessionKeyFromUrl();
   const savedSessionKey = localStorage.getItem('currentSessionKey');
-  if (savedSessionKey && savedSessionKey.startsWith(SESSION_PREFIX)) {
+  if (explicitSessionKey && explicitSessionKey.startsWith(SESSION_PREFIX)) {
+    syncCurrentSessionKey(explicitSessionKey);
+    console.log('🔗 从 URL 恢复会话:', currentSessionKey);
+  } else if (savedSessionKey && savedSessionKey.startsWith(SESSION_PREFIX)) {
     syncCurrentSessionKey(savedSessionKey);
     console.log('🔄 从 localStorage 恢复会话:', currentSessionKey);
   } else {
     syncCurrentSessionKey(SESSION_KEY);
-    console.log('🔑 初始化主会话:', currentSessionKey);
+    console.log('🔑 初始化默认主会话:', currentSessionKey);
   }
 
   renderTeamTags();
@@ -848,6 +945,7 @@ async function init() {
   const lumeOk = await tryConnectLume();
   if (lumeOk) {
     initLumeChatMode();
+    setTimeout(() => ensureCurrentSessionLoaded('init-connected', { refreshList: false }), 0);
   } else {
     console.error('❌ [Lume] Web 连接失败，无法加载会话');
     const statusEl = document.getElementById('connectionStatus');
@@ -855,6 +953,9 @@ async function init() {
       statusDot = statusEl.querySelector('.status-dot');
       if (statusDot) statusDot.className = 'status-dot disconnected';
     }
+    // 手机浏览器首连可能慢：延迟再尝试加载当前会话，不需要用户点侧边栏。
+    setTimeout(() => ensureCurrentSessionLoaded('init-delayed-retry', { refreshList: false }), 350);
+    setTimeout(() => ensureCurrentSessionLoaded('init-delayed-retry-2'), 1200);
   }
 
   let _isComposing = false;
@@ -889,6 +990,11 @@ async function init() {
     if (e.persisted && window.USE_LUME && typeof resolveInitialSession === 'function') {
       void resolveInitialSession();
     }
+    void reconcileCurrentSessionOnResume('pageshow-init');
+  });
+
+  window.addEventListener('focus', () => {
+    void reconcileCurrentSessionOnResume('focus');
   });
 }
 
@@ -1664,14 +1770,14 @@ async function sendMessage() {
   // 更新按钮显示状态（恢复到初始状态）
   updateInputButtons();
 
-  // Lume 优先发送（付费用户）
+  // Gateway WebSocket 优先发送（LumeRpc 会在必要时回退 Lume）
   if (window.USE_LUME && typeof sendMessageViaLume === 'function') {
     const sent = await sendMessageViaLume(text);
     if (sent) return;
   }
 
   // Lume 不可用时使用 HTTP 代理降级
-  console.log('📡 Lume 不可用，使用 HTTP 代理');
+  console.log('📡 WebSocket 不可用，使用 HTTP 代理');
   const params = await buildMessageParamsAsync(text, currentImage);
   sendViaHTTP(params.message);
 }
@@ -1702,6 +1808,24 @@ function updateSendButton() {
     // Re-check visibility
     if (typeof _updateSendBtnVisibility === 'function') _updateSendBtnVisibility();
   }
+}
+
+
+function settleGenerationAfterHistory(messages, reason = 'history') {
+  if (!Array.isArray(messages) || messages.length === 0) return;
+  const last = messages[messages.length - 1] || {};
+  const role = String(last.role || last.type || last.sender || '').toLowerCase();
+  const hasAssistantTail = role === 'assistant' || role === 'ai' || role === 'bot';
+  if (!hasAssistantTail) return;
+
+  if (typeof isGenerating !== 'undefined' && isGenerating) {
+    console.log('✅ 历史补拉发现 assistant 末尾，清理生成状态:', reason);
+  }
+  isGenerating = false;
+  currentRunId = null;
+  if (typeof removeTyping === 'function') removeTyping();
+  if (typeof updateSendButton === 'function') updateSendButton();
+  if (typeof updateInputButtons === 'function') updateInputButtons();
 }
 
 // 中止对话
@@ -1783,9 +1907,11 @@ async function loadChatHistory(appendOnly = false) {
     if (res.ok && res.payload?.messages) {
       console.log('加载了', res.payload.messages.length, '条历史消息');
       renderHistory(res.payload.messages);
+      settleGenerationAfterHistory(res.payload.messages, 'chat.history messages');
     } else if (res.ok && res.payload?.transcript) {
       console.log('使用 transcript 字段, 长度:', res.payload.transcript.length);
       renderHistory(res.payload.transcript);
+      settleGenerationAfterHistory(res.payload.transcript, 'chat.history transcript');
     } else {
       console.log('无历史消息, res.ok:', res.ok, 'payload:', res.payload);
       renderHistory([]);
@@ -1811,19 +1937,24 @@ async function resolveInitialSession() {
     return;
   }
 
-  const candidates = getSessionCandidateKeys();
-  for (const key of candidates) {
-    if (!key) continue;
-    syncCurrentSessionKey(key);
-    const messages = await fetchChatHistory(key, 100);
+  // 核心原则：如果已有当前会话，不要因为会话列表刷新/前台恢复自动跳到别的会话。
+  const stableCurrent = currentSessionKey || window.currentSessionKey || localStorage.getItem('currentSessionKey');
+  if (stableCurrent) {
+    syncCurrentSessionKey(stableCurrent);
+    const messages = await fetchChatHistory(stableCurrent, 100);
     if (messages && messages.length > 0) {
       renderHistory(messages);
+      settleGenerationAfterHistory(messages, 'resolveInitialSession');
       if (typeof loadSidebarSessions === 'function') loadSidebarSessions();
       return;
     }
+    // 当前会话可能是新会话，仍保持它，不自动切到最近会话。
+    await loadChatHistory();
+    return;
   }
 
-  const fallback = candidates[0] || currentSessionKey || SESSION_KEY;
+  const candidates = getSessionCandidateKeys();
+  const fallback = candidates[0] || SESSION_KEY;
   if (fallback) syncCurrentSessionKey(fallback);
   await loadChatHistory();
 }
@@ -2314,6 +2445,11 @@ async function switchSession(sessionKey, forceReload = false) {
   }
 
   syncCurrentSessionKey(sessionKey);
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.set('sessionKey', sessionKey);
+    history.replaceState(null, '', url.toString());
+  } catch (_) {}
   console.log('🔄 切换到会话:', sessionKey);
 
   // 从 sessionKey 解析 agent（格式：agent:{agentId}:{namespace}:{sessionId}）
@@ -2438,6 +2574,7 @@ async function sendViaHTTP(text) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         message: text,
+        conversationId: currentSessionKey,
         userId: user?.id || 'web-user',
         role,
         model,

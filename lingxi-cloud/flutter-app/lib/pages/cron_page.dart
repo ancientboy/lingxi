@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lingxicloud/utils/constants.dart';
 import 'package:lingxicloud/services/rpc_ws.dart';
-import 'package:lingxicloud/services/lume_websocket_service.dart';
+import 'package:lingxicloud/services/websocket_service.dart';
 
 /// 定时任务页面
 class CronPage extends StatefulWidget {
@@ -123,8 +123,8 @@ class _CronPageState extends State<CronPage> {
     final prompt = _buildPrompt();
 
     if (!rpcConnected) {
-      final lume = LumeWebSocketService();
-      if (!lume.isConnecting) await lume.connect().catchError((_) {});
+      final ws = WebSocketService();
+      if (!ws.isConnecting) await ws.connect().catchError((_) {});
       await Future.delayed(const Duration(milliseconds: 600));
     }
     if (!rpcConnected) {

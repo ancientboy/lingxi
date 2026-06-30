@@ -5,7 +5,7 @@ import { recordUsage } from '../utils/user_utils.js';
 const PROXY_LITE_URL = process.env.PROXY_LITE_URL || 'http://127.0.0.1:13000';
 
 /** 统一流式代理 → ai-proxy-lite */
-async function streamChat(message, userId, systemPrompt, model, res) {
+async function streamChat(message, userId, systemPrompt, model, res, conversationId) {
   const body = {
     model: model || 'auto',
     messages: [
@@ -15,9 +15,12 @@ async function streamChat(message, userId, systemPrompt, model, res) {
     stream: true,
     'extra-body': { userId },
   };
+  const headers = { 'Content-Type': 'application/json' };
+  if (userId) headers['X-User-Id'] = userId;
+  if (conversationId) headers['X-Conversation-Id'] = conversationId;
   const resp = await fetch(`${PROXY_LITE_URL}/v1/chat/completions`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(body),
   });
   if (!resp.ok) {
@@ -53,11 +56,11 @@ const ROLE_PROMPTS = {
 
 // 默认角色名（前端传 role 参数）
 const ROLE_MAP = {
-  lingxi: 'lingxi',
+  lingxi: '你是灵犀，机灵俏皮的天才调度员。你是团队队长，负责调度和沟通。说话活泼但不轻浮，有点小调皮但关键时刻靠谱。喜欢用 😄 🚀 ✨ 这类表情。',
   '灵犀': 'lingxi',
-  coder: 'coder',
+  coder: '你是云溪，代码专家。擅长各种编程语言、架构设计、bug 修复。回答技术问题时简洁精准，直接给代码和方案。',
   '云溪': 'coder',
-  ops: 'ops',
+  ops: '你是若曦，数据运营专家。擅长数据分析、用户增长、SEO、报表。看到数据就两眼放光，善于从数据中发现问题和机会。',
   '若曦': 'ops',
   inventor: 'inventor',
   '紫萱': 'inventor',
@@ -105,7 +108,7 @@ router.post('/simple', async (req, res) => {
     }
 
     await recordUsage(userId);
-    await streamChat(content, userId, systemPrompt, 'auto', res);
+    await streamChat(content, userId, systemPrompt, 'auto', res, req.body.conversationId);
   } catch (error) {
     console.error('免费用户对话错误:', error);
     res.status(500).json({ error: error.message });
@@ -137,7 +140,7 @@ router.post('/send', async (req, res) => {
 
     const roleKey = ROLE_MAP[role] || 'lingxi';
     const systemPrompt = ROLE_PROMPTS[roleKey] || ROLE_PROMPTS.lingxi;
-    await streamChat(message, userId, systemPrompt, model, res);
+    await streamChat(message, userId, systemPrompt, model, res, req.body.conversationId);
   } catch (e) {
     console.error('[chat/send] 错误:', e.message);
     if (!res.headersSent) {

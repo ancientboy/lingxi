@@ -78,14 +78,18 @@ _refreshEnabled();
 // 所有用户统一走同一模型列表，不区分 free/pro
 const LUME_AUTO_MODELS = {
   free: [
-    'bailian/qwen3.7-plus',        // 千问3.7 Plus（首选）
-    'glm-cn/glm-5.2',              // GLM-5.2 智谱直连
+    'glm-cn/glm-5.2',              // GLM-5.2 智谱直连（首选）
+    'bailian/qwen3.7-plus',        // 千问3.7 Plus
+    'kimi/kimi-k2.7',              // Kimi K2.7
+    'bailian/qwen3.6-flash',       // 千问3.6 Flash
     'gh/gpt-4o',                   // GitHub Copilot
     'gh/gpt-5-mini',               // 快速
   ],
   pro: [
-    'bailian/qwen3.7-plus',        // 千问3.7 Plus（首选）
-    'glm-cn/glm-5.2',              // GLM-5.2 智谱直连
+    'glm-cn/glm-5.2',              // GLM-5.2 智谱直连（首选）
+    'bailian/qwen3.7-plus',        // 千问3.7 Plus
+    'kimi/kimi-k2.7',              // Kimi K2.7
+    'bailian/qwen3.6-flash',       // 千问3.6 Flash
     'gh/gpt-4o',                   // GitHub Copilot
     'gh/gpt-5-mini',               // 快速
   ],
@@ -93,10 +97,88 @@ const LUME_AUTO_MODELS = {
 
 
 
-// 智能选择最佳可用模型（固定顺序，无冷却）
-function selectLumeAutoModel(clientIp) {
-  _refreshEnabled(); const candidates = LUME_AUTO_MODELS.pro; var model = candidates[0]; for (var i = 0; i < candidates.length; i++) { if (_isEnabled(candidates[i])) { model = candidates[i]; break; } }
-  console.log(`[Lume Auto] ${clientIp} → ${model}`);
+// ============ Auto 模型粘性记忆 ============
+// 同一会话/用户/IP 的 auto 请求锁定同一模型，避免消息割裂
+// key 优先级：conversationId > userId > clientIp
+// TTL: 30 分钟（覆盖大部分对话窗口）
+const AUTO_STICKY_TTL = 30 * 60 * 1000; // 30分钟
+const autoModelSticky = new Map(); // stickyKey -> { model, expiresAt, createdAt }
+
+/** 获取粘性 key（三级降级：conversationId > userId > ip） */
+function getStickyKey(req, clientIp) {
+  // 1. conversationId（前端可传 header）
+  const convId = req?.headers?.['x-conversation-id'] || req?.headers?.['X-Conversation-Id'];
+  if (convId) return 'conv:' + convId;
+  
+  // 2. userId
+  const userInfo = req ? resolveUserInfo(req) : null;
+  if (userInfo?.userId) return 'user:' + userInfo.userId;
+  
+  // 3. IP
+  return 'ip:' + (clientIp || 'unknown');
+}
+
+/** 读取粘性模型（未过期则返回） */
+function getStickyModel(stickyKey) {
+  const entry = autoModelSticky.get(stickyKey);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    autoModelSticky.delete(stickyKey);
+    return null;
+  }
+  return entry.model;
+}
+
+/** 写入粘性模型 */
+function setStickyModel(stickyKey, model) {
+  autoModelSticky.set(stickyKey, {
+    model,
+    expiresAt: Date.now() + AUTO_STICKY_TTL,
+    createdAt: Date.now(),
+  });
+}
+
+/** 清除粘性模型（降级失败时调用，让下次重新选） */
+function clearStickyModel(stickyKey) {
+  autoModelSticky.delete(stickyKey);
+}
+
+// 每 5 分钟清理过期条目
+setInterval(() => {
+  const now = Date.now();
+  let cleaned = 0;
+  for (const [key, entry] of autoModelSticky) {
+    if (now > entry.expiresAt) {
+      autoModelSticky.delete(key);
+      cleaned++;
+    }
+  }
+  if (cleaned > 0) console.log(`[Sticky] 清理 ${cleaned} 个过期条目，当前 ${autoModelSticky.size} 个活跃`);
+}, 5 * 60 * 1000);
+
+// 智能选择最佳可用模型（带粘性记忆）
+// req 传入以提取 conversationId/userId 做粘性
+function selectLumeAutoModel(clientIp, req = null) {
+  _refreshEnabled();
+  const candidates = LUME_AUTO_MODELS.pro;
+  const stickyKey = getStickyKey(req, clientIp);
+  
+  // 1. 先查粘性记忆
+  const sticky = getStickyModel(stickyKey);
+  if (sticky && _isEnabled(sticky)) {
+    console.log(`[Lume Auto] ${clientIp} → ${sticky} (粘性命中, key=${stickyKey})`);
+    return sticky;
+  }
+  
+  // 2. 粘性不存在或模型已被禁用 → 选第一个可用的
+  let model = candidates[0];
+  for (var i = 0; i < candidates.length; i++) {
+    if (_isEnabled(candidates[i])) { model = candidates[i]; break; }
+  }
+  
+  // 3. 写入粘性记忆
+  setStickyModel(stickyKey, model);
+  console.log(`[Lume Auto] ${clientIp} → ${model} (新建粘性, key=${stickyKey})`);
   return model;
 }
 
@@ -199,7 +281,11 @@ function setLumeActiveUser(userId) {
 }
 
 function resolveUserInfo(req) {
-  const headerUserId = req.headers?.["x-lingxi-user-id"] || req.headers?.["X-Lingxi-User-Id"];
+  // 支持多种 header 格式（灵犀云传 x-user-id，OpenClaw 传 x-lingxi-user-id）
+  const headerUserId = req.headers?.["x-lingxi-user-id"] 
+    || req.headers?.["X-Lingxi-User-Id"]
+    || req.headers?.["x-user-id"]
+    || req.headers?.["X-User-Id"];
   if (headerUserId && userModelMap[headerUserId] !== undefined) {
     return { userId: headerUserId, nickname: headerUserId.slice(0, 8), preferredModel: userModelMap[headerUserId] };
   }
@@ -340,23 +426,23 @@ function getUserPreferredModel(clientIp, requestedModel, req = null) {
   const userInfo = req ? resolveUserInfo(req) : ipUserMap[clientIp];
   if (!userInfo?.preferredModel) {
     // 没有偏好 → 按请求的模型路由
-    return mapTo9RouterModel(requestedModel, clientIp);
+    return mapTo9RouterModel(requestedModel, clientIp, req);
   }
   
   // 有偏好 → 用偏好模型路由
   const preferred = userInfo.preferredModel;
   console.log(`[模型偏好] ${clientIp} (${userInfo.nickname}): 请求=${requestedModel} → 偏好=${preferred}`);
-  return mapTo9RouterModel(preferred, clientIp);
+  return mapTo9RouterModel(preferred, clientIp, req);
 }
 
 // 将用户模型名映射为 9Router 模型名
 // 将模型名映射为实际路由模型
-function mapTo9RouterModel(model, clientIp) {
+function mapTo9RouterModel(model, clientIp, req = null) {
   if (!model) return OPENCODE_GO_PRIMARY;
 
-  // auto → 智能选择
+  // auto → 智能选择（带粘性记忆）
   if (model === 'auto') {
-    return selectLumeAutoModel(clientIp || 'unknown');
+    return selectLumeAutoModel(clientIp || 'unknown', req);
   }
 
   // 已经是路径格式，直通
@@ -380,7 +466,7 @@ function mapTo9RouterModel(model, clientIp) {
 }
 
 // 通过 9Router 发送请求（统一路由，支持自动降级免费模型）
-async function proxyVia9Router(reqBody, reqUrl, clientIp, res, fallbackIndex = -1) {
+async function proxyVia9Router(reqBody, reqUrl, clientIp, res, fallbackIndex = -1, stickyKey = null) {
   const originalModel = reqBody.model || 'unknown';
   
   // 选择模型：fallbackIndex >= 0 表示已经在降级，用免费模型
@@ -388,6 +474,11 @@ async function proxyVia9Router(reqBody, reqUrl, clientIp, res, fallbackIndex = -
   if (fallbackIndex >= 0) {
     routerModel = ROUTER_FALLBACK_MODELS[fallbackIndex] || ROUTER_FALLBACK_MODELS[0];
     console.log(`[9Router] 🔄 降级 fallback #${fallbackIndex}: ${originalModel} → ${routerModel} [来源: ${clientIp}]`);
+    // 降级成功 → 更新粘性记忆（让后续请求继续走降级后的模型）
+    if (stickyKey) {
+      setStickyModel(stickyKey, routerModel);
+      console.log(`[9Router] 🔄 降级更新粘性: ${stickyKey} → ${routerModel}`);
+    }
   } else {
     // 查用户模型偏好，如果有偏好则覆盖请求模型
     routerModel = getUserPreferredModel(clientIp, originalModel);
@@ -411,7 +502,7 @@ async function proxyVia9Router(reqBody, reqUrl, clientIp, res, fallbackIndex = -
         'Accept': isStream ? 'text/event-stream' : 'application/json',
         ...(getRouterApiKey() ? { 'Authorization': 'Bearer ' + getRouterApiKey() } : {}),
       },
-      timeout: 120000,
+      timeout: 30000,
     }, (proxyRes) => {
       const statusCode = proxyRes.statusCode;
       
@@ -574,6 +665,10 @@ async function unifiedRoute(providerId, req, res) {
   
   const originalModel = reqBody.model || 'unknown';
   const isStream = reqBody.stream === true;
+  
+  // === 🧲 计算粘性 key（用于 auto 模式模型锁定）===
+  const stickyKey = getStickyKey(req, clientIp);
+  console.log(`[统一路由] ${clientIp} -> ${providerId} ${req.url}, stickyKey=${stickyKey}`);
 
   // === 🔑 先查用户偏好模型 ===
   const userInfo = resolveUserInfo(req);
@@ -656,6 +751,11 @@ async function unifiedRoute(providerId, req, res) {
         await proxyRequest(directProvider, directReq, res);
       }
       recordRequest(clientIp, directProvider, originalModel, 200);
+      // 直连成功 → 写入粘性记忆（auto 模式下锁定此直连模型）
+      if (originalModel === 'auto' || preferredModel === 'auto') {
+        setStickyModel(stickyKey, selectedModel);
+        console.log(`[直连] ✅ 写入粘性: ${stickyKey} → ${selectedModel}`);
+      }
       return;
     } catch (e) {
       console.error(`[直连] ${directProvider} 失败: ${e.message}，降级到 9Router`);
@@ -667,7 +767,7 @@ async function unifiedRoute(providerId, req, res) {
   try {
     if (isStream) {
       // 流式：直接 pipe（无法中途降级）
-      await proxyVia9Router(reqBody, req.url, clientIp, res);
+      await proxyVia9Router(reqBody, req.url, clientIp, res, -1, stickyKey);
       recordRequest(clientIp, 'router', originalModel, 200);
       // 📊 流式无法提取精确 usage，按请求次数估算（每次 ~500 tokens）
       const userInfo = ipUserMap[clientIp];
@@ -679,14 +779,14 @@ async function unifiedRoute(providerId, req, res) {
     }
     
     // 非流式：尝试 9Router，支持自动降级免费模型
-    let result = await proxyVia9Router(reqBody, req.url, clientIp, null);
+    let result = await proxyVia9Router(reqBody, req.url, clientIp, null, -1, stickyKey);
     
     // 自动降级循环
     let fallbackAttempts = 0;
     while (!result.success && result.shouldFallback && fallbackAttempts < ROUTER_FALLBACK_MODELS.length) {
       fallbackAttempts++;
       console.log(`[9Router] 🔄 自动降级尝试 #${fallbackAttempts}/${ROUTER_FALLBACK_MODELS.length}`);
-      result = await proxyVia9Router(reqBody, req.url, clientIp, null, result.nextFallback);
+      result = await proxyVia9Router(reqBody, req.url, clientIp, null, result.nextFallback, stickyKey);
     }
     
     if (result.success) {
@@ -763,7 +863,7 @@ async function proxyPaidRequest(providerId, req, res, body, clientIp) {
   const httpModule = url.protocol === 'https:' ? https : http;
   
   const proxyReq = httpModule.request({
-    timeout: 300000,
+    timeout: 30000,
     hostname: url.hostname,
     port: url.port || (url.protocol === 'https:' ? 443 : 80),
     path: url.pathname + url.search,
@@ -1267,7 +1367,7 @@ async function proxyRequest(providerId, req, res, _retryState = null) {
   const httpModule = url.protocol === 'https:' ? https : http;
   
   const options = {
-    timeout: 300000,
+    timeout: 30000,
     hostname: url.hostname,
     port: url.port || (url.protocol === 'https:' ? 443 : 80),
     path: url.pathname + url.search,
@@ -1798,7 +1898,7 @@ function proxyCursorRequest(reqBody, isStream, clientIp, res) {
       'Authorization': 'Bearer ' + CURSOR_API_KEY,
       'Accept': isStream ? 'text/event-stream' : 'application/json',
     },
-    timeout: 120000,
+    timeout: 30000,
   }, (proxyRes) => {
     const statusCode = proxyRes.statusCode;
     if (statusCode !== 200) {

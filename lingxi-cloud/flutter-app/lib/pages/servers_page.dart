@@ -87,7 +87,7 @@ class _ServersPageState extends State<ServersPage> {
         await ws.connect();
       } catch (_) {}
 
-      // 不再主动重连 Lume（Gateway 优先策略）
+      // Gateway 直连模式，不连 Lume
 
       if (mounted) {
         setState(() => _activeServerId = serverId);

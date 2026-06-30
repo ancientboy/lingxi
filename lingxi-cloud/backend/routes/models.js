@@ -35,6 +35,10 @@ const DEFAULT_MODEL_POOL = [
   { id: 'zhipu/glm-5', name: 'GLM-5', provider: 'zhipu', providerName: '智谱', category: 'lume', capabilities: ['text', 'reasoning'], contextWindow: 200000, maxTokens: 8192, tier: 'free', enabled: true, official: true },
   { id: 'zhipu/glm-4.7', name: 'GLM-4.7', provider: 'zhipu', providerName: '智谱', category: 'lume', capabilities: ['text'], contextWindow: 200000, maxTokens: 8192, tier: 'free', enabled: true, official: true },
   { id: 'zhipu/glm-4-air', name: 'GLM-4-Air', provider: 'zhipu', providerName: '智谱', category: 'lume', capabilities: ['text'], contextWindow: 128000, maxTokens: 4096, tier: 'free', enabled: true, official: true },
+  // Kimi 直连
+  { id: 'kimi/kimi-k2.7', name: 'Kimi K2.7', provider: 'kimi', providerName: 'Kimi', category: 'lume', capabilities: ['text', 'reasoning'], contextWindow: 128000, maxTokens: 16384, tier: 'pro', enabled: true, official: true },
+  // 9Router 海外 GPT-5.5
+  { id: '9router-overseas/cx/gpt-5.5', name: 'GPT-5.5', provider: '9router-overseas', providerName: '9Router 海外', category: 'lume', capabilities: ['text', 'image', 'reasoning'], contextWindow: 200000, maxTokens: 32768, tier: 'pro', enabled: true, official: true },
   // 9Router — GitHub Copilot 模型
   { id: 'gh/gpt-4o', name: 'GPT-4o', provider: '9router', providerName: 'GitHub Copilot', category: 'lume', capabilities: ['text', 'image'], contextWindow: 128000, maxTokens: 4096, tier: 'free', enabled: true, official: true },
   { id: 'gh/gpt-4.1', name: 'GPT-4.1', provider: '9router', providerName: 'GitHub Copilot', category: 'lume', capabilities: ['text', 'image'], contextWindow: 128000, maxTokens: 32768, tier: 'free', enabled: true, official: true },

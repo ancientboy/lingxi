@@ -225,6 +225,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
   final Map<String, Map<String, dynamic>> _agents = {
     'lingxi': {
+      'agentId': 'main',
       'name': '灵犀',
       'icon': Icons.auto_awesome,
       'role': '队长 · 智能调度',
@@ -235,6 +236,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       ],
     },
     'coder': {
+      'agentId': 'coder',
       'name': '云溪',
       'icon': Icons.code,
       'role': '编程开发',
@@ -245,6 +247,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       ],
     },
     'ops': {
+      'agentId': 'ops',
       'name': '若曦',
       'icon': Icons.bar_chart,
       'role': '数据分析',
@@ -255,6 +258,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       ],
     },
     'inventor': {
+      'agentId': 'inventor',
       'name': '紫萱',
       'icon': Icons.lightbulb,
       'role': '创意发明',
@@ -265,6 +269,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       ],
     },
     'pm': {
+      'agentId': 'pm',
       'name': '梓萱',
       'icon': Icons.track_changes,
       'role': '产品经理',
@@ -275,6 +280,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       ],
     },
     'noter': {
+      'agentId': 'noter',
       'name': '晓琳',
       'icon': Icons.note,
       'role': '笔记整理',
@@ -285,6 +291,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       ],
     },
     'media': {
+      'agentId': 'media',
       'name': '音韵',
       'icon': Icons.palette,
       'role': '媒体设计',
@@ -295,6 +302,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       ],
     },
     'smart': {
+      'agentId': 'smart',
       'name': '智家',
       'icon': Icons.home,
       'role': '智能家居',
@@ -356,11 +364,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     } else {
       Future.microtask(() async {
         try {
-          debugPrint('📋 初始化连接（Gateway 优先）');
+          debugPrint('📋 初始化连接（Gateway 直连模式）');
           WebSocketService().clearListeners();
           _initWebSocket();
-          // Gateway 连接成功后不再自动连 Lume（避免双通道冲突）
-          // Lume 仅在 Gateway 失败时作为降级方案
         } catch (e, stack) {
           debugPrint('❌ WebSocket 初始化异常: $e\nStack: $stack');
           if (mounted) setState(() { _wsStatus = '连接初始化失败'; _wsError = e.toString(); });
@@ -379,19 +385,15 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
   bool get _lumeReady => LumeWebSocketService().isConnected;
 
-  /// RPC 请求优先走 Gateway，Lume 作为后备
+  /// RPC 请求走 Gateway
   dynamic _rpcWs() {
-    final gw = WebSocketService();
-    if (gw.isConnected) return gw;
-    final lume = LumeWebSocketService();
-    if (lume.isConnected) return lume;
-    return gw; // 返回默认
+    return WebSocketService();
   }
 
   bool get _canUseWsRpc {
-    final lume = LumeWebSocketService();
     final gw = WebSocketService();
-    return lume.isConnected || gw.isConnected;
+    final lume = LumeWebSocketService();
+    return gw.isConnected || lume.isConnected;
   }
 
   bool _isValidSessionKey(String? key) {
@@ -403,12 +405,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   String? _resolveSessionPrefix() {
     final ws = WebSocketService();
     final lume = LumeWebSocketService();
-    return lume.isConnected ? (lume.sessionPrefix ?? ws.sessionPrefix) : ws.sessionPrefix;
+    return ws.sessionPrefix ?? lume.sessionPrefix;
   }
 
   String? _resolveTargetSessionKey(WebSocketService ws) {
     final lume = LumeWebSocketService();
-    final prefix = lume.isConnected ? (lume.sessionPrefix ?? ws.sessionPrefix) : ws.sessionPrefix;
+    final prefix = ws.sessionPrefix ?? lume.sessionPrefix;
     if (prefix == null || prefix.isEmpty) {
       debugPrint('❌ sessionPrefix 未就绪，请等待 Gateway 连接完成');
       return null;
@@ -466,7 +468,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     final isFreeUser = user?.subscription?['plan'] == 'free' || user?.subscription?['plan'] == null;
     if (isFreeUser) return;
     if (!_isPaidUser(user)) return;
-    // Gateway 优先：确保 Gateway 连接，不主动连 Lume
+    // Gateway 直连模式：确保 Gateway 连接
     final ws = WebSocketService();
     if (!ws.isConnected && !ws.isConnecting) {
       debugPrint('📋 onAppProviderUpdate: 重连 Gateway');
@@ -1086,16 +1088,23 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         return;
       }
       if (data['type'] == 'connected') {
-        // Lume 已连通，但不断开 Gateway（保持双连接稳定性）
+        // Web 端现行策略：Gateway 优先，Lume 仅作为可选回退；不得抢占/断开 Gateway。
+        final gw = WebSocketService();
         _gatewaySessionDeferTimer?.cancel();
         _replaceSessionsOnNextParse = true;
         setState(() {
           _lumeConnected = true;
           _lumeStatus = '已连接';
-          _wsConnected = true;
-          _wsStatus = _lumeReady ? 'Lume已连接' : 'Gateway已连接';
+          _wsConnected = gw.isConnected;
+          _wsStatus = gw.isConnected ? 'Gateway已连接' : 'Lume回退已连接';
         });
-        Future.microtask(() => _onWsReadyLoadSessions(source: 'Lume'));
+        if (!gw.isConnected) {
+          Future.microtask(() => _onWsReadyLoadSessions(source: 'Lume'));
+        }
+        return;
+      }
+      if (data['type'] == 'event' && data['event'] == 'agent') {
+        _handleLumeAgentEvent(data['payload'] as Map<String, dynamic>?);
         return;
       }
       if (data['type'] == 'event' && data['event'] == 'chat') {
@@ -1108,15 +1117,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       }
     };
     lume.addListener(_lumeListener!);
-    if (!lume.isConnected && !lume.isConnecting) {
-      lume.connect().catchError((e) => debugPrint('❌ Lume 连接失败: $e'));
-    }
+    // 不主动连接 Lume：设备切换后应保持 Gateway WebSocket 连接。
+    // Lume 只在已经连接时作为可选通道处理事件，避免抢占并断开 Gateway。
   }
 
-  /// Lume 不可用或连接失败时，降级到 Gateway（仅维持一条活跃连接）
+  /// 确保 Gateway 直连；Lume 仅作为可选回退
   void _ensureGatewayFallback({String reason = ''}) {
-    if (_lumeReady) return;
-    if (reason.isNotEmpty) debugPrint('⬇️ Lume 不可用，降级 Gateway: $reason');
+    if (reason.isNotEmpty) debugPrint('🔌 确保 Gateway 直连: $reason');
     final ws = WebSocketService();
     if (!ws.isConnected && !ws.isConnecting) {
       setState(() {
@@ -1126,6 +1133,114 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       });
       _initWebSocket();
     }
+  }
+
+  // Lume 流式累积状态：runId -> { fullText, lastTextLen }
+  final Map<String, _LumeStreamState> _lumeStreamStates = {};
+
+  void _handleLumeAgentEvent(Map<String, dynamic>? payload) {
+    if (payload == null) return;
+
+    final serverSessionKey = payload['sessionKey']?.toString();
+    if (serverSessionKey != null && serverSessionKey.isNotEmpty) {
+      if (_currentSessionKey == null || _currentSessionKey != serverSessionKey) {
+        setState(() { _currentSessionKey = serverSessionKey; });
+        _updateOrCreateSession(serverSessionKey);
+      }
+    }
+
+    final stream = payload['stream']?.toString();
+    final runId = payload['runId']?.toString() ?? payload['messageId']?.toString() ?? 'lume-stream';
+    final data = payload['data'] as Map<String, dynamic>?;
+
+    if (stream != 'assistant') return;
+    if (data == null) return;
+
+    final delta = data['delta']?.toString();
+    final text = data['text']?.toString();
+    final isDone = data['done'] == true || payload['done'] == true ||
+        payload['state']?.toString() == 'final' ||
+        payload['state']?.toString() == 'completed' ||
+        payload['status']?.toString() == 'completed';
+
+    setState(() { _isGenerating = true; });
+
+    if (delta != null && delta.isNotEmpty) {
+      // 增量模式：用 delta 拼接（对齐 Web 端 _lumeStreamState）
+      final state = _lumeStreamStates.putIfAbsent(runId, () => _LumeStreamState());
+      final incomingLen = text?.length ?? 0;
+
+      // 检测 text 是否重置（工具调用后会从头开始）
+      if (incomingLen < state.lastTextLen) {
+        state.fullText += '\n';
+      }
+
+      state.fullText += delta;
+      state.lastTextLen = incomingLen;
+
+      String displayText = state.fullText;
+      // 过滤 <think> 标签
+      displayText = displayText.replaceAll(RegExp(r'<think>[\s\S]*?</think>'), '').trim();
+      displayText = displayText.replaceAll(RegExp(r'<think>[\s\S]*$'), '').trim();
+
+      if (displayText.isNotEmpty) {
+        _updateStreamingMessage(runId, displayText);
+      }
+    } else if (text != null && text.isNotEmpty) {
+      // 没有 delta，直接用 text（兼容旧格式）
+      String displayText = text;
+      displayText = displayText.replaceAll(RegExp(r'<think>[\s\S]*?</think>'), '').trim();
+      displayText = displayText.replaceAll(RegExp(r'<think>[\s\S]*$'), '').trim();
+      if (displayText.isNotEmpty) {
+        _updateStreamingMessage(runId, displayText);
+      }
+    }
+
+    if (isDone) {
+      String finalText = _lumeStreamStates[runId]?.fullText ?? text ?? '';
+      _lumeStreamStates.remove(runId);
+      finalText = finalText.replaceAll(RegExp(r'<think>[\s\S]*?</think>'), '').trim();
+      finalText = finalText.replaceAll(RegExp(r'<think>[\s\S]*$'), '').trim();
+      setState(() {
+        _isGenerating = false;
+        _queuePosition = 0;
+        _queueTotal = 0;
+      });
+      if (finalText.isNotEmpty) {
+        _updateStreamingMessage(runId, finalText);
+      }
+      _saveMessagesLocal();
+      _refreshUserData();
+      if (_currentSessionKey != null) {
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) _loadMessageHistory(_currentSessionKey!, incremental: true);
+        });
+      }
+    }
+  }
+
+  /// 更新流式消息（增量更新 UI）
+  void _updateStreamingMessage(String runId, String text) {
+    // 过滤心跳/系统消息
+    final t = text.trim();
+    if (t == 'HEARTBEAT_OK' || t == 'NO_REPLY') return;
+    if (t.startsWith('Read HEARTBEAT.md') && t.length < 100) return;
+
+    setState(() {
+      final idx = _messages.indexWhere((m) => m.id == runId);
+      if (idx >= 0) {
+        _messages[idx] = _messages[idx].copyWith(content: text);
+      } else {
+        _messages.add(Message(
+          id: runId,
+          role: 'assistant',
+          content: text,
+          createdAt: DateTime.now(),
+          agentId: _currentAgent,
+        ));
+      }
+    });
+    _scrollToBottom();
   }
 
   void _handleLumeChatEvent(Map<String, dynamic>? payload) {
@@ -1202,7 +1317,18 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     }
 
     if (state == 'final') {
-      final finalText = payload['message']?.toString() ?? _extractText(payload['message']) ?? '';
+      // 优先用流式累积的完整文本
+      String finalText = '';
+      if (_lumeStreamStates.containsKey(runId)) {
+        finalText = _lumeStreamStates[runId]!.fullText;
+        _lumeStreamStates.remove(runId);
+      } else {
+        finalText = payload['message']?.toString() ?? _extractText(payload['message']) ?? '';
+      }
+      // 过滤 <think> 标签
+      finalText = finalText.replaceAll(RegExp(r'<think>[\s\S]*?</think>'), '').trim();
+      finalText = finalText.replaceAll(RegExp(r'<think>[\s\S]*$'), '').trim();
+      
       if (finalText.contains('HEARTBEAT_OK') || finalText.contains('HEARTBEAT.md')) {
         setState(() { _isGenerating = false; });
         return;
@@ -1273,8 +1399,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           final status = data['status'];
           setState(() {
             _wsConnected = status == 'connected';
-            _wsStatus = status == 'connecting' ? '连接中...' 
-                      : status == 'connected' ? (_lumeReady ? 'Lume已连接' : (_lumeStatus.contains('Gateway') ? 'Gateway已连接' : '已连接')) 
+            _wsStatus = status == 'connecting' ? '连接中...'
+                      : status == 'connected' ? 'Gateway已连接'
                       : status == 'disconnected' ? '已断开' : '连接失败';
           });
           return;
@@ -1584,6 +1710,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           _wsError = errorMsg;
           _wsStatus = '认证失败';
         });
+        return;
+      }
+      
+      // Gateway 流式 agent 事件（delta 累加）
+      if (data['type'] == 'event' && data['event'] == 'agent') {
+        _handleLumeAgentEvent(data['payload'] as Map<String, dynamic>?);
         return;
       }
       
@@ -2334,27 +2466,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           });
         }
         
-        // 🔌 后台切回：Gateway 优先（与 initState 一致）
+        // 🔌 后台切回：重连 Gateway
         final ws = WebSocketService();
         if (!ws.isConnected && !ws.isConnecting) {
           debugPrint('📱 前台恢复，重连 Gateway...');
-          ws.connect().then((_) {
-            if (!mounted) return;
-            if (ws.isConnected) {
-              _onWsReadyLoadSessions(source: 'resume-Gateway');
-            }
-          }).catchError((e) {
-            debugPrint('❌ Gateway 重连失败: $e');
-            // Gateway 失败才尝试 Lume
-            final lume = LumeWebSocketService();
-            if (!lume.isConnected && !lume.isConnecting) {
-              lume.reconnectForDevice().then((_) {
-                if (mounted && lume.isConnected) {
-                  _onWsReadyLoadSessions(source: 'resume-Lume-fallback');
-                }
-              });
-            }
-          });
+          _initWebSocket();
         } else if (ws.isConnected) {
           debugPrint('📱 Gateway 已连接，刷新会话');
           _onWsReadyLoadSessions(source: 'resume-already');
@@ -2995,7 +3111,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     final userId = user?.id;
     final ws = WebSocketService();
     
-    // 判断是否能走 WebSocket
+    // 判断是否能走 WebSocket：Gateway 优先，Lume 仅作已连接时的回退
     final lumeWs = LumeWebSocketService();
     final canUseWs = userId != null && (ws.isConnected || lumeWs.isConnected);
     
@@ -3095,8 +3211,28 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     debugPrint('📤 发送消息: sessionKey=$targetSessionKey, message=${text.substring(0, text.length > 50 ? 50 : text.length)}');
     
     debugPrint('📤 完整参数: $params');
-    debugPrint('📤 通过 Gateway 发送');
-    ws.sendRequest('chat.send', params);
+    final ocAgentId = _agents[_currentAgent]?['agentId'] as String? ?? _currentAgent;
+    params['agentId'] = ocAgentId;
+    if (ws.isConnected) {
+      debugPrint('📤 通过 Gateway 发送 (ocAgentId=$ocAgentId)');
+      ws.sendRequest('chat.send', params);
+    } else if (lumeWs.isConnected) {
+      debugPrint('📤 Gateway 未连接，通过 Lume 回退发送 (ocAgentId=$ocAgentId)');
+      lumeWs.sendRequest('chat.send', params);
+    } else {
+      debugPrint('❌ WebSocket 发送前连接已断开');
+      setState(() {
+        _isGenerating = false;
+        _messages.add(Message(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          role: 'assistant',
+          content: '⚠️ 连接已断开，请稍等几秒后重试',
+          createdAt: DateTime.now(),
+          agentId: _currentAgent,
+        ));
+      });
+      return;
+    }
     
     // 🆕 自动更新 session label（如果是第一条消息或有意义的消息）
     if (_currentSessionKey != null && text.isNotEmpty) {
@@ -3123,7 +3259,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           
           debugPrint('📝 更新 session label: $_currentSessionKey → $newTitle');
           
-          // 发送更新请求（Lume 优先）
+          // 发送更新请求（Gateway 优先）
           rpcSendAwait('sessions.update', {
             'key': _currentSessionKey,
             'sessionKey': _currentSessionKey,
@@ -3523,7 +3659,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               _buildDebugItem('Lume 状态', _lumeStatus, _lumeConnected ? Colors.green : Colors.grey),
               SwitchListTile(
                 title: const Text('启用 Lume 测试模式'),
-                subtitle: const Text('Lume 优先单连接；仅插件不可用时降级 Gateway'),
+                subtitle: const Text('Gateway WebSocket 直连优先；Lume 仅作为可选回退'),
                 value: _lumeTestEnabled,
                 activeColor: Constants.primaryColor,
                 onChanged: (v) async { await _setLumeTestEnabled(v); },
@@ -5463,7 +5599,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                 });
                 _saveSessions();
                 
-                // 同步到服务器（Lume 优先）
+                // 同步到服务器（Gateway 优先）
                 rpcSendAwait('sessions.update', {
                   'key': sessionKey,
                   'sessionKey': sessionKey,
@@ -8168,4 +8304,10 @@ class _BindKeyDialogState extends State<_BindKeyDialog> {
       });
     }
   }
+}
+
+// Lume 流式累积状态
+class _LumeStreamState {
+  String fullText = "";
+  int lastTextLen = 0;
 }
