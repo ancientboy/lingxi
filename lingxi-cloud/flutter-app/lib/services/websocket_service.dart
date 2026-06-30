@@ -1,13 +1,20 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:flutter/foundation.dart';
-import 'package:lingxicloud/utils/constants.dart';
 import 'package:lingxicloud/services/api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter/services.dart';
 
 typedef WebSocketMessageCallback = void Function(Map<String, dynamic> data);
+
+/// 连接状态枚举
+enum ConnState {
+  disconnected,
+  connecting,
+  connected,
+  reconnecting,
+}
 
 class WebSocketService {
   static final WebSocketService _instance = WebSocketService._internal();
@@ -26,13 +33,164 @@ class WebSocketService {
   String? _sessionPrefix;
   int _requestId = 1;
   final Map<String, Completer<Map<String, dynamic>?>> _pendingResponses = {};
+
+  // ── 连接状态机 ──
+  ConnState _connState = ConnState.disconnected;
+  ConnState get connState => _connState;
+
+  void _setConnState(ConnState newState) {
+    final prev = _connState;
+    _connState = newState;
+    if (prev != newState) {
+      debugPrint('[WS] connState: ${prev.name} -> ${newState.name}');
+      _notifyListeners({
+        'type': 'event',
+        'event': 'conn.state',
+        'payload': {'state': newState.name, 'prev': prev.name},
+      });
+    }
+  }
+
+  // ── 心跳 watchdog ──
+  static const Duration _heartbeatInterval = Duration(seconds: 25);
+  static const Duration _heartbeatWatchdogTimeout = Duration(seconds: 35);
+  Timer? _heartbeatTimer;
+  Timer? _heartbeatWatchdog;
+  DateTime? _lastMessageTime;
+
+  void _startHeartbeat() {
+    _stopHeartbeat();
+    _lastMessageTime = DateTime.now();
+
+    _heartbeatTimer = Timer.periodic(_heartbeatInterval, (_) {
+      if (_channel != null && _isConnected) {
+        try {
+          _channel!.sink.add(json.encode({'type': 'ping'}));
+          debugPrint('[WS] heartbeat ping sent');
+        } catch (e) {
+          debugPrint('[WS] heartbeat ping error: $e');
+        }
+      }
+    });
+
+    _resetHeartbeatWatchdog();
+  }
+
+  void _resetHeartbeatWatchdog() {
+    _heartbeatWatchdog?.cancel();
+    _heartbeatWatchdog = Timer(_heartbeatWatchdogTimeout, () {
+      if (_isConnected) {
+        debugPrint('[WS] heartbeat watchdog timeout, forcing reconnect');
+        _forceReconnect();
+      }
+    });
+  }
+
+  void _stopHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
+    _heartbeatWatchdog?.cancel();
+    _heartbeatWatchdog = null;
+  }
+
+  void _onMessageReceived() {
+    _lastMessageTime = DateTime.now();
+    if (_isConnected) {
+      _resetHeartbeatWatchdog();
+    }
+  }
+
+  // ── 指数退避重连 ──
+  static const int _maxReconnectAttempts = 20;
+  static const Duration _reconnectBaseDelay = Duration(seconds: 1);
+  static const Duration _reconnectMaxDelay = Duration(seconds: 30);
+  static const double _reconnectFactor = 2.0;
   Timer? _reconnectTimer;
-  Timer? _heartbeatTimer;  // 心跳定时器
-  final int _maxReconnectAttempts = 5;
   int _reconnectAttempts = 0;
-  Function? _onInitError;
-  String _lastError = '';
-  int _messagesReceived = 0;
+  bool _reconnectEnabled = false;
+
+  Duration _computeReconnectDelay() {
+    final exponential = (_reconnectBaseDelay.inSeconds *
+        math.pow(_reconnectFactor, _reconnectAttempts)).toInt();
+    final clamped = exponential.clamp(
+      _reconnectBaseDelay.inSeconds,
+      _reconnectMaxDelay.inSeconds,
+    );
+    // jitter ±500ms
+    final jitter = (DateTime.now().millisecondsSinceEpoch % 1000) - 500;
+    return Duration(milliseconds: clamped * 1000 + jitter);
+  }
+
+  void _scheduleReconnect() {
+    if (!_reconnectEnabled) return;
+    _reconnectTimer?.cancel();
+
+    if (_reconnectAttempts >= _maxReconnectAttempts) {
+      debugPrint('[WS] max reconnect attempts reached ($_maxReconnectAttempts)');
+      _notifyListeners({
+        'type': 'error',
+        'error': '连接失败，请检查网络后手动重试',
+        'maxRetriesReached': true,
+      });
+      return;
+    }
+
+    final delay = _computeReconnectDelay();
+    _reconnectAttempts++;
+    _setConnState(ConnState.reconnecting);
+    debugPrint('[WS] reconnect in ${delay.inSeconds}s (attempt=$_reconnectAttempts)');
+
+    _reconnectTimer = Timer(delay, () {
+      connect();
+    });
+  }
+
+  void _forceReconnect() {
+    _stopHeartbeat();
+    _subscription?.cancel();
+    try {
+      _channel?.sink.close();
+    } catch (_) {}
+    _channel = null;
+    _isConnected = false;
+    _isConnecting = false;
+    _failAllPending('connection reset');
+    _scheduleReconnect();
+  }
+
+  // ── 离线请求队列 ──
+  final List<_QueuedRequest> _offlineQueue = [];
+  static const int _maxQueueSize = 50;
+
+  void _enqueueOffline(String method, Map<String, dynamic> params,
+      {Duration? timeout}) {
+    if (_offlineQueue.length >= _maxQueueSize) {
+      _offlineQueue.removeAt(0);
+    }
+    _offlineQueue.add(_QueuedRequest(method, params, timeout: timeout));
+    debugPrint('[WS] queued offline request: $method (queue=${_offlineQueue.length})');
+  }
+
+  void _flushOfflineQueue() {
+    if (!_isConnected || _offlineQueue.isEmpty) return;
+    final queue = List<_QueuedRequest>.from(_offlineQueue);
+    _offlineQueue.clear();
+    for (final req in queue) {
+      sendRequest(req.method, req.params);
+    }
+    debugPrint('[WS] flushed ${queue.length} queued requests');
+  }
+
+  // ── Pending 请求失败处理 ──
+  void _failAllPending(String reason) {
+    final keys = _pendingResponses.keys.toList();
+    for (final id in keys) {
+      final c = _pendingResponses.remove(id);
+      if (c != null && !c.isCompleted) {
+        c.completeError(reason);
+      }
+    }
+  }
 
   // 辅助方法：安全地将任意类型转换为字符串
   String _toString(dynamic value) {
@@ -43,7 +201,13 @@ class WebSocketService {
     return value.toString();
   }
 
-  // 设置初始化错误回调
+  Function? _onInitError;
+  void _notifyInitError(Object error) {
+    try {
+      _onInitError?.call(error);
+    } catch (_) {}
+  }
+
   void setOnInitError(Function callback) {
     _onInitError = callback;
   }
@@ -52,101 +216,113 @@ class WebSocketService {
   Future<void> connect() async {
     try {
       if (_isConnected || _isConnecting) {
-        debugPrint('🔌 WebSocket 已连接或正在连接，跳过');
+        debugPrint('[WS] already connected/connecting, skip');
         return;
       }
-    
+
       // 清理旧连接
       _subscription?.cancel();
-      _channel?.sink.close();
+      try {
+        _channel?.sink.close();
+      } catch (_) {}
       _channel = null;
       _subscription = null;
-      
+
       _isConnecting = true;
+      _setConnState(ConnState.connecting);
       _notifyListeners({'type': 'status', 'status': 'connecting'});
-      
+
       // 确保 ApiService 有 token
       final apiService = ApiService();
       if (apiService.getAuthToken() == null) {
-        debugPrint('⚠️ ApiService 没有 token，尝试从本地加载');
+        debugPrint('[WS] no token in ApiService, trying local');
         final prefs = await SharedPreferences.getInstance();
         final token = prefs.getString('lingxi_token');
         if (token != null && token.isNotEmpty) {
           apiService.setAuthToken(token);
-          debugPrint('✅ 已从本地加载 token: ${token.substring(0, 20)}...');
         } else {
-          debugPrint('❌ 本地也没有 token，无法连接');
+          debugPrint('[WS] no token locally either');
+          _notifyInitError('请先登录');
           _isConnecting = false;
+          _setConnState(ConnState.disconnected);
           _notifyListeners({'type': 'error', 'error': '请先登录'});
           return;
         }
       }
-      
-      // 从 API 获取 Gateway 连接信息（如果已有缓存则跳过）
+
+      // 从 API 获取 Gateway 连接信息
       if (_wsUrl != null && _token != null && _gatewayToken != null) {
-        debugPrint('🔌 使用缓存的 Gateway 信息，跳过 API 请求');
+        debugPrint('[WS] using cached Gateway info');
       } else {
-        debugPrint('🔌 正在获取 Gateway 连接信息...');
+        debugPrint('[WS] fetching Gateway connect-info...');
         final response = await apiService.get('/api/gateway/connect-info');
-      
         final data = response.data;
-      
-        debugPrint('🔌 Gateway 响应：$data (statusCode=${response.statusCode})');
-      
-        // 🔧 新逻辑：mode=free 表示免费聊天模式（不是错误）
+
+        debugPrint('[WS] Gateway response: $data (statusCode=${response.statusCode})');
+
         final mode = data?['mode'];
         if (mode == 'free' || (data != null && data['wsUrl'] == null)) {
-          debugPrint('💬 免费聊天模式（无设备连接）');
+          debugPrint('[WS] free chat mode (no device)');
           _isConnecting = false;
           _isConnected = false;
-          _notifyListeners({'type': 'status', 'status': 'free_mode', 'message': data?['message'] ?? '免费聊天模式'});
+          _setConnState(ConnState.disconnected);
+          _notifyListeners({
+            'type': 'status',
+            'status': 'free_mode',
+            'message': data?['message'] ?? '免费聊天模式',
+          });
           return;
         }
-        
-        // 检查是否返回 403（真正的错误）
+
         if (response.statusCode == 403) {
-          debugPrint('❌ 连接被拒绝');
           _isConnecting = false;
-          _notifyListeners({'type': 'status', 'status': 'free_mode', 'message': data?['message'] ?? '请添加设备'});
+          _setConnState(ConnState.disconnected);
+          _notifyListeners({
+            'type': 'status',
+            'status': 'free_mode',
+            'message': data?['message'] ?? '请添加设备',
+          });
           return;
         }
-      
+
         if (data != null && data['wsUrl'] != null) {
           _wsUrl = data['wsUrl'];
           _token = data['token'];
           _gatewayToken = data['gatewayToken'];
           _session = data['session'];
           _sessionPrefix = data['sessionPrefix'];
-        
-          debugPrint('🔌 WebSocket URL: $_wsUrl');
-          debugPrint('🔌 Session: $_session');
-          debugPrint('🔌 Session Prefix: $_sessionPrefix');
         } else {
-          debugPrint('❌ 获取 Gateway 信息失败: $data');
           _isConnecting = false;
-          _notifyListeners({'type': 'error', 'error': '获取连接信息失败: ${data['error'] ?? '未知错误'}'});
+          _setConnState(ConnState.disconnected);
+          final errorText = '获取连接信息失败: ${data?['error'] ?? '未知错误'}';
+          _notifyInitError(errorText);
+          _notifyListeners({
+            'type': 'error',
+            'error': errorText,
+          });
           return;
         }
       }
-      
-      final wsUrl = '${_wsUrl}?token=${Uri.encodeComponent(_token!)}';
-      debugPrint('🔌 连接 WebSocket: $wsUrl');
-      
+
+      final wsUrl = '$_wsUrl?token=${Uri.encodeComponent(_token!)}';
+      debugPrint('[WS] connecting to: $wsUrl');
+
       try {
         _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
-        debugPrint('🔌 WebSocket 连接请求已发送');
-      } catch (e, stack) {
-        debugPrint('❌ WebSocket 连接失败: $e');
+      } catch (e) {
+        debugPrint('[WS] connect failed: $e');
         _isConnecting = false;
+        _setConnState(ConnState.disconnected);
         _notifyListeners({'type': 'error', 'error': '连接失败: $e'});
         _scheduleReconnect();
         return;
       }
-      
+
       _subscription = _channel!.stream.listen(
         (dynamic message) async {
           try {
             _messagesReceived++;
+            _onMessageReceived();
             String text;
             if (message is String) {
               text = message;
@@ -155,47 +331,53 @@ class WebSocketService {
             } else if (message is Uint8List) {
               text = utf8.decode(message);
             } else {
-              debugPrint('❌ 未知消息类型: ${message.runtimeType}');
+              debugPrint('[WS] unknown message type: ${message.runtimeType}');
               _lastError = '未知消息类型: ${message.runtimeType}';
               return;
             }
-            debugPrint('📥 收到原始消息 (#$_messagesReceived): ${text.length > 300 ? text.substring(0, 300) + '...' : text}');
+            final preview = text.length > 300 ? '${text.substring(0, 300)}...' : text;
+            debugPrint('[WS] recv (#$_messagesReceived): $preview');
             final data = json.decode(text) as Map<String, dynamic>;
             _handleMessage(data);
           } catch (e, stack) {
-            debugPrint('❌ 解析消息失败: $e\nStack: $stack');
+            debugPrint('[WS] parse error: $e\n$stack');
             _lastError = '解析消息失败: $e';
           }
         },
         onError: (error) {
-          debugPrint('❌ WebSocket error: $error');
+          debugPrint('[WS] stream error: $error');
           _lastError = error.toString();
           _isConnecting = false;
           _isConnected = false;
+          _stopHeartbeat();
+          _setConnState(ConnState.disconnected);
           _notifyListeners({'type': 'error', 'error': error.toString()});
           _scheduleReconnect();
         },
         onDone: () {
-          debugPrint('🔌 WebSocket connection closed after receiving $_messagesReceived messages');
+          debugPrint('[WS] closed after $_messagesReceived msgs');
           _lastError = '连接已关闭';
           final wasConnected = _isConnected;
           _isConnecting = false;
           _isConnected = false;
+          _stopHeartbeat();
+          _failAllPending('connection closed');
+          _setConnState(ConnState.disconnected);
           _notifyListeners({'type': 'status', 'status': 'disconnected'});
-          // 只在 App 活跃时自动重连（后台断开不重连，等回前台 forceReconnect）
-          if (wasConnected) {
+          if (wasConnected && _reconnectEnabled) {
             _scheduleReconnect();
           }
         },
       );
-      
-      debugPrint('🔌 WebSocket stream 已订阅，等待 750ms 后发送 connect 消息');
+
+      debugPrint('[WS] stream subscribed, waiting 750ms before connect msg');
       await Future.delayed(const Duration(milliseconds: 750));
       _sendConnect();
-      
-    } catch (e, stack) {
-      debugPrint('❌ WebSocket connect error: $e');
+    } catch (e) {
+      debugPrint('[WS] connect error: $e');
       _isConnecting = false;
+      _setConnState(ConnState.disconnected);
+      _notifyInitError(e);
       _notifyListeners({'type': 'error', 'error': e.toString()});
       _scheduleReconnect();
     }
@@ -203,7 +385,7 @@ class WebSocketService {
 
   void _sendConnect() {
     if (_channel == null) return;
-    
+
     final params = {
       'minProtocol': 3,
       'maxProtocol': 99,
@@ -211,7 +393,7 @@ class WebSocketService {
         'id': 'openclaw-control-ui',
         'version': '1.0.0',
         'platform': 'web',
-        'mode': 'webchat'
+        'mode': 'webchat',
       },
       'role': 'operator',
       'scopes': ['operator.admin', 'operator.read', 'operator.write'],
@@ -219,17 +401,14 @@ class WebSocketService {
       'locale': 'zh-CN',
       'userAgent': 'LingxiCloud-Flutter/1.0.0 (Android)',
     };
-    
-    debugPrint('📤 Connect params: $params');
-    
+
     final connectMsg = {
       'type': 'req',
       'id': 'req_${_requestId++}',
       'method': 'connect',
       'params': params,
     };
-    
-    debugPrint('📤 发送 connect 消息');
+
     _channel!.sink.add(json.encode(connectMsg));
   }
 
@@ -237,25 +416,31 @@ class WebSocketService {
     final msgType = _toString(data['type']);
     final msgEvent = _toString(data['event']);
     final payloadType = data['payload'] is Map ? _toString(data['payload']?['type']) : '';
-    
-    debugPrint('📥 收到消息: type=$msgType, event=$msgEvent, payloadType=$payloadType, ok=${data['ok']}');
-    
-    // 检测 hello-ok 认证成功（多种格式兼容）
-    final isHelloOk = (data['type'] == 'res' && data['ok'] == true && payloadType == 'hello-ok') ||
-                      (data['type'] == 'event' && msgEvent == 'hello-ok') ||
-                      (data['type'] == 'res' && data['ok'] == true && data['payload']?['hello'] != null);
-    
+
+    // pong
+    if (msgType == 'pong' || (msgType == 'event' && msgEvent == 'pong')) {
+      _onMessageReceived();
+      return;
+    }
+
+    // 检测 hello-ok 认证成功
+    final isHelloOk = (msgType == 'res' && data['ok'] == true && payloadType == 'hello-ok') ||
+        (msgType == 'event' && msgEvent == 'hello-ok') ||
+        (msgType == 'res' && data['ok'] == true && data['payload']?['hello'] != null);
+
     if (isHelloOk) {
       _isConnected = true;
       _isConnecting = false;
       _reconnectAttempts = 0;
-      debugPrint('✅ WebSocket 认证成功 (detected via: type=$msgType, event=$msgEvent, payloadType=$payloadType)');
+      _reconnectEnabled = true;
+      _setConnState(ConnState.connected);
       _notifyListeners({'type': 'connected'});
-      _startHeartbeat();  // 启动心跳
+      _startHeartbeat();
+      _flushOfflineQueue();
       return;
     }
-    
-    if (data['type'] == 'res') {
+
+    if (msgType == 'res') {
       final id = data['id']?.toString();
       if (id != null && id.isNotEmpty) {
         final c = _pendingResponses.remove(id);
@@ -269,61 +454,42 @@ class WebSocketService {
     _notifyListeners(data);
   }
 
-  void _scheduleReconnect() {
-    if (_reconnectAttempts >= _maxReconnectAttempts) {
-      debugPrint('❌ 达到最大重连次数 ($_maxReconnectAttempts)，停止重连');
-      _notifyListeners({
-        'type': 'error', 
-        'error': '连接失败，请检查网络后手动重试',
-        'maxRetriesReached': true
-      });
-      return;
-    }
-    
-    _reconnectAttempts++;
-    final delay = Duration(seconds: _reconnectAttempts * 2);
-    _reconnectTimer?.cancel();
-    debugPrint('⏳ ${delay.inSeconds} 秒后尝试第 $_reconnectAttempts 次重连...');
-    _reconnectTimer = Timer(delay, () {
-      debugPrint('🔄 开始重连 (第 $_reconnectAttempts 次)');
-      connect();
-    });
-  }
-
   void disconnect() {
+    _reconnectEnabled = false;
     _reconnectTimer?.cancel();
-    _heartbeatTimer?.cancel();  // 停止心跳
+    _stopHeartbeat();
     _subscription?.cancel();
-    _channel?.sink.close();
+    try {
+      _channel?.sink.close();
+    } catch (_) {}
     _channel = null;
     _isConnected = false;
     _isConnecting = false;
-  }
-  
-  // 启动心跳（每 30 秒发送一次 ping）
-  void _startHeartbeat() {
-    _heartbeatTimer?.cancel();
-    _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
-      if (_channel != null && _isConnected) {
-        debugPrint('💓 发送心跳 ping');
-        _channel!.sink.add(json.encode({'type': 'ping'}));
-      } else {
-        debugPrint('⚠️ WebSocket 未连接，停止心跳');
-        timer.cancel();
-      }
-    });
+    _failAllPending('disconnected');
+    _offlineQueue.clear();
+    _setConnState(ConnState.disconnected);
   }
 
   void sendMessage(String content, {String? agentId, String? sessionKey}) {
     if (!_isConnected || _channel == null) {
-      debugPrint('WebSocket 未连接，无法发送消息');
+      debugPrint('[WS] not connected, queueing message');
+      final agent = agentId ?? 'main';
+      final targetSessionKey = (sessionKey != null && sessionKey.isNotEmpty)
+          ? sessionKey
+          : '${_sessionPrefix ?? ""}:agent:$agent';
+      _enqueueOffline('chat.send', {
+        'sessionKey': targetSessionKey,
+        'message': content,
+        'idempotencyKey': 'msg_${DateTime.now().millisecondsSinceEpoch}',
+        'deliver': false,
+      });
       return;
     }
 
     final agent = agentId ?? 'main';
     final targetSessionKey = (sessionKey != null && sessionKey.isNotEmpty)
         ? sessionKey
-        : '${_sessionPrefix}:agent:$agent';
+        : '${_sessionPrefix ?? ""}:agent:$agent';
 
     final message = {
       'type': 'req',
@@ -337,24 +503,23 @@ class WebSocketService {
       },
     };
 
-    debugPrint('📤 发送消息到 $targetSessionKey');
     _channel!.sink.add(json.encode(message));
   }
-  
+
   void sendRequest(String method, Map<String, dynamic> params) {
     if (!_isConnected || _channel == null) {
-      debugPrint('WebSocket 未连接，无法发送请求');
+      debugPrint('[WS] not connected, queueing: $method');
+      _enqueueOffline(method, params);
       return;
     }
-    
+
     final request = {
       'type': 'req',
       'id': '${method.replaceAll('.', '_')}_${DateTime.now().millisecondsSinceEpoch}',
       'method': method,
       'params': params,
     };
-    
-    debugPrint('📤 发送请求: $method');
+
     _channel!.sink.add(json.encode(request));
   }
 
@@ -363,7 +528,12 @@ class WebSocketService {
     Map<String, dynamic> params, {
     Duration timeout = const Duration(seconds: 12),
   }) async {
-    if (!_isConnected || _channel == null) return null;
+    if (!_isConnected || _channel == null) {
+      // 离线排队 + 等待重连后 flush
+      debugPrint('[WS] sendRequestAwait offline, queueing: $method');
+      _enqueueOffline(method, params, timeout: timeout);
+      return null;
+    }
     final reqId = '${method.replaceAll('.', '_')}_${DateTime.now().millisecondsSinceEpoch}';
     final completer = Completer<Map<String, dynamic>?>();
     _pendingResponses[reqId] = completer;
@@ -394,7 +564,11 @@ class WebSocketService {
 
   void _notifyListeners(Map<String, dynamic> data) {
     for (final listener in _listeners) {
-      listener(data);
+      try {
+        listener(data);
+      } catch (e) {
+        debugPrint('[WS] listener error: $e');
+      }
     }
   }
 
@@ -411,9 +585,14 @@ class WebSocketService {
       'hasGatewayToken': _gatewayToken != null && _gatewayToken!.isNotEmpty,
       'isConnected': _isConnected,
       'isConnecting': _isConnecting,
+      'connState': _connState.name,
       'reconnectAttempts': _reconnectAttempts,
+      'reconnectEnabled': _reconnectEnabled,
       'lastError': _lastError.isEmpty ? null : _lastError,
       'messagesReceived': _messagesReceived,
+      'offlineQueueSize': _offlineQueue.length,
+      'pendingRequests': _pendingResponses.length,
+      'lastMessageTime': _lastMessageTime?.toIso8601String(),
     };
   }
 
@@ -427,39 +606,38 @@ class WebSocketService {
     _sessionPrefix = null;
   }
 
-  /// 🔄 强制重连（App 回前台时调用）
-  /// 保留已有的 wsUrl/token 等信息，直接重连
+  /// 强制重连（App 回前台时调用）
   DateTime? _lastForceReconnect;
-  
+
   void forceReconnect() {
-    // 防止 10 秒内重复 forceReconnect
     final now = DateTime.now();
-    if (_lastForceReconnect != null && 
+    if (_lastForceReconnect != null &&
         now.difference(_lastForceReconnect!).inSeconds < 10) {
-      debugPrint('🔄 forceReconnect: 跳过（10秒内已重连过）');
+      debugPrint('[WS] forceReconnect: skip (within 10s)');
       return;
     }
     _lastForceReconnect = now;
-    debugPrint('🔄 forceReconnect: 重置状态并重连');
+    debugPrint('[WS] forceReconnect: reset and reconnect');
     _reconnectTimer?.cancel();
-    _heartbeatTimer?.cancel();
+    _stopHeartbeat();
     _subscription?.cancel();
-    _channel?.sink.close();
+    try {
+      _channel?.sink.close();
+    } catch (_) {}
     _channel = null;
     _isConnected = false;
     _isConnecting = false;
     _reconnectAttempts = 0;
-    // 清除缓存确保连新设备
+    _failAllPending('force reconnect');
     _wsUrl = null;
     _token = null;
     _gatewayToken = null;
     connect();
   }
 
-  /// 💓 发送心跳 ping（App 回前台时验证连接是否还活着）
+  /// 发送心跳 ping（App 回前台时验证连接是否还活着）
   void ping() {
     if (_channel != null && _isConnected) {
-      debugPrint('💓 发送验证 ping');
       _channel!.sink.add(json.encode({'type': 'ping'}));
     }
   }
@@ -467,8 +645,21 @@ class WebSocketService {
   void clearListeners() {
     _listeners.clear();
   }
-  
+
   void cancelReconnect() {
     _reconnectTimer?.cancel();
   }
+
+  // 旧字段保留兼容
+  String _lastError = '';
+  int _messagesReceived = 0;
+}
+
+/// 离线队列项
+class _QueuedRequest {
+  final String method;
+  final Map<String, dynamic> params;
+  final Duration? timeout;
+
+  _QueuedRequest(this.method, this.params, {this.timeout});
 }

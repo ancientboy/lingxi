@@ -190,6 +190,23 @@ function _finishLumeGeneration(runId, text, modelInfo) {
 }
 
 function handleLumeEvent(msg) {
+  if (msg.event === 'conn.state') {
+    var connState = (msg.payload && msg.payload.state) || 'disconnected';
+    var statusEl = document.getElementById('connectionStatus');
+    var dot = statusEl ? statusEl.querySelector('.status-dot') : null;
+    if (dot) {
+      if (connState === 'connected') dot.className = 'status-dot connected';
+      else if (connState === 'connecting' || connState === 'reconnecting') dot.className = 'status-dot connecting';
+      else dot.className = 'status-dot disconnected';
+    }
+    if (statusEl) {
+      var label = statusEl.querySelector('.status-text');
+      if (label) {
+        label.textContent = connState === 'connected' ? '已连接' : (connState === 'reconnecting' ? '重连中' : (connState === 'connecting' ? '连接中' : '已断开'));
+      }
+    }
+    return;
+  }
   if (msg.event === 'device.switched') {
     console.log('[Lume] device.switched → 重新加载会话与历史');
     localStorage.removeItem('currentSessionKey');
