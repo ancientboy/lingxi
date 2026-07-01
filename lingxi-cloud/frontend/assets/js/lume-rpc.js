@@ -5,8 +5,10 @@
  * === 连接管理增强 ===
  * - 状态机: disconnected → connecting → connected → reconnecting → disconnected
  * - 心跳 watchdog: 周期 ping，超时触发重连
- * - 指数退避重连: base 1s, factor 2, max 30s, jitter
+ * - 指数退避重连: base 500ms, factor 1.7, max 15s, jitter（借鉴 OpenClaw）
  * - 请求队列: 离线时排队，恢复后 flush
+ * - 智能认证失败处理（借鉴 OpenClaw）
+ * - tick 监控（借鉴 OpenClaw）
  */
 const LumeRpc = (function () {
   var ws = null;
@@ -30,17 +32,27 @@ const LumeRpc = (function () {
   var heartbeatTimer = null;
   var heartbeatWatchdog = null;
 
-  // ── 指数退避重连 ──
+  // ── 借鉴 OpenClaw: tick 监控 ──
+  var serverTickIntervalMs = 30000; // 默认 30s
+  var lastTickTime = 0;
+  var tickWatchdog = null;
+
+  // ── 指数退避重连（改进：借鉴 OpenClaw 更温和参数） ──
   var reconnectEnabled = false;
-  var reconnectBaseDelay = 1000;   // 1s
-  var reconnectMaxDelay = 30000;   // 30s
-  var reconnectFactor = 2;
+  var reconnectBaseDelay = 500;    // 借鉴 OpenClaw: 500ms 起始
+  var reconnectMaxDelay = 15000;   // 借鉴 OpenClaw: 15s 上限
+  var reconnectFactor = 1.7;       // 借鉴 OpenClaw: 更平缓增长
   var reconnectJitter = 500;       // ±500ms
   var reconnectAttempt = 0;
   var reconnectTimer = null;
   var lastWsUrl = null;
   var lastGatewayWsUrl = null;
   var lastOpenclawToken = null;
+
+  // ── 借鉴 OpenClaw: 智能认证失败处理 ──
+  var reconnectPausedForAuthFailure = false;
+  var pendingDeviceTokenRetry = false;
+  var deviceTokenRetryBudgetUsed = false;
 
   // ── 离线请求队列 ──
   var offlineQueue = [];
@@ -115,6 +127,7 @@ const LumeRpc = (function () {
     connected = true;
     connecting = false;
     reconnectAttempt = 0;
+    reconnectPausedForAuthFailure = false;
     if (transport) activeTransport = transport;
     if (payload && payload.userId) userId = payload.userId;
     setConnState('connected');
@@ -136,6 +149,10 @@ const LumeRpc = (function () {
   // ── 心跳 watchdog ──
   function startHeartbeat() {
     stopHeartbeat();
+
+    // 借鉴 OpenClaw: 启动 tick 监控
+    startTickWatch();
+
     heartbeatTimer = setInterval(function () {
       if (ws && ws.readyState === WebSocket.OPEN && connected) {
         try {
@@ -150,6 +167,24 @@ const LumeRpc = (function () {
 
     // watchdog: 如果 heartbeatTimeout 内没有收到任何消息，认为连接已死
     resetHeartbeatWatchdog();
+  }
+
+  // 借鉴 OpenClaw: 启动 tick 监控
+  function startTickWatch() {
+    if (tickWatchdog) {
+      clearInterval(tickWatchdog);
+    }
+    var checkInterval = Math.max(serverTickIntervalMs, 1000);
+    var timeoutThreshold = serverTickIntervalMs * 2; // 2 倍间隔无 tick 则超时
+
+    tickWatchdog = setInterval(function () {
+      if (!connected || !lastTickTime) return;
+      var elapsed = Date.now() - lastTickTime;
+      if (elapsed >= timeoutThreshold) {
+        console.warn('[LumeRpc] tick timeout detected (' + elapsed + 'ms > ' + timeoutThreshold + 'ms), forcing reconnect');
+        forceReconnect();
+      }
+    }, checkInterval);
   }
 
   function resetHeartbeatWatchdog() {
@@ -173,19 +208,79 @@ const LumeRpc = (function () {
       clearTimeout(heartbeatWatchdog);
       heartbeatWatchdog = null;
     }
+    if (tickWatchdog) {
+      clearInterval(tickWatchdog);
+      tickWatchdog = null;
+    }
   }
 
-  // ── 指数退避重连 ──
+  // ── 借鉴 OpenClaw: 智能认证失败处理 ──
+  function parseAuthError(errorData) {
+    var code = errorData.code || 'UNKNOWN';
+    var message = errorData.message || 'Unknown error';
+    var details = errorData.details || {};
+    var detailCode = details.code || code;
+
+    var pauseReconnect = false;
+    var canRetryWithDeviceToken = details.canRetryWithDeviceToken === true;
+    var recommendedNextStep = details.recommendedNextStep || null;
+
+    switch (detailCode) {
+      case 'AUTH_TOKEN_MISSING':
+      case 'AUTH_TOKEN_INVALID':
+      case 'AUTH_BOOTSTRAP_TOKEN_INVALID':
+      case 'AUTH_PASSWORD_MISSING':
+      case 'AUTH_PASSWORD_MISMATCH':
+      case 'AUTH_RATE_LIMITED':
+      case 'DEVICE_IDENTITY_REQUIRED':
+      case 'CONTROL_UI_DEVICE_IDENTITY_REQUIRED':
+        pauseReconnect = true;
+        break;
+      case 'PAIRING_REQUIRED':
+        // 借鉴 OpenClaw: bootstrap node 可以等待重试
+        var hasBootstrapToken = lastOpenclawToken != null;
+        var reason = details.reason;
+        var pause = details.pauseReconnect;
+        if (hasBootstrapToken && reason === 'not-paired' && 
+            (pause === false || recommendedNextStep === 'wait_then_retry')) {
+          pauseReconnect = false;
+        } else {
+          pauseReconnect = true;
+        }
+        break;
+      case 'AUTH_TOKEN_MISMATCH':
+        pauseReconnect = deviceTokenRetryBudgetUsed && !pendingDeviceTokenRetry;
+        break;
+    }
+
+    return {
+      code: detailCode,
+      message: message,
+      pauseReconnect: pauseReconnect,
+      canRetryWithDeviceToken: canRetryWithDeviceToken,
+      recommendedNextStep: recommendedNextStep,
+    };
+  }
+
+  // ── 指数退避重连（改进：借鉴 OpenClaw 参数） ──
   function computeReconnectDelay() {
+    // 借鉴 OpenClaw: 500 * 1.7^attempt, max 15000
     var delay = reconnectBaseDelay * Math.pow(reconnectFactor, reconnectAttempt);
     if (delay > reconnectMaxDelay) delay = reconnectMaxDelay;
     // jitter ±reconnectJitter
     delay += (Math.random() * 2 - 1) * reconnectJitter;
-    return Math.max(500, Math.round(delay));
+    return Math.max(350, Math.round(delay));
   }
 
   function scheduleReconnect() {
     if (!reconnectEnabled) return;
+    
+    // 借鉴 OpenClaw: 如果认证失败暂停重连，不调度
+    if (reconnectPausedForAuthFailure) {
+      console.warn('[LumeRpc] reconnect paused due to auth failure');
+      return;
+    }
+    
     if (reconnectTimer) {
       clearTimeout(reconnectTimer);
     }
@@ -267,6 +362,43 @@ const LumeRpc = (function () {
     // pong
     if (msg.type === 'pong' || msg.type === 'event' && msg.event === 'pong') {
       return;
+    }
+
+    // 借鉴 OpenClaw: 追踪服务端 tick
+    if (msg.type === 'event' && msg.event === 'tick') {
+      lastTickTime = Date.now();
+      return;
+    }
+
+    // 借鉴 OpenClaw: 解析服务端策略
+    if (msg.type === 'res' && msg.ok && msg.payload && msg.payload.policy) {
+      var policy = msg.payload.policy;
+      if (policy.tickIntervalMs) {
+        serverTickIntervalMs = policy.tickIntervalMs;
+        console.log('[LumeRpc] server tickIntervalMs updated:', serverTickIntervalMs);
+        // 重新启动 tick 监控以应用新配置
+        if (connected) {
+          startTickWatch();
+        }
+      }
+    }
+
+    // 借鉴 OpenClaw: 处理认证错误
+    if (msg.type === 'res' && !msg.ok && msg.error) {
+      var authError = parseAuthError(msg.error);
+      if (authError.pauseReconnect) {
+        console.warn('[LumeRpc] auth failure, pausing reconnect:', authError.code);
+        reconnectPausedForAuthFailure = true;
+        emitEvent({
+          type: 'error',
+          error: authError.message,
+          authError: {
+            code: authError.code,
+            pauseReconnect: true,
+          },
+        });
+        return;
+      }
     }
 
     if (msg.type === 'event') {
@@ -366,6 +498,21 @@ const LumeRpc = (function () {
 
         if (!gwConnected && msg.id === connectId && msg.type === 'res') {
           if (!msg.ok) {
+            // 借鉴 OpenClaw: 处理认证错误
+            if (msg.error) {
+              var authError = parseAuthError(msg.error);
+              if (authError.pauseReconnect) {
+                reconnectPausedForAuthFailure = true;
+                emitEvent({
+                  type: 'error',
+                  error: authError.message,
+                  authError: {
+                    code: authError.code,
+                    pauseReconnect: true,
+                  },
+                });
+              }
+            }
             fail();
             return;
           }
@@ -693,6 +840,7 @@ const LumeRpc = (function () {
 
   function disconnect() {
     reconnectEnabled = false;
+    reconnectPausedForAuthFailure = false;
     stopHeartbeat();
     if (reconnectTimer) {
       clearTimeout(reconnectTimer);

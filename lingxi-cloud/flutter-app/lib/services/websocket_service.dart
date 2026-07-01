@@ -16,6 +16,37 @@ enum ConnState {
   reconnecting,
 }
 
+/// 认证错误码（借鉴 OpenClaw 智能认证失败处理）
+enum AuthErrorCode {
+  tokenMissing,
+  tokenInvalid,
+  tokenMismatch,
+  bootstrapTokenInvalid,
+  passwordMissing,
+  passwordMismatch,
+  rateLimited,
+  pairingRequired,
+  deviceIdentityRequired,
+  unknown,
+}
+
+/// 认证错误信息
+class AuthError {
+  final AuthErrorCode code;
+  final String message;
+  final bool pauseReconnect;
+  final bool canRetryWithDeviceToken;
+  final String? recommendedNextStep;
+
+  AuthError({
+    required this.code,
+    required this.message,
+    this.pauseReconnect = false,
+    this.canRetryWithDeviceToken = false,
+    this.recommendedNextStep,
+  });
+}
+
 class WebSocketService {
   static final WebSocketService _instance = WebSocketService._internal();
   factory WebSocketService() => _instance;
@@ -51,17 +82,22 @@ class WebSocketService {
     }
   }
 
-  // ── 心跳 watchdog ──
+  // ── 心跳机制（改进：原生 ping + 应用层 watchdog） ──
   static const Duration _heartbeatInterval = Duration(seconds: 25);
   static const Duration _heartbeatWatchdogTimeout = Duration(seconds: 35);
+  // ── 借鉴 OpenClaw: 原生 ping 间隔（当前通过应用层 ping 实现） ──
   Timer? _heartbeatTimer;
   Timer? _heartbeatWatchdog;
   DateTime? _lastMessageTime;
+  DateTime? _lastTickTime; // 借鉴 OpenClaw: 追踪服务端 tick
+  Timer? _tickWatchdog;    // 借鉴 OpenClaw: tick 超时检测
 
   void _startHeartbeat() {
     _stopHeartbeat();
     _lastMessageTime = DateTime.now();
+    _lastTickTime = DateTime.now();
 
+    // 应用层心跳（保持向后兼容）
     _heartbeatTimer = Timer.periodic(_heartbeatInterval, (_) {
       if (_channel != null && _isConnected) {
         try {
@@ -73,7 +109,27 @@ class WebSocketService {
       }
     });
 
+    // 借鉴 OpenClaw: tick 监控（检测服务端 tick 超时）
+    _startTickWatch();
     _resetHeartbeatWatchdog();
+  }
+
+  /// 借鉴 OpenClaw: 启动 tick 监控
+  void _startTickWatch() {
+    _tickWatchdog?.cancel();
+    // 使用服务端通告的 tickIntervalMs 或默认值 30s
+    final tickIntervalMs = _serverTickIntervalMs ?? 30000;
+    final checkInterval = Duration(milliseconds: math.max(tickIntervalMs, 1000));
+    final timeoutThreshold = tickIntervalMs * 2; // 2 倍间隔无 tick 则超时
+
+    _tickWatchdog = Timer.periodic(checkInterval, (_) {
+      if (!_isConnected || _lastTickTime == null) return;
+      final elapsed = DateTime.now().difference(_lastTickTime!).inMilliseconds;
+      if (elapsed >= timeoutThreshold) {
+        debugPrint('[WS] tick timeout detected (${elapsed}ms > ${timeoutThreshold}ms), forcing reconnect');
+        _forceReconnect();
+      }
+    });
   }
 
   void _resetHeartbeatWatchdog() {
@@ -91,6 +147,8 @@ class WebSocketService {
     _heartbeatTimer = null;
     _heartbeatWatchdog?.cancel();
     _heartbeatWatchdog = null;
+    _tickWatchdog?.cancel();
+    _tickWatchdog = null;
   }
 
   void _onMessageReceived() {
@@ -100,29 +158,147 @@ class WebSocketService {
     }
   }
 
-  // ── 指数退避重连 ──
+  // ── 服务端配置（借鉴 OpenClaw hello-ok 策略） ──
+  int? _serverTickIntervalMs;
+
+  void _handleHelloOk(Map<String, dynamic> payload) {
+    // 解析服务端策略
+    final policy = payload['policy'] as Map<String, dynamic>?;
+    if (policy != null) {
+      _serverTickIntervalMs = policy['tickIntervalMs'] as int?;
+      debugPrint('[WS] server policy: tickIntervalMs=$_serverTickIntervalMs');
+    }
+    // 重新启动 tick 监控以应用新配置
+    if (_isConnected) {
+      _startTickWatch();
+    }
+  }
+
+  // ── 智能认证失败处理（借鉴 OpenClaw） ──
+  bool _reconnectPausedForAuthFailure = false;
+  // ignore: prefer_final_fields
+  bool _pendingDeviceTokenRetry = false;
+  // ignore: prefer_final_fields
+  bool _deviceTokenRetryBudgetUsed = false;
+
+  /// 解析认证错误并决定是否暂停重连
+  AuthError _parseAuthError(Map<String, dynamic> errorData) {
+    final code = errorData['code']?.toString() ?? 'UNKNOWN';
+    final message = errorData['message']?.toString() ?? 'Unknown error';
+    final details = errorData['details'] as Map<String, dynamic>?;
+
+    final authCode = _mapErrorCode(code, details);
+    final pauseReconnect = _shouldPauseReconnect(authCode, details);
+    final canRetry = details?['canRetryWithDeviceToken'] == true;
+    final nextStep = details?['recommendedNextStep']?.toString();
+
+    return AuthError(
+      code: authCode,
+      message: message,
+      pauseReconnect: pauseReconnect,
+      canRetryWithDeviceToken: canRetry,
+      recommendedNextStep: nextStep,
+    );
+  }
+
+  AuthErrorCode _mapErrorCode(String code, Map<String, dynamic>? details) {
+    final detailCode = details?['code']?.toString();
+    switch (detailCode ?? code) {
+      case 'AUTH_TOKEN_MISSING':
+      case 'TOKEN_MISSING':
+        return AuthErrorCode.tokenMissing;
+      case 'AUTH_TOKEN_INVALID':
+      case 'TOKEN_INVALID':
+        return AuthErrorCode.tokenInvalid;
+      case 'AUTH_TOKEN_MISMATCH':
+      case 'TOKEN_MISMATCH':
+        return AuthErrorCode.tokenMismatch;
+      case 'AUTH_BOOTSTRAP_TOKEN_INVALID':
+      case 'BOOTSTRAP_TOKEN_INVALID':
+        return AuthErrorCode.bootstrapTokenInvalid;
+      case 'AUTH_PASSWORD_MISSING':
+      case 'PASSWORD_MISSING':
+        return AuthErrorCode.passwordMissing;
+      case 'AUTH_PASSWORD_MISMATCH':
+      case 'PASSWORD_MISMATCH':
+        return AuthErrorCode.passwordMismatch;
+      case 'AUTH_RATE_LIMITED':
+      case 'RATE_LIMITED':
+        return AuthErrorCode.rateLimited;
+      case 'PAIRING_REQUIRED':
+        return AuthErrorCode.pairingRequired;
+      case 'DEVICE_IDENTITY_REQUIRED':
+      case 'CONTROL_UI_DEVICE_IDENTITY_REQUIRED':
+        return AuthErrorCode.deviceIdentityRequired;
+      default:
+        return AuthErrorCode.unknown;
+    }
+  }
+
+  /// 借鉴 OpenClaw: 智能决定是否暂停重连
+  bool _shouldPauseReconnect(AuthErrorCode code, Map<String, dynamic>? details) {
+    switch (code) {
+      case AuthErrorCode.tokenMissing:
+      case AuthErrorCode.tokenInvalid:
+      case AuthErrorCode.bootstrapTokenInvalid:
+      case AuthErrorCode.passwordMissing:
+      case AuthErrorCode.passwordMismatch:
+      case AuthErrorCode.rateLimited:
+      case AuthErrorCode.deviceIdentityRequired:
+        return true; // 暂停重连，等待用户操作
+      case AuthErrorCode.pairingRequired:
+        // 借鉴 OpenClaw: bootstrap node 可以等待重试
+        final hasBootstrapToken = _gatewayToken != null && _gatewayToken!.isNotEmpty;
+        final reason = details?['reason']?.toString();
+        final pause = details?['pauseReconnect'] as bool?;
+        final recommendedStep = details?['recommendedNextStep']?.toString();
+        
+        if (hasBootstrapToken && 
+            reason == 'not-paired' && 
+            (pause == false || recommendedStep == 'wait_then_retry')) {
+          return false; // 可以继续重试
+        }
+        return true;
+      case AuthErrorCode.tokenMismatch:
+        // 借鉴 OpenClaw: 如果可以用 device token 重试，不暂停
+        return _deviceTokenRetryBudgetUsed && !_pendingDeviceTokenRetry;
+      default:
+        return false;
+    }
+  }
+
+  // ── 指数退避重连（改进：更温和的起始延迟） ──
   static const int _maxReconnectAttempts = 20;
-  static const Duration _reconnectBaseDelay = Duration(seconds: 1);
-  static const Duration _reconnectMaxDelay = Duration(seconds: 30);
-  static const double _reconnectFactor = 2.0;
+  static const Duration _reconnectBaseDelay = Duration(milliseconds: 500); // 借鉴 OpenClaw: 更温和
+  static const Duration _reconnectMaxDelay = Duration(seconds: 15); // 借鉴 OpenClaw: 更保守的上限
+  static const double _reconnectFactor = 1.7; // 借鉴 OpenClaw: 更平缓的增长
   Timer? _reconnectTimer;
   int _reconnectAttempts = 0;
   bool _reconnectEnabled = false;
 
   Duration _computeReconnectDelay() {
-    final exponential = (_reconnectBaseDelay.inSeconds *
+    // 借鉴 OpenClaw: 350 * 1.7^attempt, max 8000
+    // 灵犀云改进: 500 * 1.7^attempt, max 15000 + jitter
+    final exponential = (_reconnectBaseDelay.inMilliseconds *
         math.pow(_reconnectFactor, _reconnectAttempts)).toInt();
     final clamped = exponential.clamp(
-      _reconnectBaseDelay.inSeconds,
-      _reconnectMaxDelay.inSeconds,
+      _reconnectBaseDelay.inMilliseconds,
+      _reconnectMaxDelay.inMilliseconds,
     );
     // jitter ±500ms
     final jitter = (DateTime.now().millisecondsSinceEpoch % 1000) - 500;
-    return Duration(milliseconds: clamped * 1000 + jitter);
+    return Duration(milliseconds: clamped + jitter);
   }
 
   void _scheduleReconnect() {
     if (!_reconnectEnabled) return;
+    
+    // 如果认证失败暂停重连，不调度
+    if (_reconnectPausedForAuthFailure) {
+      debugPrint('[WS] reconnect paused due to auth failure');
+      return;
+    }
+    
     _reconnectTimer?.cancel();
 
     if (_reconnectAttempts >= _maxReconnectAttempts) {
@@ -138,7 +314,7 @@ class WebSocketService {
     final delay = _computeReconnectDelay();
     _reconnectAttempts++;
     _setConnState(ConnState.reconnecting);
-    debugPrint('[WS] reconnect in ${delay.inSeconds}s (attempt=$_reconnectAttempts)');
+    debugPrint('[WS] reconnect in ${delay.inMilliseconds}ms (attempt=$_reconnectAttempts)');
 
     _reconnectTimer = Timer(delay, () {
       connect();
@@ -212,7 +388,7 @@ class WebSocketService {
     _onInitError = callback;
   }
 
-  // 连接到 WebSocket
+  // ── 连接管理（改进：原子性连接替换） ──
   Future<void> connect() async {
     try {
       if (_isConnected || _isConnecting) {
@@ -220,13 +396,8 @@ class WebSocketService {
         return;
       }
 
-      // 清理旧连接
-      _subscription?.cancel();
-      try {
-        _channel?.sink.close();
-      } catch (_) {}
-      _channel = null;
-      _subscription = null;
+      // 清理旧连接（借鉴 OpenClaw: 异步关闭旧连接）
+      await _cleanupOldConnection();
 
       _isConnecting = true;
       _setConnState(ConnState.connecting);
@@ -383,6 +554,26 @@ class WebSocketService {
     }
   }
 
+  /// 借鉴 OpenClaw: 原子性清理旧连接
+  Future<void> _cleanupOldConnection() async {
+    _reconnectTimer?.cancel();
+    _stopHeartbeat();
+    _subscription?.cancel();
+    _subscription = null;
+    
+    final oldChannel = _channel;
+    _channel = null;
+    
+    // 异步关闭旧连接，不阻塞新连接建立
+    if (oldChannel != null) {
+      Future.microtask(() {
+        try {
+          oldChannel.sink.close();
+        } catch (_) {}
+      });
+    }
+  }
+
   void _sendConnect() {
     if (_channel == null) return;
 
@@ -415,29 +606,59 @@ class WebSocketService {
   void _handleMessage(Map<String, dynamic> data) {
     final msgType = _toString(data['type']);
     final msgEvent = _toString(data['event']);
-    final payloadType = data['payload'] is Map ? _toString(data['payload']?['type']) : '';
+    final payload = data['payload'];
+    final payloadType = payload is Map ? _toString(payload['type']) : '';
 
-    // pong
+    // pong / tick 事件
     if (msgType == 'pong' || (msgType == 'event' && msgEvent == 'pong')) {
       _onMessageReceived();
+      return;
+    }
+
+    // 借鉴 OpenClaw: 追踪服务端 tick
+    if (msgType == 'event' && msgEvent == 'tick') {
+      _lastTickTime = DateTime.now();
       return;
     }
 
     // 检测 hello-ok 认证成功
     final isHelloOk = (msgType == 'res' && data['ok'] == true && payloadType == 'hello-ok') ||
         (msgType == 'event' && msgEvent == 'hello-ok') ||
-        (msgType == 'res' && data['ok'] == true && data['payload']?['hello'] != null);
+        (msgType == 'res' && data['ok'] == true && payload?['hello'] != null);
 
     if (isHelloOk) {
       _isConnected = true;
       _isConnecting = false;
       _reconnectAttempts = 0;
+      _reconnectPausedForAuthFailure = false;
       _reconnectEnabled = true;
       _setConnState(ConnState.connected);
       _notifyListeners({'type': 'connected'});
+      _handleHelloOk(payload is Map<String, dynamic> ? payload : <String, dynamic>{});
       _startHeartbeat();
       _flushOfflineQueue();
       return;
+    }
+
+    // 处理认证错误（借鉴 OpenClaw 智能认证失败处理）
+    if (msgType == 'res' && data['ok'] == false) {
+      final error = data['error'] as Map<String, dynamic>?;
+      if (error != null) {
+        final authError = _parseAuthError(error);
+        if (authError.pauseReconnect) {
+          debugPrint('[WS] auth failure, pausing reconnect: ${authError.code}');
+          _reconnectPausedForAuthFailure = true;
+          _notifyListeners({
+            'type': 'error',
+            'error': authError.message,
+            'authError': {
+              'code': authError.code.name,
+              'pauseReconnect': true,
+            },
+          });
+          return;
+        }
+      }
     }
 
     if (msgType == 'res') {
@@ -465,6 +686,7 @@ class WebSocketService {
     _channel = null;
     _isConnected = false;
     _isConnecting = false;
+    _reconnectPausedForAuthFailure = false;
     _failAllPending('disconnected');
     _offlineQueue.clear();
     _setConnState(ConnState.disconnected);
@@ -529,7 +751,6 @@ class WebSocketService {
     Duration timeout = const Duration(seconds: 12),
   }) async {
     if (!_isConnected || _channel == null) {
-      // 离线排队 + 等待重连后 flush
       debugPrint('[WS] sendRequestAwait offline, queueing: $method');
       _enqueueOffline(method, params, timeout: timeout);
       return null;
@@ -588,11 +809,14 @@ class WebSocketService {
       'connState': _connState.name,
       'reconnectAttempts': _reconnectAttempts,
       'reconnectEnabled': _reconnectEnabled,
+      'reconnectPausedForAuthFailure': _reconnectPausedForAuthFailure,
       'lastError': _lastError.isEmpty ? null : _lastError,
       'messagesReceived': _messagesReceived,
       'offlineQueueSize': _offlineQueue.length,
       'pendingRequests': _pendingResponses.length,
       'lastMessageTime': _lastMessageTime?.toIso8601String(),
+      'lastTickTime': _lastTickTime?.toIso8601String(),
+      'serverTickIntervalMs': _serverTickIntervalMs,
     };
   }
 
@@ -604,6 +828,7 @@ class WebSocketService {
     _gatewayToken = null;
     _session = null;
     _sessionPrefix = null;
+    _serverTickIntervalMs = null;
   }
 
   /// 强制重连（App 回前台时调用）
@@ -628,6 +853,7 @@ class WebSocketService {
     _isConnected = false;
     _isConnecting = false;
     _reconnectAttempts = 0;
+    _reconnectPausedForAuthFailure = false;
     _failAllPending('force reconnect');
     _wsUrl = null;
     _token = null;
